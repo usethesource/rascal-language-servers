@@ -27,10 +27,11 @@
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -39,10 +40,13 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.PolyNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
+import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -57,22 +61,30 @@ public class DynamicCapabilities {
 
     private final LanguageClient client;
     private final List<AbstractDynamicCapability<?>> supportedCapabilities;
+    private final Set<AbstractDynamicCapability<?>> staticCapabilities;
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
-    // private @MonotonicNonNull ClientCapabilities clientCapabilities;
-    // private @MonotonicNonNull ServerCapabilities serverCapabilities;
+    private @MonotonicNonNull ClientCapabilities clientCapabilities;
+    private @MonotonicNonNull ServerCapabilities serverCapabilities;
 
     public DynamicCapabilities(LanguageClient client, List<AbstractDynamicCapability<?>> supportedCapabilities) {
         this.client = client;
         this.supportedCapabilities = supportedCapabilities;
+        this.staticCapabilities = new HashSet<>();
     }
 
-    // public void setStaticCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities serverCapabilities) {
-    //     // TODO Use these to determine whether we actually need/are allowed to register certain capabilities
-    //     // If the client does not support dynamic regitration for a certain capability, do not register it. Instead, register it statically.
-    //     this.clientCapabilities = clientCapabilities;
-    //     this.serverCapabilities = serverCapabilities;
-    // }
+    public void setStaticCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities serverCapabilities) {
+        // Use these to determine whether we actually need/are allowed to register certain capabilities
+        // If the client does not support dynamic registration for a certain capability, do not register it. Instead, register it statically.
+        this.clientCapabilities = clientCapabilities;
+        this.serverCapabilities = serverCapabilities;
+
+        for (var cap : supportedCapabilities) {
+            if (cap.setStaticCapability(clientCapabilities, serverCapabilities)) {
+                staticCapabilities.add(cap);
+            }
+        }
+    }
 
     public CompletableFuture<Void> registerCapabilities(ILanguageContributions contribs) {
         logger.debug("Registering some capabilities");
@@ -81,9 +93,12 @@ public class DynamicCapabilities {
         // This requires waiting for an evaluator to load, which takes long, and should not block our logbook
         return CompletableFutureUtils.reduce(supportedCapabilities.stream().map(c -> registration(c, contribs)))
             .thenApply(LinkedList::new) // Make sure the list is modifiable
-            .thenAccept(capabilities -> {
-                // Remove capabilities that these contributions do not have
-                capabilities.removeIf(Optional::isEmpty);
+            .thenAccept(maybeCapabilities -> {
+                var capabilities = maybeCapabilities.stream()
+                    .filter(cap -> cap.getValue() != null) // Remove capabilities that these contributions do not have
+                    .filter(cap -> !staticCapabilities.contains(cap.getKey())) // Remove capabilities that are already set statically
+                    .collect(Collectors.toList());
+
                 logger.debug("Contributions support {}/{} dynamic capabilities", capabilities.size(), supportedCapabilities.size());
                 if (capabilities.isEmpty()) {
                     return; // Void
@@ -93,8 +108,7 @@ public class DynamicCapabilities {
                 synchronized (currentRegistrations) {
                     List<Registration> registrations = new LinkedList<>();
                     List<Unregistration> unregistrations = new LinkedList<>();
-                    for (var optEntry : capabilities) {
-                        var entry = optEntry.get();
+                    for (var entry : capabilities) {
                         var cap = entry.getLeft();
                         var registration = entry.getRight();
                         var opts = registration.getRegisterOptions();
@@ -160,7 +174,7 @@ public class DynamicCapabilities {
                             .map(c -> cap.options(c).thenApply(Object.class::cast))
                             .collect(Collectors.toList());
                         return CompletableFutureUtils.reduce(remainingOptions)
-                            .thenApply(opts -> mergeOptions(cap, opts))
+                            .thenApply(opts -> reduceOptions(cap, opts))
                             .thenApply(opts -> Either.<Registration, Unregistration>forLeft(registration(cap, opts)));
                     } else {
                         // does not have contrib
@@ -184,7 +198,7 @@ public class DynamicCapabilities {
             });
     }
 
-    private static <T> T mergeOptions(AbstractDynamicCapability<? extends T> cap, List<? extends @NonNull T> opts) {
+    private static <T> T reduceOptions(AbstractDynamicCapability<? extends T> cap, List<? extends @NonNull T> opts) {
         if (opts.isEmpty()) {
             throw new IllegalArgumentException("Cannot merge empty list of options");
         }
@@ -213,16 +227,16 @@ public class DynamicCapabilities {
         }
     }
 
-    private static <T> CompletableFuture<Optional<Pair<AbstractDynamicCapability<T>, Registration>>> registration(AbstractDynamicCapability<T> cap, ILanguageContributions contribs) {
+    private static <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> registration(AbstractDynamicCapability<T> cap, ILanguageContributions contribs) {
         return cap.hasContribution(contribs).thenCompose(contributes -> contributes
             ? cap.options(contribs)
                 .thenApply(opts -> registration(cap, opts))
-                .thenApply(r -> Optional.of(Pair.of(cap, r)))
-            : CompletableFuture.completedFuture(Optional.empty())
+                .thenApply(r -> Pair.of(cap, r))
+            : CompletableFuture.completedFuture(Pair.of(cap, null))
         );
     }
 
-    private static Registration registration(AbstractDynamicCapability<?> cap, @PolyNull Object opts) {
+    private static Registration registration(AbstractDynamicCapability<?> cap, Object opts) {
         if (opts != null) {
             return new Registration(cap.id(), cap.methodName(), opts);
         }

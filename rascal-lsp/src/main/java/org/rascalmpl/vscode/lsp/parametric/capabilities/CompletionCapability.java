@@ -31,7 +31,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
+import org.eclipse.lsp4j.ServerCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
 import io.usethesource.vallang.IString;
@@ -80,6 +83,16 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
         }
 
         return merged;
+    }
+
+    @Override
+    protected boolean hasDynamicCapability(ClientCapabilities client) {
+        return client.getTextDocument().getCompletion().getDynamicRegistration();
+    }
+
+    @Override
+    protected void setStaticCapability(ServerCapabilities serverCapabilities) {
+        serverCapabilities.setCompletionProvider(new CompletionOptions(false, List.of("")));
     }
 
 }

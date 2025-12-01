@@ -67,7 +67,6 @@ import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionList;
-import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
@@ -248,7 +247,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
+    private DynamicCapabilities availableCapabilities() {
+        if (dynamicCapabilities == null) {
+            throw new IllegalStateException("Dynamic capabilities should not be `null`");
+        }
+        return dynamicCapabilities;
+    }
+
+    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
+        availableCapabilities().setStaticCapabilities(clientCapabilities, result);
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setHoverProvider(true);
@@ -264,9 +271,16 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
         result.setCallHierarchyProvider(true);
-        if (!clientCapabilities.getTextDocument().getCompletion().getDynamicRegistration()) {
-            // TODO Can we do our best to supply a reasonable set of default trigger characters here?
-            result.setCompletionProvider(new CompletionOptions(false, List.of("")));
+    }
+
+    @Override
+    public void connect(LanguageClient client) {
+        this.client = client;
+        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()));
+        facts.values().forEach(v -> v.setClient(client));
+        if (dedicatedLanguage != null) {
+            // if there was one scheduled, we now start it up, since the connection has been made
+            this.registerLanguage(dedicatedLanguage);
         }
     }
 
@@ -296,17 +310,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             throw new IllegalStateException("Language Client has not been connected yet");
         }
         return client;
-    }
-
-    @Override
-    public void connect(LanguageClient client) {
-        this.client = client;
-        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()));
-        facts.values().forEach(v -> v.setClient(client));
-        if (dedicatedLanguage != null) {
-            // if there was one scheduled, we now start it up, since the connection has been made
-            this.registerLanguage(dedicatedLanguage);
-        }
     }
 
     @Override
@@ -996,9 +999,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
-        if (dynamicCapabilities != null) {
-            dynamicCapabilities.registerCapabilities(multiplexer);
-        }
+        availableCapabilities().registerCapabilities(multiplexer);
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
@@ -1063,9 +1064,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             contributions.remove(lang.getName());
         }
 
-        if (dynamicCapabilities != null) {
-            dynamicCapabilities.updateCapabilities(contributions);
-        }
+        availableCapabilities().updateCapabilities(contributions);
     }
 
     @Override
