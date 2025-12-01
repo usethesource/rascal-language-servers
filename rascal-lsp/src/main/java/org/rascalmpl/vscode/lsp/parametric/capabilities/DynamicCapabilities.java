@@ -148,18 +148,9 @@ public class DynamicCapabilities {
             .map(cap -> anyTrue(contribs, cap::hasContribution)
                 .thenCompose(b -> {
                     if (b) {
-                        // has contrib
+                        // has contrib; calculate merged options
                         return CompletableFutureUtils.reduce(contribs.stream().map(c -> cap.options(c)))
-                            .thenApply(opts -> {
-                                if (opts.size() <= 1) {
-                                    return opts;
-                                }
-                                var merged = opts.get(0);
-                                for (int i = 1; i < opts.size(); i++) {
-                                    merged = cap.mergeOptions(merged, opts.get(i));
-                                }
-                                return merged;
-                            })
+                            .thenApply(opts -> mergeOptions(cap, opts))
                             .thenApply(opts -> Either.<Registration, Unregistration>forLeft(registration(cap, opts)));
                     } else {
                         // does not have contrib
@@ -181,6 +172,21 @@ public class DynamicCapabilities {
                     logger.error("Doing registrations failed!", e);
                 }
             });
+    }
+
+    private static <T> Object mergeOptions(AbstractDynamicCapability<T> cap, List<? extends Object> opts) {
+        if (opts.isEmpty()) {
+            throw new IllegalArgumentException("Cannot merge empty list of options");
+        }
+        if (opts.size() == 1) {
+            return opts.get(0);
+        }
+
+        var merged = opts.get(0);
+        for (int i = 1; i < opts.size(); i++) {
+            merged = cap.mergeOptions(merged, opts.get(i));
+        }
+        return merged;
     }
 
     private synchronized void doRegistrations(List<Registration> registrations, List<Unregistration> unregistrations) throws InterruptedException, ExecutionException {
