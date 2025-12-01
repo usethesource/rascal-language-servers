@@ -37,7 +37,7 @@ import java.util.Set;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.mapper.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.util.locations.ColumnMaps;
 
