@@ -129,7 +129,8 @@ public class DynamicCapabilities {
                         logger.error("Doing registrations failed!", e);
                     }
                 }
-        })
+            }
+        )
         .exceptionally(e -> {
             logger.error("Unexpected error occurred while updating dynamic capabilities", e);
             return null;

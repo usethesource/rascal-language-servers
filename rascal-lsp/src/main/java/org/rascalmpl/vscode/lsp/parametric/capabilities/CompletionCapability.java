@@ -66,7 +66,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
 
     private <T> List<T> union(List<T> left, List<T> right) {
         if (right.isEmpty()) {
-             return left;
+            return left;
         }
         if (left.isEmpty()) {
             return right;
