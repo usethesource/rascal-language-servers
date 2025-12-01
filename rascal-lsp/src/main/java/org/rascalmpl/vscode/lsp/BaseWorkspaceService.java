@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import com.google.gson.JsonPrimitive;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +38,7 @@ import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
@@ -45,7 +47,6 @@ import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
-import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -55,8 +56,8 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.uri.URIUtil;
-import com.google.gson.JsonPrimitive;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
@@ -67,16 +68,16 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
     public static final String RASCAL_COMMAND = "rascal-command";
 
-    private final ExecutorService ownExecuter;
+    private final ExecutorService exec;
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
-    private final List<FileOperationPattern> interestedInFiles;
+    private final List<FileOperationFilter> interestedInFiles;
 
 
-    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService, List<FileOperationPattern> interestedInFiles) {
+    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService, List<FileOperationFilter> interestedInFiles) {
         this.documentService = documentService;
-        this.ownExecuter = exec;
+        this.exec = exec;
         this.interestedInFiles = interestedInFiles;
     }
 
@@ -98,10 +99,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
             }
 
             var fileOperationCapabilities = new FileOperationsServerCapabilities();
-            var whichFiles = new FileOperationOptions(interestedInFiles.stream()
-                .map(FileOperationFilter::new)
-                .collect(Collectors.toList())
-            );
+            var whichFiles = new FileOperationOptions(interestedInFiles);
             boolean watchesSet = false;
             if (clientWorkspaceCap.getFileOperations().getDidRename().booleanValue()) {
                 fileOperationCapabilities.setDidRename(whichFiles);
@@ -152,7 +150,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (removed != null) {
             workspaceFolders.removeAll(removed);
             for (WorkspaceFolder folder : removed) {
-                documentService.projectRemoved(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+                documentService.projectRemoved(folder.getName(), Locations.toLoc(folder.getUri()));
             }
         }
 
@@ -160,20 +158,24 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (added != null) {
             workspaceFolders.addAll(added);
             for (WorkspaceFolder folder : added) {
-                documentService.projectAdded(folder.getName(), URIUtil.assumeCorrectLocation(folder.getUri()));
+                documentService.projectAdded(folder.getName(), Locations.toLoc(folder.getUri()));
             }
         }
+    }
+
+    @Override
+    public void didCreateFiles(CreateFilesParams params) {
+        logger.debug("workspace/didCreateFiles: {}", params.getFiles());
+        exec.submit(() -> documentService.didCreateFiles(params));
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        ownExecuter.submit(() -> {
-            documentService.didRenameFiles(params, workspaceFolders());
-        });
+        exec.submit(() -> documentService.didRenameFiles(params, workspaceFolders()));
 
-        ownExecuter.submit(() -> {
+        exec.submit(() -> {
             // cleanup the old files (we do not get a `didDelete` event)
             var oldFiles = params.getFiles().stream()
                 .map(f -> f.getOldUri())
@@ -186,26 +188,26 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         logger.debug("workspace/didDeleteFiles: {}", params.getFiles());
-
-        ownExecuter.submit(() -> {
-            documentService.didDeleteFiles(params);
-        });
+        exec.submit(() -> documentService.didDeleteFiles(params));
     }
 
     @Override
-    public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
-        logger.debug("workspace/executeCommand: {}", params);
-        if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
-            String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
-            String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
-            return documentService.executeCommand(languageName, command).thenApply(v -> v);
-        }
+    public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
+        logger.debug("workspace/executeCommand: {}", commandParams);
+        return CompletableFutureUtils.completedFuture(commandParams, exec)
+            .thenCompose(params -> {
+                if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
+                    String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
+                    String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
+                    return documentService.executeCommand(languageName, command).thenApply(v -> v);
+                }
 
-        return CompletableFuture.supplyAsync(() -> params.getCommand() + " was ignored.", ownExecuter);
+                return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", exec);
+            });
     }
 
-    protected final ExecutorService getExecuter() {
-        return ownExecuter;
+    protected final ExecutorService getExecutor() {
+        return exec;
     }
 
 

@@ -49,9 +49,9 @@ import org.eclipse.lsp4j.MarkupKind;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
@@ -127,7 +127,7 @@ public class Completion {
                     .map(IString::getValue)
                     .collect(Collectors.toList()));
 
-                ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(docService, getKwParamList(kws, ADDITIONAL_CHANGES, VF.list())));
+                ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(getKwParamList(kws, ADDITIONAL_CHANGES, VF.list()), docService.getColumnMaps()));
                 ci.setCommand(getCommand(kws, dedicatedLanguageName, languageName));
 
                 return ci;
@@ -168,7 +168,7 @@ public class Completion {
     }
 
     private CompletionItemKind itemKindToLSP(IConstructor kind) {
-        var docSymKind = DocumentSymbols.kindToLSP(kind);
+        var docSymKind = DocumentSymbols.symbolKindToLSP(kind);
         try {
             return CompletionItemKind.valueOf(docSymKind.name());
         } catch (IllegalArgumentException e) {

@@ -1,0 +1,51 @@
+package java.util.concurrent;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class CompletionException extends RuntimeException {
+  public CompletionException(@Nullable Throwable cause) { }
+}
+
+
+package java.lang.reflect;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public final class Field extends AccessibleObject implements Member {
+  public Object get(@Nullable Object obj) { }
+}
+
+package java.lang.reflect;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class AccessibleObject implements AnnotatedElement {
+  public final boolean canAccess(@Nullable Object obj) { }
+}
+
+
+package java.lang;
+
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.GenericDeclaration;
+import java.lang.reflect.Type;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public final class Class<T> implements java.io.Serializable,
+                              GenericDeclaration,
+                              Type,
+                              AnnotatedElement {
+  public @NonNull ClassLoader getClassLoader() {
+  }
+}
+
+package java.net;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class URI {
+    public URI(@Nullable String scheme, @Nullable String host, @Nullable String path, @Nullable String fragment) throws URISyntaxException {}
+    public URI(@Nullable String scheme, @Nullable String authority, @Nullable String path, @Nullable String query, @Nullable String fragment) throws URISyntaxException {}
+    public URI(@Nullable String scheme, @Nullable String userInfo, @Nullable String host, int port, @Nullable String path, @Nullable String query, @Nullable String fragment) throws URISyntaxException {}
+}

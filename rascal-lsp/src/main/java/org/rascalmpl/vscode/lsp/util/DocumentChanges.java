@@ -31,12 +31,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.AnnotatedTextEdit;
 import org.eclipse.lsp4j.ChangeAnnotation;
 import org.eclipse.lsp4j.CreateFile;
 import org.eclipse.lsp4j.DeleteFile;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameFile;
 import org.eclipse.lsp4j.ResourceOperation;
 import org.eclipse.lsp4j.TextDocumentEdit;
@@ -44,8 +43,8 @@ import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
@@ -54,6 +53,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IWithKeywordParameters;
 
 /**
  * Translates Rascal data-type representation of document edits to the LSP representation.
@@ -64,29 +64,39 @@ import io.usethesource.vallang.IValue;
 public class DocumentChanges {
     private DocumentChanges() { }
 
-    public static WorkspaceEdit translateDocumentChanges(final IBaseTextDocumentService docService, IList list) {
+    public static WorkspaceEdit translateDocumentChanges(IList list, final ColumnMaps columns) {
         List<Either<TextDocumentEdit, ResourceOperation>> result = new ArrayList<>(list.size());
         Map<String, ChangeAnnotation> changeAnnotations = new HashMap<>();
 
         for (IValue elem : list) {
             IConstructor edit = (IConstructor) elem;
+            var anno = extractAnnotation(edit, changeAnnotations);
 
             switch (edit.getName()) {
-                case "removed":
-                    result.add(Either.forRight(new DeleteFile(getFileURI(edit, "file"))));
+                case RascalADTs.FileSystemChangeFields.REMOVED: {
+                    var delete = new DeleteFile(getFileURI(edit, RascalADTs.FileSystemChangeFields.FILE));
+                    delete.setAnnotationId(anno);
+                    result.add(Either.forRight(delete));
                     break;
-                case "created":
-                    result.add(Either.forRight(new CreateFile(getFileURI(edit, "file"))));
+                }
+                case RascalADTs.FileSystemChangeFields.CREATED: {
+                    var create = new CreateFile(getFileURI(edit, RascalADTs.FileSystemChangeFields.FILE));
+                    create.setAnnotationId(anno);
+                    result.add(Either.forRight(create));
                     break;
-                case "renamed":
-                    result.add(Either.forRight(new RenameFile(getFileURI(edit, "from"), getFileURI(edit, "to"))));
+                }
+                case RascalADTs.FileSystemChangeFields.RENAMED: {
+                    var rename = new RenameFile(getFileURI(edit, RascalADTs.FileSystemChangeFields.FROM), getFileURI(edit, RascalADTs.FileSystemChangeFields.TO));
+                    rename.setAnnotationId(anno);
+                    result.add(Either.forRight(rename));
                     break;
-                case "changed":
+                }
+                case RascalADTs.FileSystemChangeFields.CHANGED:
                     // TODO: file document identifier version is unknown here. that may be problematic
                     // have to extend the entire/all LSP API with this information _per_ file?
                     result.add(Either.forLeft(
-                        new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, "file"), null),
-                            translateTextEdits(docService, (IList) edit.get("edits"), changeAnnotations))));
+                        new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, RascalADTs.FileSystemChangeFields.FILE), null),
+                            translateTextEdits((IList) edit.get(RascalADTs.FileSystemChangeFields.EDITS), anno, columns, changeAnnotations))));
                     break;
             }
         }
@@ -97,45 +107,64 @@ public class DocumentChanges {
         return wsEdit;
     }
 
-    static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits) {
-        return translateTextEdits(docService, edits, new HashMap<String, ChangeAnnotation>());
+    private static boolean hasAnnotation(IWithKeywordParameters<? extends IConstructor> cons) {
+        return cons.hasParameter(RascalADTs.TextEditFields.LABEL)
+            || cons.hasParameter(RascalADTs.TextEditFields.DESCRIPTION)
+            || cons.hasParameter(RascalADTs.TextEditFields.NEEDS_CONFIRMATION);
     }
 
-    private static List<TextEdit> translateTextEdits(final IBaseTextDocumentService docService, IList edits, Map<String, ChangeAnnotation> changeAnnotations) {
+    private static @Nullable String extractAnnotation(IConstructor cons, Map<String, ChangeAnnotation> changeAnnotations) {
+        var kws = cons.asWithKeywordParameters();
+        if (!hasAnnotation(kws)) {
+            return null;
+        }
+
+        // Mirror defaults in `util::LanguageServer`
+        // Setting any of those, means setting the defaults for the remaing ones
+        var label = kws.hasParameter(RascalADTs.TextEditFields.LABEL)
+            ? ((IString) kws.getParameter(RascalADTs.TextEditFields.LABEL)).getValue()
+            : "";
+        var description = kws.hasParameter(RascalADTs.TextEditFields.DESCRIPTION)
+            ? ((IString) kws.getParameter(RascalADTs.TextEditFields.DESCRIPTION)).getValue()
+            : label;
+        var needsConfirmation = kws.hasParameter(RascalADTs.TextEditFields.NEEDS_CONFIRMATION)
+            && ((IBool) kws.getParameter(RascalADTs.TextEditFields.NEEDS_CONFIRMATION)).getValue();
+        var key = String.format("%s_%s_%b", label, description, needsConfirmation);
+
+        changeAnnotations.computeIfAbsent(key, k -> {
+            var anno = new ChangeAnnotation(label);
+            anno.setDescription(description);
+            anno.setNeedsConfirmation(needsConfirmation);
+            return anno;
+        });
+
+        return key;
+    }
+
+    public static List<TextEdit> translateTextEdits(IList edits, final ColumnMaps columns) {
+        return translateTextEdits(edits, null, columns, new HashMap<>());
+    }
+
+    private static List<TextEdit> translateTextEdits(IList edits, @Nullable String parentAnno, final ColumnMaps columns, Map<String, ChangeAnnotation> changeAnnotations) {
         return edits.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
-                var range = locationToRange(docService, (ISourceLocation) c.get("range"));
-                var replacement = ((IString) c.get("replacement")).getValue();
-                // Check annotation
-                var kw = c.asWithKeywordParameters();
-                if (kw.hasParameter("annotation")) {
-                    var anno = (IConstructor) kw.getParameter("annotation");
-                    var label = ((IString) anno.get("label")).getValue();
-                    var description = ((IString) anno.get("description")).getValue();
-                    var annoKW = anno.asWithKeywordParameters();
-                    var needsConfirmation = annoKW.hasParameter("needsConfirmation") && ((IBool) annoKW.getParameter("needsConfirmation")).getValue();
-                    var annoKey = String.format("%s_%s_%b", label, description, needsConfirmation);
-
-                    if (!changeAnnotations.containsKey(annoKey)) {
-                        var annotation = new ChangeAnnotation(label);
-                        annotation.setDescription(description);
-                        annotation.setNeedsConfirmation(needsConfirmation);
-                        changeAnnotations.put(annoKey, annotation);
-                    }
-                    return new AnnotatedTextEdit(range, replacement, annoKey);
+                var range = Locations.toRange((ISourceLocation) c.get(RascalADTs.TextEditFields.RANGE), columns);
+                var replacement = ((IString) c.get(RascalADTs.TextEditFields.REPLACEMENT)).getValue();
+                var anno = extractAnnotation(c, changeAnnotations);
+                if (anno == null) {
+                    // If this edit has no annotation, inherit from its parent.
+                    anno = parentAnno;
+                }
+                if (anno != null) {
+                    return new AnnotatedTextEdit(range, replacement, anno);
                 }
                 return new TextEdit(range, replacement);
             })
             .collect(Collectors.toList());
     }
 
-    public static Range locationToRange(final IBaseTextDocumentService docService, ISourceLocation loc) {
-        LineColumnOffsetMap columnMap = docService.getColumnMap(loc);
-        return Locations.toRange(loc, columnMap);
-    }
-
     private static String getFileURI(IConstructor edit, String label) {
-        return ((ISourceLocation) edit.get(label)).getURI().toString();
+        return Locations.toUri(Locations.toClientLocation((ISourceLocation) edit.get(label))).toString();
     }
 }

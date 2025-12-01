@@ -18,17 +18,17 @@ jobs:
   normal-tests:
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Assure different pom cache hit
         run: echo "  " >> rascal-lsp/pom.xml
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
           cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20.x
           cache: 'npm'
@@ -55,17 +55,17 @@ jobs:
       CODE_VERSION: "1.90.2"
     runs-on:  ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Assure different pom cache hit
         run: echo " " >> rascal-lsp/pom.xml
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
           cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20.x
           cache: 'npm'
@@ -94,6 +94,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 10
+          RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
@@ -103,6 +104,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 15
+          RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
@@ -112,11 +114,12 @@ jobs:
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 8
+          RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
         run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: Upload Screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: screenshots-${{ matrix.os }}
@@ -133,17 +136,19 @@ jobs:
   build:
     needs: [ui-test, normal-tests]
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'deployments' || '' }}
+    permissions:
+      id-token: write # only used for npm publishing
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
           cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20.x
           cache: 'npm'
@@ -179,14 +184,14 @@ jobs:
           npx vsce package
 
       - name: upload final vsix 
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           path: rascal-vscode-extension/*.vsix
           retention-days: 20
 
       - name: Publish release to Open VSX Registry
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: HaaLeo/publish-vscode-extension@v1
+        uses: HaaLeo/publish-vscode-extension@v2
         continue-on-error: true
         id: publishToOpenVSX
         with:
@@ -196,7 +201,7 @@ jobs:
 
       - name: Publish release to Visual Studio Marketplace
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: HaaLeo/publish-vscode-extension@v1
+        uses: HaaLeo/publish-vscode-extension@v2
         with:
           packagePath: ./rascal-vscode-extension
           pat: ${{ secrets.AZURE_USETHESOURCE_PAT }}
@@ -204,7 +209,7 @@ jobs:
           extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }} # copy exact same vsix from the previous step
 
       - name: Prepare Draft Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         continue-on-error: true
         if: startsWith(github.ref, 'refs/tags/v')
         with:
@@ -230,6 +235,4 @@ jobs:
       - name: publish to NPM
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: rascal-vscode-extension
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access=public

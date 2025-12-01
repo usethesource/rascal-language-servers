@@ -24,18 +24,25 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util.locations;
-
-import org.apache.commons.lang3.tuple.Pair;
+import { Disposable, LogOutputChannel } from 'vscode';
+import * as rpc from 'vscode-jsonrpc/node';
+import { JsonRpcServer } from '../util/JsonRpcServer';
+import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 
 /**
- * Translate ISourceLocation columns to LSP columns
- *
- * vallang uses UTF-32-bit codepoints, while lsp uses UTF-16, so in cases where a codepoint wouldn't fit inside 16bit char, it takes up two chars. Implementations of this class translate these efficiently.
+ * Json-rpc server that handles registration and unregistration of languages
  */
-public interface LineColumnOffsetMap {
-    int translateColumn(int line, int column, boolean isEnd);
-    int translateInverseColumn(int line, int column, boolean isEnd);
-    int calculateInverseOffset(int line, int column);
-    Pair<Integer, Integer> calculateInverseOffsetLength(int beginLine, int beginColumn, int endLine, int endColumn);
+export class LanguageRegistry extends JsonRpcServer {
+    constructor(dslLSP: ParameterizedLanguageServer, logger: LogOutputChannel) {
+        super("LanguageRegistry", connection => Disposable.from(
+            connection.onRequest(new rpc.RequestType1<LanguageParameter, void, void>("rascal/receiveRegisterLanguage"), lang => {
+                logger.info("LanguageRegistry: registerLanguage", lang);
+                return dslLSP.registerLanguage(lang);
+            }),
+            connection.onRequest(new rpc.RequestType1<LanguageParameter, void, void>("rascal/receiveUnregisterLanguage"), lang => {
+                logger.info("LanguageRegistry: unregisterLanguage", lang);
+                return dslLSP.unregisterLanguage(lang);
+            })
+        ), logger);
+    }
 }

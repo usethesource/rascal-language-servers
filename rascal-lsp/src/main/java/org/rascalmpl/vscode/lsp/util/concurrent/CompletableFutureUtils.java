@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
@@ -42,6 +43,10 @@ import io.usethesource.vallang.IList;
 
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
+
+    public static <T> CompletableFuture<T> completedFuture(T value, Executor exec) {
+        return CompletableFuture.supplyAsync(() -> value, exec);
+    }
 
     /**
      * Reduces a {@link List} of {@link CompletableFuture} to a single future that produces a list.

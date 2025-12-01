@@ -29,14 +29,15 @@ package org.rascalmpl.vscode.lsp.util;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.SymbolKind;
 import org.eclipse.lsp4j.SymbolTag;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.vscode.lsp.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
@@ -45,8 +46,18 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IWithKeywordParameters;
+import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 public class DocumentSymbols {
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
+    private static final TypeFactory TF = TypeFactory.getInstance();
+    private static final TypeStore store = new TypeStore();
+
+    private static final Type symbolKindAdt = TF.abstractDataType(store, "DocumentSymbolKind");
+    private static final Type symbolTagAdt = TF.abstractDataType(store, "DocumentSymbolTag");
+
     // hide constructor for static class
     private DocumentSymbols() {}
 
@@ -83,7 +94,7 @@ public class DocumentSymbols {
                 .collect(Collectors.toList())
             : Collections.emptyList();
 
-        SymbolKind kind = kindToLSP((IConstructor) symbol.get("kind"));
+        SymbolKind kind = symbolKindToLSP((IConstructor) symbol.get("kind"));
         String symbolName = ((IString) symbol.get("name")).getValue();
         Range range = Locations.toRange((ISourceLocation) symbol.get("range"), om);
         Range selection = kwp.hasParameter("selection")
@@ -91,13 +102,7 @@ public class DocumentSymbols {
             : range;
         String detail = kwp.hasParameter("detail") ? ((IString) kwp.getParameter("detail")).getValue() : null;
         List<SymbolTag> tags = kwp.hasParameter("tags") ?
-            ((ISet) kwp.getParameter("tags"))
-                .stream()
-                .map(IConstructor.class::cast)
-                .map(IConstructor::getName)
-                .map(DocumentSymbols::capitalize)
-                .map(SymbolTag::valueOf)
-                .collect(Collectors.toList())
+            symbolTagsToLSP((ISet) kwp.getParameter("tags"))
             : Collections.emptyList();
 
         var lspSymbol = new DocumentSymbol(symbolName, kind, range, selection, detail, children);
@@ -105,7 +110,40 @@ public class DocumentSymbols {
         return lspSymbol;
     }
 
-    static SymbolKind kindToLSP(IConstructor kind) {
+    public static SymbolKind symbolKindToLSP(IConstructor kind) {
         return SymbolKind.valueOf(capitalize(kind.getName()));
+    }
+
+    public static IConstructor symbolKindToRascal(SymbolKind kind) {
+        return VF.constructor(TF.constructor(store, symbolKindAdt, kind.name().toLowerCase()));
+    }
+
+    public static List<SymbolTag> symbolTagsToLSP(@Nullable ISet tags) {
+        if (tags == null) {
+            return Collections.emptyList();
+        }
+        return tags.stream()
+            .map(IConstructor.class::cast)
+            .map(IConstructor::getName)
+            .map(DocumentSymbols::capitalize)
+            .map(SymbolTag::valueOf)
+            .collect(Collectors.toList());
+    }
+
+    public static ISet symbolTagsToRascal(@Nullable List<SymbolTag> tags) {
+        if (tags == null) {
+            return VF.set();
+        }
+        return tags.stream()
+            .map(t -> VF.constructor(TF.constructor(store, symbolTagAdt, t.name().toLowerCase())))
+            .collect(VF.setWriter());
+    }
+
+    public static Type getSymbolKindType() {
+        return symbolKindAdt;
+    }
+
+    public static TypeStore getStore() {
+        return store;
     }
 }

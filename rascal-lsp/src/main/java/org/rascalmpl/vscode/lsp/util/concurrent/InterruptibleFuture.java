@@ -107,8 +107,8 @@ public class InterruptibleFuture<T> {
         });
     }
 
-    public static <T> InterruptibleFuture<T> completedFuture(T result) {
-        return new InterruptibleFuture<>(CompletableFuture.completedFuture(result), () -> {});
+    public static <T> InterruptibleFuture<T> completedFuture(T result, Executor exec) {
+        return new InterruptibleFuture<>(CompletableFutureUtils.completedFuture(result, exec), () -> {});
     }
 
     /**
@@ -166,7 +166,7 @@ public class InterruptibleFuture<T> {
      */
     public static <I, C> InterruptibleFuture<C> reduce(Iterable<InterruptibleFuture<I>> futures,
             Supplier<? extends C> identity, Function<? super I, ? extends C> map, BiFunction<? super C, ? super C, ? extends C> concat, Executor exec) {
-        InterruptibleFuture<C> result = InterruptibleFuture.completedFuture(identity.get());
+        InterruptibleFuture<C> result = InterruptibleFuture.completedFuture(identity.get(), exec);
         for (var fut : futures) {
             result = result.thenCombineAsync(fut, (acc, t) -> concat.apply(acc, map.apply(t)), exec);
         }

@@ -54,7 +54,7 @@ public class DynamicCapabilities {
     private static final Logger logger = LogManager.getLogger(DynamicCapabilities.class);
 
     private final LanguageClient client;
-    private final List<AbstractDynamicCapability<Object>> supportedCapabilities;
+    private final List<AbstractDynamicCapability<? extends Object>> supportedCapabilities;
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
     // private @MonotonicNonNull ClientCapabilities clientCapabilities;
@@ -62,9 +62,7 @@ public class DynamicCapabilities {
 
     public DynamicCapabilities(LanguageClient client, List<AbstractDynamicCapability<? extends Object>> supportedCapabilities) {
         this.client = client;
-        this.supportedCapabilities = supportedCapabilities.stream()
-            .map(AbstractDynamicCapability.class::cast)
-            .collect(Collectors.toList());
+        this.supportedCapabilities = supportedCapabilities;
     }
 
     // public void setStaticCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities serverCapabilities) {
@@ -152,7 +150,16 @@ public class DynamicCapabilities {
                     if (b) {
                         // has contrib
                         return CompletableFutureUtils.reduce(contribs.stream().map(c -> cap.options(c)))
-                            .thenApply(opts -> opts.stream().reduce(cap::mergeOptions).get())
+                            .thenApply(opts -> {
+                                if (opts.size() <= 1) {
+                                    return opts;
+                                }
+                                var merged = opts.get(0);
+                                for (int i = 1; i < opts.size(); i++) {
+                                    merged = cap.mergeOptions(merged, opts.get(i));
+                                }
+                                return merged;
+                            })
                             .thenApply(opts -> Either.<Registration, Unregistration>forLeft(registration(cap, opts)));
                     } else {
                         // does not have contrib

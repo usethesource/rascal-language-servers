@@ -25,13 +25,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
+import { InputBox, TextEditor, SideBarView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { Suite } from 'mocha';
 import { expect } from 'chai';
+import * as fs from 'fs/promises';
+import { Suite } from 'mocha';
+import * as path from 'path';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -75,7 +75,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.terminate();
     }
 
-
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
@@ -103,7 +102,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
     });
 
-    it("have highlighting and parse errors", async function () {
+    it("has highlighting and parse errors", async function () {
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const isPicoLoading = ide.statusContains("Pico");
@@ -126,7 +125,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }
     }).retries(2);
 
-    it("have highlighting and parse errors for second extension", async function () {
+    it("has highlighting and parse errors for second extension", async function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
@@ -136,6 +135,40 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             await ide.revertOpenChanges();
         }
     });
+
+    it("has syntax highlighting in documents without extension", async function () {
+        await bench.executeCommand("workbench.action.files.newUntitledFile");
+        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
+
+        const inputBox = new InputBox();
+        await inputBox.setText("parametric-rascalmpl");
+        await inputBox.confirm();
+
+        const file = "Untitled-1";
+        const editor = await driver.wait(async () => {
+            const result = await ignoreFails(new Workbench().getEditorView().openEditor(file)) as TextEditor;
+            if (result && await ignoreFails(result.getTitle()) === file) {
+                return result;
+            }
+            return undefined! as TextEditor;
+        }, Delays.normal, "Could not open file");
+        expect(editor).to.not.be.undefined;
+
+        await editor.setText(`begin
+  declare
+     a : natural;
+  a := 2
+end
+`);
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
+
+        try {
+            await editor.setTextAtLine(4, "  a := ");
+            await ide.hasErrorSquiggly(editor, Delays.slow);
+        } finally {
+            await ide.revertOpenChanges();
+        }
+    }).retries(2);
 
     it("error recovery works", async function () {
         if (!errorRecovery) { this.skip(); }
@@ -257,5 +290,28 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
         await fs.rm(newDir, {recursive: true, force: true});
+    });
+
+    it("call hierarchy works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoCallsFile);
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showCallHierarchy");
+        await driver.wait(async () => (await new SideBarView().getTitlePart().getTitle()).toLowerCase().startsWith("references"), Delays.normal, "References panel should open.");
+
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showIncomingCalls");
+        await driver.wait(async () => {
+            const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
+            const items = await ignoreFails(outgoing!.getVisibleItems());
+            return items?.length === 2;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
+
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showOutgoingCalls");
+        await driver.wait(async () => {
+            const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
+            const items = await ignoreFails(incoming!.getVisibleItems());
+            return items?.length === 3;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 });

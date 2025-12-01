@@ -38,7 +38,8 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
@@ -134,7 +135,7 @@ import io.usethesource.vallang.ISourceLocation;
             for (List<Diagnostic> diags : perFileProjectDiagnostics.getOrDefault(file, Collections.emptyMap()).values()) {
                 fileDiagnostics.addAll(diags);
             }
-            publishList.add(new PublishDiagnosticsParams(file.getURI().toString(), fileDiagnostics));
+            publishList.add(new PublishDiagnosticsParams(Locations.toUri(file).toString(), fileDiagnostics));
         }
         return publishList;
     }
