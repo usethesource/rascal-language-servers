@@ -356,7 +356,6 @@ void registrationSandwich() {
             "picoLanguageServerA"
         )
     );
-    unregisterLanguage("Pico", {"pico", "pico-new"});
     registerLanguage(
         language(
             pathConfig(),
@@ -366,4 +365,5 @@ void registrationSandwich() {
             "picoLanguageServerB"
         )
     );
+    unregisterLanguage("Pico", {"pico", "pico-new"});
 }
