@@ -128,7 +128,10 @@ public class Completion {
                     .collect(Collectors.toList()));
 
                 ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(getKwParamList(kws, ADDITIONAL_CHANGES, VF.list()), docService.getColumnMaps()));
-                ci.setCommand(getCommand(kws, dedicatedLanguageName, languageName));
+                var command = getCommand(kws, dedicatedLanguageName, languageName);
+                if (command != null) {
+                    ci.setCommand(command);
+                }
 
                 return ci;
             })

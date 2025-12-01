@@ -266,7 +266,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCallHierarchyProvider(true);
         if (!clientCapabilities.getTextDocument().getCompletion().getDynamicRegistration()) {
             // TODO Can we do our best to supply a reasonable set of default trigger characters here?
-            result.setCompletionProvider(new CompletionOptions(false, null));
+            result.setCompletionProvider(new CompletionOptions(false, List.of("")));
         }
     }
 
@@ -996,7 +996,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
-        dynamicCapabilities.registerCapabilities(multiplexer);
+        if (dynamicCapabilities != null) {
+            dynamicCapabilities.registerCapabilities(multiplexer);
+        }
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
@@ -1061,7 +1063,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             contributions.remove(lang.getName());
         }
 
-        dynamicCapabilities.updateCapabilities(contributions);
+        if (dynamicCapabilities != null) {
+            dynamicCapabilities.updateCapabilities(contributions);
+        }
     }
 
     @Override

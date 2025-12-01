@@ -104,8 +104,9 @@ public class DynamicCapabilities {
                             logger.debug("We registered {} before", registration.getMethod());
                             // We registered this capability before.
                             // Let's see if we need to make any changes do the registration.
-                            var mergedOpts = cap.mergeOptions(existing.getRegisterOptions(), opts);
-                            if (!mergedOpts.equals(opts)) {
+                            var existingOpts = existing.getRegisterOptions();
+                            Object mergedOpts = null;
+                            if (existingOpts != null && !existingOpts.equals((mergedOpts = cap.mergeOptions(existingOpts, opts)))) {
                                 logger.debug("Options for {} changed: {} vs. {}", registration.getMethod(), existing.getRegisterOptions(), mergedOpts);
                                 // The options of the registration changed; we need to unregister it, and update the options for the new registration.
                                 unregistrations.add(unregistration(cap));

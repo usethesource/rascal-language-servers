@@ -37,6 +37,7 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.IList;
@@ -155,7 +156,7 @@ public class CompletableFutureUtils {
         return result;
     }
 
-    private static <T> List<T> concat(List<T> l, List<T> r) {
+    private static <T> List<@PolyNull T> concat(List<@PolyNull T> l, List<@PolyNull T> r) {
         if (r.isEmpty()) {
             return l;
         }
@@ -163,7 +164,7 @@ public class CompletableFutureUtils {
             return r;
         }
 
-        var ls = new LinkedList<>(l);
+        var ls = new LinkedList<@PolyNull T>(l);
         ls.addAll(r);
         return ls;
     }
