@@ -18,7 +18,7 @@ jobs:
   normal-tests:
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Assure different pom cache hit
         run: echo "  " >> rascal-lsp/pom.xml
       - uses: actions/setup-java@v5
@@ -55,7 +55,7 @@ jobs:
       CODE_VERSION: "1.90.2"
     runs-on:  ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Assure different pom cache hit
         run: echo " " >> rascal-lsp/pom.xml
       - uses: actions/setup-java@v5
@@ -140,7 +140,7 @@ jobs:
       id-token: write # only used for npm publishing
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
         with:
           java-version: 11
