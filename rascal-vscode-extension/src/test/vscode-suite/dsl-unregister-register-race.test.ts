@@ -86,9 +86,10 @@ describe('DSL unregister/register race', function () {
             await loadPico();
 
             await ide.openModule(TestWorkspace.picoFile);
-            const bbp = new BottomBarPanel();
             const labels = await driver.wait(async () => {
+                const bbp = new BottomBarPanel();
                 const problems = await bbp.openProblemsView();
+                await ide.screenshot("problems");
                 const errors = await problems.getAllVisibleMarkers(MarkerType.Error);
                 if (errors.length === 0) {
                     return false;
