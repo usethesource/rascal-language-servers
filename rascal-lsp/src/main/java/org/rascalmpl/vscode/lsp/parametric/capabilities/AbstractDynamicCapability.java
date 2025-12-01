@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
 public abstract class AbstractDynamicCapability<OptionsType> {
@@ -44,10 +45,10 @@ public abstract class AbstractDynamicCapability<OptionsType> {
 
     public abstract String methodName();
 
-    public abstract CompletableFuture<OptionsType> options(ILanguageContributions contribs);
+    public abstract CompletableFuture<@NonNull OptionsType> options(ILanguageContributions contribs);
 
     public abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
 
-    public abstract OptionsType mergeOptions(Object existingOpts, Object newOpts);
+    public abstract @NonNull OptionsType mergeOptions(Object existingOpts, Object newOpts);
 
 }

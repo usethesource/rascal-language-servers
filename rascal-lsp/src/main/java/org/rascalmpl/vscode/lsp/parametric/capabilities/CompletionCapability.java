@@ -30,6 +30,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
@@ -64,14 +65,14 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
         return new CompletionRegistrationOptions(union(existingOpts.getTriggerCharacters(), newOpts.getTriggerCharacters()), false);
     }
 
-    private <T> List<T> union(List<T> left, List<T> right) {
+    private <T> List<@NonNull T> union(List<@NonNull T> left, List<@NonNull T> right) {
         if (right.isEmpty()) {
             return left;
         }
         if (left.isEmpty()) {
             return right;
         }
-        var merged = new LinkedList<>(left);
+        List<@NonNull T> merged = new LinkedList<>(left);
         for (T t : right) {
             if (!left.contains(t)) {
                 merged.add(t);
