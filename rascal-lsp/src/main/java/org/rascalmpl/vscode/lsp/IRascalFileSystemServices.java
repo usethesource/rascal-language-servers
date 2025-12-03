@@ -41,11 +41,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
-import org.checkerframework.checker.nullness.qual.Nullable;
+
 import org.apache.commons.codec.binary.Base64InputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
@@ -58,8 +59,10 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValueFactory;
 
@@ -140,7 +143,7 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/stat")
-    default CompletableFuture<FileStat> stat(URIParameter uri) {
+    default CompletableFuture<FileStat> stat(ISourceLocationRequest uri) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 ISourceLocation loc = uri.getLocation();
@@ -169,7 +172,7 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/readDirectory")
-    default CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) {
+    default CompletableFuture<FileWithType[]> readDirectory(ISourceLocationRequest uri) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 ISourceLocation loc = uri.getLocation();
@@ -185,7 +188,7 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/createDirectory")
-    default CompletableFuture<Void> createDirectory(URIParameter uri) {
+    default CompletableFuture<Void> createDirectory(ISourceLocationRequest uri) {
         return CompletableFuture.runAsync(() -> {
             try {
                 reg.mkDirectory(uri.getLocation());
@@ -196,7 +199,7 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/readFile")
-    default CompletableFuture<LocationContent> readFile(URIParameter uri) {
+    default CompletableFuture<LocationContent> readFile(ISourceLocationRequest uri) {
         return CompletableFuture.supplyAsync(() -> {
             try (InputStream source = new Base64InputStream(reg.getInputStream(uri.getLocation()), true)) {
                 return new LocationContent(new String(source.readAllBytes(), StandardCharsets.US_ASCII));
@@ -285,7 +288,7 @@ public interface IRascalFileSystemServices {
         }
 
         public ISourceLocation getLocation() throws URISyntaxException {
-            return new URIParameter(uri).getLocation();
+            return Locations.toCheckedLoc(uri);
         }
 
         public boolean isRecursive() {
@@ -305,11 +308,11 @@ public interface IRascalFileSystemServices {
         }
 
         public ISourceLocation getOldLocation() throws URISyntaxException {
-            return new URIParameter(oldUri).getLocation();
+            return Locations.toCheckedLoc(oldUri);
         }
 
         public ISourceLocation getNewLocation() throws URISyntaxException {
-            return new URIParameter(newUri).getLocation();
+            return Locations.toCheckedLoc(newUri);
         }
 
         public boolean isOverwrite() {
@@ -329,7 +332,7 @@ public interface IRascalFileSystemServices {
         }
 
         public ISourceLocation getLocation() throws URISyntaxException {
-            return new URIParameter(uri).getLocation();
+            return Locations.toCheckedLoc(uri);
         }
 
         public String[] getExcludes() {
@@ -470,7 +473,7 @@ public interface IRascalFileSystemServices {
         }
 
         public ISourceLocation getLocation() throws URISyntaxException {
-            return new URIParameter(uri).getLocation();
+            return Locations.toCheckedLoc(uri);
         }
     }
 
@@ -569,22 +572,6 @@ public interface IRascalFileSystemServices {
         }
     }
 
-    public static class URIParameter {
-        @NonNull private final String uri;
-
-        public URIParameter(@NonNull String uri) {
-            this.uri = uri;
-        }
-
-        public String getUri() {
-            return uri;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return Locations.toCheckedLoc(uri);
-        }
-    }
-
     public static class WriteFileParameters {
         @NonNull private final String uri;
         @NonNull private final String content;
@@ -603,7 +590,7 @@ public interface IRascalFileSystemServices {
         }
 
         public ISourceLocation getLocation() throws URISyntaxException {
-            return new URIParameter(uri).getLocation();
+            return Locations.toCheckedLoc(uri);
         }
 
         public String getContent() {
