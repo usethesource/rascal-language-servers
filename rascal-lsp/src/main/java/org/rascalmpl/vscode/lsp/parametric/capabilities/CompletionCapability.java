@@ -42,12 +42,12 @@ import io.usethesource.vallang.IString;
 public class CompletionCapability extends AbstractDynamicCapability<CompletionRegistrationOptions> {
 
     @Override
-    public String methodName() {
+    protected String methodName() {
         return "textDocument/completion";
     }
 
     @Override
-    public CompletableFuture<CompletionRegistrationOptions> options(ILanguageContributions contribs) {
+    protected CompletableFuture<CompletionRegistrationOptions> options(ILanguageContributions contribs) {
         return contribs.completionTriggerCharacters()
             .thenApply(triggers -> triggers.stream()
                 .map(IString.class::cast)
@@ -57,12 +57,12 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    public CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs) {
+    protected CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs) {
         return contribs.hasCompletion();
     }
 
     @Override
-    public CompletionRegistrationOptions mergeOptions(Object existingObj, Object newObj) {
+    protected CompletionRegistrationOptions mergeOptions(Object existingObj, Object newObj) {
         var newOpts = (CompletionRegistrationOptions) newObj;
         var existingOpts = (CompletionRegistrationOptions) existingObj;
         return new CompletionRegistrationOptions(union(existingOpts.getTriggerCharacters(), newOpts.getTriggerCharacters()), false);

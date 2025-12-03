@@ -37,21 +37,21 @@ public abstract class AbstractDynamicCapability<OptionsType> {
 
     private final String id;
 
-    public AbstractDynamicCapability() {
+    protected AbstractDynamicCapability() {
         id = UUID.randomUUID().toString();
     }
 
-    public final String id() {
+    protected final String id() {
         return id;
     }
 
-    public abstract String methodName();
+    protected abstract String methodName();
 
-    public abstract CompletableFuture<@NonNull OptionsType> options(ILanguageContributions contribs);
+    protected abstract CompletableFuture<@NonNull OptionsType> options(ILanguageContributions contribs);
 
-    public abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
+    protected abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
 
-    public abstract @NonNull OptionsType mergeOptions(Object existingOpts, Object newOpts);
+    protected abstract @NonNull OptionsType mergeOptions(Object existingOpts, Object newOpts);
 
     protected boolean preferStaticRegistration() {
         return false;
