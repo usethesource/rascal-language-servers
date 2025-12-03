@@ -52,6 +52,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.CompletionFields;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
@@ -67,21 +68,6 @@ public class Completion {
 
     private static final Logger logger = LogManager.getLogger(Completion.class);
 
-    private static final String KIND = "kind";
-    private static final String EDIT = "edit";
-    private static final String LABEL = "label";
-    private static final String LABEL_DETAIL = "labelDetail";
-    private static final String LABEL_DESCRIPTION = "labelDescription";
-    private static final String DETAIL = "detail";
-    private static final String DOCUMENTATION = "documentation";
-    private static final String SORT_TEXT = "sortText";
-    private static final String FILTER_TEXT = "filterText";
-    private static final String DEPRECATED = "deprecated";
-    private static final String PRESELECT = "preselect";
-    private static final String COMMIT_CHARACTERS = "commitCharacters";
-    private static final String ADDITIONAL_CHANGES = "additionalChanges";
-    private static final String COMMAND = "command";
-
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
     private static final TypeFactory TF = TypeFactory.getInstance();
     private static final TypeStore store = new TypeStore();
@@ -91,8 +77,8 @@ public class Completion {
 
     public Completion() {
         final var completionTriggerAdt = TF.abstractDataType(store, "CompletionTrigger");
-        this.invoked = VF.constructor(TF.constructor(store, completionTriggerAdt, "invoked"));
-        this.character = c -> VF.constructor(TF.constructor(store, completionTriggerAdt, "character", TF.stringType(), "trigger"), c);
+        this.invoked = VF.constructor(TF.constructor(store, completionTriggerAdt, CompletionFields.INVOKED));
+        this.character = c -> VF.constructor(TF.constructor(store, completionTriggerAdt, CompletionFields.CHARACTER, TF.stringType(), CompletionFields.TRIGGER), c);
     }
 
     public List<CompletionItem> toLSP(final IBaseTextDocumentService docService, IList items, String dedicatedLanguageName, String languageName, int editLine, LineColumnOffsetMap offsets) {
@@ -102,32 +88,32 @@ public class Completion {
                 var kws = c.asWithKeywordParameters();
                 var ci = new CompletionItem();
 
-                ci.setKind(itemKindToLSP((IConstructor) c.get(KIND)));
+                ci.setKind(itemKindToLSP((IConstructor) c.get(CompletionFields.KIND)));
 
-                var edit = editToLSP((IConstructor) c.get(EDIT), editLine, offsets);
+                var edit = editToLSP((IConstructor) c.get(CompletionFields.EDIT), editLine, offsets);
                 ci.setTextEdit(Either.forRight(edit.getLeft()));
                 ci.setInsertTextFormat(edit.getRight() ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
                 ci.setInsertTextMode(InsertTextMode.AsIs);
-                ci.setLabel(((IString) c.get(LABEL)).getValue());
+                ci.setLabel(((IString) c.get(CompletionFields.LABEL)).getValue());
 
                 var label = new CompletionItemLabelDetails();
-                label.setDetail(getKwParamString(kws, LABEL_DETAIL, ""));
-                label.setDescription(getKwParamString(kws, LABEL_DESCRIPTION, ""));
+                label.setDetail(getKwParamString(kws, CompletionFields.LABEL_DETAIL, ""));
+                label.setDescription(getKwParamString(kws, CompletionFields.LABEL_DESCRIPTION, ""));
                 ci.setLabelDetails(label);
 
-                ci.setDetail(getKwParamString(kws, DETAIL, ""));
-                ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, getKwParamString(kws, DOCUMENTATION, "")));
-                ci.setSortText(getKwParamString(kws, SORT_TEXT, ""));
-                ci.setFilterText(getKwParamString(kws, FILTER_TEXT, ""));
-                ci.setTags(getKwParamBool(kws, DEPRECATED, false) ? List.of(CompletionItemTag.Deprecated) : Collections.emptyList());
-                ci.setPreselect(getKwParamBool(kws, PRESELECT, false));
-                ci.setCommitCharacters(getKwParamList(kws, COMMIT_CHARACTERS, VF.list())
+                ci.setDetail(getKwParamString(kws, CompletionFields.DETAIL, ""));
+                ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, getKwParamString(kws, CompletionFields.DOCUMENTATION, "")));
+                ci.setSortText(getKwParamString(kws, CompletionFields.SORT_TEXT, ""));
+                ci.setFilterText(getKwParamString(kws, CompletionFields.FILTER_TEXT, ""));
+                ci.setTags(getKwParamBool(kws, CompletionFields.DEPRECATED, false) ? List.of(CompletionItemTag.Deprecated) : Collections.emptyList());
+                ci.setPreselect(getKwParamBool(kws, CompletionFields.PRESELECT, false));
+                ci.setCommitCharacters(getKwParamList(kws, CompletionFields.COMMIT_CHARACTERS, VF.list())
                     .stream()
                     .map(IString.class::cast)
                     .map(IString::getValue)
                     .collect(Collectors.toList()));
 
-                ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(getKwParamList(kws, ADDITIONAL_CHANGES, VF.list()), docService.getColumnMaps()));
+                ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(getKwParamList(kws, CompletionFields.ADDITIONAL_CHANGES, VF.list()), docService.getColumnMaps()));
                 var command = getCommand(kws, dedicatedLanguageName, languageName);
                 if (command != null) {
                     ci.setCommand(command);
@@ -139,7 +125,7 @@ public class Completion {
     }
 
     private @Nullable Command getCommand(IWithKeywordParameters<? extends IConstructor> kws, String dedicatedLanguageName, String languageName) {
-        var command = (IConstructor) kws.getParameter(COMMAND);
+        var command = (IConstructor) kws.getParameter(CompletionFields.COMMAND);
         if (command == null) {
             return null;
         }
@@ -147,10 +133,10 @@ public class Completion {
     }
 
     private Pair<InsertReplaceEdit, Boolean> editToLSP(IConstructor edit, int currentLine, LineColumnOffsetMap offsets) {
-        var text = ((IString) edit.get("newText")).getValue();
-        var startColumn = ((IInteger) edit.get("startColumn")).intValue();
-        var insertEndColumn = ((IInteger) edit.get("insertEndColumn")).intValue();
-        var replaceEndColumn = ((IInteger) edit.get("replaceEndColumn")).intValue();
+        var text = ((IString) edit.get(CompletionFields.NEW_TEXT)).getValue();
+        var startColumn = ((IInteger) edit.get(CompletionFields.START_COLUMN)).intValue();
+        var insertEndColumn = ((IInteger) edit.get(CompletionFields.INSERT_END_COLUMN)).intValue();
+        var replaceEndColumn = ((IInteger) edit.get(CompletionFields.REPLACE_END_COLUMN)).intValue();
 
         var insertRange = rascalToLspRange(currentLine, startColumn, insertEndColumn, offsets);
         var replaceRange = rascalToLspRange(currentLine, startColumn, replaceEndColumn, offsets);
@@ -166,8 +152,8 @@ public class Completion {
     }
 
     private boolean isSnippet(IConstructor edit) {
-        return edit.asWithKeywordParameters().hasParameter("snippet")
-            && ((IBool) edit.asWithKeywordParameters().getParameter("snippet")).getValue();
+        return edit.asWithKeywordParameters().hasParameter(CompletionFields.SNIPPET)
+            && ((IBool) edit.asWithKeywordParameters().getParameter(CompletionFields.SNIPPET)).getValue();
     }
 
     private CompletionItemKind itemKindToLSP(IConstructor kind) {
@@ -226,14 +212,14 @@ public class Completion {
     }
 
     public static CompletableFuture<Boolean> isTriggered(IConstructor kind, CompletableFuture<IList> triggerChars) {
-        if ("invoked".equals(kind.getName())) {
+        if (CompletionFields.INVOKED.equals(kind.getName())) {
             // Manual invocation always triggers completion
             return CompletableFuture.completedFuture(true);
         }
 
-        if ("character".equals(kind.getName()) && kind.has("trigger")) {
+        if (CompletionFields.CHARACTER.equals(kind.getName()) && kind.has(CompletionFields.TRIGGER)) {
             // A character only triggers completion when it's in the list of supported trigger characters
-            var trigger = kind.get("trigger");
+            var trigger = kind.get(CompletionFields.TRIGGER);
             return triggerChars.thenApply(chars -> chars.contains(trigger));
         }
 

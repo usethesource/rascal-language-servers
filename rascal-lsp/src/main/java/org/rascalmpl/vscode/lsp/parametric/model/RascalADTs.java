@@ -106,6 +106,35 @@ public class RascalADTs {
         public static final String DATA = "data";
     }
 
+    public static class CompletionFields {
+        private CompletionFields() { }
+
+        public static final String INVOKED = "invoked";
+        public static final String TRIGGER = "trigger";
+        public static final String CHARACTER = "character";
+
+        public static final String KIND = "kind";
+        public static final String EDIT = "edit";
+        public static final String LABEL = "label";
+        public static final String LABEL_DETAIL = "labelDetail";
+        public static final String LABEL_DESCRIPTION = "labelDescription";
+        public static final String DETAIL = "detail";
+        public static final String DOCUMENTATION = "documentation";
+        public static final String SORT_TEXT = "sortText";
+        public static final String FILTER_TEXT = "filterText";
+        public static final String DEPRECATED = "deprecated";
+        public static final String PRESELECT = "preselect";
+        public static final String COMMIT_CHARACTERS = "commitCharacters";
+        public static final String ADDITIONAL_CHANGES = "additionalChanges";
+        public static final String COMMAND = "command";
+
+        public static final String NEW_TEXT = "newText";
+        public static final String START_COLUMN = "startColumn";
+        public static final String INSERT_END_COLUMN = "insertEndColumn";
+        public static final String REPLACE_END_COLUMN = "replaceEndColumn";
+        public static final String SNIPPET = "snippet";
+    }
+
     public static class FileSystemChangeFields {
         private FileSystemChangeFields() { }
 
