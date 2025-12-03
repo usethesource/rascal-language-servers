@@ -168,14 +168,4 @@ public class CompletableFutureUtils {
         ls.addAll(r);
         return ls;
     }
-
-    /**
-     * Lazy logical and on futures.
-     * @param left The future to evaluate first. Only if this results in {@link Boolean.TRUE}, the second operand will be evaluated.
-     * @param right A {@link Supplier} of the future to evaluate second.
-     * @return The result of lazily evaluating both boolean values (`true` if both evaluate to `true`, `false` otherwise).
-     */
-    public static CompletableFuture<Boolean> and(CompletableFuture<Boolean> left, Supplier<CompletableFuture<Boolean>> right) {
-        return left.thenCompose(l -> l ? right.get() : CompletableFuture.completedFuture(false));
-    }
 }

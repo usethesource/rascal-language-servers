@@ -962,7 +962,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 var cursorOffset = rascalPos.getCharacter() - TreeAdapter.getLocation((ITree) focus.get(0)).getBeginColumn();
                 return contrib.completion(focus, VF.integer(cursorOffset), trigger)
                     .get()
-                    .thenApply(ci -> completion.toLSP((IBaseTextDocumentService) this, ci, dedicatedLanguageName, contrib.getName(), rascalPos.getLine(), columns.get(loc)));
+                    .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName(), rascalPos.getLine(), columns.get(loc)));
             })
             .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
     }

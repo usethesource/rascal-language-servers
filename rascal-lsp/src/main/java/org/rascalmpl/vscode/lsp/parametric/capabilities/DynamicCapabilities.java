@@ -100,9 +100,6 @@ public class DynamicCapabilities {
                     .collect(Collectors.toList());
 
                 logger.debug("Contributions support {}/{} dynamic capabilities", capabilities.size(), supportedCapabilities.size());
-                if (capabilities.isEmpty()) {
-                    return; // Void
-                }
 
                 // Since we have some bookkeeping to do, we will now block our logbook for a moment
                 synchronized (currentRegistrations) {
@@ -168,7 +165,7 @@ public class DynamicCapabilities {
         return CompletableFutureUtils.reduce(supportedCapabilities.stream()
             .map(cap -> anyTrue(contribs, cap::hasContribution)
                 .thenCompose(b -> {
-                    if (b) {
+                    if (b.booleanValue()) {
                         // has contrib; calculate merged options
                         var remainingOptions = contribs.stream()
                             .map(c -> cap.options(c).thenApply(Object.class::cast))

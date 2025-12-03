@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -90,9 +89,10 @@ public class Completion {
 
                 ci.setKind(itemKindToLSP((IConstructor) c.get(CompletionFields.KIND)));
 
-                var edit = editToLSP((IConstructor) c.get(CompletionFields.EDIT), editLine, offsets);
-                ci.setTextEdit(Either.forRight(edit.getLeft()));
-                ci.setInsertTextFormat(edit.getRight() ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
+                var edit = (IConstructor) c.get(CompletionFields.EDIT);
+                var lspEdit = editToLSP(edit, editLine, offsets);
+                ci.setTextEdit(Either.forRight(lspEdit));
+                ci.setInsertTextFormat(isSnippet(edit) ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
                 ci.setInsertTextMode(InsertTextMode.AsIs);
                 ci.setLabel(((IString) c.get(CompletionFields.LABEL)).getValue());
 
@@ -132,7 +132,7 @@ public class Completion {
         return CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command);
     }
 
-    private Pair<InsertReplaceEdit, Boolean> editToLSP(IConstructor edit, int currentLine, LineColumnOffsetMap offsets) {
+    private InsertReplaceEdit editToLSP(IConstructor edit, int currentLine, LineColumnOffsetMap offsets) {
         var text = ((IString) edit.get(CompletionFields.NEW_TEXT)).getValue();
         var startColumn = ((IInteger) edit.get(CompletionFields.START_COLUMN)).intValue();
         var insertEndColumn = ((IInteger) edit.get(CompletionFields.INSERT_END_COLUMN)).intValue();
@@ -141,7 +141,7 @@ public class Completion {
         var insertRange = rascalToLspRange(currentLine, startColumn, insertEndColumn, offsets);
         var replaceRange = rascalToLspRange(currentLine, startColumn, replaceEndColumn, offsets);
 
-        return Pair.of(new InsertReplaceEdit(text, insertRange, replaceRange), Boolean.valueOf(isSnippet(edit)));
+        return new InsertReplaceEdit(text, insertRange, replaceRange);
     }
 
     private Range rascalToLspRange(int line, int startCol, int endCol, LineColumnOffsetMap offsets) {
