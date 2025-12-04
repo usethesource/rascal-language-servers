@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,8 +42,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
@@ -92,25 +91,17 @@ public class DynamicCapabilities {
         // Compute registrations purely based on contributions
         // This requires waiting for an evaluator to load, which takes long, and should not block our logbook
         return CompletableFutureUtils.reduce(supportedCapabilities.stream().map(c -> registration(c, contribs)))
-            .thenApply(LinkedList::new) // Make sure the list is modifiable
-            .thenAccept(maybeCapabilities -> {
-                var capabilities = maybeCapabilities.stream()
-                    .filter(cap -> cap.getValue() != null) // Remove capabilities that these contributions do not have
-                    .filter(cap -> !staticCapabilities.contains(cap.getKey())) // Remove capabilities that are already set statically
-                    .collect(Collectors.toList());
-
-                logger.debug("Contributions support {}/{} dynamic capabilities", capabilities.size(), supportedCapabilities.size());
-
+            .thenAccept(capabilities -> {
                 // Since we have some bookkeeping to do, we will now block our logbook for a moment
                 synchronized (currentRegistrations) {
                     List<Registration> registrations = new LinkedList<>();
                     List<Unregistration> unregistrations = new LinkedList<>();
                     for (var entry : capabilities) {
                         var cap = entry.getLeft();
-                        var registration = entry.getRight();
-                        var opts = registration.getRegisterOptions();
-
-                        logger.trace("Processing capability {}", registration.getMethod());
+                        var registration = entry.getRight().orElse(null);
+                        if (registration == null || staticCapabilities.contains(cap)) {
+                            continue;
+                        }
 
                         // Check if we already have this registration
                         var existing = currentRegistrations.get(registration.getMethod());
@@ -121,7 +112,7 @@ public class DynamicCapabilities {
                             var existingOpts = existing.getRegisterOptions();
                             Object mergedOpts = null;
                             if (existingOpts != null &&
-                                (mergedOpts = cap.mergeOptions(existingOpts, opts)) != null &&
+                                (mergedOpts = cap.mergeOptions(existingOpts, registration.getRegisterOptions())) != null &&
                                 !existingOpts.equals(mergedOpts)) {
                                 logger.debug("Options for dynamic capability {} changed: {} vs. {}", registration.getMethod(), existing.getRegisterOptions(), mergedOpts);
                                 // The options of the registration changed; we need to unregister it, and update the options for the new registration.
@@ -170,8 +161,7 @@ public class DynamicCapabilities {
                         var remainingOptions = contribs.stream()
                             .map(c -> cap.options(c).thenApply(Object.class::cast))
                             .collect(Collectors.toList());
-                        return CompletableFutureUtils.reduce(remainingOptions)
-                            .thenApply(opts -> reduceOptions(cap, opts))
+                        return CompletableFutureUtils.reduce(remainingOptions, cap::mergeOptions)
                             .thenApply(opts -> Either.<Registration, Unregistration>forLeft(registration(cap, opts)));
                     } else {
                         // does not have contrib
@@ -195,21 +185,6 @@ public class DynamicCapabilities {
             });
     }
 
-    private static <T> T reduceOptions(AbstractDynamicCapability<? extends T> cap, List<? extends @NonNull T> opts) {
-        if (opts.isEmpty()) {
-            throw new IllegalArgumentException("Cannot merge empty list of options");
-        }
-        if (opts.size() == 1) {
-            return opts.get(0);
-        }
-
-        var merged = opts.get(0);
-        for (int i = 1; i < opts.size(); i++) {
-            merged = cap.mergeOptions(merged, opts.get(i));
-        }
-        return merged;
-    }
-
     private synchronized void doRegistrations(List<Registration> registrations, List<Unregistration> unregistrations) throws InterruptedException, ExecutionException {
         if (!unregistrations.isEmpty()) {
             logger.debug("Unregistering dynamic capabilities: {}", unregistrations);
@@ -224,12 +199,11 @@ public class DynamicCapabilities {
         }
     }
 
-    private static <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> registration(AbstractDynamicCapability<T> cap, ILanguageContributions contribs) {
-        return cap.hasContribution(contribs).thenCompose(contributes -> contributes
+    private static <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, Optional<Registration>>> registration(AbstractDynamicCapability<T> cap, ILanguageContributions contribs) {
+        return cap.hasContribution(contribs).thenCompose(contributes -> contributes.booleanValue()
             ? cap.options(contribs)
-                .thenApply(opts -> registration(cap, opts))
-                .thenApply(r -> Pair.of(cap, r))
-            : CompletableFuture.completedFuture(Pair.of(cap, null))
+                .thenApply(opts -> Pair.of(cap, Optional.of(registration(cap, opts))))
+            : CompletableFuture.completedFuture(Pair.of(cap, Optional.empty()))
         );
     }
 
