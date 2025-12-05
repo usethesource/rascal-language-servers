@@ -61,6 +61,7 @@ import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -211,7 +212,7 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/writeFile")
-    default CompletableFuture<Void> writeFile(WriteFileParameters params) {
+    default CompletableFuture<Void> writeFile(WriteFileRequest params) {
         return CompletableFuture.runAsync(() -> {
             try {
                 ISourceLocation loc = params.getLocation();
@@ -528,40 +529,6 @@ public interface IRascalFileSystemServices {
 
         public String getContent() {
             return content;
-        }
-    }
-
-    public static class WriteFileParameters {
-        @NonNull private final String uri;
-        @NonNull private final String content;
-        private final boolean create;
-        private final boolean overwrite;
-
-        public WriteFileParameters(@NonNull String uri, @NonNull String content, boolean create, boolean overwrite) {
-            this.uri = uri;
-            this.content = content;
-            this.create = create;
-            this.overwrite = overwrite;
-        }
-
-        public String getUri() {
-            return uri;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return Locations.toCheckedLoc(uri);
-        }
-
-        public String getContent() {
-            return content;
-        }
-
-        public boolean isCreate() {
-            return create;
-        }
-
-        public boolean isOverwrite() {
-            return overwrite;
         }
     }
 
