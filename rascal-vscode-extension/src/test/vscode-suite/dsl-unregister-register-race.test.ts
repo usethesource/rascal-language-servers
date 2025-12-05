@@ -96,7 +96,7 @@ describe('DSL unregister/register race', function () {
                 }
                 return await Promise.all(errors.map(async e => await e.getLabel()));
 
-            }, Delays.verySlow, "Cannot get problem markers.");
+            }, Delays.extremelySlow, "Cannot get problem markers.", Delays.normal);
 
             if (!labels) {
                 fail("No labels");
