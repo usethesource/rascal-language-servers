@@ -70,7 +70,7 @@ public class RascalInterface {
                     .setRemoteInterface(LanguageRegistry.class)
                     .setInput(socket.getInputStream())
                     .setOutput(socket.getOutputStream())
-                    .setExecutorService(NamedThreadPool.single("rascal-interface"))
+                    .setExecutorService(NamedThreadPool.cachedDaemon("rascal-interface"))
                     .create();
 
                 clientLauncher.startListening();

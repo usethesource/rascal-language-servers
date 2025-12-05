@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { SideBarView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { InputBox, TextEditor, SideBarView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -75,7 +75,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.terminate();
     }
 
-
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
@@ -103,7 +102,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
     });
 
-    it("have highlighting and parse errors", async function () {
+    it("has highlighting and parse errors", async function () {
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const isPicoLoading = ide.statusContains("Pico");
@@ -126,7 +125,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }
     }).retries(2);
 
-    it("have highlighting and parse errors for second extension", async function () {
+    it("has highlighting and parse errors for second extension", async function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
@@ -136,6 +135,40 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             await ide.revertOpenChanges();
         }
     });
+
+    it("has syntax highlighting in documents without extension", async function () {
+        await bench.executeCommand("workbench.action.files.newUntitledFile");
+        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
+
+        const inputBox = new InputBox();
+        await inputBox.setText("parametric-rascalmpl");
+        await inputBox.confirm();
+
+        const file = "Untitled-1";
+        const editor = await driver.wait(async () => {
+            const result = await ignoreFails(new Workbench().getEditorView().openEditor(file)) as TextEditor;
+            if (result && await ignoreFails(result.getTitle()) === file) {
+                return result;
+            }
+            return undefined! as TextEditor;
+        }, Delays.normal, "Could not open file");
+        expect(editor).to.not.be.undefined;
+
+        await editor.setText(`begin
+  declare
+     a : natural;
+  a := 2
+end
+`);
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
+
+        try {
+            await editor.setTextAtLine(4, "  a := ");
+            await ide.hasErrorSquiggly(editor, Delays.slow);
+        } finally {
+            await ide.revertOpenChanges();
+        }
+    }).retries(2);
 
     it("error recovery works", async function () {
         if (!errorRecovery) { this.skip(); }

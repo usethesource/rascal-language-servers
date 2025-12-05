@@ -1,0 +1,6 @@
+{
+  "files.exclude": {
+    "rascal-lsp": true,
+    "rascal-vscode-extension": true
+  }
+}
