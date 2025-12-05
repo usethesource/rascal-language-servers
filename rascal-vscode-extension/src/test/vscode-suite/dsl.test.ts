@@ -25,8 +25,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, TextEditor, SideBarView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
+import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -313,5 +313,24 @@ end
             const items = await ignoreFails(incoming!.getVisibleItems());
             return items?.length === 3;
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
+    });
+
+    it("completion works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.setTextAtLine(6, "     aa : natural;");
+
+        await editor.moveCursor(9, 4);
+        await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
+        expectCompletions(editor, ["a", "aa"]);
+    });
+
+    it("completion by trigger character works", async function() {
+        // We will be typing and introducing parse errors, so this only works with error recovery
+        if (!errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.moveCursor(10, 10);
+        await editor.typeText("  x :=");
+        expectCompletions(editor, ["x", "n", "a", "b"]);
     });
 });

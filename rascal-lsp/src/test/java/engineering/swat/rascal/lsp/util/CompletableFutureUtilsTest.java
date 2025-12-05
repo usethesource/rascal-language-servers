@@ -114,6 +114,15 @@ public class CompletableFutureUtilsTest {
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
     }
 
+    @Test
+    public void flattenRascalListUnique() throws InterruptedException, ExecutionException {
+        var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1));
+        var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
+
+        CompletableFuture<IList> reduced = flatten(outer.stream(), VF::list, IList::union);
+        assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
+    }
+
     private <T> Set<T> setUnion(Set<T> l, Set<T> r) {
         var s = new HashSet<>(l);
         s.addAll(r);

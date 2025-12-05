@@ -40,7 +40,9 @@ import util::ParseErrorRecovery;
 import util::Reflective;
 extend lang::pico::\syntax::Main;
 import DateTime;
+import IO;
 import Location;
+import String;
 
 // We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
 // For most use-cases, one should not extend the grammar in the language server implementation
@@ -73,7 +75,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
-    callHierarchy(picoPrepareCallHierarchy, picoCallsService)
+    callHierarchy(picoPrepareCallHierarchy, picoCallsService),
+    completion(picoCompletionService, additionalTriggerCharacters = ["="])
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -294,6 +297,44 @@ lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirectio
     };
 
     return calls;
+}
+
+list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, CompletionTrigger trigger) {
+    t = focus[0];
+    str prefix = "<t>"[..cursorOffset];
+    cc = t.src.begin.column + cursorOffset;
+
+
+    isTypingId = false;
+    try {
+        if (prefix != "" && trim(prefix) == prefix) {
+            parse(#Id, prefix);
+            isTypingId = true;
+        }
+    } catch ParseError(_): {;}
+
+    items = [];
+    top-down-break visit (focus[-1]) {
+        case IdType def: {
+            name = "<def.id>";
+            if (!isTypingId || startsWith(name, prefix)) {
+                e = isTypingId && !trigger is character
+                    ? completionEdit(t.src.begin.column, cc, t.src.end.column, name)
+                    : completionEdit(cc, cc, cc, name);
+
+                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeOf(def)>");
+            }
+        }
+    }
+
+    return items;
+}
+
+void testCompletion() {
+    start[Program] prg = parse(#start[Program], "begin declare var1 : natural, var2 : natural; va := 1 end");
+    Focus focus = computeFocusList(prg, 1, 47); // after v
+    completions = picoCompletionService(focus, 2, invoked());
+    println("completions: <completions>");
 }
 
 @synopsis{The main function registers the Pico language with the IDE}
