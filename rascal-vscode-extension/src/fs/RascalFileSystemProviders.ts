@@ -49,6 +49,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
 
     sendRequest<R>(uri : vscode.Uri, method: string): Promise<R>;
     sendRequest<R, A>(uri : vscode.Uri, method: string, param: A): Promise<R>;
+    sendRequest<R, A0, A1>(uri : vscode.Uri, method: string, param0: A0, param1: A1): Promise<R>;
     sendRequest<R, A>(uri : vscode.Uri, method: string, param?: A): Promise<R> {
         return this.client.sendRequest<R>(method, param ?? { uri: uri.toString()} )
             .catch((r: ResponseError) => {
@@ -138,7 +139,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {
-        return this.sendRequest(uri, "rascal/filesystem/delete", {uri: uri.toString(), recursive: options.recursive});
+        return this.sendRequest(uri, "rascal/filesystem/delete", uri.toString(), options.recursive);
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {

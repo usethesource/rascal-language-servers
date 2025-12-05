@@ -262,7 +262,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public void remove(ISourceLocation uri) throws IOException {
-        call(s -> s.remove(param(uri)));
+        call(s -> s.remove(param(uri), false));
         cachedDirectoryListing.invalidate(uri);
         cachedDirectoryListing.invalidate(URIUtil.getParentLocation(uri));
     }

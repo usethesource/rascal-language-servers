@@ -108,7 +108,7 @@ public interface VSCodeUriResolverServer {
     }
 
     @JsonRequest("rascal/vfs/output/remove")
-    default CompletableFuture<Void> remove(ISourceLocationRequest req) {
+    default CompletableFuture<Void> remove(ISourceLocationRequest req, boolean recursive) {
         throw new UnsupportedOperationException();
     }
 

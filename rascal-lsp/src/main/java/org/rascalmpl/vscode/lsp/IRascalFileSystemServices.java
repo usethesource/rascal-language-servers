@@ -241,11 +241,11 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/delete")
-    default CompletableFuture<Void> delete(DeleteParameters params) {
+    default CompletableFuture<Void> delete(ISourceLocationRequest params, boolean recursive) {
         return CompletableFuture.runAsync(() -> {
             try {
                 ISourceLocation loc = params.getLocation();
-                reg.remove(loc, params.isRecursive());
+                reg.remove(loc, recursive);
             } catch (IOException | URISyntaxException e) {
                 throw new CompletionException(e);
             }
@@ -277,24 +277,6 @@ public interface IRascalFileSystemServices {
     @JsonNotification("rascal/filesystem/onDidChangeFile")
     default void onDidChangeFile(FileChangeEvent event) { }
 
-
-    public static class DeleteParameters {
-        private final String uri;
-        private final boolean recursive;
-
-        public DeleteParameters(String uri, boolean recursive) {
-            this.uri = uri;
-            this.recursive = recursive;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return Locations.toCheckedLoc(uri);
-        }
-
-        public boolean isRecursive() {
-            return recursive;
-        }
-    }
 
     public static class RenameParameters {
         private final String oldUri;

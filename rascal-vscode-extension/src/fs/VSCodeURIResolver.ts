@@ -82,20 +82,25 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
 interface ISourceLocationOutput {
     writeFile(req: WriteFileRequest ): Promise<void>;
     mkDirectory(req: ISourceLocationRequest): Promise<void>;
-    remove(req: ISourceLocationRequest): Promise<void>;
+    remove(req: ISourceLocationRequest, recursive: boolean): Promise<void>;
     rename(req: RenameRequest): Promise<void>;
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
-    function req<Arg, ReturnT> (method: string, h: rpc.RequestHandler1<Arg, ReturnT, void>) {
+    function req1<Arg, ReturnT> (method: string, h: rpc.RequestHandler1<Arg, ReturnT, void>) {
         toClear.push(connection.onRequest(
             new rpc.RequestType1<Arg, ReturnT, void>("rascal/vfs/output/" + method),
             h.bind(handler)));
     }
-    req("writeFile", handler.writeFile);
-    req("mkDirectory", handler.mkDirectory);
-    req("remove", handler.remove);
-    req("rename", handler.rename);
+    function req2<Arg0, Arg1, ReturnT> (method: string, h: rpc.RequestHandler2<Arg0, Arg1, ReturnT, void>) {
+        toClear.push(connection.onRequest(
+            new rpc.RequestType2<Arg0, Arg1, ReturnT, void>("rascal/vfs/output/" + method),
+            h.bind(handler)));
+    }
+    req1("writeFile", handler.writeFile);
+    req1("mkDirectory", handler.mkDirectory);
+    req2("remove", handler.remove);
+    req1("rename", handler.rename);
 }
 
 // Rascal's interface reduce to a subset we can support
@@ -419,9 +424,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         this.logger.trace("[VFS] mkDirectory: ", req.uri);
         return asyncVoidCatcher(this.fs.createDirectory(this.toUri(req)));
     }
-    async remove(req: ISourceLocationRequest): Promise<void> {
+    async remove(req: ISourceLocationRequest, recursive: boolean): Promise<void> {
         this.logger.trace("[VFS] remove: ", req.uri);
-        return asyncVoidCatcher(this.fs.delete(this.toUri(req)));
+        return asyncVoidCatcher(this.fs.delete(this.toUri(req), {"recursive" : recursive}));
     }
     async rename(req: RenameRequest): Promise<void> {
         this.logger.trace("[VFS] rename: ", req.from, req.to);
