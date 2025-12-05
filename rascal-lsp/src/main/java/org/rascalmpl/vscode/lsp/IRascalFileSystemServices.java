@@ -60,6 +60,7 @@ import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -253,11 +254,11 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/rename")
-    default CompletableFuture<Void> rename(RenameParameters params) {
+    default CompletableFuture<Void> rename(RenameRequest params) {
         return CompletableFuture.runAsync(() -> {
             try {
-                ISourceLocation oldLoc = params.getOldLocation();
-                ISourceLocation newLoc = params.getNewLocation();
+                ISourceLocation oldLoc = params.getFromLocation();
+                ISourceLocation newLoc = params.getToLocation();
                 reg.rename(oldLoc, newLoc, params.isOverwrite());
             } catch (IOException | URISyntaxException e) {
                 throw new CompletionException(e);
@@ -277,30 +278,6 @@ public interface IRascalFileSystemServices {
     @JsonNotification("rascal/filesystem/onDidChangeFile")
     default void onDidChangeFile(FileChangeEvent event) { }
 
-
-    public static class RenameParameters {
-        private final String oldUri;
-        private final String newUri;
-        private final boolean overwrite;
-
-        public RenameParameters(String oldUri, String newUri, boolean overwrite) {
-            this.oldUri = oldUri;
-            this.newUri = newUri;
-            this.overwrite = overwrite;
-        }
-
-        public ISourceLocation getOldLocation() throws URISyntaxException {
-            return Locations.toCheckedLoc(oldUri);
-        }
-
-        public ISourceLocation getNewLocation() throws URISyntaxException {
-            return Locations.toCheckedLoc(newUri);
-        }
-
-        public boolean isOverwrite() {
-            return overwrite;
-        }
-    }
 
     public static class WatchParameters {
         private final String uri;
