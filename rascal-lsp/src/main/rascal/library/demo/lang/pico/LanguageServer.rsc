@@ -299,21 +299,35 @@ lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirectio
     return calls;
 }
 
-CompletionItem createVarCompletion(int cursorColumn, loc selectedIdent, IdType decl) {
-    str name = "<decl.id>";
-    CompletionEdit edit = completionEdit(
-        selectedIdent.begin.column,
-        cursorColumn,
-        selectedIdent.end.column,
-        name
-    );
+list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, CompletionTrigger trigger) {
+    t = focus[0];
+    str prefix = "<t>"[..cursorOffset];
+    cc = t.src.begin.column + cursorOffset;
 
-    return completionItem(\variable(), edit, name, labelDetail=": <decl.t>");
-}
 
-list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, CompletionTrigger _) {
-    str prefix = "<focus[0]>"[..cursorOffset];
-    return [createVarCompletion(focus[0].src.begin.column + cursorOffset, focus[0].src, var) | /IdType var := focus[-1], startsWith("<var.id>", "<prefix>")];
+    isTypingId = false;
+    try {
+        if (prefix != "" && trim(prefix) == prefix) {
+            parse(#Id, prefix);
+            isTypingId = true;
+        }
+    } catch ParseError(_): {;}
+
+    items = [];
+    top-down-break visit (focus[-1]) {
+        case IdType def: {
+            name = "<def.id>";
+            if (!isTypingId || startsWith(name, prefix)) {
+                e = isTypingId && !trigger is character
+                    ? completionEdit(t.src.begin.column, cc, t.src.end.column, name)
+                    : completionEdit(cc, cc, cc, name);
+
+                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeOf(def)>");
+            }
+        }
+    }
+
+    return items;
 }
 
 void testCompletion() {

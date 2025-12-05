@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, Key, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -330,7 +330,7 @@ end
 
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(10, 10);
-        await editor.sendKeys(Key.END, Key.ENTER, "  x :=");
+        await editor.typeText("  x :=");
         expectCompletions(editor, ["x", "n", "a", "b"]);
     });
 });
