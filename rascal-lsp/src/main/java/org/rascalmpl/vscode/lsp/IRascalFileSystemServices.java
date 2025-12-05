@@ -61,6 +61,7 @@ import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -94,7 +95,7 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/watch")
-    default CompletableFuture<Void> watch(WatchParameters params) {
+    default CompletableFuture<Void> watch(WatchRequest params) {
         return CompletableFuture.runAsync(() -> {
             try {
                 ISourceLocation loc = params.getLocation();
@@ -279,30 +280,6 @@ public interface IRascalFileSystemServices {
     @JsonNotification("rascal/filesystem/onDidChangeFile")
     default void onDidChangeFile(FileChangeEvent event) { }
 
-
-    public static class WatchParameters {
-        private final String uri;
-        private final boolean recursive;
-        private final String[] excludes;
-
-        public WatchParameters(String uri, boolean recursive, String[] excludes) {
-            this.uri = uri;
-            this.recursive = recursive;
-            this.excludes = excludes;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return Locations.toCheckedLoc(uri);
-        }
-
-        public String[] getExcludes() {
-            return excludes;
-        }
-
-        public boolean isRecursive() {
-            return recursive;
-        }
-    }
 
     public static class SourceLocation {
         @NonNull private final String uri;
