@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, TextEditor, SideBarView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -47,7 +47,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure(() => driver, () => ide);
+    printRascalOutputOnFailure('Language Parametric Rascal', () => ide);
 
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);

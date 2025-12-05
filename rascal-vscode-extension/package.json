@@ -16,7 +16,7 @@
   },
   "version": "0.13.0-head",
   "engines": {
-    "vscode": "^1.97.0",
+    "vscode": "^1.90.0",
     "node": ">=20.9.0"
   },
   "type": "commonjs",
@@ -289,7 +289,7 @@
     "@types/mocha": "10.x",
     "@types/node": "20.x",
     "@types/tar": "6.x",
-    "@types/vscode": "1.97.0",
+    "@types/vscode": "1.90.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",

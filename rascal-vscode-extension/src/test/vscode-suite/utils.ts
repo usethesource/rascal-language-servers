@@ -451,17 +451,9 @@ export class IDEOperations {
 }
 
 
-async function showRascalOutput(bbp: BottomBarPanel, driver: WebDriver) {
+async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     const outputView = await bbp.openOutputView();
-
-    // Create a compound channel so we can see everything
-    const bench = new Workbench();
-    await bench.executeCommand("workbench.action.output.addCompoundLog");
-    const filter = await driver.wait(() => outputView.findElement(By.xpath("//div[contains(@class, 'quick-input-filter')]//input")));
-    await filter.sendKeys("rascal");
-    await filter.sendKeys(Key.SHIFT, Key.TAB, Key.NULL, Key.SPACE);
-    await filter.sendKeys(Key.TAB, Key.TAB, Key.ENTER);
-
+    await outputView.selectChannel(`${channel} Language Server`);
     return outputView;
 }
 
@@ -479,7 +471,7 @@ async function assureDebugLevelLoggingIsEnabled() {
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(driver: () => WebDriver, ide: () => IDEOperations) {
+export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL', ide: () => IDEOperations) {
 
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
@@ -495,7 +487,7 @@ export function printRascalOutputOnFailure(driver: () => WebDriver, ide: () => I
             let textLines: WebElement[] = [];
             let tries = 0;
             while (textLines.length === 0 && tries < 3) {
-                await showRascalOutput(bbp, driver());
+                await showRascalOutput(bbp, channel);
                 textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
                 tries++;
             }

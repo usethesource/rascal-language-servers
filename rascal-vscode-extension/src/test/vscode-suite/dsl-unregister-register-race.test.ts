@@ -39,7 +39,7 @@ describe('DSL unregister/register race', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure(() => driver, () => ide);
+    printRascalOutputOnFailure('Language Parametric Rascal', () => ide);
 
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);

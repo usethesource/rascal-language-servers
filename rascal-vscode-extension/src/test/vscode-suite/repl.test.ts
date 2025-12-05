@@ -27,7 +27,7 @@
 
 import { expect } from 'chai';
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { TestWorkspace, RascalREPL, Delays, IDEOperations, printRascalOutputOnFailure } from './utils';
+import { Delays, IDEOperations, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
 
 describe('REPL', function () {
     let browser: VSBrowser;
@@ -37,7 +37,7 @@ describe('REPL', function () {
 
     this.timeout(2 * Delays.extremelySlow);
 
-    printRascalOutputOnFailure(() => driver, () => ide);
+    printRascalOutputOnFailure('Rascal MPL', () => ide);
 
     before(async () => {
         browser = VSBrowser.instance;
