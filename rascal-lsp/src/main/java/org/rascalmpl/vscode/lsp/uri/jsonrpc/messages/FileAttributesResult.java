@@ -33,13 +33,22 @@ import org.rascalmpl.uri.FileAttributes;
 
 public class FileAttributesResult {
     private boolean exists;
-    private int type;
+    private FileType type;
     private long ctime;
     private long mtime;
-    private int size;
-    private int permissions;
+    private long size;
+    @Nullable private FilePermission permissions;
 
-    public FileAttributesResult(boolean exists, int type, long ctime, long mtime, int size, int permissions) {
+    public FileAttributesResult(boolean exists, int type, long ctime, long mtime, long size, int permissions) {
+        this.exists = exists;
+        this.type = FileType.fromValue(type);
+        this.ctime = ctime;
+        this.mtime = mtime;
+        this.size = size;
+        this.permissions = FilePermission.fromValue(permissions);
+    }
+
+    public FileAttributesResult(boolean exists, FileType type, long ctime, long mtime, long size, FilePermission permissions) {
         this.exists = exists;
         this.type = type;
         this.ctime = ctime;
@@ -51,7 +60,7 @@ public class FileAttributesResult {
     public FileAttributesResult() {}
 
     public FileAttributes getFileAttributes() {
-        return new FileAttributes(exists, (type & 1) == 1, ctime, mtime, true, (permissions & 1) == 0, size);
+        return new FileAttributes(exists, type == FileType.File, ctime, mtime, true, permissions != null, size);
     }
 
     @Override
@@ -78,4 +87,48 @@ public class FileAttributesResult {
         return "FileStatResult [exists="+ exists + " type=" + type + " ctime=" + ctime + " mtime=" + mtime + " size=" + size + " permissions=" + permissions + "]";
     }
 
+    public enum FileType {
+        Unknown(0), File(1), Directory(2), SymbolicLink(64);
+
+        private final int value;
+
+        private FileType(int val) {
+            assert val == 0 || val == 1 || val == 2 || val == 64;
+            this.value = val;
+        }
+
+        public int getValue() {
+            return value;
+        }
+
+        public static FileType fromValue(int val) {
+            switch (val) {
+                case 0: return Unknown;
+                case 1: return File;
+                case 2: return Directory;
+                case 64: return SymbolicLink;
+                default: throw new IllegalArgumentException("Unknown FileType value " + val);
+            }
+        }
+    }
+
+    public enum FilePermission {
+        Readonly(1);
+        private final int value;
+        private FilePermission(int val) {
+            assert val == 1;
+            this.value = val;
+        }
+
+        public int getValue() {
+            return value;
+        }
+
+        public static FilePermission fromValue(int val) {
+            switch (val) {
+                case 1: return Readonly;
+                default: return null;
+            }
+        }
+    }
 }

@@ -59,6 +59,9 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FilePermission;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FileType;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
@@ -146,7 +149,7 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/stat")
-    default CompletableFuture<FileStat> stat(ISourceLocationRequest uri) {
+    default CompletableFuture<FileAttributesResult> stat(ISourceLocationRequest uri) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 ISourceLocation loc = uri.getLocation();
@@ -156,7 +159,7 @@ public interface IRascalFileSystemServices {
                 var created = reg.created(loc);
                 var lastModified = reg.lastModified(loc);
                 if (reg.isDirectory(loc)) {
-                    return new FileStat(FileType.Directory, created, lastModified, 0, null);
+                    return new FileAttributesResult(true, FileType.Directory, created, lastModified, 0, null);
                 }
                 long size = 0;
                 if (reg.supportsReadableFileChannel(loc)) {
@@ -167,7 +170,7 @@ public interface IRascalFileSystemServices {
                 else {
                     size = Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue();
                 }
-                return new FileStat(FileType.File, created, lastModified, size, readonly(loc) ? FilePermission.Readonly : null);
+                return new FileAttributesResult(true, FileType.File, created, lastModified, size, readonly(loc) ? FilePermission.Readonly : null);
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
@@ -421,56 +424,6 @@ public interface IRascalFileSystemServices {
 
         private FileChangeType(int val) {
             assert val == 1 || val == 2 || val == 3;
-            this.value = val;
-        }
-
-        public int getValue() {
-            return value;
-        }
-    }
-
-    // The fields of are only used on the TS side
-    @SuppressWarnings("unused")
-    public static class FileStat {
-        private final FileType type;
-        private final long ctime;
-        private final long mtime;
-        private final long size;
-
-        private @Nullable FilePermission permissions;
-
-        public FileStat(FileType type, long ctime, long mtime, long size, @Nullable FilePermission permissions) {
-            this.type = type;
-            this.ctime = ctime;
-            this.mtime = mtime;
-            this.size = size;
-            this.permissions = permissions;
-        }
-
-    }
-
-    public enum FileType {
-        Unknown(0), File(1), Directory(2), SymbolicLink(64);
-
-        private final int value;
-
-        private FileType(int val) {
-            assert val == 0 || val == 1 || val == 2 || val == 64;
-            this.value = val;
-        }
-
-        public int getValue() {
-            return value;
-        }
-    }
-
-    // this enum models the enum inside vscode, which in the future might become an enum flag
-    // in that case we have to solve that
-    public enum FilePermission {
-        Readonly(1);
-        private final int value;
-        private FilePermission(int val) {
-            assert val == 1;
             this.value = val;
         }
 
