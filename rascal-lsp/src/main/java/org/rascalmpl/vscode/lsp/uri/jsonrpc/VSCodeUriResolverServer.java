@@ -34,7 +34,6 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.DirectoryListingResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.NumberResult;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ReadFileResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.TimestampResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
@@ -42,7 +41,7 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 
 public interface VSCodeUriResolverServer {
     @JsonRequest("rascal/vfs/input/readFile")
-    default CompletableFuture<ReadFileResult> readFile(ISourceLocationRequest req) {
+    default CompletableFuture<String> readFile(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 

@@ -134,7 +134,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public InputStream getInputStream(ISourceLocation uri) throws IOException {
-        var fileBody = call(s -> s.readFile(param(uri))).getContents();
+        var fileBody = call(s -> s.readFile(param(uri)));
 
         // TODO: do the decoding in a stream, to avoid the extra intermediate
         // byte array

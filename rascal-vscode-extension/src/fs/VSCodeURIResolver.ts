@@ -45,7 +45,7 @@ interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutp
 
 // Rascal's interface reduce to a subset we can support
 interface ISourceLocationInput {
-    readFile(req: ISourceLocationRequest): Promise<ReadFileResult>;
+    readFile(req: ISourceLocationRequest): Promise<string>;
     exists(req: ISourceLocationRequest): Promise<BooleanResult>;
     lastModified(req: ISourceLocationRequest): Promise<TimestampResult>;
     created(req: ISourceLocationRequest): Promise<TimestampResult>;
@@ -65,7 +65,7 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
             new rpc.RequestType1<ISourceLocationRequest, T, void>("rascal/vfs/input/" + method),
             h.bind(handler)));
     }
-    req<ReadFileResult>("readFile", handler.readFile);
+    req<string>("readFile", handler.readFile);
     req<BooleanResult>("exists", handler.exists);
     req<TimestampResult>("lastModified", handler.lastModified);
     req<TimestampResult>("created", handler.created);
@@ -136,13 +136,6 @@ function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventRecei
 
 interface ISourceLocationRequest {
     uri: ISourceLocation;
-}
-
-interface ReadFileResult {
-    /**
-     * base64 encoding of file
-     */
-    contents: string;
 }
 
 export interface BooleanResult {
@@ -292,14 +285,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
 
 
-    async readFile(req: ISourceLocationRequest): Promise<ReadFileResult> {
+    async readFile(req: ISourceLocationRequest): Promise<string> {
         this.logger.trace("[VFS] readFile: ", req.uri);
-        return asyncCatcher(async () => <ReadFileResult>{
-            errorCode: 0,
-            contents: Buffer.from(
-                await this.fs.readFile(this.toUri(req))
-            ).toString("base64")
-        });
+        return asyncCatcher(async () => Buffer.from(await this.fs.readFile(this.toUri(req))).toString("base64"));
     }
 
     isRascalNative(req: ISourceLocationRequest | vscode.Uri) : boolean {

@@ -205,10 +205,10 @@ public interface IRascalFileSystemServices {
     }
 
     @JsonRequest("rascal/filesystem/readFile")
-    default CompletableFuture<LocationContent> readFile(ISourceLocationRequest uri) {
+    default CompletableFuture<String> readFile(ISourceLocationRequest uri) {
         return CompletableFuture.supplyAsync(() -> {
             try (InputStream source = new Base64InputStream(reg.getInputStream(uri.getLocation()), true)) {
-                return new LocationContent(new String(source.readAllBytes(), StandardCharsets.US_ASCII));
+                return new String(source.readAllBytes(), StandardCharsets.US_ASCII);
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
