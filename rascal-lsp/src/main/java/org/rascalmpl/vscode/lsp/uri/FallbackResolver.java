@@ -146,7 +146,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     @Override
     public boolean exists(ISourceLocation uri) {
         try {
-            return call(s -> s.exists(param(uri))).getResult();
+            return call(s -> s.exists(param(uri)));
         } catch (IOException e) {
             return false;
         }
@@ -172,7 +172,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                     return result;
                 }
             }
-            return call(s -> s.isDirectory(param(uri))).getResult();
+            return call(s -> s.isDirectory(param(uri)));
         } catch (IOException e) {
             return false;
         }
@@ -188,7 +188,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                     return !result;
                 }
             }
-            return call(s -> s.isFile(param(uri))).getResult();
+            return call(s -> s.isFile(param(uri)));
         } catch (IOException e) {
             return false;
         }
@@ -340,11 +340,11 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public boolean isReadable(ISourceLocation uri) throws IOException {
-        return call(s -> s.isReadable(param(uri))).getResult();
+        return call(s -> s.isReadable(param(uri)));
     }
     @Override
     public boolean isWritable(ISourceLocation uri) throws IOException {
-        return call(s -> s.isWritable(param(uri))).getResult();
+        return call(s -> s.isWritable(param(uri)));
     }
 
     @Override

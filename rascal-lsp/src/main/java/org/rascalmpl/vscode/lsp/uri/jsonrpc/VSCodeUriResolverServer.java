@@ -29,7 +29,6 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.BooleanResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.DirectoryListingResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
@@ -46,7 +45,7 @@ public interface VSCodeUriResolverServer {
     }
 
     @JsonRequest("rascal/vfs/input/exists")
-    default CompletableFuture<BooleanResult> exists(ISourceLocationRequest req) {
+    default CompletableFuture<Boolean> exists(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
@@ -61,12 +60,12 @@ public interface VSCodeUriResolverServer {
     }
 
     @JsonRequest("rascal/vfs/input/isDirectory")
-    default CompletableFuture<BooleanResult> isDirectory(ISourceLocationRequest req) {
+    default CompletableFuture<Boolean> isDirectory(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/vfs/input/isFile")
-    default CompletableFuture<BooleanResult> isFile(ISourceLocationRequest req) {
+    default CompletableFuture<Boolean> isFile(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
@@ -86,12 +85,12 @@ public interface VSCodeUriResolverServer {
     }
 
     @JsonRequest("rascal/vfs/input/isReadable")
-    default CompletableFuture<BooleanResult> isReadable(ISourceLocationRequest req) {
+    default CompletableFuture<Boolean> isReadable(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/vfs/input/isWritable")
-    default CompletableFuture<BooleanResult> isWritable(ISourceLocationRequest req) {
+    default CompletableFuture<Boolean> isWritable(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 

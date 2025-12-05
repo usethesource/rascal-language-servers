@@ -46,16 +46,16 @@ interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutp
 // Rascal's interface reduce to a subset we can support
 interface ISourceLocationInput {
     readFile(req: ISourceLocationRequest): Promise<string>;
-    exists(req: ISourceLocationRequest): Promise<BooleanResult>;
+    exists(req: ISourceLocationRequest): Promise<boolean>;
     lastModified(req: ISourceLocationRequest): Promise<TimestampResult>;
     created(req: ISourceLocationRequest): Promise<TimestampResult>;
-    isDirectory(req: ISourceLocationRequest): Promise<BooleanResult>;
-    isFile(req: ISourceLocationRequest): Promise<BooleanResult>;
+    isDirectory(req: ISourceLocationRequest): Promise<boolean>;
+    isFile(req: ISourceLocationRequest): Promise<boolean>;
     list(req: ISourceLocationRequest): Promise<DirectoryListingResult>;
     size(req: ISourceLocationRequest): Promise<NumberResult>;
     fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult>;
-    isReadable(req: ISourceLocationRequest): Promise<BooleanResult>;
-    isWritable(req: ISourceLocationRequest): Promise<BooleanResult>;
+    isReadable(req: ISourceLocationRequest): Promise<boolean>;
+    isWritable(req: ISourceLocationRequest): Promise<boolean>;
 }
 
 
@@ -66,16 +66,16 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
             h.bind(handler)));
     }
     req<string>("readFile", handler.readFile);
-    req<BooleanResult>("exists", handler.exists);
+    req<boolean>("exists", handler.exists);
     req<TimestampResult>("lastModified", handler.lastModified);
     req<TimestampResult>("created", handler.created);
-    req<BooleanResult>("isDirectory", handler.isDirectory);
-    req<BooleanResult>("isFile", handler.isFile);
+    req<boolean>("isDirectory", handler.isDirectory);
+    req<boolean>("isFile", handler.isFile);
     req<DirectoryListingResult>("list", handler.list);
     req<NumberResult>("size", handler.size);
     req<FileAttributesResult>("stat", handler.fileStat);
-    req<BooleanResult>("isReadable", handler.isReadable);
-    req<BooleanResult>("isWritable", handler.isWritable);
+    req<boolean>("isReadable", handler.isReadable);
+    req<boolean>("isWritable", handler.isWritable);
 }
 
 // Rascal's interface reduce to a subset we can support
@@ -137,11 +137,6 @@ function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventRecei
 interface ISourceLocationRequest {
     uri: ISourceLocation;
 }
-
-export interface BooleanResult {
-    result: boolean;
-}
-
 
 export interface TimestampResult {
     /**
@@ -296,14 +291,14 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.rascalNativeSchemes.has(scheme);
     }
 
-    async exists(req: ISourceLocationRequest): Promise<BooleanResult> {
+    async exists(req: ISourceLocationRequest): Promise<boolean> {
         this.logger.trace("[VFS] exists: ", req.uri);
         try {
             await this.stat(req);
-            return { result: true };
+            return true;
         }
         catch (_e) {
-            return { result: false };
+            return false;
         }
     }
 
@@ -352,30 +347,28 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.numberResult(req, f => f.size);
     }
 
-    private async boolResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => boolean): Promise<BooleanResult> {
-        return asyncCatcher(async () => <BooleanResult>{
-            result: mapper((await this.stat(req)))
-        });
+    private async boolResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => boolean): Promise<boolean> {
+        return asyncCatcher(async () => mapper((await this.stat(req))));
     }
 
-    isDirectory(req: ISourceLocationRequest): Promise<BooleanResult> {
+    isDirectory(req: ISourceLocationRequest): Promise<boolean> {
         this.logger.trace("[VFS] isDirectory: ", req.uri);
         return this.boolResult(req, f => f.type === vscode.FileType.Directory);
     }
 
-    isFile(req: ISourceLocationRequest): Promise<BooleanResult> {
+    isFile(req: ISourceLocationRequest): Promise<boolean> {
         this.logger.trace("[VFS] isFile: ", req.uri);
         // TODO: figure out how to handle vscode.FileType.Symlink
         return this.boolResult(req, f => f.type === vscode.FileType.File);
     }
 
-    isReadable(req: ISourceLocationRequest): Promise<BooleanResult> {
+    isReadable(req: ISourceLocationRequest): Promise<boolean> {
         this.logger.trace("[VFS] isReadable: ", req.uri);
         // if we can do a stat, we can read
         return this.boolResult(req, _ => true);
     }
 
-    async isWritable(req: ISourceLocationRequest): Promise<BooleanResult> {
+    async isWritable(req: ISourceLocationRequest): Promise<boolean> {
         this.logger.trace("[VFS] isWritable: ", req.uri);
         const scheme = this.toUri(req).scheme;
         const writable = this.fs.isWritableFileSystem(scheme);
@@ -384,7 +377,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
         if (!writable) {
             // not a writable file system, so no need to check the uri
-            return {result : false };
+            return false;
         }
         return this.boolResult(req, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
     }
