@@ -154,12 +154,12 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public long lastModified(ISourceLocation uri) throws IOException {
-        return TimeUnit.SECONDS.toMillis(call(s -> s.lastModified(param(uri))).getTimestamp());
+        return TimeUnit.SECONDS.toMillis(call(s -> s.lastModified(param(uri))));
     }
 
     @Override
     public long created(ISourceLocation uri) throws IOException {
-        return TimeUnit.SECONDS.toMillis(call(s -> s.created(param(uri))).getTimestamp());
+        return TimeUnit.SECONDS.toMillis(call(s -> s.created(param(uri))));
     }
 
     @Override
@@ -335,7 +335,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public long size(ISourceLocation uri) throws IOException {
-        return call(s -> s.size(param(uri))).getResult();
+        return call(s -> s.size(param(uri)));
     }
 
     @Override

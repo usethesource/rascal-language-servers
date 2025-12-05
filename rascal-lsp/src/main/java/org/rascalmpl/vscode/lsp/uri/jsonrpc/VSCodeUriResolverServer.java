@@ -32,9 +32,7 @@ import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.DirectoryListingResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.NumberResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.TimestampResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 
@@ -50,12 +48,12 @@ public interface VSCodeUriResolverServer {
     }
 
     @JsonRequest("rascal/vfs/input/lastModified")
-    default CompletableFuture<TimestampResult> lastModified(ISourceLocationRequest req) {
+    default CompletableFuture<Long> lastModified(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
     @JsonRequest("rascal/vfs/input/created")
-    default CompletableFuture<TimestampResult> created(ISourceLocationRequest req) {
+    default CompletableFuture<Long> created(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
@@ -75,7 +73,7 @@ public interface VSCodeUriResolverServer {
     }
 
     @JsonRequest("rascal/vfs/input/size")
-    default CompletableFuture<NumberResult> size(ISourceLocationRequest req) {
+    default CompletableFuture<Long> size(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 

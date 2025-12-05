@@ -47,12 +47,12 @@ interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutp
 interface ISourceLocationInput {
     readFile(req: ISourceLocationRequest): Promise<string>;
     exists(req: ISourceLocationRequest): Promise<boolean>;
-    lastModified(req: ISourceLocationRequest): Promise<TimestampResult>;
-    created(req: ISourceLocationRequest): Promise<TimestampResult>;
+    lastModified(req: ISourceLocationRequest): Promise<number>;
+    created(req: ISourceLocationRequest): Promise<number>;
     isDirectory(req: ISourceLocationRequest): Promise<boolean>;
     isFile(req: ISourceLocationRequest): Promise<boolean>;
     list(req: ISourceLocationRequest): Promise<DirectoryListingResult>;
-    size(req: ISourceLocationRequest): Promise<NumberResult>;
+    size(req: ISourceLocationRequest): Promise<number>;
     fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult>;
     isReadable(req: ISourceLocationRequest): Promise<boolean>;
     isWritable(req: ISourceLocationRequest): Promise<boolean>;
@@ -67,12 +67,12 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     }
     req<string>("readFile", handler.readFile);
     req<boolean>("exists", handler.exists);
-    req<TimestampResult>("lastModified", handler.lastModified);
-    req<TimestampResult>("created", handler.created);
+    req<number>("lastModified", handler.lastModified);
+    req<number>("created", handler.created);
     req<boolean>("isDirectory", handler.isDirectory);
     req<boolean>("isFile", handler.isFile);
     req<DirectoryListingResult>("list", handler.list);
-    req<NumberResult>("size", handler.size);
+    req<number>("size", handler.size);
     req<FileAttributesResult>("stat", handler.fileStat);
     req<boolean>("isReadable", handler.isReadable);
     req<boolean>("isWritable", handler.isWritable);
@@ -136,13 +136,6 @@ function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventRecei
 
 interface ISourceLocationRequest {
     uri: ISourceLocation;
-}
-
-export interface TimestampResult {
-    /**
-     * Epoch seconds
-     */
-    timestamp: number;
 }
 
 export interface DirectoryListingResult {
@@ -321,28 +314,21 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.fs.stat(this.toUri(req));
     }
 
-    private async timeStampResult(req: ISourceLocationRequest, mapper: (s :vscode.FileStat) => number): Promise<TimestampResult> {
-        return asyncCatcher(async () => <TimestampResult>{
-            timestamp: mapper((await this.stat(req)))
-        });
+    private async numberResult(req: ISourceLocationRequest, mapper: (s: vscode.FileStat) => number): Promise<number> {
+        return asyncCatcher(async () => mapper((await this.stat(req))));
     }
 
-    lastModified(req: ISourceLocationRequest): Promise<TimestampResult> {
+    lastModified(req: ISourceLocationRequest): Promise<number> {
         this.logger.trace("[VFS] lastModified: ", req.uri);
-        return this.timeStampResult(req, f => f.mtime);
+        return this.numberResult(req, f => f.mtime);
     }
-    created(req: ISourceLocationRequest): Promise<TimestampResult> {
+
+    created(req: ISourceLocationRequest): Promise<number> {
         this.logger.trace("[VFS] created: ", req.uri);
-        return this.timeStampResult(req, f => f.ctime);
+        return this.numberResult(req, f => f.ctime);
     }
 
-    private async numberResult(req: ISourceLocationRequest, mapper: (s: vscode.FileStat) => number): Promise<NumberResult> {
-        return asyncCatcher(async () => <NumberResult>{
-            result: mapper((await this.stat(req)))
-        });
-    }
-
-    size(req: ISourceLocationRequest): Promise<NumberResult> {
+    size(req: ISourceLocationRequest): Promise<number> {
         this.logger.trace("[VFS] size: ", req.uri);
         return this.numberResult(req, f => f.size);
     }
