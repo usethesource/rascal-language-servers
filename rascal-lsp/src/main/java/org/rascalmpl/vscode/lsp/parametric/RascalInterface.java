@@ -31,8 +31,6 @@ import java.net.Socket;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.debug.IRascalMonitor;
@@ -54,7 +52,6 @@ import io.usethesource.vallang.IList;
 public class RascalInterface {
     private final @Nullable LanguageRegistry languageRegistry;
     private final IRascalMonitor monitor;
-    private static final Logger logger = LogManager.getLogger(RascalInterface.class);
 
     @SuppressWarnings("resource")
     public RascalInterface(IRascalMonitor monitor) {
@@ -87,9 +84,7 @@ public class RascalInterface {
             monitor.warning("Could not register language: no connection", URIUtil.unknownLocation());
         } else {
             try {
-                logger.info("registerLanguage({})/before", lang);
                 languageRegistry.registerLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
-                logger.info("registerLanguage({})/after", lang);
             } catch (InterruptedException e) {
                 monitor.warning("registerLanuage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
                 Thread.currentThread().interrupt();
@@ -104,9 +99,7 @@ public class RascalInterface {
             monitor.warning("Could not unregister language: no connection", URIUtil.unknownLocation());
         } else {
             try {
-                logger.info("unregisterLanguage({})/before", lang);
                 languageRegistry.unregisterLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
-                logger.info("unregisterLanguage({})/after", lang);
             } catch (InterruptedException e) {
                 monitor.warning("unregisterLanuage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
                 Thread.currentThread().interrupt();
