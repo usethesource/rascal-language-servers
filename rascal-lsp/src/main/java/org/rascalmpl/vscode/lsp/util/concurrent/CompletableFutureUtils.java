@@ -69,7 +69,7 @@ public class CompletableFutureUtils {
      * @param futures The futures to reduce.
      * @return A future that yields a list of the results of the reduced futures.
      */
-    public static <T> CompletableFuture<T> reduce(List<CompletableFuture<T>> futures, BiFunction<T, T, T> merge) {
+    public static <T> CompletableFuture<T> reduce(List<CompletableFuture<T>> futures, BinaryOperator<T> merge) {
         return reduce(futures.subList(1, futures.size()),
             futures.get(0),
             Function.identity(),

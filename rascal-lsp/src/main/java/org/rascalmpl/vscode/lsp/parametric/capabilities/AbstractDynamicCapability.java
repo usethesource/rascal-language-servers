@@ -33,7 +33,7 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
-public abstract class AbstractDynamicCapability<OptionsType> {
+public abstract class AbstractDynamicCapability<O> {
 
     private final String id;
 
@@ -47,11 +47,11 @@ public abstract class AbstractDynamicCapability<OptionsType> {
 
     protected abstract String methodName();
 
-    protected abstract CompletableFuture<@NonNull OptionsType> options(ILanguageContributions contribs);
+    protected abstract CompletableFuture<@NonNull O> options(ILanguageContributions contribs);
 
     protected abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
 
-    protected abstract @NonNull OptionsType mergeOptions(Object existingOpts, Object newOpts);
+    protected abstract @NonNull O mergeOptions(Object existingOpts, Object newOpts);
 
     protected boolean preferStaticRegistration() {
         return false;

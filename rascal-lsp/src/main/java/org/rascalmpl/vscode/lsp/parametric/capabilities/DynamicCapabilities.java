@@ -42,6 +42,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
@@ -89,7 +90,7 @@ public class DynamicCapabilities {
         logger.debug("Registering some capabilities");
 
         // Compute registrations purely based on contributions
-        // This requires waiting for an evaluator to load, which takes long, and should not block our logbook
+        // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
         return CompletableFutureUtils.reduce(supportedCapabilities.stream().map(c -> registration(c, contribs)))
             .thenAccept(capabilities -> {
                 // Since we have some bookkeeping to do, we will now block our logbook for a moment
@@ -104,29 +105,13 @@ public class DynamicCapabilities {
                         }
 
                         // Check if we already have this registration
-                        var existing = currentRegistrations.get(registration.getMethod());
-                        if (existing != null) {
-                            logger.trace("We registered {} before", registration.getMethod());
-                            // We registered this capability before.
-                            // Let's see if we need to make any changes do the registration.
-                            var existingOpts = existing.getRegisterOptions();
-                            Object mergedOpts = null;
-                            if (existingOpts != null &&
-                                (mergedOpts = cap.mergeOptions(existingOpts, registration.getRegisterOptions())) != null &&
-                                !existingOpts.equals(mergedOpts)) {
-                                logger.debug("Options for dynamic capability {} changed: {} vs. {}", registration.getMethod(), existing.getRegisterOptions(), mergedOpts);
-                                // The options of the registration changed; we need to unregister it, and update the options for the new registration.
-                                unregistrations.add(unregistration(cap));
-                                registration.setRegisterOptions(mergedOpts);
-                            } else {
-                                // Nothing changed; do not register this.
-                                logger.trace("No option changes for {}", registration.getMethod());
-                                continue;
-                            }
-                        }
+                        var unregistration = computeOptionChanges(registration, currentRegistrations.get(registration.getMethod()), cap);
 
                         logger.trace("Adding dynamic capability {} to task list", registration.getMethod());
                         registrations.add(registration);
+                        if (unregistration != null) {
+                            unregistrations.add(unregistration);
+                        }
                     }
 
                     try {
@@ -143,6 +128,28 @@ public class DynamicCapabilities {
             logger.error("Unexpected error occurred while updating dynamic capabilities", e);
             return null;
         });
+    }
+
+    private @Nullable Unregistration computeOptionChanges(Registration registration, @Nullable Registration existing, AbstractDynamicCapability<?> cap) {
+        if (existing == null) {
+            logger.trace("No option changes for {}", registration.getMethod());
+            return null;
+        }
+
+        logger.trace("We registered {} before", registration.getMethod());
+        // Let's see if we need to make any changes do the registration.
+        var existingOpts = existing.getRegisterOptions();
+        Object mergedOpts = null;
+        if (existingOpts != null &&
+            (mergedOpts = cap.mergeOptions(existingOpts, registration.getRegisterOptions())) != null &&
+            !existingOpts.equals(mergedOpts)) {
+            logger.debug("Options for dynamic capability {} changed: {} vs. {}", registration.getMethod(), existing.getRegisterOptions(), mergedOpts);
+            // The options of the registration changed; we need to unregister it, and update the options for the new registration.
+            registration.setRegisterOptions(mergedOpts);
+            return unregistration(cap);
+        }
+
+        return null;
     }
 
     public CompletableFuture<Void> updateCapabilities(Map<String, LanguageContributionsMultiplexer> contribs) {
