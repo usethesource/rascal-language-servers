@@ -214,6 +214,7 @@ public class DynamicCapabilitiesTest {
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
         inOrder.verify(client).unregisterCapability(unregistrationCaptor.capture());
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        inOrder.verifyNoMoreInteractions();
 
         assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false)), registrationOptions(registrationCaptor.getAllValues().get(0)));
         assertEquals(List.of("textDocument/completion"), unregistrationOptions(unregistrationCaptor.getValue()));
@@ -277,6 +278,7 @@ public class DynamicCapabilitiesTest {
         InOrder inOrder = inOrder(client);
         inOrder.verify(client).registerCapability(any());
         inOrder.verify(client).unregisterCapability(any());
+        inOrder.verifyNoMoreInteractions();
     }
 
     @Test
@@ -303,6 +305,7 @@ public class DynamicCapabilitiesTest {
         dynCap.registerCapabilities(contrib).get();
 
         verify(client, never()).registerCapability(any());
+        verify(client, never()).unregisterCapability(any());
     }
 
     @Test
@@ -321,6 +324,7 @@ public class DynamicCapabilitiesTest {
         dynCap.registerCapabilities(new SomeContribs(".")).get();
 
         verify(client, never()).registerCapability(any());
+        verify(client, never()).unregisterCapability(any());
         verify(serverCaps).setCompletionProvider(Mockito.notNull());
     }
 
