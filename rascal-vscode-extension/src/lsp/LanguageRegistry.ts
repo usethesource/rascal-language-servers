@@ -24,10 +24,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { Disposable, LogOutputChannel } from 'vscode';
 import * as rpc from 'vscode-jsonrpc/node';
-import { JsonRpcServer } from '../util/JsonRpcServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './ParameterizedLanguageServer';
+import { Disposable, LogOutputChannel } from 'vscode';
+import { JsonRpcServer } from '../util/JsonRpcServer';
 
 /**
  * Json-rpc server that handles registration and unregistration of languages
