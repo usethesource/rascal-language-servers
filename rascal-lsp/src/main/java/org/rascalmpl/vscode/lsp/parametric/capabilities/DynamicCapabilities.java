@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -105,13 +106,22 @@ public class DynamicCapabilities {
                         }
 
                         // Check if we already have this registration
-                        var unregistration = computeOptionChanges(registration, currentRegistrations.get(registration.getMethod()), cap);
+                        var existingRegistration = currentRegistrations.get(registration.getMethod());
+                        if (existingRegistration != null) {
+                            if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
+                                logger.trace("No option changes for {}", registration.getMethod());
+                                continue;
+                            }
 
-                        logger.trace("Adding dynamic capability {} to task list", registration.getMethod());
-                        registrations.add(registration);
-                        if (unregistration != null) {
-                            unregistrations.add(unregistration);
+                            // Otherwise, compute merged options
+                            var unregistration = computeOptionChanges(registration, existingRegistration.getRegisterOptions(), cap);
+
+                            logger.trace("Adding dynamic capability {} to task list", registration.getMethod());
+                            if (unregistration != null) {
+                                unregistrations.add(unregistration);
+                            }
                         }
+                        registrations.add(registration);
                     }
 
                     try {
@@ -130,23 +140,14 @@ public class DynamicCapabilities {
         });
     }
 
-    private @Nullable Unregistration computeOptionChanges(Registration registration, @Nullable Registration existing, AbstractDynamicCapability<?> cap) {
-        if (existing == null) {
-            logger.trace("No option changes for {}", registration.getMethod());
-            return null;
-        }
-
-        logger.trace("We registered {} before", registration.getMethod());
-        // Let's see if we need to make any changes do the registration.
-        var existingOpts = existing.getRegisterOptions();
-        if (existingOpts != null) {
-            var mergedOpts = cap.mergeOptions(existingOpts, registration.getRegisterOptions());
-            if (!existingOpts.equals(mergedOpts)) {
-                logger.debug("Options for dynamic capability {} changed: {} vs. {}", registration.getMethod(), existing.getRegisterOptions(), mergedOpts);
-                // The options of the registration changed; we need to unregister it, and update the options for the new registration.
-                registration.setRegisterOptions(mergedOpts);
-                return unregistration(cap);
-            }
+    private @Nullable Unregistration computeOptionChanges(Registration registration, Object existingOpts, AbstractDynamicCapability<?> cap) {
+        // Options are not equal and not null. We need to check if anything changes after merging them.
+        var mergedOpts = cap.mergeOptions(existingOpts, registration.getRegisterOptions());
+        if (!existingOpts.equals(mergedOpts)) {
+            logger.debug("Options for dynamic capability {} changed: {} vs. {}", registration.getMethod(), existingOpts, mergedOpts);
+            // The options of the registration changed; we need to unregister it, and update the options for the new registration.
+            registration.setRegisterOptions(mergedOpts);
+            return unregistration(cap);
         }
 
         return null;

@@ -221,6 +221,20 @@ public class DynamicCapabilitiesTest {
     }
 
     @Test
+    public void registerIndenticalContribution() throws InterruptedException, ExecutionException {
+        for (var trigChars : Arrays.asList(List.of(".", "::"), List.of(".", "::"))) {
+            var contribs = new SomeContribs(trigChars);
+            dynCap.registerCapabilities(contribs).get();
+        }
+
+        InOrder inOrder = inOrder(client);
+        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        inOrder.verifyNoMoreInteractions();
+
+        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false)), registrationOptions(registrationCaptor.getAllValues().get(0)));
+    }
+
+    @Test
     public void registerOverlappingContributions() throws InterruptedException, ExecutionException {
         Map<String, LanguageContributionsMultiplexer> contribs = new HashMap<>();
         for (var trigChars : Arrays.asList(List.of("."), List.of(":"))) {
