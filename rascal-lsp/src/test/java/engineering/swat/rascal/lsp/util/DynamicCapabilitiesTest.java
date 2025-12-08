@@ -27,8 +27,11 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.only;
+import static org.mockito.Mockito.verify;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -40,9 +43,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
 import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
+import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.TextDocumentClientCapabilities;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -67,12 +74,11 @@ import io.usethesource.vallang.IList;
 public class DynamicCapabilitiesTest {
 
     private final Executor exec = Executors.newCachedThreadPool();
-    private final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
     private DynamicCapabilities dynCap;
 
+    // Mocks
     @Spy private LanguageClientStub client;
-
     @Captor ArgumentCaptor<RegistrationParams> registrationCaptor;
     @Captor ArgumentCaptor<UnregistrationParams> unregistrationCaptor;
 
@@ -104,6 +110,7 @@ public class DynamicCapabilitiesTest {
         public SomeContribs(List<String> completionTriggerChars) {
             super("test-contribs", exec);
 
+            var VF = IRascalValueFactory.getInstance();
             this.completionTriggerChars = completionTriggerChars.stream()
                 .map(VF::string)
                 .collect(VF.listWriter());
@@ -156,7 +163,7 @@ public class DynamicCapabilitiesTest {
     }
 
     @Test
-    public void basicRegistration() throws InterruptedException, ExecutionException {
+    public void registerSingleContribution() throws InterruptedException, ExecutionException {
         var trigChars = List.of(".", "::");
         var contribs = new SomeContribs(trigChars);
 
@@ -167,7 +174,7 @@ public class DynamicCapabilitiesTest {
     }
 
     @Test
-    public void additionalRegistration() throws InterruptedException, ExecutionException {
+    public void registerOverlappingContributions() throws InterruptedException, ExecutionException {
         for (var trigChars : Arrays.asList(List.of(".", "::"), List.of("+", "*", "-", "/", "%"))) {
             var contribs = new SomeContribs(trigChars);
             dynCap.registerCapabilities(contribs).get();
@@ -181,6 +188,61 @@ public class DynamicCapabilitiesTest {
         assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false)), registrationOptions(registrationCaptor.getAllValues().get(0)));
         assertEquals(List.of("textDocument/completion"), unregistrationOptions(unregistrationCaptor.getValue()));
         assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::", "+", "*", "-", "/", "%"), false)), registrationOptions(registrationCaptor.getAllValues().get(1)));
+    }
+
+    @Test
+    public void registerAndUnregister() throws InterruptedException, ExecutionException {
+        dynCap.registerCapabilities(new SomeContribs(List.of("."))).get();
+        dynCap.updateCapabilities(Map.of()).get(); // empty multiplexer
+
+        InOrder inOrder = inOrder(client);
+        inOrder.verify(client).registerCapability(any());
+        inOrder.verify(client).unregisterCapability(any());
+    }
+
+    @Test
+    public void registerAndUpdateEmpty() throws InterruptedException, ExecutionException {
+        var contrib = new SomeContribs(List.of("."));
+        dynCap.registerCapabilities(contrib).get();
+        dynCap.registerCapabilities(new NoContributions(contrib.getName(), exec)).get();
+
+        verify(client).registerCapability(any());
+        verify(client, never()).unregisterCapability(any());
+    }
+
+    @Test
+    public void hasNoDynamicCapability() throws InterruptedException, ExecutionException {
+        var contrib = new SomeContribs(List.of("."));
+
+        var complCaps = new CompletionCapabilities();
+        complCaps.setDynamicRegistration(false);
+        var docCaps = new TextDocumentClientCapabilities();
+        docCaps.setCompletion(complCaps);
+        var clientCaps = new ClientCapabilities(null, docCaps, null);
+
+        dynCap.setStaticCapabilities(clientCaps, new ServerCapabilities());
+        dynCap.registerCapabilities(contrib).get();
+
+        verify(client, never()).registerCapability(any());
+    }
+
+    @Test
+    public void preferStaticRegistration() throws InterruptedException, ExecutionException {
+        class StaticCompletionCapabilty extends CompletionCapability {
+            @Override
+            protected boolean preferStaticRegistration() {
+                return true;
+            }
+        }
+
+        dynCap = new DynamicCapabilities(client, List.of(new StaticCompletionCapabilty()));
+
+        ServerCapabilities serverCaps = Mockito.mock();
+        dynCap.setStaticCapabilities(null, serverCaps);
+        dynCap.registerCapabilities(new SomeContribs(List.of("."))).get();
+
+        verify(client, never()).registerCapability(any());
+        verify(serverCaps).setCompletionProvider(Mockito.notNull());
     }
 
 }
