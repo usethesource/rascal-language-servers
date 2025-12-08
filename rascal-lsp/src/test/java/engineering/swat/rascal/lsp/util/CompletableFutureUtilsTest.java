@@ -30,6 +30,7 @@ import static org.junit.Assert.assertEquals;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.flatten;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -38,7 +39,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
-
 import org.apache.commons.compress.utils.Sets;
 import org.junit.Before;
 import org.junit.Test;
@@ -63,6 +63,12 @@ public class CompletableFutureUtilsTest {
     public void reduceList() throws InterruptedException, ExecutionException {
         CompletableFuture<List<Integer>> reduced = reduce(futList);
         assertEquals(Arrays.asList(1, 2, 3), reduced.get());
+    }
+
+    @Test
+    public void reduceList2() throws InterruptedException, ExecutionException {
+        var reduced = reduce(futList, (l, r) -> l + r);
+        assertEquals(6, reduced.get().intValue());
     }
 
     @Test
@@ -127,5 +133,12 @@ public class CompletableFutureUtilsTest {
         var s = new HashSet<>(l);
         s.addAll(r);
         return s;
+    }
+
+    private <T> List<T> listConcat(List<T> l, List<T> r) {
+        List<T> lr = new ArrayList<>(l.size() + r.size());
+        lr.addAll(l);
+        lr.addAll(r);
+        return lr;
     }
 }
