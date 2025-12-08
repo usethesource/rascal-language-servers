@@ -110,10 +110,10 @@ public class DynamicCapabilitiesTest {
         public SomeContribs(List<String> completionTriggerChars) {
             super("test-contribs", exec);
 
-            var VF = IRascalValueFactory.getInstance();
+            var vf = IRascalValueFactory.getInstance();
             this.completionTriggerChars = completionTriggerChars.stream()
-                .map(VF::string)
-                .collect(VF.listWriter());
+                .map(vf::string)
+                .collect(vf.listWriter());
         }
 
         @Override

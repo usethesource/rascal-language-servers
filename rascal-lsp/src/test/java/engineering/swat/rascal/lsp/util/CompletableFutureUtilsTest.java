@@ -30,7 +30,6 @@ import static org.junit.Assert.assertEquals;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.flatten;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -135,10 +134,4 @@ public class CompletableFutureUtilsTest {
         return s;
     }
 
-    private <T> List<T> listConcat(List<T> l, List<T> r) {
-        List<T> lr = new ArrayList<>(l.size() + r.size());
-        lr.addAll(l);
-        lr.addAll(r);
-        return lr;
-    }
 }
