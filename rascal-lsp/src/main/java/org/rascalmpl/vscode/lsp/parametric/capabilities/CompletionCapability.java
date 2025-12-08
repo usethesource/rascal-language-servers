@@ -49,11 +49,13 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     @Override
     protected CompletableFuture<CompletionRegistrationOptions> options(ILanguageContributions contribs) {
         return contribs.completionTriggerCharacters()
-            .thenApply(triggers -> triggers.stream()
-                .map(IString.class::cast)
-                .map(IString::getValue)
-                .collect(Collectors.toList()))
-            .thenApply(triggers -> new CompletionRegistrationOptions(triggers, false));
+            .thenApply(triggers -> {
+                var trigList = triggers.stream()
+                    .map(IString.class::cast)
+                    .map(IString::getValue)
+                    .collect(Collectors.toList());
+                return new CompletionRegistrationOptions(trigList, false);
+            });
     }
 
     @Override

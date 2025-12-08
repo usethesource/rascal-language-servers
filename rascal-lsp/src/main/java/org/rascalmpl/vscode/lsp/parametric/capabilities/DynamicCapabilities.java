@@ -160,7 +160,7 @@ public class DynamicCapabilities {
     }
 
     private CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
-        return CompletableFutureUtils.reduce(supportedCapabilities.stream()
+        return CompletableFutureUtils.flatten(supportedCapabilities.stream()
             .map(cap -> anyTrue(contribs, cap::hasContribution)
                 .thenCompose(b -> {
                     if (b.booleanValue()) {
@@ -169,12 +169,15 @@ public class DynamicCapabilities {
                             .map(c -> cap.options(c).thenApply(Object.class::cast))
                             .collect(Collectors.toList());
                         return CompletableFutureUtils.reduce(remainingOptions, cap::mergeOptions)
-                            .thenApply(opts -> Either.<Registration, Unregistration>forLeft(registration(cap, opts)));
+                            .thenApply(opts -> List.of(
+                                Either.<Registration, Unregistration>forRight(unregistration(cap)),
+                                Either.<Registration, Unregistration>forLeft(registration(cap, opts))
+                            ));
                     } else {
                         // does not have contrib
-                        return CompletableFuture.completedFuture(Either.<Registration, Unregistration>forRight(unregistration(cap)));
+                        return CompletableFuture.completedFuture(List.of(Either.<Registration, Unregistration>forRight(unregistration(cap))));
                     }
-                })))
+                })), List::of)
             .thenAccept(es -> {
                 List<Registration> registrations = new LinkedList<>();
                 List<Unregistration> unregistrations = new LinkedList<>();

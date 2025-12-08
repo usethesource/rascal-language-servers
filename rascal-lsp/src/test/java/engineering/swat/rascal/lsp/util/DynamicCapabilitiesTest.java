@@ -68,6 +68,7 @@ import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
 import org.rascalmpl.vscode.lsp.parametric.NoContributions;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicCapabilities;
@@ -109,6 +110,7 @@ public class DynamicCapabilitiesTest {
     class SomeContribs extends NoContributions {
 
         private final IList completionTriggerChars;
+        private final Executor exec;
 
         public SomeContribs(String completionTriggerChar) {
             this(List.of(completionTriggerChar));
@@ -121,6 +123,8 @@ public class DynamicCapabilitiesTest {
         public SomeContribs(List<String> completionTriggerChars, Executor exec) {
             super("test-contribs", exec);
 
+            this.exec = exec;
+
             var vf = IRascalValueFactory.getInstance();
             this.completionTriggerChars = completionTriggerChars.stream()
                 .map(vf::string)
@@ -129,12 +133,27 @@ public class DynamicCapabilitiesTest {
 
         @Override
         public CompletableFuture<IList> completionTriggerCharacters() {
-            return CompletableFuture.completedFuture(completionTriggerChars);
+            return CompletableFutureUtils.completedFuture(completionTriggerChars, exec);
         }
 
         @Override
         public CompletableFuture<Boolean> hasCompletion() {
-            return CompletableFuture.completedFuture(true);
+            return CompletableFutureUtils.completedFuture(true, exec);
+        }
+
+        @Override
+        public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
+            return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
+        }
+
+        @Override
+        public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
+            return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
+        }
+
+        @Override
+        public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
+            return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
         }
 
     }
@@ -185,7 +204,7 @@ public class DynamicCapabilitiesTest {
     }
 
     @Test
-    public void registerOverlappingContributions() throws InterruptedException, ExecutionException {
+    public void registerReplacingContribution() throws InterruptedException, ExecutionException {
         for (var trigChars : Arrays.asList(List.of(".", "::"), List.of("+", "*", "-", "/", "%"))) {
             var contribs = new SomeContribs(trigChars);
             dynCap.registerCapabilities(contribs).get();
@@ -199,6 +218,41 @@ public class DynamicCapabilitiesTest {
         assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false)), registrationOptions(registrationCaptor.getAllValues().get(0)));
         assertEquals(List.of("textDocument/completion"), unregistrationOptions(unregistrationCaptor.getValue()));
         assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::", "+", "*", "-", "/", "%"), false)), registrationOptions(registrationCaptor.getAllValues().get(1)));
+    }
+
+    @Test
+    public void registerOverlappingContributions() throws InterruptedException, ExecutionException {
+        Map<String, LanguageContributionsMultiplexer> contribs = new HashMap<>();
+        for (var trigChars : Arrays.asList(List.of("."), List.of(":"))) {
+            var c = new SomeContribs(trigChars);
+            dynCap.registerCapabilities(c).get();
+            var plex = contribs.computeIfAbsent(c.getName(), (_k) -> new LanguageContributionsMultiplexer(c.getName(), Executors.newCachedThreadPool()));
+            // unique contribution key, so we keep both
+            plex.addContributor(trigChars.toString(), c);
+        }
+
+        // unregister one of both
+        var name = contribs.keySet().iterator().next();
+        contribs.get(name).removeContributor(List.of(".").toString());
+
+        dynCap.updateCapabilities(contribs).get();
+
+        InOrder inOrder = inOrder(client);
+        // intial registration
+        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of("."), false)), registrationOptions(registrationCaptor.getValue()));
+
+        // extra registration with extra trigger characters
+        inOrder.verify(client).unregisterCapability(any());
+        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", ":"), false)), registrationOptions(registrationCaptor.getValue()));
+
+        // unregistration (partial)
+        inOrder.verify(client).unregisterCapability(any());
+        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(":"), false)), registrationOptions(registrationCaptor.getValue()));
+
+        inOrder.verifyNoMoreInteractions();
     }
 
     @Test
