@@ -33,7 +33,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.only;
 import static org.mockito.Mockito.verify;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +43,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
@@ -67,13 +71,12 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.parametric.NoContributions;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicCapabilities;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import io.usethesource.vallang.IList;
 
 @RunWith(MockitoJUnitRunner.class)
 public class DynamicCapabilitiesTest {
-
-    private final Executor exec = Executors.newCachedThreadPool();
 
     private DynamicCapabilities dynCap;
 
@@ -107,7 +110,15 @@ public class DynamicCapabilitiesTest {
 
         private final IList completionTriggerChars;
 
+        public SomeContribs(String completionTriggerChar) {
+            this(List.of(completionTriggerChar));
+        }
+
         public SomeContribs(List<String> completionTriggerChars) {
+            this(completionTriggerChars, Executors.newCachedThreadPool());
+        }
+
+        public SomeContribs(List<String> completionTriggerChars, Executor exec) {
             super("test-contribs", exec);
 
             var vf = IRascalValueFactory.getInstance();
@@ -202,9 +213,9 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void registerAndUpdateEmpty() throws InterruptedException, ExecutionException {
-        var contrib = new SomeContribs(List.of("."));
+        var contrib = new SomeContribs(".");
         dynCap.registerCapabilities(contrib).get();
-        dynCap.registerCapabilities(new NoContributions(contrib.getName(), exec)).get();
+        dynCap.registerCapabilities(new NoContributions(contrib.getName(), Executors.newCachedThreadPool())).get();
 
         verify(client).registerCapability(any());
         verify(client, never()).unregisterCapability(any());
@@ -212,7 +223,7 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void hasNoDynamicCapability() throws InterruptedException, ExecutionException {
-        var contrib = new SomeContribs(List.of("."));
+        var contrib = new SomeContribs(".");
 
         var complCaps = new CompletionCapabilities();
         complCaps.setDynamicRegistration(false);
@@ -239,10 +250,47 @@ public class DynamicCapabilitiesTest {
 
         ServerCapabilities serverCaps = Mockito.mock();
         dynCap.setStaticCapabilities(null, serverCaps);
-        dynCap.registerCapabilities(new SomeContribs(List.of("."))).get();
+        dynCap.registerCapabilities(new SomeContribs(".")).get();
 
         verify(client, never()).registerCapability(any());
         verify(serverCaps).setCompletionProvider(Mockito.notNull());
+    }
+
+    @Test
+    public void multiThreadingConisistency() throws InterruptedException, ExecutionException {
+        int N = 50;
+        List<CompletableFuture<Void>> jobs = new ArrayList<>(N);
+        var exec = Executors.newFixedThreadPool(N / 2); // less threads than jobs; causes some overlap
+
+        for (int i = 0; i < N; i++) {
+            final var trig = Integer.toString(i);
+            var job = CompletableFuture.supplyAsync(() -> {
+                var contribs = new SomeContribs(List.of(trig), exec);
+                return dynCap.registerCapabilities(contribs);
+            }, exec).thenCompose(Function.identity());
+            jobs.add(job);
+        }
+
+        // Await all parallel jobs
+        CompletableFutureUtils.reduce(jobs).get();
+
+        InOrder inOrder = inOrder(client);
+
+        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        for (int i = 1; i < N; i++) {
+            inOrder.verify(client).unregisterCapability(unregistrationCaptor.capture());
+            inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        }
+        inOrder.verifyNoMoreInteractions();
+
+        var opts = (CompletionRegistrationOptions) registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions();
+        var expectedTrigChars = IntStream.range(0, N).boxed().map(i -> i.toString()).collect(Collectors.toList());
+        var trigChars = opts.getTriggerCharacters();
+
+        Collections.sort(expectedTrigChars);
+        Collections.sort(trigChars);
+
+        assertEquals(expectedTrigChars, trigChars);
     }
 
 }
