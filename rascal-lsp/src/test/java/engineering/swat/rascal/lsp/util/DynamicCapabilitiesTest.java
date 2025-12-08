@@ -241,7 +241,7 @@ public class DynamicCapabilitiesTest {
         for (var trigChars : Arrays.asList(List.of("."), List.of(":"))) {
             var c = new SomeContribs(trigChars);
             dynCap.registerCapabilities(c).get();
-            var plex = contribs.computeIfAbsent(c.getName(), (_k) -> new LanguageContributionsMultiplexer(c.getName(), Executors.newCachedThreadPool()));
+            var plex = contribs.computeIfAbsent(c.getName(), _k -> new LanguageContributionsMultiplexer(c.getName(), Executors.newCachedThreadPool()));
             // unique contribution key, so we keep both
             plex.addContributor(trigChars.toString(), c);
         }
@@ -356,7 +356,7 @@ public class DynamicCapabilitiesTest {
         inOrder.verifyNoMoreInteractions();
 
         var opts = (CompletionRegistrationOptions) registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions();
-        var expectedTrigChars = IntStream.range(0, N).boxed().map(i -> i.toString()).collect(Collectors.toList());
+        var expectedTrigChars = IntStream.range(0, N).boxed().map(Object::toString).collect(Collectors.toList());
         var trigChars = opts.getTriggerCharacters();
 
         Collections.sort(expectedTrigChars);
