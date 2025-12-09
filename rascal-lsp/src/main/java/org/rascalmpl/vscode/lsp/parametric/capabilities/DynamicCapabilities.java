@@ -187,9 +187,17 @@ public class DynamicCapabilities {
                     if (b.booleanValue()) {
                         // has contrib; calculate merged options
                         var remainingOptions = contribs.stream()
-                            .map(c -> cap.options(c).thenApply(Object.class::cast))
+                            .<CompletableFuture<@Nullable Object>>map(c -> cap.options(c).<@Nullable Object>thenApply(Object.class::cast))
                             .collect(Collectors.toList());
-                        return CompletableFutureUtils.reduce(remainingOptions, cap::mergeOptions)
+                        return CompletableFutureUtils.reduce(remainingOptions, (l, r) -> {
+                                if (l == null) {
+                                    return r;
+                                }
+                                if (r == null) {
+                                    return l;
+                                }
+                                return cap.mergeOptions(l, r);
+                            })
                             .thenApply(opts -> List.of(
                                 Either.<Registration, Unregistration>forRight(unregistration(cap)),
                                 Either.<Registration, Unregistration>forLeft(registration(cap, opts))
@@ -238,7 +246,7 @@ public class DynamicCapabilities {
         );
     }
 
-    private static Registration registration(AbstractDynamicCapability<?> cap, Object opts) {
+    private static Registration registration(AbstractDynamicCapability<?> cap, @Nullable Object opts) {
         if (opts != null) {
             return new Registration(cap.id(), cap.methodName(), opts);
         }

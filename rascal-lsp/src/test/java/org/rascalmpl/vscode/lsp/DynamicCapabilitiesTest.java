@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -357,7 +358,7 @@ public class DynamicCapabilitiesTest {
 
         var opts = (CompletionRegistrationOptions) registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions();
         var expectedTrigChars = IntStream.range(0, N).boxed().map(Object::toString).collect(Collectors.toList());
-        var trigChars = opts.getTriggerCharacters();
+        var trigChars = new LinkedList<>(opts.getTriggerCharacters());
 
         Collections.sort(expectedTrigChars);
         Collections.sort(trigChars);

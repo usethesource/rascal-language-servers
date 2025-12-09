@@ -26,11 +26,11 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.LinkedList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
@@ -52,7 +52,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected CompletableFuture<CompletionRegistrationOptions> options(ILanguageContributions contribs) {
+    protected CompletableFuture<@Nullable CompletionRegistrationOptions> options(ILanguageContributions contribs) {
         return contribs.completionTriggerCharacters()
             .thenApply(triggers -> {
                 var trigList = triggers.stream()
@@ -70,26 +70,23 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
 
     @Override
     protected CompletionRegistrationOptions mergeOptions(Object existingObj, Object newObj) {
-        var newOpts = (CompletionRegistrationOptions) newObj;
-        var existingOpts = (CompletionRegistrationOptions) existingObj;
-        return new CompletionRegistrationOptions(union(existingOpts.getTriggerCharacters(), newOpts.getTriggerCharacters()), false);
+        return new CompletionRegistrationOptions(union(
+            ((CompletionRegistrationOptions) existingObj).getTriggerCharacters(),
+            ((CompletionRegistrationOptions) newObj).getTriggerCharacters()
+        ), false);
     }
 
-    private <T> List<@NonNull T> union(List<@NonNull T> left, List<@NonNull T> right) {
+    private <T> List<T> union(List<T> left, List<T> right) {
         if (right.isEmpty()) {
             return left;
         }
         if (left.isEmpty()) {
             return right;
         }
-        List<@NonNull T> merged = new LinkedList<>(left);
-        for (T t : right) {
-            if (!left.contains(t)) {
-                merged.add(t);
-            }
-        }
 
-        return merged;
+        var merged = new LinkedHashSet<>(left);
+        merged.addAll(right);
+        return List.copyOf(merged);
     }
 
     @Override

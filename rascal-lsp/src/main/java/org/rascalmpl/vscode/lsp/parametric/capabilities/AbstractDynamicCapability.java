@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.parametric.capabilities;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
@@ -56,7 +57,7 @@ public abstract class AbstractDynamicCapability<O> {
      * @param contribs The {@link ILanguageContributions} that this capability reflects.
      * @return A future resolving to options
      */
-    protected abstract CompletableFuture<@NonNull O> options(ILanguageContributions contribs);
+    protected abstract CompletableFuture<@Nullable O> options(ILanguageContributions contribs);
 
     /**
      * Checks whether the givien language contributions contain a contribution that matches this capability.
