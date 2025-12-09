@@ -220,7 +220,7 @@ public class DynamicCapabilities {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } catch (ExecutionException e) {
-                    logger.error("Doing registrations failed!", e);
+                    logger.error("Doing registrations failed!", Objects.requireNonNullElse(e.getCause(), e));
                 }
             });
     }

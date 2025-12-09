@@ -249,7 +249,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private DynamicCapabilities availableCapabilities() {
         if (dynamicCapabilities == null) {
-            throw new IllegalStateException("Dynamic capabilities should not be `null`");
+            throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
         }
         return dynamicCapabilities;
     }
