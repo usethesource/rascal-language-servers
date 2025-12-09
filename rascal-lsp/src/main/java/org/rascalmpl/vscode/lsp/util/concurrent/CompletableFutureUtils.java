@@ -38,9 +38,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.PolyNull;
-import org.rascalmpl.values.IRascalValueFactory;
-
-import io.usethesource.vallang.IList;
 
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
@@ -77,6 +74,7 @@ public class CompletableFutureUtils {
         );
     }
 
+
     /**
      * Reduces a {@link Stream} of {@link CompletableFuture} to a single future that produces a {@link Collection}.
      * @param <T> The type of the values that the futures yield.
@@ -87,30 +85,6 @@ public class CompletableFutureUtils {
         return reduce(futures,
             LinkedList::new,
             Collections::singletonList, // unmodifiable, but never added to
-            CompletableFutureUtils::concat
-        );
-    }
-
-    /**
-     * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link IList} to a single future that produces an {@link Iterable}.
-     * @param futures The futures of which to reduce the result lists.
-     * @return A future that yields a list of all the elements in the lists from the reduced futures.
-     */
-    public static CompletableFuture<IList> flatten(Stream<CompletableFuture<IList>> futures) {
-        return flatten(futures, IRascalValueFactory.getInstance()::list, IList::concat);
-    }
-
-    /**
-     * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link Iterable} to a single future that produces an {@link Iterable}.
-     * @param <I> The type of the result of the futures.
-     * @param futures The futures of which to reduce the result lists.
-     * @param identity The identity function of {@link I}.
-     * @return A future that yields a list of all the elements in the lists from the reduced futures.
-     */
-    public static <I> CompletableFuture<List<I>> flatten(Stream<CompletableFuture<List<I>>> futures, Supplier<List<I>> identity) {
-        return reduce(futures,
-            identity,
-            Function.identity(),
             CompletableFutureUtils::concat
         );
     }
@@ -161,7 +135,7 @@ public class CompletableFutureUtils {
      * @return A single future that, if it completes, yields the reduced result.
      */
     public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
-            Supplier<? extends C> identity, Function<? super I, ? extends C> map, BiFunction<? super C, ? super C, ? extends C> concat) {
+            Supplier<C> identity, Function<I, C> map, BiFunction<C, C, C> concat) {
         CompletableFuture<C> result = CompletableFuture.completedFuture(identity.get());
         for (var fut : futures) {
             result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, map.apply(t)));

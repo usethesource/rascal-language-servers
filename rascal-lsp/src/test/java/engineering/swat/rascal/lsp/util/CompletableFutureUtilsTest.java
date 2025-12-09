@@ -65,12 +65,6 @@ public class CompletableFutureUtilsTest {
     }
 
     @Test
-    public void reduceList2() throws InterruptedException, ExecutionException {
-        var reduced = reduce(futList, (l, r) -> l + r);
-        assertEquals(6, reduced.get().intValue());
-    }
-
-    @Test
     public void reduceStream() throws InterruptedException, ExecutionException {
         CompletableFuture<List<Integer>> reduced = reduce(futList.stream());
         assertEquals(Arrays.asList(1, 2, 3), reduced.get());

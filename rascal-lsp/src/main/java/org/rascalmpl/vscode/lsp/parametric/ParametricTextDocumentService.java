@@ -273,17 +273,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setCallHierarchyProvider(true);
     }
 
-    @Override
-    public void connect(LanguageClient client) {
-        this.client = client;
-        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()));
-        facts.values().forEach(v -> v.setClient(client));
-        if (dedicatedLanguage != null) {
-            // if there was one scheduled, we now start it up, since the connection has been made
-            this.registerLanguage(dedicatedLanguage);
-        }
-    }
-
     private String getRascalMetaCommandName() {
         // if we run in dedicated mode, we prefix the commands with our language name
         // to avoid ambiguity with other dedicated languages and the generic rascal plugin
@@ -310,6 +299,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             throw new IllegalStateException("Language Client has not been connected yet");
         }
         return client;
+    }
+
+    @Override
+    public void connect(LanguageClient client) {
+        this.client = client;
+        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()));
+        facts.values().forEach(v -> v.setClient(client));
+        if (dedicatedLanguage != null) {
+            // if there was one scheduled, we now start it up, since the connection has been made
+            this.registerLanguage(dedicatedLanguage);
+        }
     }
 
     @Override

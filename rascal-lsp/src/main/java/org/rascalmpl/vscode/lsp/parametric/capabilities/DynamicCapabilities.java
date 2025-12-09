@@ -55,6 +55,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
@@ -181,7 +182,7 @@ public class DynamicCapabilities {
     }
 
     private CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
-        return CompletableFutureUtils.flatten(supportedCapabilities.stream()
+        return CompletableFutureUtils.<List<Either<Registration, Unregistration>>, List<Either<Registration, Unregistration>>>reduce(supportedCapabilities.stream()
             .map(cap -> anyTrue(contribs, cap::hasContribution)
                 .thenCompose(b -> {
                     if (b.booleanValue()) {
@@ -206,7 +207,7 @@ public class DynamicCapabilities {
                         // does not have contrib
                         return CompletableFuture.completedFuture(List.of(Either.<Registration, Unregistration>forRight(unregistration(cap))));
                     }
-                })), List::of)
+                })), List::of, Function.identity(), Lists::union)
             .thenAccept(es -> {
                 List<Registration> registrations = new LinkedList<>();
                 List<Unregistration> unregistrations = new LinkedList<>();
