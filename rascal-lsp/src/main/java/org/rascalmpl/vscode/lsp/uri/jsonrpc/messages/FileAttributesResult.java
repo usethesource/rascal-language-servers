@@ -37,7 +37,7 @@ public class FileAttributesResult {
     private long ctime;
     private long mtime;
     private long size;
-    @Nullable private FilePermission permissions;
+    private @Nullable FilePermission permissions;
 
     public FileAttributesResult(boolean exists, int type, long ctime, long mtime, long size, int permissions) {
         this.exists = exists;
@@ -48,7 +48,7 @@ public class FileAttributesResult {
         this.permissions = FilePermission.fromValue(permissions);
     }
 
-    public FileAttributesResult(boolean exists, FileType type, long ctime, long mtime, long size, FilePermission permissions) {
+    public FileAttributesResult(boolean exists, FileType type, long ctime, long mtime, long size, @Nullable FilePermission permissions) {
         this.exists = exists;
         this.type = type;
         this.ctime = ctime;
@@ -56,8 +56,6 @@ public class FileAttributesResult {
         this.size = size;
         this.permissions = permissions;
     }
-
-    public FileAttributesResult() {}
 
     public FileAttributes getFileAttributes() {
         return new FileAttributes(exists, type == FileType.File, ctime, mtime, true, permissions != null, size);
@@ -124,7 +122,7 @@ public class FileAttributesResult {
             return value;
         }
 
-        public static FilePermission fromValue(int val) {
+        public static @Nullable FilePermission fromValue(int val) {
             switch (val) {
                 case 1: return Readonly;
                 default: return null;
