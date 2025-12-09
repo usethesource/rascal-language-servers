@@ -33,6 +33,10 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
+/**
+ * Abstract superclass for implementations of dynamic capabilities.
+ * @param O The type of the capability's options.
+ */
 public abstract class AbstractDynamicCapability<O> {
 
     private final String id;
@@ -47,26 +51,62 @@ public abstract class AbstractDynamicCapability<O> {
 
     protected abstract String methodName();
 
+    /**
+     * Computes the options this capability given language contributions.
+     * @param contribs The {@link ILanguageContributions} that this capability reflects.
+     * @return A future resolving to options
+     */
     protected abstract CompletableFuture<@NonNull O> options(ILanguageContributions contribs);
 
+    /**
+     * Checks whether the givien language contributions contain a contribution that matches this capability.
+     * @param contribs The {@link ILanguageContributions} that this capability reflects.
+     * @return A future resolving to `true` if there is such a contribution, or `false` otherwise.
+     */
     protected abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
 
+    /**
+     * Merges to option objects.
+     * @param existingOpts The current options.
+     * @param newOpts The new options to merge into the current ones.
+     * @return Merged options.
+     */
     protected abstract @NonNull O mergeOptions(Object existingOpts, Object newOpts);
 
+    /**
+     * Whether this capability prefers static registration.
+     */
     protected boolean preferStaticRegistration() {
         return false;
     }
 
+    /**
+     * Predicate that determines whether the client supports dynamic registration of this capability.
+     * @param clientCapabilities The capabilities of the client.
+     * @return `true` if it supports dynamic registration, `false` otherwise.
+     */
     protected abstract boolean hasDynamicCapability(ClientCapabilities clientCapabilities);
 
+    /**
+     * Sets this capability statically.
+     * @param result The server capabilities to set.
+     */
     protected abstract void setStaticCapability(final ServerCapabilities result);
 
-    protected final boolean setStaticCapability(ClientCapabilities client, final ServerCapabilities result) {
+    /**
+     * Check whether to set this capability dynamically.
+     *
+     * If this capability prefers static registration or the client does not support dynamic registration, set it statically instead.
+     * @param client Client capabilities to determine dynamic registration support.
+     * @param result Server capabilities to modify when registerting statically.
+     * @return `true` if this capability should be registered dynamically, `false` otherwise.
+     */
+    protected final boolean checkDynamicCapability(ClientCapabilities client, final ServerCapabilities result) {
         if (preferStaticRegistration() || !hasDynamicCapability(client)) {
             setStaticCapability(result);
-            return true;
+            return false;
         }
-        return false;
+        return true;
     }
 
 }

@@ -39,6 +39,11 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
 import io.usethesource.vallang.IString;
 
+/**
+ * Dynamic completion capability.
+ *
+ * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion
+ */
 public class CompletionCapability extends AbstractDynamicCapability<CompletionRegistrationOptions> {
 
     @Override

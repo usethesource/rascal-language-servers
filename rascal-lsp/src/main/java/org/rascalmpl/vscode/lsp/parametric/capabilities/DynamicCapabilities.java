@@ -52,10 +52,15 @@ import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
+/**
+ * Takes care of (un)registering capabilities dynamically.
+ * Receives a list of supported capabiltities ({@link AbstractDynamicCapability}) and notifies the client when capabilities change.
+ */
 public class DynamicCapabilities {
 
     private static final Logger logger = LogManager.getLogger(DynamicCapabilities.class);
@@ -74,6 +79,11 @@ public class DynamicCapabilities {
         this.staticCapabilities = new HashSet<>();
     }
 
+    /**
+     * Determines whether the server should register capabiltities statically now instead of dynamically later.
+     * @param clientCapabilities The capabilities of the client, which determine whether dynamic registration is supported at all.
+     * @param serverCapabilities The server capabilities to modify.
+     */
     public void setStaticCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities serverCapabilities) {
         // Use these to determine whether we actually need/are allowed to register certain capabilities
         // If the client does not support dynamic registration for a certain capability, do not register it. Instead, register it statically.
@@ -81,12 +91,17 @@ public class DynamicCapabilities {
         this.serverCapabilities = serverCapabilities;
 
         for (var cap : supportedCapabilities) {
-            if (cap.setStaticCapability(clientCapabilities, serverCapabilities)) {
+            if (!cap.checkDynamicCapability(clientCapabilities, serverCapabilities)) {
                 staticCapabilities.add(cap);
             }
         }
     }
 
+    /**
+     * Register capabilities for new language contributions (typically on {@link IBaseTextDocumentService#registerLanguage}).
+     * @param contribs The new language contributions.
+     * @return A void future that completes when all capabilities are updated.
+     */
     public CompletableFuture<Void> registerCapabilities(ILanguageContributions contribs) {
         logger.debug("Registering some capabilities");
 
@@ -153,6 +168,11 @@ public class DynamicCapabilities {
         return null;
     }
 
+    /**
+     * Update capabilities for existing language contributions (typically on  {@link IBaseTextDocumentService#unregisterLanguage}).
+     * @param contribs The remaining multiplexers.
+     * @return A void future that completes when all capabilities are updated.
+     */
     public CompletableFuture<Void> updateCapabilities(Map<String, LanguageContributionsMultiplexer> contribs) {
         return updateCapabilities(contribs.values()
             .stream()
