@@ -138,10 +138,6 @@ interface ISourceLocationRequest {
     uri: ISourceLocation;
 }
 
-export interface NumberResult {
-    result: number;
-}
-
 export interface FileAttributesResult {
     exists : boolean;
     type: vscode.FileType;
