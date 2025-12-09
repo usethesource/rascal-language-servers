@@ -62,7 +62,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatcher;
 import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
@@ -155,27 +154,6 @@ public class DynamicCapabilitiesTest {
         @Override
         public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
             return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
-        }
-
-    }
-
-    class CapabilityMatcher implements ArgumentMatcher<RegistrationParams> {
-
-        private final Map<String, @Nullable Object> caps;
-
-        CapabilityMatcher(Map<String, @Nullable Object> caps) {
-            this.caps = caps;
-        }
-
-        @Override
-        public boolean matches(RegistrationParams p) {
-            Map<String, Object> registrationOptions = new HashMap<>();
-            for (var r : p.getRegistrations()) {
-                // We intentionally ignore the ID here, since it's randomly generated
-                registrationOptions.put(r.getMethod(), r.getRegisterOptions());
-            }
-
-            return registrationOptions.equals(caps);
         }
 
     }
