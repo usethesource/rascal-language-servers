@@ -26,48 +26,23 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import java.util.Arrays;
-import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FileType;
 
-public class DirectoryListingResult {
+public class FileWithType {
+        @NonNull private final String name;
+        @NonNull private final FileType type;
 
-
-    @NonNull private String[] entries;
-    @NonNull private boolean[] areDirectory;
-
-    public DirectoryListingResult(@NonNull String [] entries, @NonNull boolean [] areDirectory) {
-        this.entries = entries;
-        this.areDirectory = areDirectory;
-    }
-
-    public String [] getEntries() {
-        return entries;
-    }
-
-    public boolean [] getAreDirectory() {
-        return areDirectory;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object obj) {
-        if (obj instanceof DirectoryListingResult) {
-            return Objects.deepEquals(entries, ((DirectoryListingResult)obj).entries)
-                && Objects.deepEquals(areDirectory, ((DirectoryListingResult)obj).areDirectory)
-                ;
+        public FileWithType(@NonNull String name, @NonNull FileType type) {
+            this.name = name;
+            this.type = type;
         }
-        return false;
-    }
 
-    @Override
-    public int hashCode() {
-        return (Arrays.deepHashCode(entries) + 1) + 19 * (Arrays.hashCode(areDirectory) + 1);
-    }
+        public String getName() {
+            return name;
+        }
 
-    @Override
-    public String toString() {
-        return "DirectoryListingResult [entries=" + Arrays.toString(entries) + "areDirectory=" +Arrays.toString(areDirectory) + "]";
+        public FileType getType() {
+            return type;
+        }
     }
-
-}

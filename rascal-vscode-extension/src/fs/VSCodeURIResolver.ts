@@ -51,7 +51,7 @@ interface ISourceLocationInput {
     created(req: ISourceLocationRequest): Promise<number>;
     isDirectory(req: ISourceLocationRequest): Promise<boolean>;
     isFile(req: ISourceLocationRequest): Promise<boolean>;
-    list(req: ISourceLocationRequest): Promise<DirectoryListingResult>;
+    list(req: ISourceLocationRequest): Promise<[string, vscode.FileType][]>;
     size(req: ISourceLocationRequest): Promise<number>;
     fileStat(req: ISourceLocationRequest): Promise<FileAttributesResult>;
     isReadable(req: ISourceLocationRequest): Promise<boolean>;
@@ -71,7 +71,7 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<number>("created", handler.created);
     req<boolean>("isDirectory", handler.isDirectory);
     req<boolean>("isFile", handler.isFile);
-    req<DirectoryListingResult>("list", handler.list);
+    req<[string, vscode.FileType][]>("list", handler.list);
     req<number>("size", handler.size);
     req<FileAttributesResult>("stat", handler.fileStat);
     req<boolean>("isReadable", handler.isReadable);
@@ -136,11 +136,6 @@ function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventRecei
 
 interface ISourceLocationRequest {
     uri: ISourceLocation;
-}
-
-export interface DirectoryListingResult {
-    entries: string[];
-    areDirectory: boolean[]
 }
 
 export interface NumberResult {
@@ -368,14 +363,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.boolResult(req, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
     }
 
-    async list(req: ISourceLocationRequest): Promise<DirectoryListingResult> {
+    async list(req: ISourceLocationRequest): Promise<[string, vscode.FileType][]> {
         this.logger.trace("[VFS] list: ", req.uri);
         return asyncCatcher(async () => {
-            const entries = await this.fs.readDirectory(this.toUri(req));
-            return <DirectoryListingResult>{
-                entries: entries.map(([entry, _type], _index) => entry),
-                areDirectory: entries.map(([_entry, type], _index) => type === vscode.FileType.Directory)
-            };
+            return await this.fs.readDirectory(this.toUri(req));
         });
     }
 

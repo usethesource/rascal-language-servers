@@ -50,6 +50,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
+
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -63,12 +65,16 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FileType;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileWithType;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.Lazy;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.JsonPrimitive;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class FallbackResolver implements ISourceLocationInputOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver {
@@ -197,8 +203,8 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     /**
      * Rascal's current implementions sometimes ask for a directory listing
      * and then iterate over all the entries checking if they are a directory.
-     * This is super slow for this jsonrcp, so we store tha last directory listing
-     * and check insid
+     * This is super slow for this jsonrcp, so we store the last directory listing
+     * and check inside
      */
     private final Cache<ISourceLocation, Lazy<Map<String, Boolean>>> cachedDirectoryListing
         = Caffeine.newBuilder()
@@ -211,16 +217,13 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         var result = call(s -> s.list(param(uri)));
         // we store the entries in a cache, for consecutive isDirectory/isFile calls
         cachedDirectoryListing.put(uri, Lazy.defer(() -> {
-            var entries = result.getEntries();
-            var areDirs = result.getAreDirectory();
-            Map<String, Boolean> lookup = new HashMap<>(entries.length);
-            assert entries.length == areDirs.length;
-            for (int i = 0; i < entries.length; i++) {
-                lookup.put(entries[i], areDirs[i]);
+            Map<String, Boolean> lookup = new HashMap<>(result.length);
+            for (var entry : result) {
+                lookup.put(entry.getName(), entry.getType().equals(FileType.Directory));
             }
             return lookup;
         }));
-        return result.getEntries();
+        return Stream.of(result).map(FileWithType::getName).toArray(String[]::new);
     }
 
     @Override

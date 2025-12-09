@@ -29,8 +29,8 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.DirectoryListingResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileWithType;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
@@ -68,7 +68,7 @@ public interface VSCodeUriResolverServer {
     }
 
     @JsonRequest("rascal/vfs/input/list")
-    default CompletableFuture<DirectoryListingResult> list(ISourceLocationRequest req) {
+    default CompletableFuture<FileWithType[]> list(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 

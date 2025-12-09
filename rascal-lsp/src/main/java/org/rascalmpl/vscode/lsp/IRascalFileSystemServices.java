@@ -62,6 +62,7 @@ import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FilePermission;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FileType;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileWithType;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.RenameRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
@@ -429,24 +430,6 @@ public interface IRascalFileSystemServices {
 
         public int getValue() {
             return value;
-        }
-    }
-
-    public static class FileWithType {
-        @NonNull private final String name;
-        @NonNull private final FileType type;
-
-        public FileWithType(@NonNull String name, @NonNull FileType type) {
-            this.name = name;
-            this.type = type;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public FileType getType() {
-            return type;
         }
     }
 
