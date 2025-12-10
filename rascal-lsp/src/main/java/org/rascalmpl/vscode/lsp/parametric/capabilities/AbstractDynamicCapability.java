@@ -26,13 +26,16 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.Objects;
-import java.util.UUID;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.ClientCapabilities;
-import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.Registration;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.util.Lists;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
  * Superclass of dynamic capabilities.
@@ -42,47 +45,15 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
  * This class provides a common interface and implementation for dynamic capabilities.
  *
  * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#client_registerCapability
- * @param O The type of the capability's options.
+ * @param Options The type of the capability's options.
  */
-public abstract class AbstractDynamicCapability<O> {
+public abstract class AbstractDynamicCapability<Options> extends AbstractDynamicRegistration<Options> {
 
-    /**
-     * A unique UUID used to register/unregister this capability. Should be unique.
-     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#registrationParams
-     */
-    private final String id;
+    private final Executor exec;
 
-    /**
-     * The name of the capability (as per LSP documentation). For example, `"textDocument/completion"`.
-     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#registrationParams
-     */
-    private final String methodName;
-
-    /**
-     * Whether to prefer static registration (over dynamic).
-     */
-    private final boolean preferStaticRegistration;
-
-    protected AbstractDynamicCapability(String methodName) {
-        this(methodName, false);
-    }
-
-    protected AbstractDynamicCapability(String methodName, boolean preferStaticRegistration) {
-        this.id = UUID.randomUUID().toString();
-        this.methodName = methodName;
-        this.preferStaticRegistration = preferStaticRegistration;
-    }
-
-    protected final String id() {
-        return id;
-    }
-
-    protected final String methodName() {
-        return methodName;
-    }
-
-    protected final boolean preferStaticRegistration() {
-        return this.preferStaticRegistration;
+    protected AbstractDynamicCapability(String name, boolean preferStaticRegistration, Executor exec) {
+        super(name, preferStaticRegistration);
+        this.exec = exec;
     }
 
     /**
@@ -91,7 +62,7 @@ public abstract class AbstractDynamicCapability<O> {
      * @param contribs The {@link ILanguageContributions} that this capability reflects.
      * @return A future resolving to the options.
      */
-    protected abstract CompletableFuture<@Nullable O> options(ILanguageContributions contribs);
+    protected abstract CompletableFuture<@Nullable Options> options(ILanguageContributions contribs);
 
     /**
      * Checks whether the given language contributions contain a contribution that provides this capability.
@@ -100,62 +71,32 @@ public abstract class AbstractDynamicCapability<O> {
      */
     protected abstract CompletableFuture<Boolean> isProvidedBy(ILanguageContributions contribs);
 
-    /**
-     * Merges two non-null option objects.
-     * @param o1 The left options.
-     * @param o2 The right options.
-     * @return Merged options object.
-     */
-    protected abstract O mergeOptions(O o1, O o2);
-
-    protected final @Nullable O mergeNullableOptions(@Nullable O o1, @Nullable O o2) {
-        if (o1 == null) {
-            return o2;
-        }
-        if (o2 == null) {
-            return o1;
-        }
-        return mergeOptions(o1, o2);
-    }
-
-    /**
-     * Predicate that determines whether the client supports dynamic registration of this capability.
-     * @param clientCapabilities The capabilities of the client.
-     * @return `true` if it supports dynamic registration, `false` otherwise.
-     */
-    protected abstract boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities);
-
-    /**
-     * Registers this server capability statically.
-     * @param result The server capabilities to modify.
-     */
-    protected abstract void registerStatically(ServerCapabilities result);
-
-    /**
-     * Check whether to register this capability statically instead of dynamically.
-     *
-     * If this capability prefers static registration or if the client does not support dynamic registration, set it statically.
-     * @param client Client capabilities to determine dynamic registration support.
-     * @param result Server capabilities to modify when registerting statically.
-     * @return `true` if this capability should be registered statically, `false` otherwise.
-     */
-    protected final boolean shouldRegisterStatically(ClientCapabilities client) {
-        return preferStaticRegistration() || !isDynamicallySupportedBy(client);
-    }
-
     @Override
-    public boolean equals(@Nullable Object obj) {
-        if (!(obj instanceof AbstractDynamicCapability)) {
-            return false;
-        }
-        var other = (AbstractDynamicCapability<?>) obj;
-        return Objects.equals(id, other.id)
-            && Objects.equals(methodName, other.methodName);
-    }
+    protected final CompletableFuture<@Nullable Registration> tryBuildRegistration(ICapabilityParams params) {
+        // Copy the contributions so we know we are looking at a stable set of elements.
+        // If the contributions change, we expect our caller to call again.
+        var contribs = List.copyOf(params.contributions());
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, methodName);
+        if (contribs.isEmpty()) {
+            return CompletableFutureUtils.completedFuture(null, exec);
+        }
+
+        // Filter contributions by providing this capability
+        return CompletableFutureUtils.<List<ILanguageContributions>>flatten(
+            contribs.stream().map(c -> isProvidedBy(c).thenApply(b -> b.booleanValue() ? List.of(c) : List.of())),
+            CompletableFutureUtils.completedFuture(Collections.emptyList(), exec),
+            Lists::union
+        ).<@Nullable Registration>thenCompose(cs -> {
+            if (cs.isEmpty()) {
+                return CompletableFutureUtils.completedFuture(null, exec);
+            }
+
+            var allOpts = cs.stream()
+                .<CompletableFuture<@Nullable Options>>map(this::options)
+                .collect(Collectors.toList());
+            return CompletableFutureUtils.reduce(allOpts, this::mergeNullableOptions) // non-empty, so no need to provide a reduction identity
+                .thenApply(opts -> new Registration(id(), name(), opts));
+        });
     }
 
 }

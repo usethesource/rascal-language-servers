@@ -26,7 +26,9 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
+import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -45,12 +47,12 @@ import io.usethesource.vallang.IString;
  */
 public class CompletionCapability extends AbstractDynamicCapability<CompletionRegistrationOptions> {
 
-    public CompletionCapability() {
-        this(false);
+    public CompletionCapability(Executor exec) {
+        this(false, exec);
     }
 
-    public CompletionCapability(boolean preferStaticRegistration) {
-        super("textDocument/completion", preferStaticRegistration);
+    public CompletionCapability(boolean preferStaticRegistration, Executor exec) {
+        super("textDocument/completion", preferStaticRegistration, exec);
     }
 
     @Override
@@ -60,7 +62,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
                 var trigList = triggers.stream()
                     .map(IString.class::cast)
                     .map(IString::getValue)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toCollection(ArrayList::new));
                 return new CompletionRegistrationOptions(trigList, false);
             });
     }

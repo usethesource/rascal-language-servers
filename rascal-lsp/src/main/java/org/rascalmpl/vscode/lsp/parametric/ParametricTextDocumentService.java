@@ -31,12 +31,14 @@ import java.io.Reader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -138,7 +140,9 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicCapabilities;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicRegistration;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationsProperty;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.ICapabilityParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -172,7 +176,7 @@ import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
-public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
+public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware, ICapabilityParams {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
 
@@ -182,7 +186,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
-    private @MonotonicNonNull DynamicCapabilities dynamicCapabilities;
+    private @MonotonicNonNull DynamicRegistration dynamicCapabilities;
 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
@@ -247,7 +251,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    private DynamicCapabilities availableCapabilities() {
+    private DynamicRegistration availableCapabilities() {
         if (dynamicCapabilities == null) {
             throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
         }
@@ -257,7 +261,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new DynamicCapabilities(availableClient(), exec, List.of(new CompletionCapability()), clientCapabilities);
+        dynamicCapabilities = new DynamicRegistration(availableClient(), exec, Set.of(new CompletionCapability(exec)), Set.of(new FileOperationsProperty()), clientCapabilities);
         dynamicCapabilities.registerStaticCapabilities(result);
 
         result.setDefinitionProvider(true);
@@ -993,7 +997,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
-        availableCapabilities().updateCapabilities(Collections.unmodifiableCollection(contributions.values()));
+        availableCapabilities().updateRegistrations(this);
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
@@ -1058,7 +1062,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             contributions.remove(lang.getName());
         }
 
-        availableCapabilities().updateCapabilities(Collections.unmodifiableCollection(contributions.values()));
+        availableCapabilities().updateRegistrations(this);
     }
 
     @Override
@@ -1102,5 +1106,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private ResponseError unknownFileError(ISourceLocation loc, Object data) {
         return new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, data);
+    }
+
+    @Override
+    public Set<String> extensions() {
+        return registeredExtensions.keySet();
+    }
+
+    @Override
+    public Collection<ILanguageContributions> contributions() {
+        return contributions.values().stream().map(ILanguageContributions.class::cast).collect(Collectors.toList());
     }
 }
