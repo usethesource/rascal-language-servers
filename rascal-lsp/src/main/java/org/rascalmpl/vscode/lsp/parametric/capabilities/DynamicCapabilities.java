@@ -50,7 +50,6 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -96,7 +95,7 @@ public class DynamicCapabilities {
     }
 
     /**
-     * Update capabilities for language contributions (typically on  {@link IBaseTextDocumentService#unregisterLanguage}).
+     * Update capabilities for language contributions.
      * @param contribs The contributions to represent
      * @return A void future that completes when all capabilities are updated.
      */
