@@ -26,37 +26,26 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
  * Abstract superclass for implementations of dynamic capabilities.
  * @param O The type of the capability's options.
  */
-public abstract class AbstractDynamicCapability<O> {
-
-    private final String id;
-
-    protected AbstractDynamicCapability() {
-        id = UUID.randomUUID().toString();
-    }
-
-    protected final String id() {
-        return id;
-    }
-
-    protected abstract String methodName();
+public abstract class AbstractDynamicCapability<Options> extends AbstractDynamicRegistration<Options, ServerCapabilities> {
 
     /**
      * Computes the options this capability given language contributions.
      * @param contribs The {@link ILanguageContributions} that this capability reflects.
      * @return A future resolving to options
      */
-    protected abstract CompletableFuture<@Nullable O> options(ILanguageContributions contribs);
+    protected abstract CompletableFuture<@Nullable Options> options(ILanguageContributions contribs);
 
     /**
      * Checks whether the givien language contributions contain a contribution that matches this capability.
@@ -65,48 +54,17 @@ public abstract class AbstractDynamicCapability<O> {
      */
     protected abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
 
-    /**
-     * Merges to option objects.
-     * @param existingOpts The current options.
-     * @param newOpts The new options to merge into the current ones.
-     * @return Merged options.
-     */
-    protected abstract @Nullable O mergeOptions(@Nullable O existingOpts, @Nullable O newOpts);
-
-    /**
-     * Whether this capability prefers static registration.
-     */
-    protected boolean preferStaticRegistration() {
-        return false;
-    }
-
-    /**
-     * Predicate that determines whether the client supports dynamic registration of this capability.
-     * @param clientCapabilities The capabilities of the client.
-     * @return `true` if it supports dynamic registration, `false` otherwise.
-     */
-    protected abstract boolean hasDynamicCapability(ClientCapabilities clientCapabilities);
-
-    /**
-     * Sets this capability statically.
-     * @param result The server capabilities to set.
-     */
-    protected abstract void setStaticCapability(final ServerCapabilities result);
-
-    /**
-     * Check whether to set this capability dynamically.
-     *
-     * If this capability prefers static registration or the client does not support dynamic registration, set it statically instead.
-     * @param client Client capabilities to determine dynamic registration support.
-     * @param result Server capabilities to modify when registerting statically.
-     * @return `true` if this capability should be registered dynamically, `false` otherwise.
-     */
-    protected final boolean checkDynamicCapability(ClientCapabilities client, final ServerCapabilities result) {
-        if (preferStaticRegistration() || !hasDynamicCapability(client)) {
-            setStaticCapability(result);
-            return false;
+    protected final CompletableFuture<@Nullable Registration> registration(ICapabilityParams params) {
+        var supportingContribs = params.contributions().stream().filter(c -> hasContribution(c).join()).collect(Collectors.toList()); // join() is fine, since we should only be called inside a promise
+        if (supportingContribs.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
         }
-        return true;
+
+        var allOpts = supportingContribs.stream()
+            .<CompletableFuture<@Nullable Options>>map(this::options)
+            .collect(Collectors.toList());
+        var mergedOpts = CompletableFutureUtils.reduce(allOpts, this::mergeOptions); // non-empty, so fine
+        return mergedOpts.thenApply(opts -> new Registration(id(), name(), opts));
     }
 
 }

@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,12 +36,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
@@ -50,32 +48,34 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
  * Takes care of (un)registering capabilities dynamically.
- * Receives a list of supported capabiltities ({@link AbstractDynamicCapability}) and notifies the client when capabilities change.
+ * Receives a list of supported capabiltities ({@link AbstractDynamicRegistration}) and notifies the client when capabilities change.
  */
-public class DynamicCapabilities {
+public class DynamicRegistration {
 
-    private static final Logger logger = LogManager.getLogger(DynamicCapabilities.class);
+    private static final Logger logger = LogManager.getLogger(DynamicRegistration.class);
 
     private final LanguageClient client;
     private final Executor exec;
-    private final List<AbstractDynamicCapability<?>> supportedCapabilities;
-    private final Set<AbstractDynamicCapability<?>> staticCapabilities;
+
+    private final Set<AbstractDynamicCapability<?>> supportedCapabilities;
+    private final Set<AbstractDynamicProperty<?, ?>> supportedProperties;
+
+    private final Set<AbstractDynamicRegistration<?, ?>> staticRegistrations;
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
     private @MonotonicNonNull ClientCapabilities clientCapabilities;
     private @MonotonicNonNull ServerCapabilities serverCapabilities;
 
-    public DynamicCapabilities(LanguageClient client, Executor exec, List<AbstractDynamicCapability<?>> supportedCapabilities) {
+    public DynamicRegistration(LanguageClient client, Executor exec, Set<AbstractDynamicCapability<?>> supportedCapabilities, Set<AbstractDynamicProperty<?, ?>> supportedProperties) {
         this.client = client;
         this.exec = exec;
         this.supportedCapabilities = supportedCapabilities;
-        this.staticCapabilities = new HashSet<>();
+        this.supportedProperties = supportedProperties;
+        this.staticRegistrations = new HashSet<>();
     }
 
     /**
@@ -89,32 +89,31 @@ public class DynamicCapabilities {
         this.clientCapabilities = clientCapabilities;
         this.serverCapabilities = serverCapabilities;
 
-        staticCapabilities.clear();
+        staticRegistrations.clear();
         for (var cap : supportedCapabilities) {
             if (!cap.checkDynamicCapability(clientCapabilities, serverCapabilities)) {
-                staticCapabilities.add(cap);
+                staticRegistrations.add(cap);
             }
         }
     }
 
     /**
      * Update capabilities for language contributions.
+     * @param set
      * @param contribs The contributions to represent
      * @return A void future that completes when all capabilities are updated.
      */
-    public CompletableFuture<Void> updateCapabilities(Map<String,LanguageContributionsMultiplexer> contributions) {
-        return updateCapabilities(contributions.values().stream().map(ILanguageContributions.class::cast).collect(Collectors.toList()));
-    }
-
-    /**
-     * Update capabilities for language contributions.
-     * @param contribs The contributions to represent.
-     * @return A void future that completes when all capabilities are updated.
-     */
-    CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
+    public CompletableFuture<Void> updateRegistrations(ICapabilityParams params) {
         // Compute registrations purely based on contributions
         // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
-        return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> maybeRegistration(c, contribs)), exec)
+        var capStream = supportedCapabilities.stream()
+            .filter(r -> !staticRegistrations.contains(r))
+            .map(r -> r.registration(params).thenApply(reg -> Pair.<AbstractDynamicRegistration<?, ?>, Registration>of(r, reg)));
+        var propStream = supportedProperties.stream()
+            .filter(r -> !staticRegistrations.contains(r))
+            .map(r -> r.registration(params).thenApply(reg -> Pair.<AbstractDynamicRegistration<?, ?>, Registration>of(r, reg)));
+
+        return CompletableFutureUtils.reduce(Stream.concat(capStream, propStream), exec)
             .thenAccept(capabilities -> {
                 // Since we have some bookkeeping to do, we will now block our logbook for a moment
                 synchronized (currentRegistrations) {
@@ -122,7 +121,7 @@ public class DynamicCapabilities {
                     List<Unregistration> unregistrations = new LinkedList<>();
                     for (var entry : capabilities) {
                         var cap = entry.getLeft();
-                        var method = cap.methodName();
+                        var method = cap.name();
                         var registration = entry.getRight();
                         var existingRegistration = currentRegistrations.get(method);
 
@@ -179,28 +178,8 @@ public class DynamicCapabilities {
         }
     }
 
-    private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> maybeRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
-        var supportingContribs = contribs.stream().filter(c -> cap.hasContribution(c).join()).collect(Collectors.toList()); // join() is fine, since we should only be called inside a promise
-        if (supportingContribs.isEmpty()) {
-            return CompletableFutureUtils.completedFuture(Pair.of(cap, null), exec);
-        }
-
-        var allOpts = supportingContribs.stream()
-            .<CompletableFuture<@Nullable T>>map(cap::options)
-            .collect(Collectors.toList());
-        var mergedOpts = CompletableFutureUtils.reduce(allOpts, cap::mergeOptions); // non-empty, so fine
-        return mergedOpts.thenApply(opts -> Pair.of(cap, registration(cap, opts)));
-    }
-
-    private static Registration registration(AbstractDynamicCapability<?> cap, @Nullable Object opts) {
-        if (opts != null) {
-            return new Registration(cap.id(), cap.methodName(), opts);
-        }
-        return new Registration(cap.id(), cap.methodName());
-    }
-
-    private static Unregistration unregistration(AbstractDynamicCapability<?> cap) {
-        return new Unregistration(cap.id(), cap.methodName());
+    private static Unregistration unregistration(AbstractDynamicRegistration<?, ?> cap) {
+        return new Unregistration(cap.id(), cap.name());
     }
 
 }

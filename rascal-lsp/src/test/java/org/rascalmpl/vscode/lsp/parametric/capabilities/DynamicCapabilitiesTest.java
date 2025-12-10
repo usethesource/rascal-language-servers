@@ -38,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +74,6 @@ import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
 import org.rascalmpl.vscode.lsp.parametric.NoContributions;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -84,7 +84,7 @@ public class DynamicCapabilitiesTest {
 
     private final ExecutorService exec = Executors.newCachedThreadPool();
 
-    private DynamicCapabilities dynCap;
+    private DynamicRegistration dynCap;
 
     // Mocks
     @Spy private LanguageClientStub client;
@@ -95,9 +95,10 @@ public class DynamicCapabilitiesTest {
 
     @Before
     public void setUp() {
-        dynCap = new DynamicCapabilities(client, exec, List.of(
-            completion
-        ));
+        dynCap = new DynamicRegistration(client, exec,
+            Set.of(completion),
+            Set.of(new FileOperationsProperty())
+        );
         dynCap.setStaticCapabilities(clientCapabilities(true), serverCapabilities);
     }
 
@@ -120,6 +121,42 @@ public class DynamicCapabilitiesTest {
         public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
             return CompletableFuture.completedFuture(null);
         }
+
+    }
+
+    static class P implements ICapabilityParams {
+
+        private final Set<ILanguageContributions> contribs;
+        private final Set<String> extensions;
+
+        P(Set<ILanguageContributions> contribs) {
+            this(Set.of(), contribs);
+        }
+
+        P(Set<String> extensions, Set<ILanguageContributions> contribs) {
+            this.extensions = extensions;
+            this.contribs = contribs;
+        }
+
+        static P of(ILanguageContributions... contribs) {
+            return new P(Set.of(contribs));
+        }
+
+        static P of(List<ILanguageContributions> contribs) {
+            return new P(new HashSet<>(contribs));
+        }
+
+        @Override
+        public Collection<ILanguageContributions> contributions() {
+            return contribs;
+        }
+
+        @Override
+        public Set<String> extensions() {
+            return extensions;
+        }
+
+
 
     }
 
@@ -189,7 +226,7 @@ public class DynamicCapabilitiesTest {
 
     private void registerIncrementally(List<ILanguageContributions> contribs) throws InterruptedException, ExecutionException {
         for (int i = 0; i < contribs.size(); i++) {
-            dynCap.updateCapabilities(contribs.subList(0, i + 1)).get();
+            dynCap.updateRegistrations(P.of(contribs.subList(0, i + 1))).get();
         }
     }
 
@@ -212,7 +249,7 @@ public class DynamicCapabilitiesTest {
         var trigChars = List.of(".", "::");
         var contribs = new SomeContribs(trigChars);
 
-        dynCap.updateCapabilities(List.of(contribs)).get();
+        dynCap.updateRegistrations(P.of(List.of(contribs))).get();
         verify(client, only()).registerCapability(registrationCaptor.capture());
         verify(serverCapabilities, never()).setCompletionProvider(any()); // no static registration
 
@@ -255,7 +292,7 @@ public class DynamicCapabilitiesTest {
         registerIncrementally(contribs);
 
         // unregister one of both
-        dynCap.updateCapabilities(contribs.subList(1, 2)).get();
+        dynCap.updateRegistrations(P.of(contribs.subList(1, 2))).get();
 
         InOrder inOrder = inOrder(client);
         // intial registration
@@ -277,8 +314,8 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void registerAndUnregister() throws InterruptedException, ExecutionException {
-        dynCap.updateCapabilities(List.of(new SomeContribs(List.of(".")))).get();
-        dynCap.updateCapabilities(List.of()).get(); // empty multiplexer
+        dynCap.updateRegistrations(P.of(List.of(new SomeContribs(List.of("."))))).get();
+        dynCap.updateRegistrations(P.of(List.of())).get(); // empty multiplexer
 
         InOrder inOrder = inOrder(client);
         inOrder.verify(client).registerCapability(any());
@@ -289,8 +326,8 @@ public class DynamicCapabilitiesTest {
     @Test
     public void registerAndUpdateEmpty() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
-        dynCap.updateCapabilities(List.of(contrib)).get();
-        dynCap.updateCapabilities(List.of(contrib, new NoContributions(contrib.getName(), exec))).get();
+        dynCap.updateRegistrations(P.of(contrib)).get();
+        dynCap.updateRegistrations(P.of(contrib, new NoContributions(contrib.getName(), exec))).get();
 
         verify(client, only()).registerCapability(any());
     }
@@ -298,7 +335,7 @@ public class DynamicCapabilitiesTest {
     @Test
     public void registerEmpty() throws InterruptedException, ExecutionException {
         var contrib = new NoContributions("NoneLang", exec);
-        dynCap.updateCapabilities(List.of(contrib)).get();
+        dynCap.updateRegistrations(P.of(contrib)).get();
 
         verify(client, never()).unregisterCapability(any());
         verify(client, never()).registerCapability(any());
@@ -309,7 +346,7 @@ public class DynamicCapabilitiesTest {
         var contrib = new SomeContribs(".");
 
         when(completion.options(contrib)).thenReturn(CompletableFuture.completedFuture(null));
-        dynCap.updateCapabilities(List.of(contrib)).get();
+        dynCap.updateRegistrations(P.of(contrib)).get();
 
         verify(client, only()).registerCapability(registrationCaptor.capture());
         assertNull(registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions());
@@ -320,7 +357,7 @@ public class DynamicCapabilitiesTest {
         var contrib = new SomeContribs(".");
 
         dynCap.setStaticCapabilities(clientCapabilities(false), serverCapabilities);
-        dynCap.updateCapabilities(List.of(contrib)).get();
+        dynCap.updateRegistrations(P.of(contrib)).get();
 
         verify(client, never()).registerCapability(any());
         verify(client, never()).unregisterCapability(any());
@@ -336,10 +373,9 @@ public class DynamicCapabilitiesTest {
             }
         }
 
-        dynCap = new DynamicCapabilities(client, exec, List.of(new StaticCompletionCapabilty()));
-
+        dynCap = new DynamicRegistration(client, exec, Set.of(new StaticCompletionCapabilty()), Set.of());
         dynCap.setStaticCapabilities(clientCapabilities(true), serverCapabilities);
-        dynCap.updateCapabilities(List.of(new SomeContribs("."))).get();
+        dynCap.updateRegistrations(P.of(new SomeContribs("."))).get();
 
         verify(client, never()).registerCapability(any());
         verify(client, never()).unregisterCapability(any());
@@ -355,7 +391,7 @@ public class DynamicCapabilitiesTest {
         var contribs = expectedTrigChars.stream().map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList());
         for (int i = 0; i < N; i++) {
             var sl = contribs.subList(0, i + 1);
-            var job = CompletableFuture.supplyAsync(() -> dynCap.updateCapabilities(sl), exec).thenCompose(Function.identity());
+            var job = CompletableFuture.supplyAsync(() -> dynCap.updateRegistrations(P.of(sl)), exec).thenCompose(Function.identity());
             jobs.add(job);
         }
         var optionSublists = IntStream.range(0, N).boxed().map(i -> expectedTrigChars.subList(0, i + 1)).collect(Collectors.toList());
@@ -377,22 +413,11 @@ public class DynamicCapabilitiesTest {
     }
 
     @Test
-    public void registerMultiplexer() throws InterruptedException, ExecutionException {
-        var plex = new LanguageContributionsMultiplexer("SomeLang", exec);
-        plex.addContributor("SomeLang", new SomeContribs("SomeLang"));
-        var contribs = Map.of("SomeLang", plex);
-
-        dynCap.updateCapabilities(contribs).get();
-        verify(client, never()).unregisterCapability(any());
-        verify(client).registerCapability(any());
-    }
-
-    @Test
     public void unregisterFails() throws InterruptedException, ExecutionException {
         when(client.unregisterCapability(any())).thenThrow(new RuntimeException("Unregistration failed!"));
 
-        dynCap.updateCapabilities(List.of(new SomeContribs(List.of(".")))).get();
-        dynCap.updateCapabilities(List.of(new SomeContribs(List.of(".")), new SomeContribs(List.of(":")))).get();
+        dynCap.updateRegistrations(P.of(new SomeContribs(List.of(".")))).get();
+        dynCap.updateRegistrations(P.of(new SomeContribs(List.of(".")), new SomeContribs(List.of(":")))).get();
 
         verify(client).registerCapability(any()); // once, since on the second round, unregister fails
         verify(client).unregisterCapability(any());

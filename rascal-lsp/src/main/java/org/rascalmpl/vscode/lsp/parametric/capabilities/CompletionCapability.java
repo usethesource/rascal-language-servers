@@ -47,7 +47,7 @@ import io.usethesource.vallang.IString;
 public class CompletionCapability extends AbstractDynamicCapability<CompletionRegistrationOptions> {
 
     @Override
-    protected String methodName() {
+    protected String name() {
         return "textDocument/completion";
     }
 
@@ -80,12 +80,12 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected boolean hasDynamicCapability(ClientCapabilities client) {
+    protected boolean supportsDynamicRegistration(ClientCapabilities client) {
         return client.getTextDocument().getCompletion().getDynamicRegistration();
     }
 
     @Override
-    protected void setStaticCapability(ServerCapabilities serverCapabilities) {
+    protected void setStatically(ServerCapabilities serverCapabilities) {
         serverCapabilities.setCompletionProvider(new CompletionOptions(false, List.of("")));
     }
 
