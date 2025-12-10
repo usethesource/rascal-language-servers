@@ -109,7 +109,7 @@ public class DynamicCapabilities {
      * @param contribs The contributions to represent.
      * @return A void future that completes when all capabilities are updated.
      */
-    public CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
+    CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
         // Compute registrations purely based on contributions
         // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
         return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> maybeRegistration(c, contribs)))
