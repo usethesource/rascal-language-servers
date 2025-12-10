@@ -69,11 +69,14 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected CompletionRegistrationOptions mergeOptions(Object existingObj, Object newObj) {
-        return new CompletionRegistrationOptions(union(
-            ((CompletionRegistrationOptions) existingObj).getTriggerCharacters(),
-            ((CompletionRegistrationOptions) newObj).getTriggerCharacters()
-        ), false);
+    protected @Nullable CompletionRegistrationOptions mergeOptions(@Nullable CompletionRegistrationOptions left, @Nullable CompletionRegistrationOptions right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        return new CompletionRegistrationOptions(union(left.getTriggerCharacters(), right.getTriggerCharacters()), false);
     }
 
     private <T> List<T> union(List<T> left, List<T> right) {

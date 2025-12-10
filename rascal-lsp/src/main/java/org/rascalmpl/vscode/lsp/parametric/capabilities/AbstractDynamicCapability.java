@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -72,7 +71,7 @@ public abstract class AbstractDynamicCapability<O> {
      * @param newOpts The new options to merge into the current ones.
      * @return Merged options.
      */
-    protected abstract @NonNull O mergeOptions(Object existingOpts, Object newOpts);
+    protected abstract @Nullable O mergeOptions(@Nullable O existingOpts, @Nullable O newOpts);
 
     /**
      * Whether this capability prefers static registration.

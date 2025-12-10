@@ -27,17 +27,13 @@
 package org.rascalmpl.vscode.lsp;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.only;
 import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +43,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
@@ -68,7 +65,7 @@ import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.NoContributions;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicCapabilities;
@@ -171,23 +168,34 @@ public class DynamicCapabilitiesTest {
             .collect(Collectors.toList());
     }
 
+    @SuppressWarnings("unchecked")
+    private void registerIncrementally(List<String>... options) throws InterruptedException, ExecutionException {
+        registerIncrementally(Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList()));
+    }
+
+    private void registerIncrementally(List<ILanguageContributions> contribs) throws InterruptedException, ExecutionException {
+        for (int i = 0; i < contribs.size(); i++) {
+            dynCap.updateCapabilities(contribs.subList(0, i + 1)).get();
+        }
+    }
+
+    //// TESTS
+
     @Test
     public void registerSingleContribution() throws InterruptedException, ExecutionException {
         var trigChars = List.of(".", "::");
         var contribs = new SomeContribs(trigChars);
 
-        dynCap.registerCapabilities(contribs).get();
-        Mockito.verify(client, only()).registerCapability(registrationCaptor.capture());
+        dynCap.updateCapabilities(List.of(contribs)).get();
+        verify(client).registerCapability(registrationCaptor.capture());
+        verify(client, never()).unregisterCapability(any());
 
         assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(trigChars, false)), registrationOptions(registrationCaptor.getValue()));
     }
 
     @Test
-    public void registerReplacingContribution() throws InterruptedException, ExecutionException {
-        for (var trigChars : Arrays.asList(List.of(".", "::"), List.of("+", "*", "-", "/", "%"))) {
-            var contribs = new SomeContribs(trigChars);
-            dynCap.registerCapabilities(contribs).get();
-        }
+    public void registerIncrementalContribution() throws InterruptedException, ExecutionException {
+        registerIncrementally(List.of(".", "::"), List.of("+", "*", "-", "/", "%"));
 
         InOrder inOrder = inOrder(client);
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
@@ -201,11 +209,8 @@ public class DynamicCapabilitiesTest {
     }
 
     @Test
-    public void registerIndenticalContribution() throws InterruptedException, ExecutionException {
-        for (var trigChars : Arrays.asList(List.of(".", "::"), List.of(".", "::"))) {
-            var contribs = new SomeContribs(trigChars);
-            dynCap.registerCapabilities(contribs).get();
-        }
+    public void registerIdenticalContribution() throws InterruptedException, ExecutionException {
+        registerIncrementally(List.of(".", "::"), List.of(".", "::"));
 
         InOrder inOrder = inOrder(client);
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
@@ -216,20 +221,15 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void registerOverlappingContributions() throws InterruptedException, ExecutionException {
-        Map<String, LanguageContributionsMultiplexer> contribs = new HashMap<>();
-        for (var trigChars : Arrays.asList(List.of("."), List.of(":"))) {
-            var c = new SomeContribs(trigChars);
-            dynCap.registerCapabilities(c).get();
-            var plex = contribs.computeIfAbsent(c.getName(), _k -> new LanguageContributionsMultiplexer(c.getName(), Executors.newCachedThreadPool()));
-            // unique contribution key, so we keep both
-            plex.addContributor(trigChars.toString(), c);
-        }
+        var contribs = Stream.of(List.of("."), List.of(":"))
+            .map(SomeContribs::new)
+            .map(ILanguageContributions.class::cast)
+            .collect(Collectors.toList());
+
+        registerIncrementally(contribs);
 
         // unregister one of both
-        var name = contribs.keySet().iterator().next();
-        contribs.get(name).removeContributor(List.of(".").toString());
-
-        dynCap.updateCapabilities(contribs).get();
+        dynCap.updateCapabilities(contribs.subList(1, 2)).get();
 
         InOrder inOrder = inOrder(client);
         // intial registration
@@ -251,8 +251,8 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void registerAndUnregister() throws InterruptedException, ExecutionException {
-        dynCap.registerCapabilities(new SomeContribs(List.of("."))).get();
-        dynCap.updateCapabilities(Map.of()).get(); // empty multiplexer
+        dynCap.updateCapabilities(List.of(new SomeContribs(List.of(".")))).get();
+        dynCap.updateCapabilities(List.of()).get(); // empty multiplexer
 
         InOrder inOrder = inOrder(client);
         inOrder.verify(client).registerCapability(any());
@@ -263,11 +263,11 @@ public class DynamicCapabilitiesTest {
     @Test
     public void registerAndUpdateEmpty() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
-        dynCap.registerCapabilities(contrib).get();
-        dynCap.registerCapabilities(new NoContributions(contrib.getName(), Executors.newCachedThreadPool())).get();
+        dynCap.updateCapabilities(List.of(contrib)).get();
+        dynCap.updateCapabilities(List.of(contrib, new NoContributions(contrib.getName(), Executors.newCachedThreadPool()))).get();
 
-        verify(client).registerCapability(any());
         verify(client, never()).unregisterCapability(any());
+        verify(client).registerCapability(any());
     }
 
     @Test
@@ -281,7 +281,7 @@ public class DynamicCapabilitiesTest {
         var clientCaps = new ClientCapabilities(null, docCaps, null);
 
         dynCap.setStaticCapabilities(clientCaps, new ServerCapabilities());
-        dynCap.registerCapabilities(contrib).get();
+        dynCap.updateCapabilities(List.of(contrib)).get();
 
         verify(client, never()).registerCapability(any());
         verify(client, never()).unregisterCapability(any());
@@ -300,7 +300,7 @@ public class DynamicCapabilitiesTest {
 
         ServerCapabilities serverCaps = Mockito.mock();
         dynCap.setStaticCapabilities(null, serverCaps);
-        dynCap.registerCapabilities(new SomeContribs(".")).get();
+        dynCap.updateCapabilities(List.of(new SomeContribs("."))).get();
 
         verify(client, never()).registerCapability(any());
         verify(client, never()).unregisterCapability(any());
@@ -312,36 +312,29 @@ public class DynamicCapabilitiesTest {
         int N = 50;
         List<CompletableFuture<Void>> jobs = new ArrayList<>(N);
         var exec = Executors.newFixedThreadPool(N / 2); // less threads than jobs; causes some overlap
-
+        var expectedTrigChars = IntStream.range(0, N).boxed().map(Object::toString).collect(Collectors.toList());
+        var contribs = expectedTrigChars.stream().map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList());
         for (int i = 0; i < N; i++) {
-            final var trig = Integer.toString(i);
-            var job = CompletableFuture.supplyAsync(() -> {
-                var contribs = new SomeContribs(List.of(trig), exec);
-                return dynCap.registerCapabilities(contribs);
-            }, exec).thenCompose(Function.identity());
+            var sl = contribs.subList(0, i + 1);
+            var job = CompletableFuture.supplyAsync(() -> dynCap.updateCapabilities(sl), exec).thenCompose(Function.identity());
             jobs.add(job);
         }
+        var optionSublists = IntStream.range(0, N).boxed().map(i -> expectedTrigChars.subList(0, i + 1)).collect(Collectors.toList());
 
         // Await all parallel jobs
         CompletableFutureUtils.reduce(jobs).get();
 
         InOrder inOrder = inOrder(client);
 
-        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        inOrder.verify(client).registerCapability(any());
         for (int i = 1; i < N; i++) {
-            inOrder.verify(client).unregisterCapability(unregistrationCaptor.capture());
+            inOrder.verify(client).unregisterCapability(any());
             inOrder.verify(client).registerCapability(registrationCaptor.capture());
         }
         inOrder.verifyNoMoreInteractions();
 
-        var opts = (CompletionRegistrationOptions) registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions();
-        var expectedTrigChars = IntStream.range(0, N).boxed().map(Object::toString).collect(Collectors.toList());
-        var trigChars = new LinkedList<>(opts.getTriggerCharacters());
-
-        Collections.sort(expectedTrigChars);
-        Collections.sort(trigChars);
-
-        assertEquals(expectedTrigChars, trigChars);
+        var lastOpts = (CompletionRegistrationOptions) registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions();
+        assertTrue(optionSublists.stream().anyMatch(opts -> opts.equals(lastOpts.getTriggerCharacters())));
     }
 
 }

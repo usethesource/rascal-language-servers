@@ -37,7 +37,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -50,12 +49,10 @@ import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
-import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
@@ -99,16 +96,23 @@ public class DynamicCapabilities {
     }
 
     /**
-     * Register capabilities for new language contributions (typically on {@link IBaseTextDocumentService#registerLanguage}).
-     * @param contribs The new language contributions.
+     * Update capabilities for language contributions (typically on  {@link IBaseTextDocumentService#unregisterLanguage}).
+     * @param contribs The contributions to represent
      * @return A void future that completes when all capabilities are updated.
      */
-    public CompletableFuture<Void> registerCapabilities(ILanguageContributions contribs) {
-        logger.debug("Registering some capabilities");
+    public CompletableFuture<Void> updateCapabilities(Map<String,LanguageContributionsMultiplexer> contributions) {
+        return updateCapabilities(contributions.values().stream().map(ILanguageContributions.class::cast).collect(Collectors.toList()));
+    }
 
+    /**
+     * Update capabilities for language contributions.
+     * @param contribs The contributions to represent.
+     * @return A void future that completes when all capabilities are updated.
+     */
+    public CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
         // Compute registrations purely based on contributions
         // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
-        return CompletableFutureUtils.reduce(supportedCapabilities.stream().map(c -> registration(c, contribs)))
+        return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> maybeRegistration(c, contribs)))
             .thenAccept(capabilities -> {
                 // Since we have some bookkeeping to do, we will now block our logbook for a moment
                 synchronized (currentRegistrations) {
@@ -116,27 +120,31 @@ public class DynamicCapabilities {
                     List<Unregistration> unregistrations = new LinkedList<>();
                     for (var entry : capabilities) {
                         var cap = entry.getLeft();
-                        var registration = entry.getRight().orElse(null);
-                        if (registration == null || staticCapabilities.contains(cap)) {
+                        var method = cap.methodName();
+                        var newRegistration = entry.getRight();
+                        var existingRegistration = currentRegistrations.get(method);
+
+                        if (newRegistration.isEmpty()) {
+                            if (existingRegistration != null) {
+                                // this capability was removed
+                                logger.trace("{} is no longer supported by contributions", method);
+                                unregistrations.add(unregistration(cap));
+                            }
+                            // nothing more to do
                             continue;
                         }
 
-                        // Check if we already have this registration
-                        var existingRegistration = currentRegistrations.get(registration.getMethod());
+                        var registration = newRegistration.get(); // safe, since we checked emptyness before
                         if (existingRegistration != null) {
                             if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
-                                logger.trace("No option changes for {}", registration.getMethod());
+                                logger.trace("Options for {} did not change since last registration: {}", method, registration.getRegisterOptions());
                                 continue;
                             }
-
-                            // Otherwise, compute merged options
-                            var unregistration = computeOptionChanges(registration, existingRegistration.getRegisterOptions(), cap);
-
-                            logger.trace("Adding dynamic capability {} to task list", registration.getMethod());
-                            if (unregistration != null) {
-                                unregistrations.add(unregistration);
-                            }
+                            logger.trace("Options for {} changed since the previous registration; remove before adding again", method);
+                            unregistrations.add(unregistration(cap));
                         }
+
+                        logger.trace("Registering dynamic capability {}", method);
                         registrations.add(registration);
                     }
 
@@ -156,75 +164,6 @@ public class DynamicCapabilities {
         });
     }
 
-    private @Nullable Unregistration computeOptionChanges(Registration registration, Object existingOpts, AbstractDynamicCapability<?> cap) {
-        // Options are not equal and not null. We need to check if anything changes after merging them.
-        var mergedOpts = cap.mergeOptions(existingOpts, registration.getRegisterOptions());
-        if (!existingOpts.equals(mergedOpts)) {
-            logger.debug("Options for dynamic capability {} changed: {} vs. {}", registration.getMethod(), existingOpts, mergedOpts);
-            // The options of the registration changed; we need to unregister it, and update the options for the new registration.
-            registration.setRegisterOptions(mergedOpts);
-            return unregistration(cap);
-        }
-
-        return null;
-    }
-
-    /**
-     * Update capabilities for existing language contributions (typically on  {@link IBaseTextDocumentService#unregisterLanguage}).
-     * @param contribs The remaining multiplexers.
-     * @return A void future that completes when all capabilities are updated.
-     */
-    public CompletableFuture<Void> updateCapabilities(Map<String, LanguageContributionsMultiplexer> contribs) {
-        return updateCapabilities(contribs.values()
-            .stream()
-            .map(ILanguageContributions.class::cast)
-            .collect(Collectors.toList()));
-    }
-
-    private CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
-        return CompletableFutureUtils.<List<Either<Registration, Unregistration>>, List<Either<Registration, Unregistration>>>reduce(supportedCapabilities.stream()
-            .map(cap -> anyTrue(contribs, cap::hasContribution)
-                .thenCompose(b -> {
-                    if (b.booleanValue()) {
-                        // has contrib; calculate merged options
-                        var remainingOptions = contribs.stream()
-                            .<CompletableFuture<@Nullable Object>>map(c -> cap.options(c).<@Nullable Object>thenApply(Object.class::cast))
-                            .collect(Collectors.toList());
-                        return CompletableFutureUtils.reduce(remainingOptions, (l, r) -> {
-                                if (l == null) {
-                                    return r;
-                                }
-                                if (r == null) {
-                                    return l;
-                                }
-                                return cap.mergeOptions(l, r);
-                            })
-                            .thenApply(opts -> List.of(
-                                Either.<Registration, Unregistration>forRight(unregistration(cap)),
-                                Either.<Registration, Unregistration>forLeft(registration(cap, opts))
-                            ));
-                    } else {
-                        // does not have contrib
-                        return CompletableFuture.completedFuture(List.of(Either.<Registration, Unregistration>forRight(unregistration(cap))));
-                    }
-                })), List::of, Function.identity(), Lists::union)
-            .thenAccept(es -> {
-                List<Registration> registrations = new LinkedList<>();
-                List<Unregistration> unregistrations = new LinkedList<>();
-                for (var e : es) {
-                    e.map(registrations::add, unregistrations::add);
-                }
-
-                try {
-                    doRegistrations(registrations, unregistrations);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } catch (ExecutionException e) {
-                    logger.error("Doing registrations failed!", Objects.requireNonNullElse(e.getCause(), e));
-                }
-            });
-    }
-
     private synchronized void doRegistrations(List<Registration> registrations, List<Unregistration> unregistrations) throws InterruptedException, ExecutionException {
         if (!unregistrations.isEmpty()) {
             logger.debug("Unregistering dynamic capabilities: {}", unregistrations);
@@ -239,12 +178,17 @@ public class DynamicCapabilities {
         }
     }
 
-    private static <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, Optional<Registration>>> registration(AbstractDynamicCapability<T> cap, ILanguageContributions contribs) {
-        return cap.hasContribution(contribs).thenCompose(contributes -> contributes.booleanValue()
-            ? cap.options(contribs)
-                .thenApply(opts -> Pair.of(cap, Optional.of(registration(cap, opts))))
-            : CompletableFuture.completedFuture(Pair.of(cap, Optional.empty()))
-        );
+    private static <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, Optional<Registration>>> maybeRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
+        var supportingContribs = contribs.stream().filter(c -> cap.hasContribution(c).join()).collect(Collectors.toList()); // join() is fine, since we should only be called inside a promise
+        if (supportingContribs.isEmpty()) {
+            return CompletableFuture.completedFuture(Pair.of(cap, Optional.empty()));
+        }
+
+        var allOpts = supportingContribs.stream()
+            .<CompletableFuture<@Nullable T>>map(cap::options)
+            .collect(Collectors.toList());
+        var mergedOpts = CompletableFutureUtils.reduce(allOpts, cap::mergeOptions); // non-empty, so fine
+        return mergedOpts.thenApply(opts -> Pair.of(cap, Optional.of(registration(cap, opts))));
     }
 
     private static Registration registration(AbstractDynamicCapability<?> cap, @Nullable Object opts) {
@@ -256,11 +200,6 @@ public class DynamicCapabilities {
 
     private static Unregistration unregistration(AbstractDynamicCapability<?> cap) {
         return new Unregistration(cap.id(), cap.methodName());
-    }
-
-    private static CompletableFuture<Boolean> anyTrue(Collection<ILanguageContributions> contribs, Function<ILanguageContributions, CompletableFuture<Boolean>> hasContrib) {
-        return CompletableFutureUtils.reduce(contribs.stream().map(hasContrib))
-            .thenApply(bs -> bs.stream().anyMatch(Boolean::booleanValue));
     }
 
 }

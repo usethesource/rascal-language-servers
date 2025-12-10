@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -999,7 +1000,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
-        availableCapabilities().registerCapabilities(multiplexer);
+        try {
+            availableCapabilities().updateCapabilities(contributions).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.error("Unexpected error while updating dynamic capabilities", e);
+        }
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
