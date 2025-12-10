@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -62,6 +63,7 @@ public class DynamicCapabilities {
     private static final Logger logger = LogManager.getLogger(DynamicCapabilities.class);
 
     private final LanguageClient client;
+    private final Executor exec;
     private final List<AbstractDynamicCapability<?>> supportedCapabilities;
     private final Set<AbstractDynamicCapability<?>> staticCapabilities;
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
@@ -69,8 +71,9 @@ public class DynamicCapabilities {
     private @MonotonicNonNull ClientCapabilities clientCapabilities;
     private @MonotonicNonNull ServerCapabilities serverCapabilities;
 
-    public DynamicCapabilities(LanguageClient client, List<AbstractDynamicCapability<?>> supportedCapabilities) {
+    public DynamicCapabilities(LanguageClient client, Executor exec, List<AbstractDynamicCapability<?>> supportedCapabilities) {
         this.client = client;
+        this.exec = exec;
         this.supportedCapabilities = supportedCapabilities;
         this.staticCapabilities = new HashSet<>();
     }
@@ -110,7 +113,7 @@ public class DynamicCapabilities {
     CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
         // Compute registrations purely based on contributions
         // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
-        return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> maybeRegistration(c, contribs)))
+        return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> maybeRegistration(c, contribs)), exec)
             .thenAccept(capabilities -> {
                 // Since we have some bookkeeping to do, we will now block our logbook for a moment
                 synchronized (currentRegistrations) {
@@ -175,10 +178,10 @@ public class DynamicCapabilities {
         }
     }
 
-    private static <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> maybeRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
+    private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> maybeRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
         var supportingContribs = contribs.stream().filter(c -> cap.hasContribution(c).join()).collect(Collectors.toList()); // join() is fine, since we should only be called inside a promise
         if (supportingContribs.isEmpty()) {
-            return CompletableFuture.completedFuture(Pair.of(cap, null));
+            return CompletableFutureUtils.completedFuture(Pair.of(cap, null), exec);
         }
 
         var allOpts = supportingContribs.stream()

@@ -35,7 +35,6 @@ import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
@@ -52,9 +51,9 @@ public class CompletableFutureUtils {
      * @param futures The futures to reduce.
      * @return A future that yields a list of the results of the reduced futures.
      */
-    public static <T> CompletableFuture<List<T>> reduce(List<CompletableFuture<T>> futures) {
+    public static <T> CompletableFuture<List<T>> reduce(List<CompletableFuture<T>> futures, Executor exec) {
         return reduce(futures,
-            LinkedList::new,
+            completedFuture(new LinkedList<>(), exec),
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
         );
@@ -74,16 +73,15 @@ public class CompletableFutureUtils {
         return reduce(futures.subList(1, futures.size()), futures.get(0), Function.identity(), merge);
     }
 
-
     /**
      * Reduces a {@link Stream} of {@link CompletableFuture} to a single future that produces a {@link Collection}.
      * @param <T> The type of the values that the futures yield.
      * @param futures The futures to reduce.
      * @return A future that yields a collection of the results of the reduced futures.
      */
-    public static <T> CompletableFuture<List<T>> reduce(Stream<CompletableFuture<T>> futures) {
+    public static <T> CompletableFuture<List<T>> reduce(Stream<CompletableFuture<T>> futures, Executor exec) {
         return reduce(futures,
-            LinkedList::new,
+            completedFuture(new LinkedList<>(), exec),
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
         );
@@ -97,7 +95,7 @@ public class CompletableFutureUtils {
      * @param concat A function that merges two values of {@link I}.
      * @return A future that yields a list of all the elements in the lists from the reduced futures.
      */
-    public static <I extends Iterable<?>> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, Supplier<I> identity, BinaryOperator<I> concat) {
+    public static <I extends Iterable<?>> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
         return reduce(futures,
             identity,
             Function.identity(),
@@ -117,11 +115,10 @@ public class CompletableFutureUtils {
      *
      */
     public static <I, C> CompletableFuture<C> reduce(Stream<CompletableFuture<I>> futures,
-            Supplier<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
+            CompletableFuture<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
         return futures
                 .map(t -> t.thenApply(map))
-                .reduce(CompletableFuture.completedFuture(identity.get()),
-                        (lf, rf) -> lf.thenCombine(rf, concat));
+                .reduce(identity, (lf, rf) -> lf.thenCombine(rf, concat));
     }
 
     /**
@@ -135,8 +132,8 @@ public class CompletableFutureUtils {
      * @return A single future that, if it completes, yields the reduced result.
      */
     public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
-            Supplier<C> identity, Function<I, C> map, BiFunction<C, C, C> concat) {
-        CompletableFuture<C> result = CompletableFuture.completedFuture(identity.get());
+            CompletableFuture<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
+        CompletableFuture<C> result = identity;
         for (var fut : futures) {
             result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, map.apply(t)));
         }

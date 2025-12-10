@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -74,6 +75,8 @@ import io.usethesource.vallang.IList;
 @RunWith(MockitoJUnitRunner.class)
 public class DynamicCapabilitiesTest {
 
+    private final ExecutorService exec = Executors.newCachedThreadPool();
+
     private DynamicCapabilities dynCap;
 
     // Mocks
@@ -83,7 +86,7 @@ public class DynamicCapabilitiesTest {
 
     @Before
     public void setUp() {
-        dynCap = new DynamicCapabilities(client, List.of(
+        dynCap = new DynamicCapabilities(client, exec, List.of(
             new CompletionCapability()
         ));
     }
@@ -242,7 +245,7 @@ public class DynamicCapabilitiesTest {
     public void registerAndUpdateEmpty() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
         dynCap.updateCapabilities(List.of(contrib)).get();
-        dynCap.updateCapabilities(List.of(contrib, new NoContributions(contrib.getName(), Executors.newCachedThreadPool()))).get();
+        dynCap.updateCapabilities(List.of(contrib, new NoContributions(contrib.getName(), exec))).get();
 
         verify(client, never()).unregisterCapability(any());
         verify(client).registerCapability(any());
@@ -274,7 +277,7 @@ public class DynamicCapabilitiesTest {
             }
         }
 
-        dynCap = new DynamicCapabilities(client, List.of(new StaticCompletionCapabilty()));
+        dynCap = new DynamicCapabilities(client, exec, List.of(new StaticCompletionCapabilty()));
 
         ServerCapabilities serverCaps = Mockito.mock();
         dynCap.setStaticCapabilities(null, serverCaps);
@@ -300,7 +303,7 @@ public class DynamicCapabilitiesTest {
         var optionSublists = IntStream.range(0, N).boxed().map(i -> expectedTrigChars.subList(0, i + 1)).collect(Collectors.toList());
 
         // Await all parallel jobs
-        CompletableFutureUtils.reduce(jobs).get();
+        CompletableFutureUtils.reduce(jobs, exec).get();
 
         InOrder inOrder = inOrder(client);
 

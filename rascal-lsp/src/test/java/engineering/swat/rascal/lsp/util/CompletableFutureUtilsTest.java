@@ -27,6 +27,7 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.completedFuture;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.flatten;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
 
@@ -37,8 +38,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
-
 import org.apache.commons.compress.utils.Sets;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,6 +52,7 @@ public class CompletableFutureUtilsTest {
     private List<CompletableFuture<Integer>> futList;
 
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
+    private final Executor exec = Executors.newCachedThreadPool();
 
     @Before
     public void setUp() {
@@ -61,20 +64,20 @@ public class CompletableFutureUtilsTest {
 
     @Test
     public void reduceList() throws InterruptedException, ExecutionException {
-        CompletableFuture<List<Integer>> reduced = reduce(futList);
+        CompletableFuture<List<Integer>> reduced = reduce(futList, exec);
         assertEquals(Arrays.asList(1, 2, 3), reduced.get());
     }
 
     @Test
     public void reduceStream() throws InterruptedException, ExecutionException {
-        CompletableFuture<List<Integer>> reduced = reduce(futList.stream());
+        CompletableFuture<List<Integer>> reduced = reduce(futList.stream(), exec);
         assertEquals(Arrays.asList(1, 2, 3), reduced.get());
     }
 
     @Test
     public void reduceToSet() throws InterruptedException, ExecutionException {
         futList.add(CompletableFuture.completedFuture(1));
-        CompletableFuture<Set<Integer>> reduced = reduce(futList, Sets::newHashSet, Sets::newHashSet, this::setUnion);
+        CompletableFuture<Set<Integer>> reduced = reduce(futList, completedFuture(new HashSet<>(), exec), Sets::newHashSet, this::setUnion);
         assertEquals(Sets.newHashSet(1, 2, 3), reduced.get());
     }
 
@@ -86,7 +89,7 @@ public class CompletableFutureUtilsTest {
         );
 
         CompletableFuture<Integer> reduced = reduce(listFutList,
-            () -> 0,
+            completedFuture(0, exec),
             l -> l.stream().reduce(Integer::sum).orElse(0),
             Integer::sum
         );
@@ -95,13 +98,13 @@ public class CompletableFutureUtilsTest {
 
     @Test
     public void reduceAndAddList() throws InterruptedException, ExecutionException {
-        CompletableFuture<Integer> reduced = reduce(futList, () -> 0, Function.identity(), Integer::sum);
+        CompletableFuture<Integer> reduced = reduce(futList, completedFuture(0, exec), Function.identity(), Integer::sum);
         assertEquals(6, reduced.get().intValue());
     }
 
     @Test
     public void reduceAndAddStream() throws InterruptedException, ExecutionException {
-        CompletableFuture<Integer> reduced = reduce(futList.stream(), () -> 0, Function.identity(), Integer::sum);
+        CompletableFuture<Integer> reduced = reduce(futList.stream(), completedFuture(0, exec), Function.identity(), Integer::sum);
         assertEquals(6, reduced.get().intValue());
     }
 
@@ -110,7 +113,7 @@ public class CompletableFutureUtilsTest {
         var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3));
         var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
 
-        CompletableFuture<IList> reduced = flatten(outer.stream(), VF::list, IList::concat);
+        CompletableFuture<IList> reduced = flatten(outer.stream(), completedFuture(VF.list(), exec), IList::concat);
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
     }
 
@@ -119,7 +122,7 @@ public class CompletableFutureUtilsTest {
         var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1));
         var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
 
-        CompletableFuture<IList> reduced = flatten(outer.stream(), VF::list, IList::union);
+        CompletableFuture<IList> reduced = flatten(outer.stream(), completedFuture(VF.list(), exec), IList::union);
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
     }
 

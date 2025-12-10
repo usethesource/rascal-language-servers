@@ -305,7 +305,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        this.dynamicCapabilities = new DynamicCapabilities(client, List.of(new CompletionCapability()));
+        this.dynamicCapabilities = new DynamicCapabilities(client, exec, List.of(new CompletionCapability()));
         facts.values().forEach(v -> v.setClient(client));
         if (dedicatedLanguage != null) {
             // if there was one scheduled, we now start it up, since the connection has been made
@@ -776,7 +776,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
         // CompletableFuture<Stream<IValue>>
-        var quickfixes = CodeActions.extractActionsFromDiagnostics(params, contribs::parseCodeActions);
+        var quickfixes = CodeActions.extractActionsFromDiagnostics(params, contribs::parseCodeActions, exec);
 
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
@@ -888,7 +888,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     .map(p -> computeSelection
                         .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter())))
                         .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, columns)))
-                    .collect(Collectors.toUnmodifiableList()))),
+                    .collect(Collectors.toUnmodifiableList()), exec)),
             Collections::emptyList);
     }
 
