@@ -32,7 +32,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -120,10 +119,10 @@ public class DynamicCapabilities {
                     for (var entry : capabilities) {
                         var cap = entry.getLeft();
                         var method = cap.methodName();
-                        var newRegistration = entry.getRight();
+                        var registration = entry.getRight();
                         var existingRegistration = currentRegistrations.get(method);
 
-                        if (newRegistration.isEmpty()) {
+                        if (registration == null) {
                             if (existingRegistration != null) {
                                 // this capability was removed
                                 logger.trace("{} is no longer supported by contributions", method);
@@ -133,7 +132,6 @@ public class DynamicCapabilities {
                             continue;
                         }
 
-                        var registration = newRegistration.get(); // safe, since we checked emptyness before
                         if (existingRegistration != null) {
                             if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
                                 logger.trace("Options for {} did not change since last registration: {}", method, registration.getRegisterOptions());
@@ -177,17 +175,17 @@ public class DynamicCapabilities {
         }
     }
 
-    private static <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, Optional<Registration>>> maybeRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
+    private static <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> maybeRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
         var supportingContribs = contribs.stream().filter(c -> cap.hasContribution(c).join()).collect(Collectors.toList()); // join() is fine, since we should only be called inside a promise
         if (supportingContribs.isEmpty()) {
-            return CompletableFuture.completedFuture(Pair.of(cap, Optional.empty()));
+            return CompletableFuture.completedFuture(Pair.of(cap, null));
         }
 
         var allOpts = supportingContribs.stream()
             .<CompletableFuture<@Nullable T>>map(cap::options)
             .collect(Collectors.toList());
         var mergedOpts = CompletableFutureUtils.reduce(allOpts, cap::mergeOptions); // non-empty, so fine
-        return mergedOpts.thenApply(opts -> Pair.of(cap, Optional.of(registration(cap, opts))));
+        return mergedOpts.thenApply(opts -> Pair.of(cap, registration(cap, opts)));
     }
 
     private static Registration registration(AbstractDynamicCapability<?> cap, @Nullable Object opts) {
