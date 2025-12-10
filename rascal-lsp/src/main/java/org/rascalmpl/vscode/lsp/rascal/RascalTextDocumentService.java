@@ -684,7 +684,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
         // CompletableFuture<Stream<IValue>>
         CompletableFuture<Stream<IValue>> quickfixes
-            = CodeActions.extractActionsFromDiagnostics(params, availableRascalServices()::parseCodeActions);
+            = CodeActions.extractActionsFromDiagnostics(params, availableRascalServices()::parseCodeActions, exec);
 
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
