@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+
 import org.apache.commons.compress.utils.Sets;
 import org.junit.Before;
 import org.junit.Test;
@@ -127,5 +128,4 @@ public class CompletableFutureUtilsTest {
         s.addAll(r);
         return s;
     }
-
 }

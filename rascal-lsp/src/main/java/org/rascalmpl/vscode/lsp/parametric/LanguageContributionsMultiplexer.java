@@ -361,11 +361,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<IList> completionTriggerCharacters() {
         // A multiplexer supports the union of triggers of its implementations
-        return CompletableFutureUtils.flatten(
-            contributions.stream().map(c -> c.contrib.completionTriggerCharacters()),
-            VF::list,
-            IList::union // remove duplicates
-        );
+        return CompletableFutureUtils.flatten(contributions.stream().map(c -> c.contrib.completionTriggerCharacters()), VF::list, IList::union);
     }
 
     @Override

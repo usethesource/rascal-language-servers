@@ -956,13 +956,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(Versioned::get)
             .thenCompose(t -> {
                 var completion = new Completion();
-                var lspPos = params.getPosition();
-                var rascalPos = Locations.toRascalPosition(loc, lspPos, columns);
+                var rascalPos = Locations.toRascalPosition(loc, params.getPosition(), columns);
                 var focus = TreeSearch.computeFocusList(t, rascalPos.getLine(), rascalPos.getCharacter());
-                var trigger = completion.triggerKindToRascal(params.getContext());
                 var cursorOffset = rascalPos.getCharacter() - TreeAdapter.getLocation((ITree) focus.get(0)).getBeginColumn();
-                return contrib.completion(focus, VF.integer(cursorOffset), trigger)
-                    .get()
+                return contrib.completion(focus, VF.integer(cursorOffset), completion.triggerKindToRascal(params.getContext())).get()
                     .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName(), rascalPos.getLine(), columns.get(loc)));
             })
             .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
@@ -1037,7 +1034,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
         triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
     }
-
 
     private static String buildContributionKey(LanguageParameter lang) {
         return lang.getMainFunction() + "::" + lang.getMainFunction();

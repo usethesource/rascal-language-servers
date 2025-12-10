@@ -136,37 +136,17 @@ public class DynamicCapabilitiesTest {
             return CompletableFutureUtils.completedFuture(true, exec);
         }
 
-        @Override
-        public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
-            return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
-        }
-
-        @Override
-        public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
-            return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
-        }
-
-        @Override
-        public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
-            return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
-        }
-
     }
 
     private Map<String, @Nullable Object> registrationOptions(RegistrationParams params) {
-        return params.getRegistrations()
-            .stream()
-            .collect(Collectors.toMap(Registration::getMethod, Registration::getRegisterOptions));
+        return params.getRegistrations().stream().collect(Collectors.toMap(Registration::getMethod, Registration::getRegisterOptions));
     }
 
     private List<String> unregistrationOptions(UnregistrationParams params) {
-        return params.getUnregisterations()
-            .stream()
-            .map(Unregistration::getMethod)
-            .collect(Collectors.toList());
+        return params.getUnregisterations().stream().map(Unregistration::getMethod).collect(Collectors.toList());
     }
 
-    @SuppressWarnings("unchecked")
+    @SafeVarargs
     private void registerIncrementally(List<String>... options) throws InterruptedException, ExecutionException {
         registerIncrementally(Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList()));
     }

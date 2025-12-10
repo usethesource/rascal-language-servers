@@ -65,13 +65,13 @@ public class CompletableFutureUtils {
      * @param <T> The type of the values that the futures yield.
      * @param futures The futures to reduce.
      * @return A future that yields a list of the results of the reduced futures.
+     * @throws IllegalArgumentException when the list of futures is empty
      */
     public static <T> CompletableFuture<T> reduce(List<CompletableFuture<T>> futures, BinaryOperator<T> merge) {
-        return reduce(futures.subList(1, futures.size()),
-            futures.get(0),
-            Function.identity(),
-            merge
-        );
+        if (futures.isEmpty()) {
+            throw new IllegalArgumentException("Cannot reduce empty list without identity value.");
+        }
+        return reduce(futures.subList(1, futures.size()), futures.get(0), Function.identity(), merge);
     }
 
 

@@ -303,7 +303,7 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
     t = focus[0];
     str prefix = "<t>"[..cursorOffset];
     cc = t.src.begin.column + cursorOffset;
-
+    items = [];
 
     isTypingId = false;
     try {
@@ -313,7 +313,6 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
         }
     } catch ParseError(_): {;}
 
-    items = [];
     top-down-break visit (focus[-1]) {
         case IdType def: {
             name = "<def.id>";
@@ -321,7 +320,6 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
                 e = isTypingId && !trigger is character
                     ? completionEdit(t.src.begin.column, cc, t.src.end.column, name)
                     : completionEdit(cc, cc, cc, name);
-
                 items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeOf(def)>");
             }
         }

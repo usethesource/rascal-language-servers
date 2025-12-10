@@ -87,32 +87,23 @@ public class Completion {
                 var kws = c.asWithKeywordParameters();
                 var ci = new CompletionItem();
 
-                ci.setKind(itemKindToLSP((IConstructor) c.get(CompletionFields.KIND)));
-
                 var edit = (IConstructor) c.get(CompletionFields.EDIT);
-                var lspEdit = editToLSP(edit, editLine, offsets);
-                ci.setTextEdit(Either.forRight(lspEdit));
+                ci.setTextEdit(Either.forRight(editToLSP(edit, editLine, offsets)));
                 ci.setInsertTextFormat(isSnippet(edit) ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
                 ci.setInsertTextMode(InsertTextMode.AsIs);
                 ci.setLabel(((IString) c.get(CompletionFields.LABEL)).getValue());
-
+                ci.setKind(itemKindToLSP((IConstructor) c.get(CompletionFields.KIND)));
                 var label = new CompletionItemLabelDetails();
                 label.setDetail(getKwParamString(kws, CompletionFields.LABEL_DETAIL, ""));
                 label.setDescription(getKwParamString(kws, CompletionFields.LABEL_DESCRIPTION, ""));
                 ci.setLabelDetails(label);
-
                 ci.setDetail(getKwParamString(kws, CompletionFields.DETAIL, ""));
                 ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, getKwParamString(kws, CompletionFields.DOCUMENTATION, "")));
                 ci.setSortText(getKwParamString(kws, CompletionFields.SORT_TEXT, ""));
                 ci.setFilterText(getKwParamString(kws, CompletionFields.FILTER_TEXT, ""));
                 ci.setTags(getKwParamBool(kws, CompletionFields.DEPRECATED, false) ? List.of(CompletionItemTag.Deprecated) : Collections.emptyList());
                 ci.setPreselect(getKwParamBool(kws, CompletionFields.PRESELECT, false));
-                ci.setCommitCharacters(getKwParamList(kws, CompletionFields.COMMIT_CHARACTERS, VF.list())
-                    .stream()
-                    .map(IString.class::cast)
-                    .map(IString::getValue)
-                    .collect(Collectors.toList()));
-
+                ci.setCommitCharacters(getKwParamList(kws, CompletionFields.COMMIT_CHARACTERS, VF.list()).stream().map(ch -> ((IString) ch).getValue()).collect(Collectors.toList()));
                 ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(getKwParamList(kws, CompletionFields.ADDITIONAL_CHANGES, VF.list()), docService.getColumnMaps()));
                 var command = getCommand(kws, dedicatedLanguageName, languageName);
                 if (command != null) {
@@ -133,15 +124,12 @@ public class Completion {
     }
 
     private InsertReplaceEdit editToLSP(IConstructor edit, int currentLine, LineColumnOffsetMap offsets) {
-        var text = ((IString) edit.get(CompletionFields.NEW_TEXT)).getValue();
         var startColumn = ((IInteger) edit.get(CompletionFields.START_COLUMN)).intValue();
-        var insertEndColumn = ((IInteger) edit.get(CompletionFields.INSERT_END_COLUMN)).intValue();
-        var replaceEndColumn = ((IInteger) edit.get(CompletionFields.REPLACE_END_COLUMN)).intValue();
-
-        var insertRange = rascalToLspRange(currentLine, startColumn, insertEndColumn, offsets);
-        var replaceRange = rascalToLspRange(currentLine, startColumn, replaceEndColumn, offsets);
-
-        return new InsertReplaceEdit(text, insertRange, replaceRange);
+        return new InsertReplaceEdit(
+            ((IString) edit.get(CompletionFields.NEW_TEXT)).getValue(),
+            rascalToLspRange(currentLine, startColumn, ((IInteger) edit.get(CompletionFields.INSERT_END_COLUMN)).intValue(), offsets),
+            rascalToLspRange(currentLine, startColumn, ((IInteger) edit.get(CompletionFields.REPLACE_END_COLUMN)).intValue(), offsets)
+        );
     }
 
     private Range rascalToLspRange(int line, int startCol, int endCol, LineColumnOffsetMap offsets) {
@@ -168,29 +156,17 @@ public class Completion {
 
     private String getKwParamString(IWithKeywordParameters<? extends IConstructor> c, String label, String defaultVal) {
         var param = c.getParameter(label);
-        if (param instanceof IString) {
-            return ((IString) param).getValue();
-        }
-
-        return defaultVal;
+        return param instanceof IString ? ((IString) param).getValue() : defaultVal;
     }
 
     private boolean getKwParamBool(IWithKeywordParameters<? extends IConstructor> c, String label, boolean defaultVal) {
         var param = c.getParameter(label);
-        if (param instanceof IBool) {
-            return ((IBool) param).getValue();
-        }
-
-        return defaultVal;
+        return param instanceof IBool ? ((IBool) param).getValue() : defaultVal;
     }
 
     private IList getKwParamList(IWithKeywordParameters<? extends IConstructor> c, String label, IList defaultVal) {
         var param = c.getParameter(label);
-        if (param instanceof IList) {
-            return ((IList) param);
-        }
-
-        return defaultVal;
+        return param instanceof IList ? (IList) param : defaultVal;
     }
 
     public IConstructor triggerKindToRascal(@Nullable CompletionContext context) {
