@@ -79,26 +79,27 @@ public abstract class AbstractDynamicCapability<O> {
     }
 
     /**
-     * Computes the options this capability given language contributions.
+     * Computes the options for this capability, which might be `null`.
+     * Only called when {@link isProvidedBy} resolves to `true` (for the same contributions).
      * @param contribs The {@link ILanguageContributions} that this capability reflects.
-     * @return A future resolving to options
+     * @return A future resolving to the options.
      */
     protected abstract CompletableFuture<@Nullable O> options(ILanguageContributions contribs);
 
     /**
-     * Checks whether the givien language contributions contain a contribution that matches this capability.
+     * Checks whether the given language contributions contain a contribution that provides this capability.
      * @param contribs The {@link ILanguageContributions} that this capability reflects.
      * @return A future resolving to `true` if there is such a contribution, or `false` otherwise.
      */
     protected abstract CompletableFuture<Boolean> isProvidedBy(ILanguageContributions contribs);
 
     /**
-     * Merges to option objects.
-     * @param existingOpts The current options.
-     * @param newOpts The new options to merge into the current ones.
-     * @return Merged options.
+     * Merges two  (possibly `null`) option objects.
+     * @param o1 The left options.
+     * @param o2 The right options.
+     * @return Merged options object (possibly `null`).
      */
-    protected abstract @Nullable O mergeOptions(@Nullable O existingOpts, @Nullable O newOpts);
+    protected abstract @Nullable O mergeOptions(@Nullable O o1, @Nullable O o2);
 
 
     /**
@@ -109,18 +110,18 @@ public abstract class AbstractDynamicCapability<O> {
     protected abstract boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities);
 
     /**
-     * Sets this capability statically.
-     * @param result The server capabilities to set.
+     * Registers this server capability statically.
+     * @param result The server capabilities to modify.
      */
     protected abstract void registerStatically(ServerCapabilities result);
 
     /**
-     * Check whether to set this capability dynamically.
+     * Check whether to register this capability statically instead of dynamically.
      *
-     * If this capability prefers static registration or the client does not support dynamic registration, set it statically instead.
+     * If this capability prefers static registration or if the client does not support dynamic registration, set it statically.
      * @param client Client capabilities to determine dynamic registration support.
      * @param result Server capabilities to modify when registerting statically.
-     * @return `true` if this capability should be registered dynamically, `false` otherwise.
+     * @return `true` if this capability should be registered statically, `false` otherwise.
      */
     protected final boolean shouldRegisterStatically(ClientCapabilities client) {
         return preferStaticRegistration() || !isDynamicallySupportedBy(client);
