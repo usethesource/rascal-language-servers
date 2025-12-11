@@ -89,6 +89,7 @@ public class DynamicCapabilities {
         this.clientCapabilities = clientCapabilities;
         this.serverCapabilities = serverCapabilities;
 
+        staticCapabilities.clear();
         for (var cap : supportedCapabilities) {
             if (!cap.checkDynamicCapability(clientCapabilities, serverCapabilities)) {
                 staticCapabilities.add(cap);

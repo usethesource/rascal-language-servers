@@ -26,10 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CompletionOptions;
@@ -76,20 +76,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
         if (right == null) {
             return left;
         }
-        return new CompletionRegistrationOptions(union(left.getTriggerCharacters(), right.getTriggerCharacters()), false);
-    }
-
-    private <T> List<T> union(List<T> left, List<T> right) {
-        if (right.isEmpty()) {
-            return left;
-        }
-        if (left.isEmpty()) {
-            return right;
-        }
-
-        var merged = new LinkedHashSet<>(left);
-        merged.addAll(right);
-        return List.copyOf(merged);
+        return new CompletionRegistrationOptions(Stream.concat(left.getTriggerCharacters().stream(), right.getTriggerCharacters().stream()).distinct().collect(Collectors.toList()), false);
     }
 
     @Override
