@@ -328,13 +328,6 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
     return items;
 }
 
-void testCompletion() {
-    start[Program] prg = parse(#start[Program], "begin declare var1 : natural, var2 : natural; va := 1 end");
-    Focus focus = computeFocusList(prg, 1, 47); // after v
-    completions = picoCompletionService(focus, 2, invoked());
-    println("completions: <completions>");
-}
-
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
 Register the Pico language and the contributions that supply the IDE with features.
