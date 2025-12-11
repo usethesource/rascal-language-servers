@@ -94,13 +94,22 @@ public abstract class AbstractDynamicCapability<O> {
     protected abstract CompletableFuture<Boolean> isProvidedBy(ILanguageContributions contribs);
 
     /**
-     * Merges two  (possibly `null`) option objects.
+     * Merges two non-null option objects.
      * @param o1 The left options.
      * @param o2 The right options.
-     * @return Merged options object (possibly `null`).
+     * @return Merged options object.
      */
-    protected abstract @Nullable O mergeOptions(@Nullable O o1, @Nullable O o2);
+    protected abstract O mergeOptions(O o1, O o2);
 
+    protected final @Nullable O mergeNullableOptions(@Nullable O o1, @Nullable O o2) {
+        if (o1 == null) {
+            return o2;
+        }
+        if (o2 == null) {
+            return o1;
+        }
+        return mergeOptions(o1, o2);
+    }
 
     /**
      * Predicate that determines whether the client supports dynamic registration of this capability.

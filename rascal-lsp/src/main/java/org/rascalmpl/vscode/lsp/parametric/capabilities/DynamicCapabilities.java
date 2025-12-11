@@ -184,7 +184,7 @@ public class DynamicCapabilities {
         var allOpts = supportingContribs.stream()
             .<CompletableFuture<@Nullable T>>map(cap::options)
             .collect(Collectors.toList());
-        var mergedOpts = CompletableFutureUtils.reduce(allOpts, cap::mergeOptions); // non-empty, so fine
+        var mergedOpts = CompletableFutureUtils.reduce(allOpts, cap::mergeNullableOptions); // non-empty, so no need to provide a reduction identity
         return mergedOpts.thenApply(opts -> Pair.of(cap, registration(cap, opts)));
     }
 
