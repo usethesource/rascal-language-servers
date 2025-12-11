@@ -354,7 +354,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
         // Instead of pre-computing the completion contribution, we need to dynamically route based on the trigger here
-        var completion = findFirstOrDefault(c -> Completion.isTriggered(trigger, c.completionTriggerCharacters()));
+        var completion = findFirstOrDefault(c -> Completion.isTriggered(trigger, c.completionTriggerCharacters(), exec));
         return flatten(completion, c -> c.completion(focus, cursorOffset, trigger));
     }
 

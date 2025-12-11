@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.util;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
@@ -52,6 +53,7 @@ import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.CompletionFields;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
@@ -187,10 +189,10 @@ public class Completion {
         }
     }
 
-    public static CompletableFuture<Boolean> isTriggered(IConstructor kind, CompletableFuture<IList> triggerChars) {
+    public static CompletableFuture<Boolean> isTriggered(IConstructor kind, CompletableFuture<IList> triggerChars, Executor exec) {
         if (CompletionFields.INVOKED.equals(kind.getName())) {
             // Manual invocation always triggers completion
-            return CompletableFuture.completedFuture(true);
+            return CompletableFutureUtils.completedFuture(true, exec);
         }
 
         if (CompletionFields.CHARACTER.equals(kind.getName()) && kind.has(CompletionFields.TRIGGER)) {
@@ -199,6 +201,6 @@ public class Completion {
             return triggerChars.thenApply(chars -> chars.contains(trigger));
         }
 
-        return CompletableFuture.completedFuture(false);
+        return CompletableFutureUtils.completedFuture(false, exec);
     }
 }
