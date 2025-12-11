@@ -27,6 +27,7 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.completedFuture;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.flatten;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
@@ -94,6 +95,23 @@ public class CompletableFutureUtilsTest {
             Integer::sum
         );
         assertEquals(10, reduced.get().intValue());
+    }
+
+    @Test
+    public void sum() throws InterruptedException, ExecutionException {
+        var listFutList = List.of(
+            CompletableFuture.completedFuture(1),
+            CompletableFuture.completedFuture(2),
+            CompletableFuture.completedFuture(3)
+        );
+
+        CompletableFuture<Integer> reduced = reduce(listFutList, Integer::sum);
+        assertEquals(6, reduced.get().intValue());
+    }
+
+    @Test
+    public void reduceEmptyList() {
+        assertThrows(IllegalArgumentException.class, () -> reduce(List.of(), Integer::sum));
     }
 
     @Test

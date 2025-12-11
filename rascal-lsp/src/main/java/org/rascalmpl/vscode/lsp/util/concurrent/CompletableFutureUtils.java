@@ -126,26 +126,6 @@ public class CompletableFutureUtils {
      * @param <I> The type of the results of the input futures.
      * @param <C> The type of the result of the reduced future.
      * @param futures An {@link Iterable} of futures to reduce.
-     * @param identity The identity function of {@link C}.
-     * @param map A function that maps an {@link I} to a {@link C}.
-     * @param concat A function that merges two values of {@link C}.
-     * @return A single future that, if it completes, yields the reduced result.
-     */
-    public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
-            CompletableFuture<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
-        CompletableFuture<C> result = identity;
-        for (var fut : futures) {
-            result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, map.apply(t)));
-        }
-
-        return result;
-    }
-
-    /**
-     * Reduces a {@link Iterable} of {@link CompletableFuture} into a single future that yields a {@link C}.
-     * @param <I> The type of the results of the input futures.
-     * @param <C> The type of the result of the reduced future.
-     * @param futures An {@link Iterable} of futures to reduce.
      * @param identity The identity function of {@link CompletableFuture} of {@link C}.
      * @param map A function that maps an {@link I} to a {@link C}.
      * @param concat A function that merges two values of {@link C}.
