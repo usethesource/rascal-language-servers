@@ -32,11 +32,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.checkerframework.checker.nullness.qual.PolyNull;
-import org.rascalmpl.values.IRascalValueFactory;
-
-import io.usethesource.vallang.IList;
 
 public class InterruptibleFuture<T> {
 
@@ -98,15 +94,6 @@ public class InterruptibleFuture<T> {
         return new InterruptibleFuture<>(future.thenCombineAsync(other, fn, executor), interrupt);
     }
 
-    public <U, V> InterruptibleFuture<V> thenCombineAsync(
-        InterruptibleFuture<? extends U> other,
-        BiFunction<? super T, ? super U, ? extends V> fn, Executor executor) {
-        return new InterruptibleFuture<>(future.thenCombineAsync(other.get(), fn, executor), () -> {
-            interrupt();
-            other.interrupt();
-        });
-    }
-
     public static <T> InterruptibleFuture<T> completedFuture(T result, Executor exec) {
         return new InterruptibleFuture<>(CompletableFutureUtils.completedFuture(result, exec), () -> {});
     }
@@ -120,58 +107,6 @@ public class InterruptibleFuture<T> {
             f.<@PolyNull T>thenCompose(InterruptibleFuture::get),
             () -> f.thenAcceptAsync(InterruptibleFuture::interrupt, exec) // schedule interrupt async so that we don't deadlock during interrupt
         );
-    }
-
-    /**
-     * Flattens an {@link Iterable} of {@link InterruptibleFuture} that produces values of type {@link IList} to a single future that produces an {@link IList}.
-     * @param futures The futures of which to reduce the result lists.
-     * @param exec The {@link Executor} to execute the future on.
-     * @return A future that yields a list of all the elements in the lists from the reduced futures.
-     */
-    public static InterruptibleFuture<IList> flatten(Iterable<InterruptibleFuture<IList>> futures, Executor exec) {
-        return flatten(futures,
-            IRascalValueFactory.getInstance()::list,
-            IList::concat,
-            exec
-        );
-    }
-
-    /**
-     * Flattens an {@link Iterable} of {@link InterruptibleFuture} that produces values of type {@link Iterable} to a single future that produces an {@link Iterable}.
-     * @param <I> The type of the result of the futures.
-     * @param futures The futures of which to reduce the result lists.
-     * @param identity The identity function of {@link I}.
-     * @param concat A function that merges two values of {@link I}.
-     * @param exec The {@link Executor} to execute the future on.
-     * @return A future that yields a list of all the elements in the lists from the reduced futures.
-     */
-    public static <I extends Iterable<?>> InterruptibleFuture<I> flatten(Iterable<InterruptibleFuture<I>> futures, Supplier<? extends I> identity, BiFunction<? super I, ? super I, ? extends I> concat, Executor exec) {
-        return reduce(futures,
-            identity,
-            Function.identity(),
-            concat,
-            exec
-        );
-    }
-
-    /**
-     * Reduces a {@link Iterable} of {@link InterruptibleFuture} into a single future that yields a {@link C}.
-     * @param <I> The type of the results of the input futures.
-     * @param <C> The type of the result of the reduced future.
-     * @param futures An {@link Iterable} of futures to reduce.
-     * @param identity The identity function of {@link C}.
-     * @param map A function that maps an {@link I} to a {@link C}.
-     * @param concat A function that merges two values of {@link C}.
-     * @return A single future that, if it completes, yields the reduced result.
-     */
-    public static <I, C> InterruptibleFuture<C> reduce(Iterable<InterruptibleFuture<I>> futures,
-            Supplier<? extends C> identity, Function<? super I, ? extends C> map, BiFunction<? super C, ? super C, ? extends C> concat, Executor exec) {
-        InterruptibleFuture<C> result = InterruptibleFuture.completedFuture(identity.get(), exec);
-        for (var fut : futures) {
-            result = result.thenCombineAsync(fut, (acc, t) -> concat.apply(acc, map.apply(t)), exec);
-        }
-
-        return result;
     }
 
 }
