@@ -39,17 +39,44 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
  */
 public abstract class AbstractDynamicCapability<O> {
 
+    /**
+     * A unique UUID used to register/unregister this capability. Should be unique.
+     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#registrationParams
+     */
     private final String id;
 
-    protected AbstractDynamicCapability() {
-        id = UUID.randomUUID().toString();
+    /**
+     * The name of the capability (as per LSP documentation). For example, `"textDocument/completion"`.
+     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#registrationParams
+     */
+    private final String methodName;
+
+    /**
+     * Whether to prefer static registration (over dynamic).
+     */
+    private final boolean preferStaticRegistration;
+
+    protected AbstractDynamicCapability(String methodName) {
+        this(methodName, false);
+    }
+
+    protected AbstractDynamicCapability(String methodName, boolean preferStaticRegistration) {
+        this.id = UUID.randomUUID().toString();
+        this.methodName = methodName;
+        this.preferStaticRegistration = preferStaticRegistration;
     }
 
     protected final String id() {
         return id;
     }
 
-    protected abstract String methodName();
+    protected final String methodName() {
+        return methodName;
+    }
+
+    protected final boolean preferStaticRegistration() {
+        return this.preferStaticRegistration;
+    }
 
     /**
      * Computes the options this capability given language contributions.
@@ -63,7 +90,7 @@ public abstract class AbstractDynamicCapability<O> {
      * @param contribs The {@link ILanguageContributions} that this capability reflects.
      * @return A future resolving to `true` if there is such a contribution, or `false` otherwise.
      */
-    protected abstract CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs);
+    protected abstract CompletableFuture<Boolean> isProvidedBy(ILanguageContributions contribs);
 
     /**
      * Merges to option objects.
@@ -73,12 +100,6 @@ public abstract class AbstractDynamicCapability<O> {
      */
     protected abstract @Nullable O mergeOptions(@Nullable O existingOpts, @Nullable O newOpts);
 
-    /**
-     * Whether this capability prefers static registration.
-     */
-    protected boolean preferStaticRegistration() {
-        return false;
-    }
 
     /**
      * Predicate that determines whether the client supports dynamic registration of this capability.

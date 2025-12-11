@@ -180,7 +180,7 @@ public class DynamicCapabilities {
     }
 
     private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> maybeRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
-        var supportingContribs = contribs.stream().filter(c -> cap.hasContribution(c).join()).collect(Collectors.toList()); // join() is fine, since we should only be called inside a promise
+        var supportingContribs = contribs.stream().filter(c -> cap.isProvidedBy(c).join()).collect(Collectors.toList()); // join() is fine, since we should only be called inside a promise
         if (supportingContribs.isEmpty()) {
             return CompletableFutureUtils.completedFuture(Pair.of(cap, null), exec);
         }

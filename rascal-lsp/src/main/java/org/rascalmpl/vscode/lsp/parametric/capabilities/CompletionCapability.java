@@ -46,9 +46,12 @@ import io.usethesource.vallang.IString;
  */
 public class CompletionCapability extends AbstractDynamicCapability<CompletionRegistrationOptions> {
 
-    @Override
-    protected String methodName() {
-        return "textDocument/completion";
+    public CompletionCapability() {
+        this(false);
+    }
+
+    public CompletionCapability(boolean preferStaticRegistration) {
+        super("textDocument/completion", preferStaticRegistration);
     }
 
     @Override
@@ -64,7 +67,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected CompletableFuture<Boolean> hasContribution(ILanguageContributions contribs) {
+    protected CompletableFuture<Boolean> isProvidedBy(ILanguageContributions contribs) {
         return contribs.hasCompletion();
     }
 

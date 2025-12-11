@@ -329,14 +329,7 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void preferStaticRegistration() throws InterruptedException, ExecutionException {
-        class StaticCompletionCapabilty extends CompletionCapability {
-            @Override
-            protected boolean preferStaticRegistration() {
-                return true;
-            }
-        }
-
-        dynCap = new DynamicCapabilities(client, exec, List.of(new StaticCompletionCapabilty()));
+        dynCap = new DynamicCapabilities(client, exec, List.of(new CompletionCapability(true)));
 
         dynCap.setStaticCapabilities(clientCapabilities(true), serverCapabilities);
         dynCap.updateCapabilities(List.of(new SomeContribs("."))).get();
