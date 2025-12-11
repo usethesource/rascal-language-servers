@@ -35,6 +35,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
@@ -166,7 +167,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.prepareCallHierarchy = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 0);
             this.callHierarchyService = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 1);
             this.completion = getFunctionFor(contributions, LanguageContributions.COMPLETION);
-            this.completionTriggerCharacters = getContributionParameter(contributions, LanguageContributions.COMPLETION, LanguageContributions.COMPLETION_TRIGGER_CHARACTERS, VF.list());
+            this.completionTriggerCharacters = getContributionParameter(contributions, LanguageContributions.COMPLETION, LanguageContributions.COMPLETION_TRIGGER_CHARACTERS, VF.list(), IList.class);
 
             // assign boolean properties once instead of wasting futures all the time
             this.hasAnalysis = nonNull(this.analysis);
@@ -243,20 +244,18 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private static CompletableFuture<Boolean> getContributionParameter(
             CompletableFuture<ISet> contributions, String name, String parameter) {
-        return getContributionParameter(contributions, name, parameter, VF.bool(false)).thenApply(IBool::getValue);
+        return getContributionParameter(contributions, name, parameter, VF.bool(false), IBool.class).thenApply(IBool::getValue);
     }
 
-    @SuppressWarnings("unchecked")
-    private static <T extends IValue> CompletableFuture<T> getContributionParameter(CompletableFuture<ISet> contributions, String name, String parameter, T defaultVal) {
+    private static <T extends IValue> CompletableFuture<@PolyNull T> getContributionParameter(CompletableFuture<ISet> contributions, String name, String parameter, @PolyNull T defaultVal, Class<T> t) {
         return contributions.thenApply(c -> {
             var contrib = getContribution(c, name);
             if (contrib == null) {
                 return defaultVal;
             }
 
-            var val = contrib.asWithKeywordParameters().getParameter(parameter);
             try {
-                return (T) val;
+                return t.cast(contrib.asWithKeywordParameters().getParameter(parameter));
             } catch (ClassCastException e) {
                 return defaultVal;
             }
