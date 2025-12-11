@@ -73,7 +73,6 @@ import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
 import org.rascalmpl.vscode.lsp.parametric.NoContributions;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -95,10 +94,8 @@ public class DynamicCapabilitiesTest {
 
     @Before
     public void setUp() {
-        dynCap = new DynamicCapabilities(client, exec, List.of(
-            completion
-        ));
-        dynCap.setStaticCapabilities(clientCapabilities(true), serverCapabilities);
+        dynCap = new DynamicCapabilities(client, exec, List.of(completion), clientCapabilities(true));
+        dynCap.registerStaticCapabilities(serverCapabilities);
     }
 
     private static ClientCapabilities clientCapabilities(boolean supportsDynamicCompletion) {
@@ -319,7 +316,9 @@ public class DynamicCapabilitiesTest {
     public void hasNoDynamicCapability() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
 
-        dynCap.setStaticCapabilities(clientCapabilities(false), serverCapabilities);
+        dynCap = new DynamicCapabilities(client, exec, List.of(completion), clientCapabilities(false));
+        dynCap.registerStaticCapabilities(serverCapabilities);
+
         dynCap.updateCapabilities(List.of(contrib)).get();
 
         verify(client, never()).registerCapability(any());
@@ -329,9 +328,9 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void preferStaticRegistration() throws InterruptedException, ExecutionException {
-        dynCap = new DynamicCapabilities(client, exec, List.of(new CompletionCapability(true)));
+        dynCap = new DynamicCapabilities(client, exec, List.of(new CompletionCapability(true)), clientCapabilities(true));
+        dynCap.registerStaticCapabilities(serverCapabilities);
 
-        dynCap.setStaticCapabilities(clientCapabilities(true), serverCapabilities);
         dynCap.updateCapabilities(List.of(new SomeContribs("."))).get();
 
         verify(client, never()).registerCapability(any());
@@ -367,17 +366,6 @@ public class DynamicCapabilitiesTest {
 
         var lastOpts = (CompletionRegistrationOptions) registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions();
         assertTrue(optionSublists.stream().anyMatch(opts -> opts.equals(lastOpts.getTriggerCharacters())));
-    }
-
-    @Test
-    public void registerMultiplexer() throws InterruptedException, ExecutionException {
-        var plex = new LanguageContributionsMultiplexer("SomeLang", exec);
-        plex.addContributor("SomeLang", new SomeContribs("SomeLang"));
-        var contribs = Map.of("SomeLang", plex);
-
-        dynCap.updateCapabilities(contribs).get();
-        verify(client, never()).unregisterCapability(any());
-        verify(client).registerCapability(any());
     }
 
     @Test

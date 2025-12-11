@@ -106,13 +106,13 @@ public abstract class AbstractDynamicCapability<O> {
      * @param clientCapabilities The capabilities of the client.
      * @return `true` if it supports dynamic registration, `false` otherwise.
      */
-    protected abstract boolean hasDynamicCapability(ClientCapabilities clientCapabilities);
+    protected abstract boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities);
 
     /**
      * Sets this capability statically.
      * @param result The server capabilities to set.
      */
-    protected abstract void setStaticCapability(final ServerCapabilities result);
+    protected abstract void registerStatically(ServerCapabilities result);
 
     /**
      * Check whether to set this capability dynamically.
@@ -122,12 +122,8 @@ public abstract class AbstractDynamicCapability<O> {
      * @param result Server capabilities to modify when registerting statically.
      * @return `true` if this capability should be registered dynamically, `false` otherwise.
      */
-    protected final boolean checkDynamicCapability(ClientCapabilities client, final ServerCapabilities result) {
-        if (preferStaticRegistration() || !hasDynamicCapability(client)) {
-            setStaticCapability(result);
-            return false;
-        }
-        return true;
+    protected final boolean shouldRegisterStatically(ClientCapabilities client) {
+        return preferStaticRegistration() || !isDynamicallySupportedBy(client);
     }
 
 }

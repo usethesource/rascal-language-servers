@@ -27,7 +27,9 @@
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +43,6 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.Registration;
@@ -51,7 +52,6 @@ import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.parametric.LanguageContributionsMultiplexer;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
@@ -68,42 +68,35 @@ public class DynamicCapabilities {
     private final Set<AbstractDynamicCapability<?>> staticCapabilities;
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
-    private @MonotonicNonNull ClientCapabilities clientCapabilities;
-    private @MonotonicNonNull ServerCapabilities serverCapabilities;
-
-    public DynamicCapabilities(LanguageClient client, Executor exec, List<AbstractDynamicCapability<?>> supportedCapabilities) {
+    /**
+     * @param client The language client to send regiser/unregister requests to.
+     * @param exec The executor to use for asynchronous tasks.
+     * @param supportedCapabilities The capabilities to register with the client.
+     * @param clientCapabilities The capabilities of the client. Determine whether dynamic registration is supported at all.
+     */
+    public DynamicCapabilities(LanguageClient client, Executor exec, List<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
         this.client = client;
         this.exec = exec;
         this.supportedCapabilities = supportedCapabilities;
-        this.staticCapabilities = new HashSet<>();
-    }
 
-    /**
-     * Determines whether the server should register capabiltities statically now instead of dynamically later.
-     * @param clientCapabilities The capabilities of the client, which determine whether dynamic registration is supported at all.
-     * @param serverCapabilities The server capabilities to modify.
-     */
-    public void setStaticCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities serverCapabilities) {
-        // Use these to determine whether we actually need/are allowed to register certain capabilities
-        // If the client does not support dynamic registration for a certain capability, do not register it. Instead, register it statically.
-        this.clientCapabilities = clientCapabilities;
-        this.serverCapabilities = serverCapabilities;
-
-        staticCapabilities.clear();
+        // Check which capabilities to register statically
+        Set<AbstractDynamicCapability<?>> staticCapabilities = new HashSet<>();
         for (var cap : supportedCapabilities) {
-            if (!cap.checkDynamicCapability(clientCapabilities, serverCapabilities)) {
+            if (cap.shouldRegisterStatically(clientCapabilities)) {
                 staticCapabilities.add(cap);
             }
         }
+        // Set once and only read from now on
+        this.staticCapabilities = Collections.unmodifiableSet(staticCapabilities);
     }
 
     /**
-     * Update capabilities for language contributions.
-     * @param contribs The contributions to represent
-     * @return A void future that completes when all capabilities are updated.
+     * Register static capabilities with the server.
      */
-    public CompletableFuture<Void> updateCapabilities(Map<String,LanguageContributionsMultiplexer> contributions) {
-        return updateCapabilities(contributions.values().stream().map(ILanguageContributions.class::cast).collect(Collectors.toList()));
+    public void registerStaticCapabilities(ServerCapabilities result) {
+        for (var cap : staticCapabilities) {
+            cap.registerStatically(result);
+        }
     }
 
     /**
@@ -111,10 +104,13 @@ public class DynamicCapabilities {
      * @param contribs The contributions to represent.
      * @return A void future that completes when all capabilities are updated.
      */
-    CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
+    public CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
+        // Copy the contributions so we know we are looking at a stable set of elements.
+        // If the contributions change, we expect our caller to call again.
+        var stableContribs = new LinkedHashSet<>(contribs);
         // Compute registrations purely based on contributions
         // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
-        return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> maybeRegistration(c, contribs)), exec)
+        return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> maybeRegistration(c, stableContribs)), exec)
             .thenAccept(capabilities -> {
                 // Since we have some bookkeeping to do, we will now block our logbook for a moment
                 synchronized (currentRegistrations) {

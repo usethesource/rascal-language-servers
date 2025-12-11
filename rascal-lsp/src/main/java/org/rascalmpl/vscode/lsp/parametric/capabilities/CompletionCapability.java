@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -83,13 +82,13 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected boolean hasDynamicCapability(ClientCapabilities client) {
+    protected boolean isDynamicallySupportedBy(ClientCapabilities client) {
         return client.getTextDocument().getCompletion().getDynamicRegistration();
     }
 
     @Override
-    protected void setStaticCapability(ServerCapabilities serverCapabilities) {
-        serverCapabilities.setCompletionProvider(new CompletionOptions(false, List.of("")));
+    protected void registerStatically(ServerCapabilities serverCapabilities) {
+        serverCapabilities.setCompletionProvider(new CompletionOptions());
     }
 
 }

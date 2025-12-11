@@ -256,7 +256,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
-        availableCapabilities().setStaticCapabilities(clientCapabilities, result);
+        // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
+        // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
+        dynamicCapabilities = new DynamicCapabilities(availableClient(), exec, List.of(new CompletionCapability()), clientCapabilities);
+        dynamicCapabilities.registerStaticCapabilities(result);
+
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setHoverProvider(true);
@@ -305,7 +309,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        this.dynamicCapabilities = new DynamicCapabilities(client, exec, List.of(new CompletionCapability()));
         facts.values().forEach(v -> v.setClient(client));
         if (dedicatedLanguage != null) {
             // if there was one scheduled, we now start it up, since the connection has been made
@@ -998,7 +1001,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
         try {
-            availableCapabilities().updateCapabilities(contributions).get();
+            availableCapabilities().updateCapabilities(Collections.unmodifiableCollection(contributions.values())).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
@@ -1067,7 +1070,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             contributions.remove(lang.getName());
         }
 
-        availableCapabilities().updateCapabilities(contributions);
+        availableCapabilities().updateCapabilities(Collections.unmodifiableCollection(contributions.values()));
     }
 
     @Override
