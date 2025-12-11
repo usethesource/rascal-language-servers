@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -70,7 +71,7 @@ public class CodeActions {
      * @param actionParser  provides the parser with a scope that imports the right definitions of Command terms.
      * @return              a future stream of parsed and type-checked Rascal CodeAction terms.
      */
-    public static CompletableFuture<Stream<IValue>> extractActionsFromDiagnostics(CodeActionParams params, Function<String, CompletableFuture<IList>> actionParser) {
+    public static CompletableFuture<Stream<IValue>> extractActionsFromDiagnostics(CodeActionParams params, Function<String, CompletableFuture<IList>> actionParser, Executor exec) {
         var actions = params.getContext().getDiagnostics()
             .stream()
             .map(Diagnostic::getData)
@@ -82,7 +83,7 @@ public class CodeActions {
             .map(actionParser);
 
         return CompletableFutureUtils
-            .flatten(actions, IRascalValueFactory.getInstance()::list, IList::concat)
+            .flatten(actions, CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().list(), exec), IList::concat)
             .thenApply(IList::stream);
     }
 
