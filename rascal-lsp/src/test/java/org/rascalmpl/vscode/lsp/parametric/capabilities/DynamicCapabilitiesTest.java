@@ -123,20 +123,17 @@ public class DynamicCapabilitiesTest {
     class SomeContribs extends NoContributions {
 
         private final IList completionTriggerChars;
-        private final Executor exec;
 
         public SomeContribs(String completionTriggerChar) {
             this(List.of(completionTriggerChar));
         }
 
         public SomeContribs(List<String> completionTriggerChars) {
-            this(completionTriggerChars, Executors.newCachedThreadPool());
+            this(completionTriggerChars, exec);
         }
 
         public SomeContribs(List<String> completionTriggerChars, Executor exec) {
             super("test-contribs", exec);
-
-            this.exec = exec;
 
             var vf = IRascalValueFactory.getInstance();
             this.completionTriggerChars = completionTriggerChars.stream()
