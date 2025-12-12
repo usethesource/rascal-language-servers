@@ -180,7 +180,7 @@ test bool doubleVariableAndFunctionDeclaration() = testRename("
 ");
 
 test bool doubleVariableAndFunctionDeclarationQualified() = testRenameOccurrences({
-    byText("Foo", "int foo = 8;", {0}),
+    byText("Foo", "public int foo = 8;", {0}),
     byText("Bar", "void bar() {}", {}),
     byText("Main", "
         'import Foo;
