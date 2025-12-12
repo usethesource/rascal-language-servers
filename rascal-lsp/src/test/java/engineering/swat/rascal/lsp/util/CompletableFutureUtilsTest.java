@@ -27,6 +27,7 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.completedFuture;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.flatten;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
@@ -97,6 +98,23 @@ public class CompletableFutureUtilsTest {
     }
 
     @Test
+    public void sum() throws InterruptedException, ExecutionException {
+        var listFutList = List.of(
+            CompletableFuture.completedFuture(1),
+            CompletableFuture.completedFuture(2),
+            CompletableFuture.completedFuture(3)
+        );
+
+        CompletableFuture<Integer> reduced = reduce(listFutList, Integer::sum);
+        assertEquals(6, reduced.get().intValue());
+    }
+
+    @Test
+    public void reduceEmptyList() {
+        assertThrows(IllegalArgumentException.class, () -> reduce(List.of(), Integer::sum));
+    }
+
+    @Test
     public void reduceAndAddList() throws InterruptedException, ExecutionException {
         CompletableFuture<Integer> reduced = reduce(futList, completedFuture(0, exec), Function.identity(), Integer::sum);
         assertEquals(6, reduced.get().intValue());
@@ -115,6 +133,15 @@ public class CompletableFutureUtilsTest {
 
         CompletableFuture<IList> reduced = flatten(outer.stream(), completedFuture(VF.list(), exec), IList::concat);
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
+    }
+
+    @Test
+    public void flattenRascalListUnique() throws InterruptedException, ExecutionException {
+        var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1));
+        var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
+
+        CompletableFuture<IList> reduced = flatten(outer.stream(), completedFuture(VF.list(), exec), IList::union);
+        assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
     }
 
     private <T> Set<T> setUnion(Set<T> l, Set<T> r) {

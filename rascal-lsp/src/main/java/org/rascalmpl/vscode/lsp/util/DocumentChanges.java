@@ -141,6 +141,10 @@ public class DocumentChanges {
         return key;
     }
 
+    public static List<TextEdit> translateTextEdits(IList edits, final ColumnMaps columns) {
+        return translateTextEdits(edits, null, columns, new HashMap<>());
+    }
+
     private static List<TextEdit> translateTextEdits(IList edits, @Nullable String parentAnno, final ColumnMaps columns, Map<String, ChangeAnnotation> changeAnnotations) {
         return edits.stream()
             .map(IConstructor.class::cast)

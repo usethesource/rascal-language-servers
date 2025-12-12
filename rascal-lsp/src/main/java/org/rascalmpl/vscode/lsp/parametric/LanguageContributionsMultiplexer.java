@@ -33,11 +33,14 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.Completion;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -46,6 +49,8 @@ import io.usethesource.vallang.IValue;
 
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
+
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
     private final ExecutorService exec;
     private final String name;
@@ -89,6 +94,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasDidRenameFiles = failedInitialization();
     private volatile CompletableFuture<Boolean> hasSelectionRange = failedInitialization();
     private volatile CompletableFuture<Boolean> hasCallHierarchy = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasCompletion = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -184,6 +190,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
         hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
         hasCallHierarchy = anyTrue(ILanguageContributions::hasCallHierarchy);
+        hasCompletion = anyTrue(ILanguageContributions::hasCompletion);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -340,13 +347,21 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSelectionRange() {
-        return hasSelectionRange;
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return flatten(selectionRange, c -> c.selectionRange(focus));
     }
 
     @Override
-    public InterruptibleFuture<IList> selectionRange(IList focus) {
-        return flatten(selectionRange, c -> c.selectionRange(focus));
+    public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
+        // Instead of pre-computing the completion contribution, we need to dynamically route based on the trigger here
+        var completion = findFirstOrDefault(c -> Completion.isTriggered(trigger, c.completionTriggerCharacters(), exec));
+        return flatten(completion, c -> c.completion(focus, cursorOffset, trigger));
+    }
+
+    @Override
+    public CompletableFuture<IList> completionTriggerCharacters() {
+        // A multiplexer supports the union of triggers of its implementations
+        return CompletableFutureUtils.flatten(contributions.stream().map(c -> c.contrib.completionTriggerCharacters()), CompletableFutureUtils.completedFuture(VF.list(), exec), IList::union);
     }
 
     @Override
@@ -415,6 +430,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasRename() {
         return hasRename;
     }
@@ -424,9 +444,13 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         return hasDidRenameFiles;
     }
 
-    @Override
     public CompletableFuture<Boolean> hasCallHierarchy() {
         return hasCallHierarchy;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCompletion() {
+        return hasCompletion;
     }
 
     @Override
