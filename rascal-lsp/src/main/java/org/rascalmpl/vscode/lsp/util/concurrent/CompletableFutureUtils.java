@@ -60,6 +60,24 @@ public class CompletableFutureUtils {
     }
 
     /**
+     * Reduces a non-empty {@link List} of {@link CompletableFuture} to a single future that produces a list.
+     * @param <T> The type of the values that the futures yield.
+     * @param futures The futures to reduce.
+     * @return A future that yields a list of the results of the reduced futures.
+     * @throws IllegalArgumentException when the input list is empty.
+     */
+    public static <T> CompletableFuture<List<T>> reduce(List<CompletableFuture<T>> futures) {
+        if (futures.isEmpty()) {
+            throw new IllegalArgumentException("Cannot reduce empty list of futures");
+        }
+        return reduce(futures.subList(1, futures.size()),
+            futures.get(0).thenApply(List::of),
+            Collections::singletonList, // unmodifiable, but never added to
+            CompletableFutureUtils::concat
+        );
+    }
+
+    /**
      * Reduces a {@link List} of {@link CompletableFuture} to a single future that yields a {@link T}.
      * @param <T> The type of the values that the futures yield.
      * @param futures The futures to reduce.

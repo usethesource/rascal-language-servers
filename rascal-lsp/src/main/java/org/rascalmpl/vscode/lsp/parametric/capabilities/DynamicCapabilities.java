@@ -52,6 +52,7 @@ import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
@@ -110,7 +111,7 @@ public class DynamicCapabilities {
         var stableContribs = new LinkedHashSet<>(contribs);
         // Compute registrations purely based on contributions
         // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
-        return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> maybeRegistration(c, stableContribs)), exec)
+        return CompletableFutureUtils.reduce(supportedCapabilities.stream().filter(cap -> !staticCapabilities.contains(cap)).map(c -> tryRegistration(c, stableContribs)), exec)
             .thenAccept(capabilities -> {
                 // Since we have some bookkeeping to do, we will now block our logbook for a moment
                 synchronized (currentRegistrations) {
@@ -175,17 +176,29 @@ public class DynamicCapabilities {
         }
     }
 
-    private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> maybeRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
-        var supportingContribs = contribs.stream().filter(c -> cap.isProvidedBy(c).join()).collect(Collectors.toList()); // join() is fine, since we should only be called inside a promise
-        if (supportingContribs.isEmpty()) {
+    private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> tryRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
+        if (contribs.isEmpty()) {
             return CompletableFutureUtils.completedFuture(Pair.of(cap, null), exec);
         }
 
-        var allOpts = supportingContribs.stream()
-            .<CompletableFuture<@Nullable T>>map(cap::options)
-            .collect(Collectors.toList());
-        var mergedOpts = CompletableFutureUtils.reduce(allOpts, cap::mergeNullableOptions); // non-empty, so no need to provide a reduction identity
-        return mergedOpts.thenApply(opts -> Pair.of(cap, registration(cap, opts)));
+        // Filter contributions by providing this capability
+        var supportingContribs = CompletableFutureUtils.flatten(
+            contribs.stream().map(c -> cap.isProvidedBy(c).<List<ILanguageContributions>>thenApply(b -> b ? List.of(c) : Collections.emptyList())),
+            CompletableFutureUtils.completedFuture(Collections.emptyList(), exec),
+            Lists::union
+        );
+
+        return supportingContribs.thenCompose(cs -> {
+            if (cs.isEmpty()) {
+                return CompletableFutureUtils.completedFuture(Pair.of(cap, null), exec);
+            }
+
+            var allOpts = cs.stream()
+                .<CompletableFuture<@Nullable T>>map(cap::options)
+                .collect(Collectors.toList());
+            return CompletableFutureUtils.reduce(allOpts, cap::mergeNullableOptions) // non-empty, so no need to provide a reduction identity
+                .thenApply(opts -> Pair.of(cap, registration(cap, opts)));
+        });
     }
 
     private static Registration registration(AbstractDynamicCapability<?> cap, @Nullable Object opts) {

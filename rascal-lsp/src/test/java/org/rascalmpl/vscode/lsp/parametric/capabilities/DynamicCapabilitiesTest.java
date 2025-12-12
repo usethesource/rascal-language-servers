@@ -197,8 +197,9 @@ public class DynamicCapabilitiesTest {
         assertNotNull(mergedOpts);
         assertEquals(Set.of(",", ":", "."), new HashSet<>(mergedOpts.getTriggerCharacters()));
 
-        assertEquals(opts1, completion.mergeOptions(opts1, null));
-        assertEquals(opts1, completion.mergeOptions(null, opts1));
+        assertEquals(opts1, completion.mergeNullableOptions(opts1, null));
+        assertEquals(opts1, completion.mergeNullableOptions(null, opts1));
+        assertEquals(null, completion.mergeNullableOptions(null, null));
     }
 
     @Test
