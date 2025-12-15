@@ -37,7 +37,7 @@
     <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
     <log4j2.version>2.25.2</log4j2.version>
     <lsp4j.version>0.24.0</lsp4j.version>
-    <mockito.version>5.20.0</mockito.version>
+    <mockito.version>5.21.0</mockito.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
@@ -402,7 +402,7 @@
     <profile>
       <id>checker-framework</id>
       <properties>
-        <checkerframework.version>3.42.0</checkerframework.version>
+        <checkerframework.version>3.52.1</checkerframework.version>
       </properties>
        <build>
         <plugins>
