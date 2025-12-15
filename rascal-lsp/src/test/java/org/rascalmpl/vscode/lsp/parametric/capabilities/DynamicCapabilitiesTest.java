@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -177,14 +178,16 @@ public class DynamicCapabilitiesTest {
     }
 
     @SafeVarargs
-    private void registerIncrementally(List<String>... options) throws InterruptedException, ExecutionException {
-        registerIncrementally(Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList()));
+    private CompletableFuture<Void> registerIncrementally(List<String>... options) {
+        return registerIncrementally(Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList()));
     }
 
-    private void registerIncrementally(List<ILanguageContributions> contribs) throws InterruptedException, ExecutionException {
+    private CompletableFuture<Void> registerIncrementally(List<ILanguageContributions> contribs) {
+        List<CompletableFuture<Void>> jobs = new LinkedList<>();
         for (int i = 0; i < contribs.size(); i++) {
-            dynCap.updateCapabilities(contribs.subList(0, i + 1)).get();
+            jobs.add(dynCap.updateCapabilities(contribs.subList(0, i + 1)));
         }
+        return CompletableFutureUtils.reduce(jobs).thenAccept(_v -> {});
     }
 
     //// TESTS
@@ -216,7 +219,7 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void registerIncrementalContribution() throws InterruptedException, ExecutionException {
-        registerIncrementally(List.of(".", "::"), List.of("+", "*", "-", "/", "%"));
+        registerIncrementally(List.of(".", "::"), List.of("+", "*", "-", "/", "%")).get();
 
         InOrder inOrder = inOrder(client);
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
@@ -231,7 +234,7 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void registerIdenticalContribution() throws InterruptedException, ExecutionException {
-        registerIncrementally(List.of(".", "::"), List.of(".", "::"));
+        registerIncrementally(List.of(".", "::"), List.of(".", "::")).get();
 
         InOrder inOrder = inOrder(client);
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
@@ -247,7 +250,7 @@ public class DynamicCapabilitiesTest {
             .map(ILanguageContributions.class::cast)
             .collect(Collectors.toList());
 
-        registerIncrementally(contribs);
+        registerIncrementally(contribs).get();
 
         // unregister one of both
         dynCap.updateCapabilities(contribs.subList(1, 2)).get();
@@ -367,8 +370,8 @@ public class DynamicCapabilitiesTest {
     }
 
     @Test
-    public void unregisterFails() throws InterruptedException, ExecutionException {
-        when(client.unregisterCapability(any())).thenThrow(new RuntimeException("Unregistration failed!"));
+    public void noRegisterWhenUnregisterFails() throws InterruptedException, ExecutionException {
+        when(client.unregisterCapability(any())).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Unregistration failed!")));
 
         dynCap.updateCapabilities(List.of(new SomeContribs(List.of(".")))).get();
         dynCap.updateCapabilities(List.of(new SomeContribs(List.of(".")), new SomeContribs(List.of(":")))).get();
