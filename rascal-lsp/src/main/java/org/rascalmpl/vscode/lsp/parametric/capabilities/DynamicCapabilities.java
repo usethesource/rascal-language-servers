@@ -83,14 +83,14 @@ public class DynamicCapabilities {
         this.supportedCapabilities = supportedCapabilities;
 
         // Check which capabilities to register statically
-        Set<AbstractDynamicCapability<?>> staticCapabilities = new HashSet<>();
+        Set<AbstractDynamicCapability<?>> caps = new HashSet<>();
         for (var cap : supportedCapabilities) {
             if (cap.shouldRegisterStatically(clientCapabilities)) {
-                staticCapabilities.add(cap);
+                caps.add(cap);
             }
         }
         // Set once and only read from now on
-        this.staticCapabilities = Collections.unmodifiableSet(staticCapabilities);
+        this.staticCapabilities = Collections.unmodifiableSet(caps);
     }
 
     /**
@@ -113,11 +113,10 @@ public class DynamicCapabilities {
         var stableContribs = new LinkedHashSet<>(contribs);
         // Compute registrations purely based on contributions
         // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
-        var caps = CompletableFutureUtils.reduce(supportedCapabilities.stream()
+        return CompletableFutureUtils.reduce(supportedCapabilities.stream()
             .filter(cap -> !staticCapabilities.contains(cap))
-            .map(c -> tryRegistration(c, stableContribs)), parallelExec);
-
-        return caps.thenAcceptAsync(capabiltities -> {
+            .map(c -> tryRegistration(c, stableContribs)), parallelExec)
+            .thenAcceptAsync(capabiltities -> {
                 List<Registration> registrations = new LinkedList<>();
                 List<Unregistration> unregistrations = new LinkedList<>();
                 for (var entry : capabiltities) {
@@ -187,13 +186,11 @@ public class DynamicCapabilities {
         }
 
         // Filter contributions by providing this capability
-        CompletableFuture<List<ILanguageContributions>> supportingContribs = CompletableFutureUtils.flatten(
+        return CompletableFutureUtils.<List<ILanguageContributions>>flatten(
             contribs.stream().map(c -> cap.isProvidedBy(c).thenApply(b -> b.booleanValue() ? List.of(c) : List.of())),
             CompletableFutureUtils.completedFuture(Collections.emptyList(), parallelExec),
             Lists::union
-        );
-
-        return supportingContribs.thenCompose(cs -> {
+        ).thenCompose(cs -> {
             if (cs.isEmpty()) {
                 return CompletableFutureUtils.completedFuture(Pair.of(cap, null), parallelExec);
             }

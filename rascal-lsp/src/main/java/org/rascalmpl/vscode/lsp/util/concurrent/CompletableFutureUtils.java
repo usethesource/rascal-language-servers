@@ -71,7 +71,7 @@ public class CompletableFutureUtils {
             throw new IllegalArgumentException("Cannot reduce empty list of futures");
         }
         return reduce(futures.subList(1, futures.size()),
-            futures.get(0).thenApply(List::of),
+            futures.get(0).thenApply(Collections::singletonList),
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
         );
