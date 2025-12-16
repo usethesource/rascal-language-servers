@@ -1,6 +1,6 @@
 # Release Notes
 
-We only list significant changes, for a full changelog [please review the commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
+We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
 ## 0.13.0
 
