@@ -8,14 +8,16 @@ We only list significant changes, for a full changelog [please review the commit
 
 * Rascal parsers now support error recovery. This is the first release that enables it: you get more syntax highlighting and other features even in the presence of syntax errors.
 * Rascal code that reads or writes to files open in the editor is now redirected to the editor contents instead of the state on disk (this aligns with the LSP specification).
-* Type checker now works correctly with multi-project workspaces. Users do not have to trigger the type checker in "higher-up" projects by hand anymore.
+* The type checker now works correctly with multi-project workspaces. Users do not have to trigger the type checker in "higher-up" projects by hand anymore.
+* The type checker now aborts early when required modules have parse errors.
 * Long-running jobs (such as the type checker) can now be interrupted.
 * Rascal has better selection ranges support such that you can grow/shrink your selection based on the Rascal syntax.
 * We have migrated to [LogOutputChannels](https://code.visualstudio.com/updates/v1_72#_log-output-channel) such that users can combine, filter, and configure Rascal's output channels.
+* Copy file path as Rascal location from the explorer context menu.
 
 ### New Features for DSL Developers
 
-* Error recovery support for DSLs is opt-in (the parse function should be constructed with `allowRecovery=true`); your code might have to be updated to deal with these trees with skipped/ambiguous parts.
+* Error recovery support for DSLs is opt-in (the parse function should be constructed with `allowRecovery=true`); your code might have to be updated to deal with error trees with skipped/ambiguous parts.
 * DSLs can contribute their own rename refactoring using the `LanguageService::rename` contribution.
 * DSLs can contribute their own selection ranges using the `LanguageService::selectionRange` contribution.
 * DSLs can contribute their own call hierarchies using the `LanguageServer::callHierachy` contribution.
@@ -25,13 +27,15 @@ We only list significant changes, for a full changelog [please review the commit
 
 * Reimplemented rename using a new framework (available in TypePal). It is faster, has better error messages, now also tracks file renames, and supports many more edge cases.
 * The Rascal type checker has better messages, is more accurate, and in some cases is a bit faster. Note that while the typechecker has become stricter the interpreter will still run your code as before.
-* Document symbols are more robust (used in Outline and when quickly navigating between symbols in the editor).
+* Document symbols (used in the outline and when quickly navigating between symbols in the editor) are more robust.
+* Hover hints now belong to the smallest expression under the cursor.
 * UX tweaks: better error messages, many debug/internal messages have been removed, and improved progress reporting.
 * Hover and Go to Definition are more accurate due to bugfixes in internal data structures.
 * Improved documentation of `util::LanguageServer`.
-* Git diff and other virtual documents are better supported for DSLs
+* Git diff viewers and other virtual documents are better supported for DSLs.
+* Various performance & reliability improvements.
 
-### Rascal 0.41.0 highlights
+### Rascal 0.41.1 highlights
 
 * A completely new REPL implementation with:
   * multi-line editing
@@ -44,6 +48,7 @@ We only list significant changes, for a full changelog [please review the commit
 * `IO` has new features, such as `isReadable` and `isWritable`, and the `watch` feature has better support for macOS.
 * Various performance improvements.
 * `Message` has an optional `causes` field that can be used to report extra locations to VS Code.
+* The debugger variables view shows more information for some values.
 
 ### Extension developers
 
