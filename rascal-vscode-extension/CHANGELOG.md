@@ -32,7 +32,8 @@ We only list significant changes, for a full changelog please review the [commit
 * UX tweaks: better error messages, many debug/internal messages have been removed, and improved progress reporting.
 * Hover and Go to Definition are more accurate due to bugfixes in internal data structures.
 * Improved documentation of `util::LanguageServer`.
-* Git diff viewers and other virtual documents are better supported for DSLs.
+* Git diff viewers, untitled files and other virtual documents are better supported for DSLs.
+* Files without an extension are now associated with a DSL when there is only one registered.
 * Various performance & reliability improvements.
 
 ### Rascal 0.41.1 highlights
