@@ -220,6 +220,19 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((callHierarchy)) service discovers callable definitions and call sites. It consists of two subservices.
     1. The first argument, `callableItem`, computes ((CallHierarchyItem))s (definitions) for a given cursor.
     2. The second argument, `calculateCalls`, computes ((incoming)) or ((outgoing)) calls (uses) of a given ((CallHierarchyItem)) `ci`. It returns a list relation of ((CallHierarchyItem))s and the location(s) of the call(s) to `ci` these definitions have.
+* The ((completion)) service is called with the current the focus, the offset of the cursor inside the smallest focus tree (`focus[0]`), and the how the user triggered completion (explicit invocation or by typing a trigger character).
+    It should return a list of completion suggestions.
+    - If a non-empty list is returned the user is asked to select one of the completion suggestions.
+    - If an empty list is returned, an empty list of completions is presented to the user.
+    - When `completionService` throws an exception no completion popup is shown.
+    The optional list of trigger characters can contain a list of extra characters that trigger completion.
+    These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
+
+    We have chosen to support all features of the LSP CompletionItem except:
+    * To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
+    * Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
+
+Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -288,6 +301,7 @@ data LanguageService
     | callHierarchy (
         list[CallHierarchyItem] (Focus _focus) prepareService,
         lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) callsService)
+    | completion(list[CompletionItem] (Focus _focus, int cursorOffset, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = [])
     ;
 
 @description{
@@ -306,8 +320,6 @@ We have choosen to support all features of the LSP CompletionItem except:
 
 Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 }
-data LanguageService
-    = completion(list[CompletionItem] (Focus _focus, int cursorOffset, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = []);
 
 @synopsis{Represents a concrete completion proposal that the user can select.}
 @description{
@@ -381,7 +393,7 @@ data CompletionEdit = completionEdit(
 @synopsis{What kind of completion item is returned.}
 @description{
     In VSCode this is used mainly to display a small icon next to each completion item.
-    The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): namespace, package, string, number, boolean, array, object, key, null.
+    The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): `namespace`, `package`, `string`, `number`, `boolean`, `array`, `object`, `key`, `null`.
 }
 alias CompletionItemKind = DocumentSymbolKind;
 
@@ -652,6 +664,7 @@ data DocumentSymbol
 
 @description{
     List of types that can be used for DocumentSymbol and CompletionItem.
+    The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): `namespace`, `package`, `string`, `number`, `boolean`, `array`, `object`, `key`, `null`.
 }
 data DocumentSymbolKind
 	= \file()
