@@ -4,7 +4,7 @@ We only list significant changes, for a full changelog please review the [commit
 
 ## 0.13.0
 
-Works best with rascal 0.41.2 (and rascal-maven-plugin: 0.30.2). Due to changes in the typechecker you will most likely also have to update your library dependencies to the latest release.
+Works best with Rascal 0.41.2 (and rascal-maven-plugin 0.30.3). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
 
 ### New Features for Rascal Developers
 
@@ -25,7 +25,7 @@ Works best with rascal 0.41.2 (and rascal-maven-plugin: 0.30.2). Due to changes 
 * DSLs can contribute their own call hierarchies using the `LanguageServer::callHierachy` contribution.
 * DSLs can extend text edits with labels and descriptions, and mark them as requiring user confirmation, using keyword parameters (`str label`, `str description`, `bool needsConfirmation`). See `util::LanguageServer::TextEdit`.
 
-For more details, you can read the documentation in the `util::LanguageServer` source, or view the [rendered documentation page](https://www.rascal-mpl.org/docs/Packages/org.rascalmpl.rascal-lsp/Library/util/LanguageServer/).
+For more details, please refer to the documentation in the source code of `util::LanguageServer`, or the [rendered documentation page](https://www.rascal-mpl.org/docs/Packages/org.rascalmpl.rascal-lsp/Library/util/LanguageServer/).
 
 ### Improved features
 
@@ -56,7 +56,7 @@ Below is a summary of the [full release-notes for rascal 0.41.x](https://www.ras
 * `IO` has new features, such as `isReadable` and `isWritable`, and the `watch` feature has better support for macOS.
 * Various performance improvements.
 * `Message` has an optional `causes` field that can be used to report extra locations to VS Code.
-* Debugger has gained many new features and has become more like debuggers of other languages.
+* The debugger has gained many new features, improving the debugging experience.
 
 ### Extension developers
 
@@ -71,11 +71,11 @@ Below is a summary of the [full release-notes for rascal 0.41.x](https://www.ras
 
 ## 0.12.1
 
-* The type-checker got a lot faster, especially if you're editing a single file in a larger project.
+* The type checker got a lot faster, especially if you're editing a single file in a larger project.
 * Various bugfixes in:
     * The rename functionality
     * The code actions
-    * The type-checker
+    * The type checker
 
 ### 0.12.0
 
@@ -321,13 +321,13 @@ This release is about including a new version of the rascal project, 0.27.2:
 * Version bumps for typepal and rascal-core with improved typechecking efficiency.
 * Better error reporting for the Rascal LSP server and the parameterized LSP server.
 * Fixes around status progress bars.
-* Fix for packaging of rascal-lsp jar (which helped remove spurious type-checking errors in clients of the LanguageServer library modules)
+* Fix for packaging of rascal-lsp jar (which helped remove spurious type checking errors in clients of the LanguageServer library modules)
 
 ### 0.2.0
 
 * Moved to Java 11
-* Upgrade to newer Rascal type-checker
-* Early support for cross-project rascal dependencies for both REPL & type-checker
+* Upgrade to newer Rascal type checker
+* Early support for cross-project rascal dependencies for both REPL & type checker
 * Rascal features work even without a project open (opening a single rascal file for example)
 * Improved status bar messages for DSLs and making sure to always clear finished tasked
 * Increases performance of project source location operations

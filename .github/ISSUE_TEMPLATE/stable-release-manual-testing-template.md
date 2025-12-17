@@ -19,7 +19,7 @@ First a "pre-release" of the supporting compiler/typechecker tools must be done,
 
 - [ ] rascal compiles in the continuous integration environment and no tests fail
 - [ ] release rascal
-- [ ] bump rascal versions in rascal-lsp project
+- [ ] bump rascal version in rascal-lsp project
 - [ ] fix new errors and warnings in rascal and rascal-lsp project
 
 # Manual version checks
