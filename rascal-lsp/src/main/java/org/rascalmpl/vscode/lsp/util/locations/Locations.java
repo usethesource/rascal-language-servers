@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.util.locations;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Location;
@@ -105,17 +106,6 @@ public class Locations {
      */
     public static ISourceLocation toLoc(TextDocumentIdentifier doc, Range range, ColumnMaps columns) {
         return setRange(toLoc(doc.getUri()), range, columns);
-    }
-
-    /**
-     * This fixes line offset off-by-one and column offsets character widths.
-     * Mapping them from the LSP standard to the Rascal standard.
-     */
-    private static Position toPosition(ISourceLocation doc, Position pos, ColumnMaps columns) {
-        return new Position(
-            pos.getLine() + 1,
-            columns.get(doc).translateInverseColumn(pos.getLine(), pos.getCharacter(), false)
-        );
     }
 
     /**
@@ -230,10 +220,17 @@ public class Locations {
         return VF.sourceLocation(loc,
             offsetLength.getLeft(),
             offsetLength.getRight(),
-            rascalStart.getLine(),
-            rascalEnd.getLine(),
-            rascalStart.getCharacter(),
-            rascalEnd.getCharacter()
+            rascalStart.getLeft(),
+            rascalEnd.getLeft(),
+            rascalStart.getRight(),
+            rascalEnd.getRight()
+        );
+    }
+
+    private static Pair<Integer, Integer> toPosition(ISourceLocation doc, Position pos, ColumnMaps columns) {
+        return Pair.of(
+            pos.getLine() + 1,
+            columns.get(doc).translateInverseColumn(pos.getLine(), pos.getCharacter(), false)
         );
     }
 
