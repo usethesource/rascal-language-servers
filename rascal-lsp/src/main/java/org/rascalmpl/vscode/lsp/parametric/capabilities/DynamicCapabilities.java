@@ -190,7 +190,7 @@ public class DynamicCapabilities {
             contribs.stream().map(c -> cap.isProvidedBy(c).thenApply(b -> b.booleanValue() ? List.of(c) : List.of())),
             CompletableFutureUtils.completedFuture(Collections.emptyList(), parallelExec),
             Lists::union
-        ).thenCompose(cs -> {
+        ).<Pair<AbstractDynamicCapability<T>, @Nullable Registration>>thenCompose(cs -> {
             if (cs.isEmpty()) {
                 return CompletableFutureUtils.completedFuture(Pair.of(cap, null), parallelExec);
             }
