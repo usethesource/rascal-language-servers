@@ -449,14 +449,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
-        ISourceLocation loc = Locations.toLoc(params.getTextDocument());
+        ISourceLocation loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
         ILanguageContributions contribs = contributions(loc);
-        Position rascalPos = Locations.toRascalPosition(loc, params.getPosition(), columns);
         return getFile(loc)
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(tree -> computeRename(contribs,
-                        rascalPos.getLine(), rascalPos.getCharacter(), params.getNewName(), tree));
+                        loc.getBeginLine(), loc.getBeginColumn(), params.getNewName(), tree));
     }
 
     private CompletableFuture<WorkspaceEdit> computeRename(final ILanguageContributions contribs, final int startLine,
@@ -767,8 +766,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(tree -> {
-                    var range = Locations.toRascalRange(location, params.getRange(), columns);
-                    return computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree);
+                    var start = Locations.setPosition(location, params.getRange().getStart(), columns);
+                    return computeCodeActions(contribs, start.getBeginLine(), start.getBeginColumn(), tree);
                 })
                 .thenApply(IList::stream)
             , Stream::empty)
@@ -866,9 +865,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(t -> CompletableFutureUtils.reduce(params.getPositions().stream()
-                    .map(p -> Locations.toRascalPosition(loc, p, columns))
+                    .map(p -> Locations.setPosition(loc, p, columns))
                     .map(p -> computeSelection
-                        .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter())))
+                        .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getBeginLine(), p.getBeginColumn())))
                         .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, columns)))
                     .collect(Collectors.toUnmodifiableList()), exec)),
             Collections::emptyList);
@@ -883,8 +882,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
             .thenCompose(t -> {
-                final var pos = Locations.toRascalPosition(loc, params.getPosition(), columns);
-                return contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter()))
+                final var pos = Locations.setPosition(loc, params.getPosition(), columns);
+                return contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, pos.getBeginLine(), pos.getBeginColumn()))
                     .get()
                     .thenApply(items -> {
                         var ch = new CallHierarchy(exec);

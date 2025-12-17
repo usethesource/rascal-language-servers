@@ -95,35 +95,19 @@ public class Locations {
      * This fixes line offset off-by-one and column offsets character widths.
      * Mapping them from the LSP standard to the Rascal standard.
      */
-    public static Range toRascalRange(TextDocumentIdentifier doc, Range range, ColumnMaps columns) {
-        return toRascalRange(toLoc(doc), range, columns);
+    public static ISourceLocation toLoc(TextDocumentIdentifier doc, Position pos, ColumnMaps columns) {
+        return toLoc(doc, new Range(pos, pos), columns);
+    }
+
+    public static ISourceLocation toLoc(TextDocumentIdentifier doc, Range range, ColumnMaps columns) {
+        return setRange(toLoc(doc.getUri()), range, columns);
     }
 
     /**
      * This fixes line offset off-by-one and column offsets character widths.
      * Mapping them from the LSP standard to the Rascal standard.
      */
-    public static Range toRascalRange(ISourceLocation loc, Range range, ColumnMaps columns) {
-        return new Range(
-            toRascalPosition(loc, range.getStart(), columns),
-            toRascalPosition(loc, range.getEnd(), columns)
-        );
-    }
-
-    /**
-     * This fixes line offset off-by-one and column offsets character widths.
-     * Mapping them from the LSP standard to the Rascal standard.
-     */
-    public static Position toRascalPosition(TextDocumentIdentifier doc, Position pos, ColumnMaps columns) {
-        var loc = toLoc(doc.getUri());
-        return toRascalPosition(loc, pos, columns);
-    }
-
-    /**
-     * This fixes line offset off-by-one and column offsets character widths.
-     * Mapping them from the LSP standard to the Rascal standard.
-     */
-    public static Position toRascalPosition(ISourceLocation doc, Position pos, ColumnMaps columns) {
+    private static Position toPosition(ISourceLocation doc, Position pos, ColumnMaps columns) {
         return new Position(
             pos.getLine() + 1,
             columns.get(doc).translateInverseColumn(pos.getLine(), pos.getCharacter(), false)
@@ -193,16 +177,16 @@ public class Locations {
 
     public static Location mapValueToLocation(IValue v, ColumnMaps cm) {
         if (v instanceof ISourceLocation) {
-            return Locations.toLSPLocation((ISourceLocation)v, cm);
+            return Locations.toLocation((ISourceLocation)v, cm);
         }
         throw new RuntimeException(v + "is not a ISourceLocation");
     }
 
-    public static Location toLSPLocation(ISourceLocation sloc, ColumnMaps cm) {
+    public static Location toLocation(ISourceLocation sloc, ColumnMaps cm) {
         return new Location(Locations.toUri(sloc).toString(), toRange(sloc, cm));
     }
 
-    public static Location toLSPLocation(ISourceLocation sloc, LineColumnOffsetMap map) {
+    public static Location toLocation(ISourceLocation sloc, LineColumnOffsetMap map) {
         return new Location(Locations.toUri(sloc).toString(), toRange(sloc, map));
     }
 
@@ -222,13 +206,17 @@ public class Locations {
         }
     }
 
+    public static ISourceLocation setPosition(ISourceLocation loc, Position pos, ColumnMaps columns) {
+        return setRange(loc, new Range(pos, pos), columns);
+    }
+
     public static ISourceLocation setRange(ISourceLocation loc, Range lspRange, ColumnMaps columns) {
         var map = columns.get(loc);
         final var lspStart = lspRange.getStart();
         final var lspEnd = lspRange.getEnd();
         final var offsetLength = map.calculateInverseOffsetLength(lspStart.getLine(), lspStart.getCharacter(), lspEnd.getLine(), lspEnd.getCharacter());
-        final var rascalStart = toRascalPosition(loc, lspStart, columns);
-        final var rascalEnd = toRascalPosition(loc, lspEnd, columns);
+        final var rascalStart = toPosition(loc, lspStart, columns);
+        final var rascalEnd = toPosition(loc, lspEnd, columns);
         return VF.sourceLocation(loc,
             offsetLength.getLeft(),
             offsetLength.getRight(),

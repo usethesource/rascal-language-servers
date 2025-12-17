@@ -31,14 +31,12 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SelectionRange;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IList;
@@ -55,9 +53,9 @@ public class SelectionRanges {
      * @return A range with optional parent ranges, or an empty range when {@link ranges} is empty.
      * @throws IllegalArgumentException when the list of ranges contains anything else than source locations
      */
-    public static SelectionRange toSelectionRange(Position origin, IList ranges, ColumnMaps columns) {
+    public static SelectionRange toSelectionRange(ISourceLocation origin, IList ranges, ColumnMaps columns) {
         if (ranges.isEmpty()) {
-            return empty(origin);
+            return empty(origin, columns);
         }
 
         try {
@@ -65,7 +63,7 @@ public class SelectionRanges {
                 .map(ISourceLocation.class::cast)
                 .map(l -> Locations.toRange(l, columns))
                 .collect(Collectors.toList());
-            return toSelectionRange(origin, lspRanges);
+            return toSelectionRange(origin, lspRanges, columns);
         } catch (ClassCastException e) {
             throw new IllegalArgumentException("List of selection ranges should only contain source locations", e);
         }
@@ -76,9 +74,9 @@ public class SelectionRanges {
      * @param ranges The range hierarchy. Should be ordered child-before-parent, where any range is contained by the next.
      * @return A range with optional parent ranges
      */
-    public static SelectionRange toSelectionRange(Position origin, List<Range> ranges) {
+    public static SelectionRange toSelectionRange(ISourceLocation origin, List<Range> ranges, ColumnMaps columns) {
         if (ranges.isEmpty()) {
-            return empty(origin);
+            return empty(origin, columns);
         }
 
         // assumes child-before-parent ordering
@@ -126,7 +124,7 @@ public class SelectionRanges {
             .collect(IRascalValueFactory.getInstance().listWriter());
     }
 
-    public static SelectionRange empty(Position p) {
-        return new SelectionRange(new Range(p, p), null);
+    public static SelectionRange empty(ISourceLocation loc, ColumnMaps columns) {
+        return new SelectionRange(Locations.toRange(loc, columns), null);
     }
 }
