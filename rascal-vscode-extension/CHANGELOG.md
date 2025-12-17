@@ -4,6 +4,8 @@ We only list significant changes, for a full changelog please review the [commit
 
 ## 0.13.0
 
+Works best with rascal 0.41.2 (and rascal-maven-plugin: 0.30.2). Due to changes in the typechecker you will most likely also have to update your library dependencies to the latest release.
+
 ### New Features for Rascal Developers
 
 * Rascal parsers now support error recovery. This is the first release that enables it: you get more syntax highlighting and other features even in the presence of syntax errors.
@@ -23,6 +25,8 @@ We only list significant changes, for a full changelog please review the [commit
 * DSLs can contribute their own call hierarchies using the `LanguageServer::callHierachy` contribution.
 * DSLs can extend text edits with labels and descriptions, and mark them as requiring user confirmation, using keyword parameters (`str label`, `str description`, `bool needsConfirmation`). See `util::LanguageServer::TextEdit`.
 
+For more details, you can read the documentation in the `util::LanguageServer` source, or view the [rendered documentation page](https://www.rascal-mpl.org/docs/Packages/org.rascalmpl.rascal-lsp/Library/util/LanguageServer/).
+
 ### Improved features
 
 * Reimplemented rename using a new framework (available in TypePal). It is faster, has better error messages, now also tracks file renames, and supports many more edge cases.
@@ -36,12 +40,15 @@ We only list significant changes, for a full changelog please review the [commit
 * Files without an extension are now associated with a DSL when there is only one registered.
 * Various performance & reliability improvements.
 
-### Rascal 0.41.1 highlights
+### Rascal 0.41.2 highlights
+
+Below is a summary of the [full release-notes for rascal 0.41.x](https://www.rascal-mpl.org/release-notes/rascal-0-41-x-release-notes/).
 
 * A completely new REPL implementation with:
   * multi-line editing
   * better completion support
   * parse error highlighting
+  * better module reloading behavior & feedback
   * much more
 * `Require-Libraries` from `RASCAL.MF` is not used anymore. Instead, `pom.xml` is the only place where you define dependencies.
 * We no longer call Maven, but have our own implementation to extract information from `pom.xml`. This has resulted in faster REPL starts and better error messages.
@@ -49,13 +56,13 @@ We only list significant changes, for a full changelog please review the [commit
 * `IO` has new features, such as `isReadable` and `isWritable`, and the `watch` feature has better support for macOS.
 * Various performance improvements.
 * `Message` has an optional `causes` field that can be used to report extra locations to VS Code.
-* The debugger variables view shows more information for some values.
+* Debugger has gained many new features and has become more like debuggers of other languages.
 
 ### Extension developers
 
 * We've moved to Node 20. VS Code has switched since 1.90, and the Node 18 support of some of our dependencies has been deprecated for a while. This will mean having to upgrade your own extension as well.
 
-### 0.12.2
+## 0.12.2
 
 * Debug and Debug side bar got a new view that lists active REPLs and allows the user to start a debugging session for it
 * Bugfixes:
@@ -63,6 +70,7 @@ We only list significant changes, for a full changelog please review the [commit
   * Improved the performance of rename on large Rascal files
 
 ## 0.12.1
+
 * The type-checker got a lot faster, especially if you're editing a single file in a larger project.
 * Various bugfixes in:
     * The rename functionality
