@@ -692,9 +692,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose((ITree tree) -> {
-                    var loc = Locations.toLoc(params.getTextDocument());
-                    var start = Locations.setPosition(loc, params.getRange().getStart(), columns);
-                    return computeCodeActions(start.getBeginLine(), start.getBeginColumn(), tree, availableFacts().getPathConfig(loc));
+                    var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), columns);
+                    return computeCodeActions(loc.getBeginLine(), loc.getBeginColumn(), tree, availableFacts().getPathConfig(loc));
                 })
                 .thenApply(IList::stream)
             , Stream::empty)

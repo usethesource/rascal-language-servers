@@ -752,7 +752,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
         logger.debug("codeAction: {}", params);
 
-        var location = Locations.toLoc(params.getTextDocument());
+        var location = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), columns);
         final ILanguageContributions contribs = contributions(location);
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
@@ -766,10 +766,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             getFile(location)
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCompose(tree -> {
-                    var start = Locations.setPosition(location, params.getRange().getStart(), columns);
-                    return computeCodeActions(contribs, start.getBeginLine(), start.getBeginColumn(), tree);
-                })
+                .thenCompose(tree -> computeCodeActions(contribs, location.getBeginLine(), location.getBeginColumn(), tree))
                 .thenApply(IList::stream)
             , Stream::empty)
             ;
@@ -876,15 +873,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
-        final var loc = Locations.toLoc(params.getTextDocument());
+        final var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
         final var contrib = contributions(loc);
         final var file = getFile(loc);
 
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
-            .thenCompose(t -> {
-                final var pos = Locations.setPosition(loc, params.getPosition(), columns);
-                return contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, pos.getBeginLine(), pos.getBeginColumn()))
+            .thenCompose(t ->
+                contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, loc.getBeginLine(), loc.getBeginColumn()))
                     .get()
                     .thenApply(items -> {
                         var ch = new CallHierarchy(exec);
@@ -892,8 +888,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                             .map(IConstructor.class::cast)
                             .map(ci -> ch.toLSP(ci, columns))
                             .collect(Collectors.toList());
-                    });
-            }), Collections::emptyList);
+                    })), Collections::emptyList);
     }
 
     private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
