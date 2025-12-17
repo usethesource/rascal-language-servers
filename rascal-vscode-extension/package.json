@@ -23,7 +23,7 @@
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
-    "url": "https://github.com/usethesource/rascal-language-servers"
+    "url": "git+https://github.com/usethesource/rascal-language-servers.git"
   },
   "bugs": {
     "url": "https://github.com/usethesource/rascal-language-servers/issues"
@@ -72,8 +72,8 @@
           "when": "false"
         },
         {
-            "command": "rascalmpl.copySourceLocation",
-            "when": "false"
+          "command": "rascalmpl.copySourceLocation",
+          "when": "false"
         }
       ],
       "view/item/context": [
@@ -259,7 +259,11 @@
         "rascal.terminal.name.originFormat": {
           "type": "string",
           "default": "Project root",
-          "enum": ["Project root", "Module (qualified)", "Module (unqualified)"],
+          "enum": [
+            "Project root",
+            "Module (qualified)",
+            "Module (unqualified)"
+          ],
           "markdownDescription": "Specifies the format of `<origin>` in Rascal terminal name `Rascal terminal (<origin>)`"
         }
       }
