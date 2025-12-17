@@ -70,4 +70,6 @@ jobs:
       - name: publish to NPM
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: rascal-vscode-extension
-        run: npm publish --verbose --provenance
+        run: |
+          npm install -g npm@latest # we need to use a newer version of npm due to oidc support
+          npm publish --verbose --provenance
