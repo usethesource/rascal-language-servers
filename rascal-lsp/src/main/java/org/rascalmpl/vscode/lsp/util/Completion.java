@@ -28,8 +28,6 @@ package org.rascalmpl.vscode.lsp.util;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
@@ -46,14 +44,11 @@ import org.eclipse.lsp4j.InsertTextFormat;
 import org.eclipse.lsp4j.InsertTextMode;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.MarkupKind;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.CompletionFields;
-import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
@@ -129,15 +124,9 @@ public class Completion {
         var startColumn = ((IInteger) edit.get(CompletionFields.START_COLUMN)).intValue();
         return new InsertReplaceEdit(
             ((IString) edit.get(CompletionFields.NEW_TEXT)).getValue(),
-            rascalToLspRange(currentLine, startColumn, ((IInteger) edit.get(CompletionFields.INSERT_END_COLUMN)).intValue(), offsets),
-            rascalToLspRange(currentLine, startColumn, ((IInteger) edit.get(CompletionFields.REPLACE_END_COLUMN)).intValue(), offsets)
-        );
-    }
-
-    private Range rascalToLspRange(int line, int startCol, int endCol, LineColumnOffsetMap offsets) {
-        return new Range(
-            Locations.toPosition(new Position(line, startCol), offsets, false),
-            Locations.toPosition(new Position(line, endCol), offsets, true)
+            // Build dummy source locations to convert here. Since we only require line/column information, this is fine.
+            Locations.toRange(VF.sourceLocation("unknown", 0, 0, currentLine, currentLine, startColumn, ((IInteger) edit.get(CompletionFields.INSERT_END_COLUMN)).intValue()), offsets),
+            Locations.toRange(VF.sourceLocation("unknown", 0, 0, currentLine, currentLine, startColumn, ((IInteger) edit.get(CompletionFields.REPLACE_END_COLUMN)).intValue()), offsets)
         );
     }
 
