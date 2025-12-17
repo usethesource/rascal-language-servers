@@ -138,9 +138,9 @@ jobs:
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'deployments' || '' }}
     permissions:
       id-token: write # only used for npm publishing
-      actions: read
+      actions: read # we need to copy this sadly
       contents: write
-    runs-on: buildjet-2vcpu-ubuntu-2204
+    runs-on: ${{ startsWith(github.ref, 'refs/tags/v') && 'ubuntu-latest' || 'buildjet-2vcpu-ubuntu-2204' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -237,4 +237,6 @@ jobs:
       - name: publish to NPM
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: rascal-vscode-extension
-        run: npm publish --provenance --access=public
+        run: |
+          npm install -g npm@11.x # we need to use a newer version of npm due to oidc support
+          npm publish --provenance --access=public
