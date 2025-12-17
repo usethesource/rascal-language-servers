@@ -34,7 +34,13 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
 /**
- * Abstract superclass for implementations of dynamic capabilities.
+ * Superclass of dynamic capabilities.
+ *
+ * Dynamic capabilities are LSP server capabilities that can be registered/unregistered dynamically, during the lifetime of the server, with the client.
+ * This is in contrast to 'static' capabilities that can only be registered at initialization.
+ * This class provides a common interface and implementation for dynamic capabilities.
+ *
+ * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#client_registerCapability
  * @param O The type of the capability's options.
  */
 public abstract class AbstractDynamicCapability<O> {
