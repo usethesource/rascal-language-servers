@@ -42,7 +42,9 @@ jobs:
 
       - name: prepare packages that copy jars etc
         working-directory: rascal-vscode-extension
-        run: npm run lsp4j:package
+        run: |
+          npm ci
+          npm run lsp4j:package
 
       - name: rewrite package.json & readme for NPM package
         working-directory: rascal-vscode-extension
