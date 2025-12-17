@@ -11,16 +11,13 @@ on:
       - '**'
 
 permissions:
+  id-token: write
   actions: read
   contents: write
   
 jobs:
   build:
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'deployments' || '' }}
-    permissions:
-      id-token: write # only used for npm publishing
-      actions: read
-      contents: write
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v6
@@ -43,36 +40,6 @@ jobs:
         run: mvn -B clean verify -DskipTests
         env:
           MAVEN_OPTS: "-Xmx6G"
-
-      - name: Package & compile extension 
-        working-directory: ./rascal-vscode-extension
-        run: |
-          npm ci
-          npm run license-check
-          npm run esbuild
-          npm run lint 
-
-      - name: package extension
-        working-directory: rascal-vscode-extension
-        run: |
-          npm run lsp4j:package
-          npx vsce package
-
-      - name: upload final vsix 
-        uses: actions/upload-artifact@v5
-        with:
-          path: rascal-vscode-extension/*.vsix
-          retention-days: 20
-
-      - name: Prepare Draft Release
-        uses: softprops/action-gh-release@v2
-        continue-on-error: true
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          draft: true
-          files: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: rewrite package.json & readme for NPM package
         working-directory: rascal-vscode-extension
