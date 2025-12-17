@@ -138,6 +138,8 @@ jobs:
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'deployments' || '' }}
     permissions:
       id-token: write # only used for npm publishing
+      actions: read
+      contents: write
     runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v6
@@ -235,4 +237,4 @@ jobs:
       - name: publish to NPM
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: rascal-vscode-extension
-        run: npm publish --access=public
+        run: npm publish --provenance --access=public
