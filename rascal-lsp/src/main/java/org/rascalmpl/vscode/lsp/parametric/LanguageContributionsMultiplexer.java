@@ -67,12 +67,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> references = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementation = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> codeAction = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> prepareRename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> didRenameFiles = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> prepareCallHierarchy = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> incomingOutgoingCalls = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> callHierarchy = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
@@ -163,11 +161,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         implementation = findFirstOrDefault(ILanguageContributions::hasImplementation);
         codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction);
         rename = findFirstOrDefault(ILanguageContributions::hasRename);
-        prepareRename = findFirstOrDefault(ILanguageContributions::hasRename);
         didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles);
         selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange);
-        prepareCallHierarchy = findFirstOrDefault(ILanguageContributions::hasCallHierarchy);
-        incomingOutgoingCalls = findFirstOrDefault(ILanguageContributions::hasCallHierarchy);
+        callHierarchy = findFirstOrDefault(ILanguageContributions::hasCallHierarchy);
 
         hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
         hasBuild = anyTrue(ILanguageContributions::hasBuild);
@@ -291,7 +287,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     @Override
     public CompletableFuture<IConstructor> parseCallHierarchyData(String data) {
-        return incomingOutgoingCalls.thenApply(c -> c.parseCallHierarchyData(data)).thenCompose(Function.identity());
+        return callHierarchy.thenApply(c -> c.parseCallHierarchyData(data)).thenCompose(Function.identity());
     }
 
     @Override
@@ -301,7 +297,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        return flatten(prepareRename, c -> c.prepareRename(focus));
+        return flatten(rename, c -> c.prepareRename(focus));
     }
 
     @Override
@@ -351,12 +347,12 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     @Override
     public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
-        return flatten(prepareCallHierarchy, c -> c.prepareCallHierarchy(focus));
+        return flatten(callHierarchy, c -> c.prepareCallHierarchy(focus));
     }
 
     @Override
     public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
-        return flatten(incomingOutgoingCalls, c -> c.incomingOutgoingCalls(hierarchyItem, direction));
+        return flatten(callHierarchy, c -> c.incomingOutgoingCalls(hierarchyItem, direction));
     }
 
     @Override
