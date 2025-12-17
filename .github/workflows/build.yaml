@@ -12,8 +12,9 @@ on:
 
   
 jobs:
-  build:
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'deployments' || '' }}
+  release-npm:
+    if: ${{ startsWith(github.ref, 'refs/tags/v')  }}
+    environment: deployments
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -37,9 +38,11 @@ jobs:
 
       - name: Package & compile rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B clean verify -DskipTests
-        env:
-          MAVEN_OPTS: "-Xmx6G"
+        run: mvn -B clean verify -DskipTests -Drascal.compile.skip -Drascal.tutor.skip
+
+      - name: prepare packages that copy jars etc
+        working-directory: rascal-vscode-extension
+        run: npm run lsp4j:package
 
       - name: rewrite package.json & readme for NPM package
         working-directory: rascal-vscode-extension
@@ -58,4 +61,4 @@ jobs:
       - name: publish to NPM
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: rascal-vscode-extension
-        run: npm publish --provenance --access=public
+        run: npm publish --provenance
