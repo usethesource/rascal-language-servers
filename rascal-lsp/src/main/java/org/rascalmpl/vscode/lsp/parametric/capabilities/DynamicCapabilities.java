@@ -80,7 +80,7 @@ public class DynamicCapabilities {
     public DynamicCapabilities(LanguageClient client, Executor exec, List<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
         this.client = client;
         this.parallelExec = exec;
-        this.supportedCapabilities = supportedCapabilities;
+        this.supportedCapabilities = List.copyOf(supportedCapabilities);
 
         // Check which capabilities to register statically
         Set<AbstractDynamicCapability<?>> caps = new HashSet<>();
