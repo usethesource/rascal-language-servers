@@ -189,18 +189,4 @@ public class Completion {
         }
     }
 
-    public static CompletableFuture<Boolean> isTriggered(IConstructor kind, CompletableFuture<IList> triggerChars, Executor exec) {
-        if (CompletionFields.INVOKED.equals(kind.getName())) {
-            // Manual invocation always triggers completion
-            return CompletableFutureUtils.completedFuture(true, exec);
-        }
-
-        if (CompletionFields.CHARACTER.equals(kind.getName()) && kind.has(CompletionFields.TRIGGER)) {
-            // A character only triggers completion when it's in the list of supported trigger characters
-            var trigger = kind.get(CompletionFields.TRIGGER);
-            return triggerChars.thenApply(chars -> chars.contains(trigger));
-        }
-
-        return CompletableFutureUtils.completedFuture(false, exec);
-    }
 }
