@@ -111,8 +111,6 @@ public class DynamicCapabilities {
         // Copy the contributions so we know we are looking at a stable set of elements.
         // If the contributions change, we expect our caller to call again.
         var stableContribs = new LinkedHashSet<>(contribs);
-        // Compute registrations purely based on contributions
-        // This requires waiting for an evaluator to load, which might take long, and should not block our logbook
         return CompletableFutureUtils.reduce(supportedCapabilities.stream()
             .filter(cap -> !staticCapabilities.contains(cap))
             .map(c -> tryRegistration(c, stableContribs)), parallelExec)
