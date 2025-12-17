@@ -60,7 +60,12 @@ jobs:
         working-directory: rascal-vscode-extension
         run: npm run compile
 
+      - name: Debug OIDC Claims
+        uses: steve-todorov/oidc-debugger-action@v1
+        with:
+          audience: '${{ github.server_url }}/${{ github.repository }}'          
+
       - name: publish to NPM
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: rascal-vscode-extension
-        run: npm publish --provenance
+        run: npm publish --verbose --provenance
