@@ -690,6 +690,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
+        loc = loc.top();
         TextDocumentState file = files.get(loc);
         if (file == null) {
             throw new ResponseErrorException(unknownFileError(loc, loc));
@@ -975,6 +976,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void updateFileState(LanguageParameter lang, ISourceLocation f) {
+        f = f.top();
         logger.trace("File of language {} - updating state: {}", lang.getName(), f);
         // Since we cannot know what happened to this file before we were called, we need to be careful about races.
         // It might have been closed in the meantime, so we compute the new value if the key still exists, based on the current value.

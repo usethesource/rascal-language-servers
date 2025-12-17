@@ -93,6 +93,7 @@ public class PathConfigs {
     }
 
     public PathConfig lookupConfig(ISourceLocation forFile) {
+        forFile = forFile.top();
         ISourceLocation projectRoot = translatedRoots.get(forFile);
         return currentPathConfigs.computeIfAbsent(projectRoot, this::buildPathConfig);
     }
