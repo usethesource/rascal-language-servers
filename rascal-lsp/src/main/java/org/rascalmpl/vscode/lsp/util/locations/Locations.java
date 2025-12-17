@@ -99,6 +99,10 @@ public class Locations {
         return toLoc(doc, new Range(pos, pos), columns);
     }
 
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the LSP standard to the Rascal standard.
+     */
     public static ISourceLocation toLoc(TextDocumentIdentifier doc, Range range, ColumnMaps columns) {
         return setRange(toLoc(doc.getUri()), range, columns);
     }
@@ -206,14 +210,20 @@ public class Locations {
         }
     }
 
+    /**
+     * Converts and sets the position information on a Rascal location.
+     */
     public static ISourceLocation setPosition(ISourceLocation loc, Position pos, ColumnMaps columns) {
         return setRange(loc, new Range(pos, pos), columns);
     }
 
-    public static ISourceLocation setRange(ISourceLocation loc, Range lspRange, ColumnMaps columns) {
+    /**
+     * Converts and sets the position information on a Rascal location.
+     */
+    public static ISourceLocation setRange(ISourceLocation loc, Range range, ColumnMaps columns) {
         var map = columns.get(loc);
-        final var lspStart = lspRange.getStart();
-        final var lspEnd = lspRange.getEnd();
+        final var lspStart = range.getStart();
+        final var lspEnd = range.getEnd();
         final var offsetLength = map.calculateInverseOffsetLength(lspStart.getLine(), lspStart.getCharacter(), lspEnd.getLine(), lspEnd.getCharacter());
         final var rascalStart = toPosition(loc, lspStart, columns);
         final var rascalEnd = toPosition(loc, lspEnd, columns);
@@ -227,14 +237,26 @@ public class Locations {
         );
     }
 
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the Rascal standard to the LSP standard.
+     */
     public static Position toPosition(ISourceLocation loc, ColumnMaps cm) {
         return toPosition(loc, cm, false);
     }
 
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the Rascal standard to the LSP standard.
+     */
     public static Position toPosition(ISourceLocation loc, ColumnMaps cm, boolean atEnd) {
         return toPosition(loc, cm.get(loc), atEnd);
     }
 
+    /**
+     * This fixes line offset off-by-one and column offsets character widths.
+     * Mapping them from the Rascal standard to the LSP standard.
+     */
     public static Position toPosition(ISourceLocation loc, LineColumnOffsetMap map, boolean atEnd) {
         var line = atEnd ? loc.getEndLine() : loc.getBeginLine();
         var column = atEnd? loc.getEndColumn() : loc.getBeginColumn();
