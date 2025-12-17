@@ -45,7 +45,7 @@ test bool shadowVariableInInnerScope() = testRenameOccurrences({0}, "
 ");
 
 test bool shadowVariableFromImports1() = testRenameOccurrences({
-    byText("Foo", "int foo = 8;", {0}),
+    byText("Foo", "public int foo = 8;", {0}),
     byText("Main", "
         'import Foo;
         'void main() {
@@ -55,7 +55,7 @@ test bool shadowVariableFromImports1() = testRenameOccurrences({
 });
 
 test bool shadowVariableFromImports2() = testRenameOccurrences({
-    byText("Bar", "int bar = 8;", {}),
+    byText("Bar", "public int bar = 8;", {}),
     byText("Main", "
         'import Bar;
         'void main() {
@@ -180,7 +180,7 @@ test bool doubleVariableAndFunctionDeclaration() = testRename("
 ");
 
 test bool doubleVariableAndFunctionDeclarationQualified() = testRenameOccurrences({
-    byText("Foo", "int foo = 8;", {0}),
+    byText("Foo", "public int foo = 8;", {0}),
     byText("Bar", "void bar() {}", {}),
     byText("Main", "
         'import Foo;
@@ -233,7 +233,7 @@ test bool globalVar() = testRenameOccurrences({0, 3}, "
 ");
 
 test bool multiModuleVar() = testRenameOccurrences({
-    byText("alg::Fib", "int foo = 8;
+    byText("alg::Fib", "public int foo = 8;
             '
             'int fib(int n) {
             '   if (n \< 2) {

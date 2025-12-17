@@ -30,7 +30,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
   <artifactId>rascal-lsp</artifactId>
-  <version>2.22.0-RC3-SNAPSHOT</version>
+  <version>2.22.1-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
@@ -64,7 +64,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.1-RC1</version>
+      <version>0.41.2</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -164,7 +164,7 @@
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.30.0</version>
+        <version>0.30.3</version>
         <configuration>
             <errorsAsWarnings>false</errorsAsWarnings>
             <bin>${project.build.outputDirectory}</bin>

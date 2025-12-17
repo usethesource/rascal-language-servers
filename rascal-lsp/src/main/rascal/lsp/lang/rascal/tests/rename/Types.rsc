@@ -180,7 +180,7 @@ test bool sameIdRoleOnly() = testRenameOccurrences({
   , byText("B", "extend A;
                 'data foo = g();", {})
   , byText("C", "extend B;
-                'int foo = 8;",{0})
+                'public int foo = 8;",{0})
   , byText("D", "import C;
                 'int baz = C::foo + 1;", {0})
 });
