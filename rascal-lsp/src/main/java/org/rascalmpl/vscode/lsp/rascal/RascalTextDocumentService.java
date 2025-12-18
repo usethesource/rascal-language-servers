@@ -76,7 +76,6 @@ import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
@@ -409,8 +408,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return recoverExceptions(file.getCurrentTreeAsync(false)
             .thenApply(Versioned::get)
             .thenApply(tr -> {
-                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
-                IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                ISourceLocation rascalCursorPos = Locations.setPosition(file.getLocation(), params.getPosition(), columns);
+                IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getBeginLine(), rascalCursorPos.getBeginColumn());
                 return findQualifiedNameUnderCursor(focus);
             })
             .thenApply(cur -> Locations.toRange(TreeAdapter.getLocation(cur), columns))
@@ -431,8 +430,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 return t;
             })
             .thenCompose(tr -> {
-                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
-                var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                ISourceLocation rascalCursorPos = Locations.setPosition(file.getLocation(), params.getPosition(), columns);
+                var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getBeginLine(), rascalCursorPos.getBeginColumn());
                 var cursorTree = findQualifiedNameUnderCursor(focus);
                 var workspaceFolders = availableWorkspaceServices().workspaceFolders()
                     .stream()
@@ -612,9 +611,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
             .thenApply(tr -> params.getPositions().stream()
-                .map(p -> Locations.toRascalPosition(file.getLocation(), p, columns))
+                .map(p -> Locations.setPosition(file.getLocation(), p, columns))
                 .map(p -> {
-                    var focus = TreeSearch.computeFocusList(tr, p.getLine(), p.getCharacter());
+                    var focus = TreeSearch.computeFocusList(tr, p.getBeginLine(), p.getBeginColumn());
                     var locs = SelectionRanges.uniqueTreeLocations(focus);
                     return SelectionRanges.toSelectionRange(p, locs, columns);
                 })
@@ -694,9 +693,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose((ITree tree) -> {
-                    var doc = params.getTextDocument();
-                    var range = Locations.toRascalRange(doc, params.getRange(), columns);
-                    return computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, availableFacts().getPathConfig(Locations.toLoc(doc)));
+                    var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), columns);
+                    return computeCodeActions(loc.getBeginLine(), loc.getBeginColumn(), tree, availableFacts().getPathConfig(loc));
                 })
                 .thenApply(IList::stream)
             , Stream::empty)
