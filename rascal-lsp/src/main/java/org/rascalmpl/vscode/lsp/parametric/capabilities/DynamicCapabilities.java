@@ -117,8 +117,8 @@ public class DynamicCapabilities {
         return CompletableFutureUtils.reduce(supportedCapabilities.stream()
             .filter(cap -> !staticCapabilities.contains(cap))
             .map(c -> tryBuildRegistration(c, stableContribs)), exec)
-            .thenApply(caps -> caps.stream().map(c -> updateRegistration(c)).collect(Collectors.toList()))
-            .thenApply(CompletableFutureUtils::reduce)
+            .thenApply(caps -> caps.stream().map(c -> updateRegistration(c)))
+            .thenApply(jobs -> CompletableFutureUtils.reduce(jobs, exec))
             .thenCompose(Function.identity())
             .thenAccept(_l -> {}); // List<Void> -> Void
     }
