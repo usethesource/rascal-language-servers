@@ -111,7 +111,8 @@ public class CompletableFutureUtilsTest {
 
     @Test
     public void reduceEmptyList() {
-        assertThrows(IllegalArgumentException.class, () -> reduce(List.of(), Integer::sum));
+        List<CompletableFuture<Integer>> l = new LinkedList<>();
+        assertThrows(IllegalArgumentException.class, () -> reduce(l, Integer::sum));
     }
 
     @Test
