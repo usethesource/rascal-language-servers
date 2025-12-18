@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -140,6 +141,21 @@ public abstract class AbstractDynamicCapability<O> {
      */
     protected final boolean shouldRegisterStatically(ClientCapabilities client) {
         return preferStaticRegistration() || !isDynamicallySupportedBy(client);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null || !(obj instanceof AbstractDynamicCapability)) {
+            return false;
+        }
+        var other = (AbstractDynamicCapability<?>) obj;
+        return Objects.equals(id, other.id)
+            && Objects.equals(methodName, other.methodName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, methodName);
     }
 
 }

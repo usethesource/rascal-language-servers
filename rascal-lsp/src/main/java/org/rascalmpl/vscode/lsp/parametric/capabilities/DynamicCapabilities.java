@@ -26,11 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,13 +65,17 @@ public class DynamicCapabilities {
 
     private final LanguageClient client;
     private final Executor parallelExec;
-    private final Executor singleExec = NamedThreadPool.single("parametric-capabilities");
+    private final Executor singleExec = NamedThreadPool.singleDaemon("parametric-capabilities");
     private final Collection<AbstractDynamicCapability<?>> supportedCapabilities;
+
+    // Set of capabilities that should bre registered statically instead of dynamically
     private final Set<AbstractDynamicCapability<?>> staticCapabilities;
+
+    // Map of method names with current registration values
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
     /**
-     * @param client The language client to send regiser/unregister requests to.
+     * @param client The language client to send register/unregister requests to.
      * @param exec The executor to use for asynchronous tasks.
      * @param supportedCapabilities The capabilities to register with the client.
      * @param clientCapabilities The capabilities of the client. Determine whether dynamic registration is supported at all.
@@ -83,7 +86,7 @@ public class DynamicCapabilities {
         this.supportedCapabilities = List.copyOf(supportedCapabilities);
 
         // Check which capabilities to register statically
-        Set<AbstractDynamicCapability<?>> caps = new HashSet<>();
+        var caps = new HashSet<AbstractDynamicCapability<?>>();
         for (var cap : supportedCapabilities) {
             if (cap.shouldRegisterStatically(clientCapabilities)) {
                 caps.add(cap);
@@ -110,13 +113,13 @@ public class DynamicCapabilities {
     public CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
         // Copy the contributions so we know we are looking at a stable set of elements.
         // If the contributions change, we expect our caller to call again.
-        var stableContribs = new LinkedHashSet<>(contribs);
+        var stableContribs = List.copyOf(contribs);
         return CompletableFutureUtils.reduce(supportedCapabilities.stream()
             .filter(cap -> !staticCapabilities.contains(cap))
-            .map(c -> tryRegistration(c, stableContribs)), parallelExec)
+            .map(c -> tryBuildRegistration(c, stableContribs)), parallelExec)
             .thenAcceptAsync(capabiltities -> {
-                List<Registration> registrations = new LinkedList<>();
-                List<Unregistration> unregistrations = new LinkedList<>();
+                var registrations = new ArrayList<Registration>(capabiltities.size());
+                var unregistrations = new ArrayList<Unregistration>(capabiltities.size());
                 for (var entry : capabiltities) {
                     var cap = entry.getLeft();
                     var registration = entry.getRight();
@@ -178,7 +181,7 @@ public class DynamicCapabilities {
         );
     }
 
-    private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> tryRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
+    private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> tryBuildRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
         if (contribs.isEmpty()) {
             return CompletableFutureUtils.completedFuture(Pair.of(cap, null), parallelExec);
         }
