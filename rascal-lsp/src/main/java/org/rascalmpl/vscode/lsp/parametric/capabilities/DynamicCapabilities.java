@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
@@ -52,6 +51,7 @@ import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.Lists;
+import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
@@ -64,6 +64,7 @@ public class DynamicCapabilities {
 
     private final LanguageClient client;
     private final Executor exec;
+    private final Executor singleExec = NamedThreadPool.singleDaemon("parametric-capabilities");
     private final Supplier<CompletableFuture<Boolean>> falsy;
     private final Collection<AbstractDynamicCapability<?>> supportedCapabilities;
 
@@ -75,14 +76,13 @@ public class DynamicCapabilities {
 
     /**
      * @param client The language client to send register/unregister requests to.
-     * @param exec The executor to use for asynchronous tasks.
      * @param supportedCapabilities The capabilities to register with the client.
      * @param clientCapabilities The capabilities of the client. Determine whether dynamic registration is supported at all.
      */
     public DynamicCapabilities(LanguageClient client, Executor exec, List<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
         this.client = client;
         this.exec = exec;
-        this.falsy = () -> CompletableFutureUtils.completedFuture(false, exec);
+        this.falsy = () -> CompletableFutureUtils.completedFuture(false, singleExec);
         this.supportedCapabilities = List.copyOf(supportedCapabilities);
 
         // Check which capabilities to register statically
@@ -116,10 +116,8 @@ public class DynamicCapabilities {
         var stableContribs = List.copyOf(contribs);
         return CompletableFutureUtils.reduce(supportedCapabilities.stream()
             .filter(cap -> !staticCapabilities.contains(cap))
-            .map(c -> tryBuildRegistration(c, stableContribs)), exec)
-            .thenApply(caps -> caps.stream().map(c -> updateRegistration(c)))
-            .thenApply(jobs -> CompletableFutureUtils.reduce(jobs, exec))
-            .thenCompose(Function.identity())
+            .map(c -> tryBuildRegistration(c, stableContribs)
+                .thenComposeAsync(r -> updateRegistration(r), singleExec)), exec)
             .thenAccept(_l -> {}); // List<Void> -> Void
     }
 

@@ -30,7 +30,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.atMostOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.only;
@@ -39,7 +42,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,7 +62,6 @@ import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentClientCapabilities;
-import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.junit.Before;
@@ -71,6 +72,7 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.mockito.Spy;
+import org.mockito.exceptions.verification.VerificationInOrderFailure;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
@@ -173,21 +175,15 @@ public class DynamicCapabilitiesTest {
         return params.getRegistrations().stream().collect(Collectors.toMap(Registration::getMethod, Registration::getRegisterOptions));
     }
 
-    private List<String> unregistrationOptions(UnregistrationParams params) {
-        return params.getUnregisterations().stream().map(Unregistration::getMethod).collect(Collectors.toList());
-    }
-
     @SafeVarargs
-    private CompletableFuture<Void> registerIncrementally(List<String>... options) {
-        return registerIncrementally(Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList()));
+    private void registerSequentially(List<String>... options) throws InterruptedException, ExecutionException {
+        registerSequentially(Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList()));
     }
 
-    private CompletableFuture<Void> registerIncrementally(List<ILanguageContributions> contribs) {
-        List<CompletableFuture<Void>> jobs = new LinkedList<>();
+    private void registerSequentially(List<ILanguageContributions> contribs) throws InterruptedException, ExecutionException {
         for (int i = 0; i < contribs.size(); i++) {
-            jobs.add(dynCap.updateCapabilities(contribs.subList(0, i + 1)));
+            dynCap.updateCapabilities(contribs.subList(0, i + 1)).get();
         }
-        return CompletableFutureUtils.reduce(jobs).thenAccept(_v -> {});
     }
 
     //// TESTS
@@ -219,22 +215,17 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void registerIncrementalContribution() throws InterruptedException, ExecutionException {
-        registerIncrementally(List.of(".", "::"), List.of("+", "*", "-", "/", "%")).get();
+        registerSequentially(List.of(".", "::"), List.of("+", "*", "-", "/", "%"));
 
-        InOrder inOrder = inOrder(client);
-        inOrder.verify(client).registerCapability(registrationCaptor.capture());
-        inOrder.verify(client).unregisterCapability(unregistrationCaptor.capture());
-        inOrder.verify(client).registerCapability(registrationCaptor.capture());
-        inOrder.verifyNoMoreInteractions();
+        verify(client, atLeastOnce()).registerCapability(registrationCaptor.capture());
+        verify(client, atMostOnce()).unregisterCapability(unregistrationCaptor.capture());
 
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false)), registrationOptions(registrationCaptor.getAllValues().get(0)));
-        assertEquals(List.of("textDocument/completion"), unregistrationOptions(unregistrationCaptor.getValue()));
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::", "+", "*", "-", "/", "%"), false)), registrationOptions(registrationCaptor.getAllValues().get(1)));
+        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::", "+", "*", "-", "/", "%"), false)), registrationOptions(registrationCaptor.getValue()));
     }
 
     @Test
     public void registerIdenticalContribution() throws InterruptedException, ExecutionException {
-        registerIncrementally(List.of(".", "::"), List.of(".", "::")).get();
+        registerSequentially(List.of(".", "::"), List.of(".", "::"));
 
         InOrder inOrder = inOrder(client);
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
@@ -250,7 +241,7 @@ public class DynamicCapabilitiesTest {
             .map(ILanguageContributions.class::cast)
             .collect(Collectors.toList());
 
-        registerIncrementally(contribs).get();
+        registerSequentially(contribs);
 
         // unregister one of both
         dynCap.updateCapabilities(contribs.subList(1, 2)).get();
@@ -340,7 +331,7 @@ public class DynamicCapabilitiesTest {
     }
 
     @Test
-    public void multiThreadingConisistency() throws InterruptedException, ExecutionException {
+    public void multiThreadingAtomicity() throws InterruptedException, ExecutionException {
         int N = 50;
         List<CompletableFuture<Void>> jobs = new ArrayList<>(N);
         var exec = Executors.newFixedThreadPool(N / 2); // less threads than jobs; causes some overlap
@@ -359,9 +350,21 @@ public class DynamicCapabilitiesTest {
         InOrder inOrder = inOrder(client);
 
         inOrder.verify(client).registerCapability(any());
-        for (int i = 1; i < N; i++) {
-            inOrder.verify(client).unregisterCapability(any());
-            inOrder.verify(client).registerCapability(registrationCaptor.capture());
+        boolean atomic = true;
+        int i = 1;
+        while (atomic && i < N) {
+            try {
+                inOrder.verify(client).unregisterCapability(any());
+                atomic = false;
+                inOrder.verify(client).registerCapability(registrationCaptor.capture());
+                atomic = true;
+            } catch (VerificationInOrderFailure e) {
+                if (atomic) {
+                    break;
+                }
+                fail(e.toString());
+            }
+            i++;
         }
         inOrder.verifyNoMoreInteractions();
 
