@@ -64,7 +64,7 @@ public class DynamicCapabilities {
 
     private final LanguageClient client;
     private final Executor exec;
-    private final Supplier<CompletableFuture<Void>> noop;
+    private final Supplier<CompletableFuture<Boolean>> falsy;
     private final Collection<AbstractDynamicCapability<?>> supportedCapabilities;
 
     // Set of capabilities that should bre registered statically instead of dynamically
@@ -82,7 +82,7 @@ public class DynamicCapabilities {
     public DynamicCapabilities(LanguageClient client, Executor exec, List<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
         this.client = client;
         this.exec = exec;
-        this.noop = () -> CompletableFutureUtils.completedFuture(null, exec);
+        this.falsy = () -> CompletableFutureUtils.completedFuture(false, exec);
         this.supportedCapabilities = List.copyOf(supportedCapabilities);
 
         // Check which capabilities to register statically
@@ -123,7 +123,7 @@ public class DynamicCapabilities {
             .thenAccept(_l -> {}); // List<Void> -> Void
     }
 
-    private <T> CompletableFuture<Void> updateRegistration(Pair<AbstractDynamicCapability<T>, @Nullable Registration> entry) {
+    private <T> CompletableFuture<Boolean> updateRegistration(Pair<AbstractDynamicCapability<T>, @Nullable Registration> entry) {
         var cap = entry.getLeft();
         var registration = entry.getRight();
         var method = cap.methodName();
@@ -136,13 +136,13 @@ public class DynamicCapabilities {
                 return unregister(existingRegistration);
             }
             // nothing more to do
-            return noop.get();
+            return falsy.get();
         }
 
         if (existingRegistration != null) {
             if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
                 logger.trace("Options for {} did not change since last registration: {}", method, registration.getRegisterOptions());
-                return noop.get();
+                return falsy.get();
             }
             logger.trace("Options for {} changed since the previous registration; remove before adding again", method);
             return changeOptions(registration, existingRegistration);
@@ -152,39 +152,50 @@ public class DynamicCapabilities {
         return register(registration);
     }
 
-    private <T> CompletableFuture<Void> unregister(Registration reg) {
+    private <T> CompletableFuture<Boolean> unregister(Registration reg) {
         // If our administration contains exactly this registration, remove it and inform the client
         if (!currentRegistrations.remove(reg.getMethod(), reg)) {
-            return noop.get();
+            return falsy.get();
         }
 
         return client.unregisterCapability(new UnregistrationParams(List.of(new Unregistration(reg.getId(), reg.getMethod()))))
-            .exceptionally(t -> {
+            .handle((_v, t) -> {
+                if (t == null) {
+                    return true;
+                }
                 logger.error("Exception while unregistering {}", reg.getMethod(), t);
                 // Unregistration failed; put this back in our administration
                 currentRegistrations.putIfAbsent(reg.getMethod(), reg);
-                return null;
+                return false;
             });
     }
 
-    private <T> CompletableFuture<Void> register(Registration reg) {
+    private <T> CompletableFuture<Boolean> register(Registration reg) {
         // If our administration contains no registration, inform the client
         if (currentRegistrations.putIfAbsent(reg.getMethod(), reg) != null) {
-            return noop.get();
+            return falsy.get();
         }
 
         return client.registerCapability(new RegistrationParams(List.of(reg)))
-            .exceptionally(t -> {
+            .handle((_v, t) -> {
+                if (t == null) {
+                    return true;
+                }
                 logger.error("Exception while registering {}", reg.getMethod(), t);
                 // Registration failed; remove this from our administration
                 currentRegistrations.remove(reg.getMethod(), reg);
-                return null;
+                return false;
             });
     }
 
-    private <T> CompletableFuture<Void> changeOptions(Registration newRegistration, Registration existingRegistration) {
+    private <T> CompletableFuture<Boolean> changeOptions(Registration newRegistration, Registration existingRegistration) {
         return unregister(existingRegistration)
-            .thenCompose(_v -> register(newRegistration));
+            .thenCompose(b -> {
+                if (!b) {
+                    return falsy.get();
+                }
+                return register(newRegistration);
+            });
     }
 
     private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> tryBuildRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
