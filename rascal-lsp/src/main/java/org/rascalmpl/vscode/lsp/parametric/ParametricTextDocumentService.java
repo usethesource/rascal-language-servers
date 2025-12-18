@@ -449,14 +449,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
-        ISourceLocation loc = Locations.toLoc(params.getTextDocument());
+        ISourceLocation loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
         ILanguageContributions contribs = contributions(loc);
-        Position rascalPos = Locations.toRascalPosition(loc, params.getPosition(), columns);
         return getFile(loc)
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(tree -> computeRename(contribs,
-                        rascalPos.getLine(), rascalPos.getCharacter(), params.getNewName(), tree));
+                        loc.getBeginLine(), loc.getBeginColumn(), params.getNewName(), tree));
     }
 
     private CompletableFuture<WorkspaceEdit> computeRename(final ILanguageContributions contribs, final int startLine,
@@ -691,6 +690,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
+        loc = loc.top();
         TextDocumentState file = files.get(loc);
         if (file == null) {
             throw new ResponseErrorException(unknownFileError(loc, loc));
@@ -752,7 +752,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
         logger.debug("codeAction: {}", params);
 
-        var location = Locations.toLoc(params.getTextDocument());
+        var location = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), columns);
         final ILanguageContributions contribs = contributions(location);
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
@@ -766,10 +766,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             getFile(location)
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCompose(tree -> {
-                    var range = Locations.toRascalRange(location, params.getRange(), columns);
-                    return computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree);
-                })
+                .thenCompose(tree -> computeCodeActions(contribs, location.getBeginLine(), location.getBeginColumn(), tree))
                 .thenApply(IList::stream)
             , Stream::empty)
             ;
@@ -866,9 +863,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(t -> CompletableFutureUtils.reduce(params.getPositions().stream()
-                    .map(p -> Locations.toRascalPosition(loc, p, columns))
+                    .map(p -> Locations.setPosition(loc, p, columns))
                     .map(p -> computeSelection
-                        .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter())))
+                        .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getBeginLine(), p.getBeginColumn())))
                         .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, columns)))
                     .collect(Collectors.toUnmodifiableList()), exec)),
             Collections::emptyList);
@@ -876,15 +873,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
-        final var loc = Locations.toLoc(params.getTextDocument());
+        final var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
         final var contrib = contributions(loc);
         final var file = getFile(loc);
 
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
-            .thenCompose(t -> {
-                final var pos = Locations.toRascalPosition(loc, params.getPosition(), columns);
-                return contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter()))
+            .thenCompose(t ->
+                contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, loc.getBeginLine(), loc.getBeginColumn()))
                     .get()
                     .thenApply(items -> {
                         var ch = new CallHierarchy(exec);
@@ -892,8 +888,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                             .map(IConstructor.class::cast)
                             .map(ci -> ch.toLSP(ci, columns))
                             .collect(Collectors.toList());
-                    });
-            }), Collections::emptyList);
+                    })), Collections::emptyList);
     }
 
     private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
@@ -976,6 +971,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void updateFileState(LanguageParameter lang, ISourceLocation f) {
+        f = f.top();
         logger.trace("File of language {} - updating state: {}", lang.getName(), f);
         // Since we cannot know what happened to this file before we were called, we need to be careful about races.
         // It might have been closed in the meantime, so we compute the new value if the key still exists, based on the current value.
