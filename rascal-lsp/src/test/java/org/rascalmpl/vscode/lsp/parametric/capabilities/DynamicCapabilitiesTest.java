@@ -334,18 +334,18 @@ public class DynamicCapabilitiesTest {
     public void multiThreadingAtomicity() throws InterruptedException, ExecutionException {
         int N = 50;
         List<CompletableFuture<Void>> jobs = new ArrayList<>(N);
-        var exec = Executors.newFixedThreadPool(N / 2); // less threads than jobs; causes some overlap
+        var callerExec = Executors.newFixedThreadPool(N / 2); // less threads than jobs; causes some overlap
         var expectedTrigChars = IntStream.range(0, N).boxed().map(Object::toString).collect(Collectors.toList());
         var contribs = expectedTrigChars.stream().map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList());
         for (int i = 0; i < N; i++) {
             var sl = contribs.subList(0, i + 1);
-            var job = CompletableFuture.supplyAsync(() -> dynCap.updateCapabilities(sl), exec).thenCompose(Function.identity());
+            var job = CompletableFuture.supplyAsync(() -> dynCap.updateCapabilities(sl), callerExec).thenCompose(Function.identity());
             jobs.add(job);
         }
         var optionSublists = IntStream.range(0, N).boxed().map(i -> expectedTrigChars.subList(0, i + 1)).collect(Collectors.toList());
 
         // Await all parallel jobs
-        CompletableFutureUtils.reduce(jobs, exec).get();
+        CompletableFutureUtils.reduce(jobs, callerExec).get();
 
         InOrder inOrder = inOrder(client);
 

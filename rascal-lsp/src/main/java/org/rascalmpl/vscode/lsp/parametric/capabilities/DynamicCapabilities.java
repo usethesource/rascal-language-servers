@@ -117,7 +117,7 @@ public class DynamicCapabilities {
         return CompletableFutureUtils.reduce(supportedCapabilities.stream()
             .filter(cap -> !staticCapabilities.contains(cap))
             .map(c -> tryBuildRegistration(c, stableContribs)
-                .thenComposeAsync(r -> updateRegistration(r), singleExec)), exec)
+                .thenComposeAsync(this::updateRegistration, singleExec)), exec)
             .thenAccept(_l -> {}); // List<Void> -> Void
     }
 
@@ -150,7 +150,7 @@ public class DynamicCapabilities {
         return register(registration);
     }
 
-    private <T> CompletableFuture<Boolean> unregister(Registration reg) {
+    private CompletableFuture<Boolean> unregister(Registration reg) {
         // If our administration contains exactly this registration, remove it and inform the client
         if (!currentRegistrations.remove(reg.getMethod(), reg)) {
             return falsy.get();
@@ -168,7 +168,7 @@ public class DynamicCapabilities {
             });
     }
 
-    private <T> CompletableFuture<Boolean> register(Registration reg) {
+    private CompletableFuture<Boolean> register(Registration reg) {
         // If our administration contains no registration, inform the client
         if (currentRegistrations.putIfAbsent(reg.getMethod(), reg) != null) {
             return falsy.get();
@@ -186,10 +186,10 @@ public class DynamicCapabilities {
             });
     }
 
-    private <T> CompletableFuture<Boolean> changeOptions(Registration newRegistration, Registration existingRegistration) {
+    private CompletableFuture<Boolean> changeOptions(Registration newRegistration, Registration existingRegistration) {
         return unregister(existingRegistration)
             .thenCompose(b -> {
-                if (!b) {
+                if (!b.booleanValue()) {
                     return falsy.get();
                 }
                 return register(newRegistration);

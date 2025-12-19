@@ -145,7 +145,7 @@ public abstract class AbstractDynamicCapability<O> {
 
     @Override
     public boolean equals(@Nullable Object obj) {
-        if (obj == null || !(obj instanceof AbstractDynamicCapability)) {
+        if (!(obj instanceof AbstractDynamicCapability)) {
             return false;
         }
         var other = (AbstractDynamicCapability<?>) obj;
