@@ -74,7 +74,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
 
     @Override
     protected CompletionRegistrationOptions mergeOptions(CompletionRegistrationOptions left, CompletionRegistrationOptions right) {
-        return new CompletionRegistrationOptions(Stream.concat(left.getTriggerCharacters().stream(), right.getTriggerCharacters().stream()).distinct().collect(Collectors.toList()), false);
+        return new CompletionRegistrationOptions(Stream.concat(left.getTriggerCharacters().stream(), right.getTriggerCharacters().stream()).distinct().collect(Collectors.toCollection(ArrayList::new)), false);
     }
 
     @Override

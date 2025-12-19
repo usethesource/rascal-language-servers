@@ -118,15 +118,10 @@ public class DynamicRegistration {
      * @return A void future that completes when all capabilities are updated.
      */
     public CompletableFuture<Void> updateRegistrations(ICapabilityParams params) {
-        var capStream = supportedCapabilities.stream()
+        return CompletableFutureUtils.reduce(Stream.concat(supportedCapabilities.stream(), supportedProperties.stream())
             .filter(r -> !staticRegistrations.contains(r))
-            .map(r -> r.tryBuildRegistration(params).thenComposeAsync(reg -> updateRegistration(r, reg), singleExec));
-        var propStream = supportedProperties.stream()
-            .filter(r -> !staticRegistrations.contains(r))
-            .map(r -> r.tryBuildRegistration(params).thenComposeAsync(reg -> updateRegistration(r, reg), singleExec));
-
-        return CompletableFutureUtils.reduce(Stream.concat(capStream, propStream), exec)
-            .thenAccept(_l -> {}); // List<Void> -> Void
+            .map(r -> r.tryBuildRegistration(params).thenComposeAsync(reg -> updateRegistration(r, reg), singleExec)), exec)
+            .thenAccept(_l -> {}); // List<Boolean> -> Void
     }
 
     private <Options, Caps> CompletableFuture<Boolean> updateRegistration(AbstractDynamicRegistration<Options> reg, @Nullable Registration registration) {

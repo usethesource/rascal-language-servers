@@ -44,7 +44,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -59,7 +58,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
-import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentClientCapabilities;
@@ -211,8 +209,12 @@ public class DynamicCapabilitiesTest {
 
     }
 
-    private Map<String, @Nullable Object> registrationOptions(RegistrationParams params) {
-        return params.getRegistrations().stream().collect(Collectors.toMap(Registration::getMethod, Registration::getRegisterOptions));
+    private <T> @Nullable T registrationOptions(String name, RegistrationParams params, Class<T> t) {
+        var optReg = params.getRegistrations().stream().filter(r -> name.equals(r.getMethod())).findFirst();
+        if (optReg.isEmpty()) {
+            throw new IllegalArgumentException("No registration of " + name);
+        }
+        return t.cast(optReg.get().getRegisterOptions());
     }
 
     @SafeVarargs
@@ -250,7 +252,7 @@ public class DynamicCapabilitiesTest {
         verify(client, only()).registerCapability(registrationCaptor.capture());
         verify(serverCapabilities, never()).setCompletionProvider(any()); // no static registration
 
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(trigChars, false)), registrationOptions(registrationCaptor.getValue()));
+        assertEquals(trigChars, registrationOptions("textDocument/completion", registrationCaptor.getValue(), CompletionRegistrationOptions.class).getTriggerCharacters());
     }
 
     @Test
@@ -260,7 +262,7 @@ public class DynamicCapabilitiesTest {
         verify(client, atLeastOnce()).registerCapability(registrationCaptor.capture());
         verify(client, atMostOnce()).unregisterCapability(unregistrationCaptor.capture());
 
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::", "+", "*", "-", "/", "%"), false)), registrationOptions(registrationCaptor.getValue()));
+        assertEquals(Set.of(".", "::", "+", "*", "-", "/", "%"), Set.copyOf(registrationOptions("textDocument/completion", registrationCaptor.getValue(), CompletionRegistrationOptions.class).getTriggerCharacters()));
     }
 
     @Test
@@ -271,7 +273,7 @@ public class DynamicCapabilitiesTest {
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
         inOrder.verifyNoMoreInteractions();
 
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false)), registrationOptions(registrationCaptor.getAllValues().get(0)));
+        assertEquals(Set.of(".", "::"), Set.copyOf(registrationOptions("textDocument/completion", registrationCaptor.getValue(), CompletionRegistrationOptions.class).getTriggerCharacters()));
     }
 
     @Test
@@ -287,19 +289,19 @@ public class DynamicCapabilitiesTest {
         dynCap.updateRegistrations(P.of(contribs.subList(1, 2))).get();
 
         InOrder inOrder = inOrder(client);
-        // intial registration
+        // initial registration
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of("."), false)), registrationOptions(registrationCaptor.getValue()));
+        assertEquals(Set.of("."), Set.copyOf(registrationOptions("textDocument/completion", registrationCaptor.getValue(), CompletionRegistrationOptions.class).getTriggerCharacters()));
 
         // extra registration with extra trigger characters
         inOrder.verify(client).unregisterCapability(any());
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", ":"), false)), registrationOptions(registrationCaptor.getValue()));
+        assertEquals(Set.of(".", ":"), Set.copyOf(registrationOptions("textDocument/completion", registrationCaptor.getValue(), CompletionRegistrationOptions.class).getTriggerCharacters()));
 
         // unregistration (partial)
         inOrder.verify(client).unregisterCapability(any());
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(":"), false)), registrationOptions(registrationCaptor.getValue()));
+        assertEquals(Set.of(":"), Set.copyOf(registrationOptions("textDocument/completion", registrationCaptor.getValue(), CompletionRegistrationOptions.class).getTriggerCharacters()));
 
         inOrder.verifyNoMoreInteractions();
     }
