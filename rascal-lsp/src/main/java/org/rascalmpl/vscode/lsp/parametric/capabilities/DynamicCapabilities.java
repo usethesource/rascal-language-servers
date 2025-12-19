@@ -38,16 +38,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.Lists;
@@ -161,7 +165,7 @@ public class DynamicCapabilities {
                 if (t == null) {
                     return true;
                 }
-                logger.error("Exception while unregistering {}", reg.getMethod(), t);
+                handleError(t, "unregistering", reg.getMethod());
                 // Unregistration failed; put this back in our administration
                 currentRegistrations.putIfAbsent(reg.getMethod(), reg);
                 return false;
@@ -179,11 +183,18 @@ public class DynamicCapabilities {
                 if (t == null) {
                     return true;
                 }
-                logger.error("Exception while registering {}", reg.getMethod(), t);
+                handleError(t, "registering", reg.getMethod());
                 // Registration failed; remove this from our administration
                 currentRegistrations.remove(reg.getMethod(), reg);
                 return false;
             });
+    }
+
+    private void handleError(Throwable t, String task, String method) {
+        if (t instanceof ResponseErrorException) {
+            client.showMessage(new MessageParams(MessageType.Error, String.format("%s capability %s failed.", StringUtils.capitalize(task), method)));
+        }
+        logger.error("Exception while {} capability {}", task, method, t);
     }
 
     private CompletableFuture<Boolean> changeOptions(Registration newRegistration, Registration existingRegistration) {
