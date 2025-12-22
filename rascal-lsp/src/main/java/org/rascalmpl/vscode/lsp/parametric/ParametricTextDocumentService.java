@@ -251,9 +251,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    private DynamicRegistration availableCapabilities() {
+    private DynamicRegistration availableRegistration() {
         if (dynamicCapabilities == null) {
-            throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
+            throw new IllegalStateException("Dynamic registration is `null` - the document service did not yet connect to a client.");
         }
         return dynamicCapabilities;
     }
@@ -997,7 +997,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
-        availableCapabilities().updateRegistrations(this);
+        availableRegistration().updateRegistrations(this);
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
@@ -1062,7 +1062,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             contributions.remove(lang.getName());
         }
 
-        availableCapabilities().updateRegistrations(this);
+        availableRegistration().updateRegistrations(this);
     }
 
     @Override

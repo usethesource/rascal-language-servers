@@ -69,7 +69,7 @@ public abstract class AbstractDynamicRegistration<Options> {
      * @param newOpts The new options to merge into the current ones.
      * @return Merged options.
      */
-    protected abstract @Nullable Options mergeOptions(@Nullable Options existingOpts, @Nullable Options newOpts);
+    protected abstract Options mergeOptions(Options existingOpts, Options newOpts);
 
     protected final @Nullable Options mergeNullableOptions(@Nullable Options o1, @Nullable Options o2) {
         if (o1 == null) {
