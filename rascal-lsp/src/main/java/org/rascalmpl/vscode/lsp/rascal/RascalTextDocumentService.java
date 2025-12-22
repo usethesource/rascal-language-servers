@@ -490,7 +490,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), () -> null);
         }
         else {
-            return CompletableFuture.completedFuture(null);
+            return CompletableFutureUtils.completedFuture(null, exec);
         }
     }
 
@@ -706,7 +706,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
         return CompletableFuture.supplyAsync(() -> TreeSearch.computeFocusList(tree, startLine, startColumn), exec)
             .thenCompose(focus -> focus.isEmpty()
-                ? CompletableFuture.completedFuture(focus /* an empty list */)
+                ? CompletableFutureUtils.completedFuture(focus /* an empty list */, exec)
                 : availableRascalServices().codeActions(focus, pcfg).get());
     }
 

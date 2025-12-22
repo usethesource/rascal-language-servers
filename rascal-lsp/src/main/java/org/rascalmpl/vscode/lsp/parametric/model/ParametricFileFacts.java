@@ -480,7 +480,7 @@ public class ParametricFileFacts {
 
         @Override
         public <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor) {
-            return CompletableFuture.completedFuture(List.of());
+            return CompletableFutureUtils.completedFuture(List.of(), exec);
         }
     }
 }
