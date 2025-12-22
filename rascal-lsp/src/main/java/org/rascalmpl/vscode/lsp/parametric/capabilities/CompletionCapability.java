@@ -83,7 +83,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected void registerStatically(ServerCapabilities serverCapabilities) {
+    protected void registerStatically(StableCapabilityParams params, ServerCapabilities serverCapabilities) {
         serverCapabilities.setCompletionProvider(new CompletionOptions());
     }
 

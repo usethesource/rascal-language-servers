@@ -41,10 +41,10 @@ public abstract class AbstractDynamicProperty<Options> extends AbstractDynamicRe
     protected abstract CompletableFuture<@Nullable Options> options(ICapabilityParams params);
 
     @Override
-    protected final CompletableFuture<@Nullable Registration> tryBuildRegistration(ICapabilityParams params) {
-        return hasProperty(params).thenCompose(b -> b.booleanValue()
+    protected final CompletableFuture<@Nullable Registration> tryBuildRegistration(StableCapabilityParams params) {
+        return hasProperty(params).<@Nullable Registration>thenCompose(b -> b.booleanValue()
             ? options(params).thenApply(opts -> new Registration(id(), name(), opts))
-            : CompletableFuture.completedFuture(null)
+            : CompletableFutureUtils.completedFuture(null, exec)
         );
     }
 

@@ -72,10 +72,10 @@ public abstract class AbstractDynamicCapability<Options> extends AbstractDynamic
     protected abstract CompletableFuture<Boolean> isProvidedBy(ILanguageContributions contribs);
 
     @Override
-    protected final CompletableFuture<@Nullable Registration> tryBuildRegistration(ICapabilityParams params) {
+    protected final CompletableFuture<@Nullable Registration> tryBuildRegistration(StableCapabilityParams params) {
         // Copy the contributions so we know we are looking at a stable set of elements.
         // If the contributions change, we expect our caller to call again.
-        var contribs = List.copyOf(params.contributions());
+        var contribs = params.contributions();
 
         if (contribs.isEmpty()) {
             return CompletableFutureUtils.completedFuture(null, exec);

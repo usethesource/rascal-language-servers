@@ -106,9 +106,10 @@ public class DynamicRegistration {
     /**
      * Register static capabilities with the server.
      */
-    public void registerStaticCapabilities(ServerCapabilities result) {
+    public void registerStaticCapabilities(ICapabilityParams params, ServerCapabilities result) {
+        var stableParams = new StableCapabilityParams(params);
         for (var reg : staticRegistrations) {
-            reg.registerStatically(result);
+            reg.registerStatically(stableParams, result);
         }
     }
 
@@ -118,9 +119,10 @@ public class DynamicRegistration {
      * @return A void future that completes when all capabilities are updated.
      */
     public CompletableFuture<Void> updateRegistrations(ICapabilityParams params) {
+        var stableParams = new StableCapabilityParams(params);
         return CompletableFutureUtils.reduce(Stream.concat(supportedCapabilities.stream(), supportedProperties.stream())
             .filter(r -> !staticRegistrations.contains(r))
-            .map(r -> r.tryBuildRegistration(params).thenComposeAsync(reg -> updateRegistration(r, reg), singleExec)), exec)
+            .map(r -> r.tryBuildRegistration(stableParams).thenComposeAsync(reg -> updateRegistration(r, reg), singleExec)), exec)
             .thenAccept(_l -> {}); // List<Boolean> -> Void
     }
 

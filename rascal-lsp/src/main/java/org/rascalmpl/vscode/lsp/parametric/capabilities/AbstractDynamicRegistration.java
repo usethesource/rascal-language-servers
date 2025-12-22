@@ -61,7 +61,7 @@ public abstract class AbstractDynamicRegistration<Options> {
         return preferStaticRegistration;
     }
 
-    protected abstract CompletableFuture<@Nullable Registration> tryBuildRegistration(ICapabilityParams params);
+    protected abstract CompletableFuture<@Nullable Registration> tryBuildRegistration(StableCapabilityParams params);
 
     /**
      * Merges to option objects.
@@ -104,7 +104,7 @@ public abstract class AbstractDynamicRegistration<Options> {
      * Registers this server capability statically.
      * @param result The server capabilities to modify.
      */
-    protected abstract void registerStatically(ServerCapabilities result);
+    protected abstract void registerStatically(StableCapabilityParams params, ServerCapabilities result);
 
     @Override
     public boolean equals(@Nullable Object obj) {

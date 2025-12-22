@@ -27,10 +27,33 @@
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
 public interface ICapabilityParams {
     Set<String> extensions();
     Collection<ILanguageContributions> contributions();
+}
+
+final class StableCapabilityParams implements ICapabilityParams {
+
+    private final List<ILanguageContributions> contributions;
+    private final Set<String> extensions;
+
+    public StableCapabilityParams(ICapabilityParams params) {
+        this.contributions = List.copyOf(params.contributions());
+        this.extensions = Set.copyOf(params.extensions());
+    }
+
+    @Override
+    public Set<String> extensions() {
+        return extensions;
+    }
+
+    @Override
+    public Collection<ILanguageContributions> contributions() {
+        return contributions;
+    }
+
 }

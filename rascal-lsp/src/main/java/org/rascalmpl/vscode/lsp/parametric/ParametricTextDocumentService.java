@@ -262,7 +262,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
         dynamicCapabilities = new DynamicRegistration(availableClient(), exec, Set.of(new CompletionCapability(exec)), Set.of(new FileOperationsProperty()), clientCapabilities);
-        dynamicCapabilities.registerStaticCapabilities(result);
+        dynamicCapabilities.registerStaticCapabilities(this, result);
 
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
