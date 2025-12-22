@@ -27,8 +27,9 @@
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
@@ -37,11 +38,24 @@ import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceServerCapabilities;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
-public class FileOperationsProperty extends AbstractDynamicProperty<FileOperationOptions> {
+public abstract class FileOperationsProperty extends AbstractDynamicProperty<FileOperationOptions> {
 
-    public FileOperationsProperty() {
-        super("workspace.fileOperations.willCreate", false);
+    public FileOperationsProperty(String propertyName, Executor exec) {
+        super(propertyName, false, exec);
+    }
+
+    final FileOperationOptions fromExtensions(Set<String> extensions) {
+        return new FileOperationOptions(extensions.stream()
+            .map(ext -> new FileOperationFilter(new FileOperationPattern(String.format("**/*.%s", ext))))
+            .collect(Collectors.toList()));
+    }
+
+    final FileOperationsServerCapabilities getFileOperationCapabilities(ServerCapabilities result) {
+        var wsCap = DynamicRegistration.getOrInitCapabilities(result::getWorkspace, result::setWorkspace, WorkspaceServerCapabilities::new);
+        return DynamicRegistration.getOrInitCapabilities(wsCap::getFileOperations, wsCap::setFileOperations, FileOperationsServerCapabilities::new);
     }
 
     @Override
@@ -68,26 +82,13 @@ public class FileOperationsProperty extends AbstractDynamicProperty<FileOperatio
     }
 
     @Override
-    protected void registerStatically(ServerCapabilities serverCapabilities) {
-        var filters = new FileOperationOptions(List.of(new FileOperationFilter(new FileOperationPattern("**/*"))));
-        var fileOps = new FileOperationsServerCapabilities();
-        fileOps.setDidRename(filters);
-        fileOps.setDidDelete(filters);
-        serverCapabilities.getWorkspace().setFileOperations(fileOps);
-    }
-
-    @Override
     protected CompletableFuture<Boolean> hasProperty(ICapabilityParams params) {
-        return CompletableFuture.completedFuture(!params.extensions().isEmpty());
+        return CompletableFutureUtils.completedFuture(!params.extensions().isEmpty(), exec);
     }
 
     @Override
     protected CompletableFuture<@Nullable FileOperationOptions> options(ICapabilityParams params) {
-        return CompletableFuture.completedFuture(new FileOperationOptions(params.extensions().stream()
-            .map(ext -> new FileOperationFilter(new FileOperationPattern(String.format("**/*.%s", ext))))
-            .collect(Collectors.toList())
-        ));
+        return CompletableFutureUtils.completedFuture(fromExtensions(params.extensions()), exec);
     }
-
 
 }

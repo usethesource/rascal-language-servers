@@ -26,31 +26,18 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Registration;
-import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.eclipse.lsp4j.ServerCapabilities;
 
-public abstract class AbstractDynamicProperty<Options> extends AbstractDynamicRegistration<Options> {
+public class DidDeleteProperty extends FileOperationsProperty {
 
-    final Executor exec;
-
-    protected AbstractDynamicProperty(String name, boolean preferStaticRegistration, Executor exec) {
-        super(name, preferStaticRegistration);
-        this.exec = exec;
+    public DidDeleteProperty(Executor exec) {
+        super("workspace/didDeleteFiles", exec);
     }
 
-    protected abstract CompletableFuture<Boolean> hasProperty(ICapabilityParams params);
-
-    protected abstract CompletableFuture<@Nullable Options> options(ICapabilityParams params);
-
     @Override
-    protected final CompletableFuture<@Nullable Registration> tryBuildRegistration(StableCapabilityParams params) {
-        return hasProperty(params).<@Nullable Registration>thenCompose(b -> b.booleanValue()
-            ? options(params).thenApply(opts -> new Registration(id(), name(), opts))
-            : CompletableFutureUtils.completedFuture(null, exec)
-        );
+    protected void registerStatically(StableCapabilityParams params, ServerCapabilities result) {
+        getFileOperationCapabilities(result).setDidDelete(fromExtensions(params.extensions()));
     }
 
 }

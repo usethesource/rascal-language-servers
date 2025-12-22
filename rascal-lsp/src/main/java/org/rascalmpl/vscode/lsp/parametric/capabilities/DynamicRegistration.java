@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
@@ -109,6 +110,7 @@ public class DynamicRegistration {
     public void registerStaticCapabilities(ICapabilityParams params, ServerCapabilities result) {
         var stableParams = new StableCapabilityParams(params);
         for (var reg : staticRegistrations) {
+            logger.debug("Registering {} statically", reg.name());
             reg.registerStatically(stableParams, result);
         }
     }
@@ -204,6 +206,17 @@ public class DynamicRegistration {
                 }
                 return register(newRegistration);
             });
+    }
+
+    public static <C> C getOrInitCapabilities(Supplier<C> getter, Consumer<C> setter, Supplier<C> creator) {
+        var cap = getter.get();
+        if (cap != null) {
+            return cap;
+        }
+
+        cap = creator.get();
+        setter.accept(cap);
+        return cap;
     }
 
 }

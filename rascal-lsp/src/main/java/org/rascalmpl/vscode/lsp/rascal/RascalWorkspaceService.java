@@ -33,26 +33,36 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
+import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicRegistration;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
 
-    private static final List<FileOperationFilter> fileFilters = List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")));
-
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-        super(exec, documentService, fileFilters);
+        super(exec, documentService);
     }
 
     @Override
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders,
             ServerCapabilities capabilities) {
         super.initialize(clientCap, currentWorkspaceFolders, capabilities);
-        var workspaceCapabilities = capabilities.getWorkspace();
+        var workspaceCapabilities = DynamicRegistration.getOrInitCapabilities(capabilities::getWorkspace, capabilities::setWorkspace, WorkspaceServerCapabilities::new);
+        var fileOps = DynamicRegistration.getOrInitCapabilities(workspaceCapabilities::getFileOperations, workspaceCapabilities::setFileOperations, FileOperationsServerCapabilities::new);
+
+        var fileFilters = List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")));
         if (clientCap.getWorkspace().getFileOperations().getDidCreate().booleanValue()) {
-            workspaceCapabilities.getFileOperations().setDidCreate(new FileOperationOptions(fileFilters));
+            fileOps.setDidCreate(new FileOperationOptions(fileFilters));
+        }
+        if (clientCap.getWorkspace().getFileOperations().getDidRename().booleanValue()) {
+            fileOps.setDidRename(new FileOperationOptions(fileFilters));
+        }
+        if (clientCap.getWorkspace().getFileOperations().getDidDelete().booleanValue()) {
+            fileOps.setDidDelete(new FileOperationOptions(fileFilters));
         }
     }
 

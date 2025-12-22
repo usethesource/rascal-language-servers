@@ -140,8 +140,9 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.DidDeleteProperty;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.DidRenameProperty;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicRegistration;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationsProperty;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.ICapabilityParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
@@ -261,7 +262,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new DynamicRegistration(availableClient(), exec, Set.of(new CompletionCapability(exec)), Set.of(new FileOperationsProperty()), clientCapabilities);
+        dynamicCapabilities = new DynamicRegistration(availableClient(), exec,
+            Set.of(new CompletionCapability(exec)),
+            Set.of(new DidRenameProperty(exec), new DidDeleteProperty(exec)),
+            clientCapabilities);
         dynamicCapabilities.registerStaticCapabilities(this, result);
 
         result.setDefinitionProvider(true);
