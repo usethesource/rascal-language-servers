@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -68,7 +67,8 @@ public class DynamicCapabilities {
     private final LanguageClient client;
     private final Executor exec;
     private final Executor singleExec = NamedThreadPool.singleDaemon("parametric-capabilities");
-    private final Supplier<CompletableFuture<Boolean>> falsy;
+    private final CompletableFuture<Boolean> truthy;
+    private final CompletableFuture<Boolean> falsy;
     private final Collection<AbstractDynamicCapability<?>> supportedCapabilities;
 
     // Set of capabilities that should bre registered statically instead of dynamically
@@ -85,7 +85,8 @@ public class DynamicCapabilities {
     public DynamicCapabilities(LanguageClient client, Executor exec, List<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
         this.client = client;
         this.exec = exec;
-        this.falsy = () -> CompletableFutureUtils.completedFuture(false, singleExec);
+        this.truthy = CompletableFutureUtils.completedFuture(true, singleExec);
+        this.falsy = CompletableFutureUtils.completedFuture(false, singleExec);
         this.supportedCapabilities = List.copyOf(supportedCapabilities);
 
         // Check which capabilities to register statically
@@ -135,13 +136,13 @@ public class DynamicCapabilities {
                 return unregister(existingRegistration);
             }
             // nothing more to do
-            return falsy.get();
+            return truthy;
         }
 
         if (existingRegistration != null) {
             if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
                 logger.trace("Options for {} did not change since last registration: {}", method, registration.getRegisterOptions());
-                return falsy.get();
+                return truthy;
             }
             logger.trace("Options for {} changed since the previous registration; remove before adding again", method);
             return changeOptions(registration, existingRegistration);
@@ -154,7 +155,7 @@ public class DynamicCapabilities {
     private CompletableFuture<Boolean> unregister(Registration reg) {
         // If our administration contains exactly this registration, remove it and inform the client
         if (!currentRegistrations.remove(reg.getMethod(), reg)) {
-            return falsy.get();
+            return falsy;
         }
 
         return client.unregisterCapability(new UnregistrationParams(List.of(new Unregistration(reg.getId(), reg.getMethod()))))
@@ -172,7 +173,7 @@ public class DynamicCapabilities {
     private CompletableFuture<Boolean> register(Registration reg) {
         // If our administration contains no registration, inform the client
         if (currentRegistrations.putIfAbsent(reg.getMethod(), reg) != null) {
-            return falsy.get();
+            return falsy;
         }
 
         return client.registerCapability(new RegistrationParams(List.of(reg)))
@@ -198,7 +199,7 @@ public class DynamicCapabilities {
         return unregister(existingRegistration)
             .thenCompose(b -> {
                 if (!b.booleanValue()) {
-                    return falsy.get();
+                    return falsy;
                 }
                 return register(newRegistration);
             });
