@@ -113,7 +113,7 @@ public class CompletableFutureUtils {
      * @param concat A function that merges two values of {@link I}.
      * @return A future that yields a list of all the elements in the lists from the reduced futures.
      */
-    public static <I extends Iterable<?>> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
+    public static <I> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
         return reduce(futures,
             identity,
             Function.identity(),
