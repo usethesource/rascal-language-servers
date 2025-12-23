@@ -112,7 +112,7 @@ public class DynamicCapabilities {
     /**
      * Update capabilities for language contributions.
      * @param contribs The contributions to represent.
-     * @return A void future that completes when all capabilities are updated.
+     * @return A future that completes with a boolean that is false when any registration failed, and true otherwise.
      */
     public CompletableFuture<Boolean> updateCapabilities(Collection<ILanguageContributions> contribs) {
         // Copy the contributions so we know we are looking at a stable set of elements.
@@ -125,6 +125,15 @@ public class DynamicCapabilities {
         return CompletableFutureUtils.reduce(registrations, CompletableFutureUtils.completedFuture(true, singleExec), Boolean::booleanValue, Boolean::logicalAnd);
     }
 
+    /**
+     * Update the registration of a capability.
+     * - If the capability is not yet registered, register it.
+     * - If the capability is already registered, and the options changed, update it (by unregistering and registering with new options).
+     * - If the capability is already registered and the options did not change, do nothing.
+     * @param cap The capability to update.
+     * @param registration The computed registration to do, or `null` when this capability is absent.
+     * @return A future completing with `true` when successful, or `false` otherwise.
+     */
     private <T> CompletableFuture<Boolean> updateRegistration(AbstractDynamicCapability<T> cap, @Nullable Registration registration) {
         var method = cap.methodName();
         var existingRegistration = currentRegistrations.get(method);
@@ -152,6 +161,12 @@ public class DynamicCapabilities {
         return register(registration);
     }
 
+    /**
+     * Unregister this registration.
+     * Aims to be atomic, i.e. keeps local administration of registered capabilities in sync with the client.
+     * @param reg The registration to undo.
+     * @return A future completing with `true` if successful, and `false` otherwise.
+     */
     private CompletableFuture<Boolean> unregister(Registration reg) {
         // If our administration contains exactly this registration, remove it and inform the client
         if (!currentRegistrations.remove(reg.getMethod(), reg)) {
@@ -170,6 +185,12 @@ public class DynamicCapabilities {
             });
     }
 
+    /**
+     * Register this registration.
+     * Aims to be atomic, i.e. keeps local administration of registered capabilities in sync with the client.
+     * @param reg The registration to do.
+     * @return A future completing with `true` if successful, and `false` otherwise.
+     */
     private CompletableFuture<Boolean> register(Registration reg) {
         // If our administration contains no registration, inform the client
         if (currentRegistrations.putIfAbsent(reg.getMethod(), reg) != null) {
@@ -195,10 +216,21 @@ public class DynamicCapabilities {
         logger.error("Exception while {} capability {}", task, method, t);
     }
 
+    /**
+     * Update a registration.
+     * Aims to be atomic, i.e. keeps local administration of registered capabilities in sync with the client.
+     * @param newRegistration The registration with the updated options.
+     * @param existingRegistration The registration that we expect to currently be in place.
+     * @return A future completing with `true` if successful, or `false` otherwise.
+     */
     private CompletableFuture<Boolean> changeOptions(Registration newRegistration, Registration existingRegistration) {
         return unregister(existingRegistration)
             .thenCompose(b -> {
                 if (!b.booleanValue()) {
+                    /* If unregistration fails, this has one of multiple causes:
+                        1. Someone raced us, won, and updated `currentRegistrations`. Our view of the current state is outdated, so we don't do anything and leave it to the winner.
+                        2. The unregistration request failed. This happens when a capability is not supported by the client. Since we successfully registered, this should not happen.
+                    */
                     return falsy;
                 }
                 return register(newRegistration);
