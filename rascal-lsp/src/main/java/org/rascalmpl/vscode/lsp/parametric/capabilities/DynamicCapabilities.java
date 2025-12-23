@@ -39,7 +39,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -114,20 +113,18 @@ public class DynamicCapabilities {
      * @param contribs The contributions to represent.
      * @return A void future that completes when all capabilities are updated.
      */
-    public CompletableFuture<Void> updateCapabilities(Collection<ILanguageContributions> contribs) {
+    public CompletableFuture<Boolean> updateCapabilities(Collection<ILanguageContributions> contribs) {
         // Copy the contributions so we know we are looking at a stable set of elements.
         // If the contributions change, we expect our caller to call again.
         var stableContribs = List.copyOf(contribs);
-        return CompletableFutureUtils.reduce(supportedCapabilities.stream()
+        var registrations = supportedCapabilities.stream()
             .filter(cap -> !staticCapabilities.contains(cap))
             .map(c -> tryBuildRegistration(c, stableContribs)
-                .thenComposeAsync(this::updateRegistration, singleExec)), exec)
-            .thenAccept(_l -> {}); // List<Void> -> Void
+                .thenComposeAsync(r -> updateRegistration(c, r), singleExec));
+        return CompletableFutureUtils.reduce(registrations, CompletableFutureUtils.completedFuture(true, singleExec), Boolean::booleanValue, Boolean::logicalAnd);
     }
 
-    private <T> CompletableFuture<Boolean> updateRegistration(Pair<AbstractDynamicCapability<T>, @Nullable Registration> entry) {
-        var cap = entry.getLeft();
-        var registration = entry.getRight();
+    private <T> CompletableFuture<Boolean> updateRegistration(AbstractDynamicCapability<T> cap, @Nullable Registration registration) {
         var method = cap.methodName();
         var existingRegistration = currentRegistrations.get(method);
 
@@ -207,9 +204,9 @@ public class DynamicCapabilities {
             });
     }
 
-    private <T> CompletableFuture<Pair<AbstractDynamicCapability<T>, @Nullable Registration>> tryBuildRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
+    private <T> CompletableFuture<@Nullable Registration> tryBuildRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
         if (contribs.isEmpty()) {
-            return CompletableFutureUtils.completedFuture(Pair.of(cap, null), exec);
+            return CompletableFutureUtils.completedFuture(null, exec);
         }
 
         // Filter contributions by providing this capability
@@ -217,16 +214,16 @@ public class DynamicCapabilities {
             contribs.stream().map(c -> cap.isProvidedBy(c).thenApply(b -> b.booleanValue() ? List.of(c) : List.of())),
             CompletableFutureUtils.completedFuture(Collections.emptyList(), exec),
             Lists::union
-        ).<Pair<AbstractDynamicCapability<T>, @Nullable Registration>>thenCompose(cs -> {
+        ).<@Nullable Registration>thenCompose(cs -> {
             if (cs.isEmpty()) {
-                return CompletableFutureUtils.completedFuture(Pair.of(cap, null), exec);
+                return CompletableFutureUtils.completedFuture(null, exec);
             }
 
             var allOpts = cs.stream()
                 .<CompletableFuture<@Nullable T>>map(cap::options)
                 .collect(Collectors.toList());
             return CompletableFutureUtils.reduce(allOpts, cap::mergeNullableOptions) // non-empty, so no need to provide a reduction identity
-                .thenApply(opts -> Pair.of(cap, new Registration(cap.id(), cap.methodName(), opts)));
+                .thenApply(opts -> new Registration(cap.id(), cap.methodName(), opts));
         });
     }
 

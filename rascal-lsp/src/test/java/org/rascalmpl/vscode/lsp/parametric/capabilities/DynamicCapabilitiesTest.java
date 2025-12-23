@@ -333,7 +333,7 @@ public class DynamicCapabilitiesTest {
     @Test
     public void multiThreadingAtomicity() throws InterruptedException, ExecutionException {
         int N = 50;
-        List<CompletableFuture<Void>> jobs = new ArrayList<>(N);
+        var jobs = new ArrayList<CompletableFuture<Boolean>>(N);
         var callerExec = Executors.newFixedThreadPool(N / 2); // less threads than jobs; causes some overlap
         var expectedTrigChars = IntStream.range(0, N).boxed().map(Object::toString).collect(Collectors.toList());
         var contribs = expectedTrigChars.stream().map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList());
