@@ -993,7 +993,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
-        availableCapabilities().updateCapabilities(Collections.unmodifiableCollection(contributions.values()));
+        availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
@@ -1058,7 +1058,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             contributions.remove(lang.getName());
         }
 
-        availableCapabilities().updateCapabilities(Collections.unmodifiableCollection(contributions.values()));
+        availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
     }
 
     @Override

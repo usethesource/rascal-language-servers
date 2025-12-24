@@ -136,7 +136,7 @@ public abstract class AbstractDynamicCapability<O> {
      *
      * If this capability prefers static registration or if the client does not support dynamic registration, set it statically.
      * @param client Client capabilities to determine dynamic registration support.
-     * @param result Server capabilities to modify when registerting statically.
+     * @param result Server capabilities to modify when registering statically.
      * @return `true` if this capability should be registered statically, `false` otherwise.
      */
     protected final boolean shouldRegisterStatically(ClientCapabilities client) {
