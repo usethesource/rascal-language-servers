@@ -38,6 +38,10 @@ public class NamedThreadPool {
         return Executors.newSingleThreadExecutor(factory(name, false));
     }
 
+    public static ExecutorService singleDaemon(String name) {
+        return Executors.newSingleThreadExecutor(factory(name, true));
+    }
+
     public static ExecutorService cached(String name) {
         return Executors.newCachedThreadPool(factory(name, false));
     }

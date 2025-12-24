@@ -47,6 +47,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
@@ -229,7 +230,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         }
     }
 
-    public void initializeServerCapabilities(ServerCapabilities result) {
+    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);

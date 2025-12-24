@@ -256,8 +256,12 @@ public class Locations {
      */
     public static Position toPosition(ISourceLocation loc, LineColumnOffsetMap map, boolean atEnd) {
         var line = atEnd ? loc.getEndLine() : loc.getBeginLine();
-        var column = atEnd? loc.getEndColumn() : loc.getBeginColumn();
-        line -= 1; // lines in LSP are 0 based, IValue are 1 based
-        return new Position(line, map.translateColumn(line, column, atEnd));
+        var column = atEnd ? loc.getEndColumn() : loc.getBeginColumn();
+        return toPosition(new Position(line, column), map, atEnd);
+    }
+
+    public static Position toPosition(Position rascalPos, LineColumnOffsetMap map, boolean atEnd) {
+        int line = rascalPos.getLine() - 1;
+        return new Position(line, map.translateColumn(line, rascalPos.getCharacter(), atEnd));
     }
 }

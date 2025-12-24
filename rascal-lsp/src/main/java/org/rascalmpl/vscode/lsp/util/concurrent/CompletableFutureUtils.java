@@ -32,9 +32,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
@@ -55,6 +57,38 @@ public class CompletableFutureUtils {
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
         );
+    }
+
+    /**
+     * Reduces a non-empty {@link List} of {@link CompletableFuture} to a single future that produces a list.
+     * @param <T> The type of the values that the futures yield.
+     * @param futures The futures to reduce.
+     * @return A future that yields a list of the results of the reduced futures.
+     * @throws IllegalArgumentException when the input list is empty.
+     */
+    public static <T> CompletableFuture<List<T>> reduce(List<CompletableFuture<T>> futures) {
+        if (futures.isEmpty()) {
+            throw new IllegalArgumentException("Cannot reduce empty list of futures");
+        }
+        return reduce(futures.subList(1, futures.size()),
+            futures.get(0).thenApply(Collections::singletonList),
+            Collections::singletonList, // unmodifiable, but never added to
+            CompletableFutureUtils::concat
+        );
+    }
+
+    /**
+     * Reduces a {@link List} of {@link CompletableFuture} to a single future that yields a {@link T}.
+     * @param <T> The type of the values that the futures yield.
+     * @param futures The futures to reduce.
+     * @return A future that yields a list of the results of the reduced futures.
+     * @throws IllegalArgumentException when the list of futures is empty
+     */
+    public static <T> CompletableFuture<T> reduce(List<CompletableFuture<T>> futures, BinaryOperator<T> merge) {
+        if (futures.isEmpty()) {
+            throw new IllegalArgumentException("Cannot reduce empty list without identity value.");
+        }
+        return reduce(futures.subList(1, futures.size()), futures.get(0), Function.identity(), merge);
     }
 
     /**
@@ -79,7 +113,7 @@ public class CompletableFutureUtils {
      * @param concat A function that merges two values of {@link I}.
      * @return A future that yields a list of all the elements in the lists from the reduced futures.
      */
-    public static <I extends Iterable<?>> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
+    public static <I> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
         return reduce(futures,
             identity,
             Function.identity(),
@@ -110,13 +144,13 @@ public class CompletableFutureUtils {
      * @param <I> The type of the results of the input futures.
      * @param <C> The type of the result of the reduced future.
      * @param futures An {@link Iterable} of futures to reduce.
-     * @param identity The identity function of {@link C}.
+     * @param identity The identity function of {@link CompletableFuture} of {@link C}.
      * @param map A function that maps an {@link I} to a {@link C}.
      * @param concat A function that merges two values of {@link C}.
      * @return A single future that, if it completes, yields the reduced result.
      */
     public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
-            CompletableFuture<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
+            CompletableFuture<C> identity, Function<? super I, ? extends C> map, BiFunction<? super C, ? super C, ? extends C> concat) {
         CompletableFuture<C> result = identity;
         for (var fut : futures) {
             result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, map.apply(t)));
@@ -125,7 +159,7 @@ public class CompletableFutureUtils {
         return result;
     }
 
-    private static <T> List<T> concat(List<T> l, List<T> r) {
+    private static <T> List<@PolyNull T> concat(List<@PolyNull T> l, List<@PolyNull T> r) {
         if (r.isEmpty()) {
             return l;
         }
@@ -133,7 +167,7 @@ public class CompletableFutureUtils {
             return r;
         }
 
-        var ls = new LinkedList<>(l);
+        var ls = new LinkedList<@PolyNull T>(l);
         ls.addAll(r);
         return ls;
     }

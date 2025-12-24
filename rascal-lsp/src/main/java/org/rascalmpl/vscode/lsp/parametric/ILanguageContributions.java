@@ -34,6 +34,7 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -65,7 +66,9 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
     public InterruptibleFuture<ITuple> rename(IList focus, String name);
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames);
+    public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger);
 
+    public CompletableFuture<IList> completionTriggerCharacters();
     public CompletableFuture<IList> parseCodeActions(String command);
     public CompletableFuture<IConstructor> parseCallHierarchyData(String data);
 
@@ -84,6 +87,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> hasDidRenameFiles();
     public CompletableFuture<Boolean> hasSelectionRange();
     public CompletableFuture<Boolean> hasCallHierarchy();
+    public CompletableFuture<Boolean> hasCompletion();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 
