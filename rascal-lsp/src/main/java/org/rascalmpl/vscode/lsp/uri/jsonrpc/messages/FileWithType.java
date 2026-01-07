@@ -30,19 +30,19 @@ import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.uri.vfs.FileAttributesResult.FileType;
 
 public class FileWithType {
-        @NonNull private final String name;
-        @NonNull private final FileType type;
+    @NonNull private final String name;
+    @NonNull private final FileType type;
 
-        public FileWithType(@NonNull String name, @NonNull FileType type) {
-            this.name = name;
-            this.type = type;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public FileType getType() {
-            return type;
-        }
+    public FileWithType(@NonNull String name, @NonNull FileType type) {
+        this.name = name;
+        this.type = type;
     }
+
+    public String getName() {
+        return name;
+    }
+
+    public FileType getType() {
+        return type;
+    }
+}
