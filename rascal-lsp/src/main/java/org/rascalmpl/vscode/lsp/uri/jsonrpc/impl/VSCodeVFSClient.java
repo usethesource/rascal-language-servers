@@ -38,18 +38,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.uri.ISourceLocationWatcher;
+import org.rascalmpl.uri.vfs.IRemoteResolverRegistry;
 import org.rascalmpl.vscode.lsp.IRascalFileSystemServices;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
+
 import io.usethesource.vallang.ISourceLocation;
 
 public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
@@ -82,7 +84,7 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
     }
 
     @Override
-    public void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException {
+    public void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, IRemoteResolverRegistry server) throws IOException {
         logger.trace("addWatcher: {}", loc);
         try {
             var watch = watchers.computeIfAbsent(new WatchSubscriptionKey(loc, recursive), k -> {
@@ -103,7 +105,7 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
     @Override
     public void removeWatcher(ISourceLocation loc, boolean recursive,
         Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback,
-        VSCodeUriResolverServer server) throws IOException {
+        IRemoteResolverRegistry server) throws IOException {
         logger.trace("removeWatcher: {}", loc);
         var watchKey = new WatchSubscriptionKey(loc, recursive);
         var watch = watchers.get(watchKey);
@@ -209,8 +211,8 @@ public class VSCodeVFSClient implements VSCodeUriResolverClient, AutoCloseable {
             socket.setTcpNoDelay(true);
             @SuppressWarnings("java:S2095") // we don't have to close the client, we are passing it off to the VSCodeVFS singleton
             var newClient = new VSCodeVFSClient(socket);
-            Launcher<VSCodeUriResolverServer> clientLauncher = new Launcher.Builder<VSCodeUriResolverServer>()
-                .setRemoteInterface(VSCodeUriResolverServer.class)
+            Launcher<IRemoteResolverRegistry> clientLauncher = new Launcher.Builder<IRemoteResolverRegistry>()
+                .setRemoteInterface(IRemoteResolverRegistry.class)
                 .setLocalService(newClient)
                 .setInput(socket.getInputStream())
                 .setOutput(socket.getOutputStream())

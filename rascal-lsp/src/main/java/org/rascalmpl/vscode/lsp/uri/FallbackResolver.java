@@ -60,10 +60,10 @@ import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.vfs.IRemoteResolverRegistry;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverServer;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FileType;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileWithType;
@@ -94,7 +94,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         instance = this;
     }
 
-    private static VSCodeUriResolverServer getServer() throws IOException {
+    private static IRemoteResolverRegistry getServer() throws IOException {
         var result = VSCodeVFS.INSTANCE.getServer();
         if (result == null) {
             throw new IOException("Missing VFS file server");
@@ -110,7 +110,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         return result;
     }
 
-    private static <T> T call(Function<VSCodeUriResolverServer, CompletableFuture<T>> target) throws IOException {
+    private static <T> T call(Function<IRemoteResolverRegistry, CompletableFuture<T>> target) throws IOException {
         try {
             return target.apply(getServer()).get(5, TimeUnit.MINUTES);
         }
