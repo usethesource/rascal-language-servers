@@ -27,7 +27,7 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FileType;
+import org.rascalmpl.uri.vfs.FileAttributesResult.FileType;
 
 public class FileWithType {
         @NonNull private final String name;

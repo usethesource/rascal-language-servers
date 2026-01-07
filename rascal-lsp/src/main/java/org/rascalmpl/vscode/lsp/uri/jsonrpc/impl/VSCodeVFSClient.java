@@ -45,11 +45,11 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.uri.vfs.IRemoteResolverRegistry;
+import org.rascalmpl.uri.vfs.IRemoteResolverRegistry.WatchRequest;
 import org.rascalmpl.vscode.lsp.IRascalFileSystemServices;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 import io.usethesource.vallang.ISourceLocation;

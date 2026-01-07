@@ -60,15 +60,13 @@ import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.vfs.FileAttributesResult.FileType;
 import org.rascalmpl.uri.vfs.IRemoteResolverRegistry;
+import org.rascalmpl.uri.vfs.IRemoteResolverRegistry.FileWithType;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeUriResolverClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeVFS;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult.FileType;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileWithType;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationRequest;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 
 import com.github.benmanes.caffeine.cache.Cache;
