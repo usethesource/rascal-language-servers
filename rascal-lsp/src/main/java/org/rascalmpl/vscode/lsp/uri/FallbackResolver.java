@@ -137,8 +137,8 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     }
 
     @Override
-    public InputStream getInputStream(ISourceLocation uri) throws IOException {
-        var fileBody = call(s -> s.readFile(param(uri)));
+    public InputStream getInputStream(ISourceLocation loc) throws IOException {
+        var fileBody = call(s -> s.readFile(param(loc)));
 
         // TODO: do the decoding in a stream, to avoid the extra intermediate
         // byte array
@@ -148,51 +148,51 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     }
 
     @Override
-    public boolean exists(ISourceLocation uri) {
+    public boolean exists(ISourceLocation loc) {
         try {
-            return call(s -> s.exists(param(uri)));
+            return call(s -> s.exists(param(loc)));
         } catch (IOException e) {
             return false;
         }
     }
 
     @Override
-    public long lastModified(ISourceLocation uri) throws IOException {
-        return TimeUnit.SECONDS.toMillis(call(s -> s.lastModified(param(uri))));
+    public long lastModified(ISourceLocation loc) throws IOException {
+        return TimeUnit.SECONDS.toMillis(call(s -> s.lastModified(param(loc))));
     }
 
     @Override
-    public long created(ISourceLocation uri) throws IOException {
-        return TimeUnit.SECONDS.toMillis(call(s -> s.created(param(uri))));
+    public long created(ISourceLocation loc) throws IOException {
+        return TimeUnit.SECONDS.toMillis(call(s -> s.created(param(loc))));
     }
 
     @Override
-    public boolean isDirectory(ISourceLocation uri) {
+    public boolean isDirectory(ISourceLocation loc) {
         try {
-            var cached = cachedDirectoryListing.getIfPresent(URIUtil.getParentLocation(uri));
+            var cached = cachedDirectoryListing.getIfPresent(URIUtil.getParentLocation(loc));
             if (cached != null) {
-                var result = cached.get().get(URIUtil.getLocationName(uri));
+                var result = cached.get().get(URIUtil.getLocationName(loc));
                 if (result != null) {
                     return result;
                 }
             }
-            return call(s -> s.isDirectory(param(uri)));
+            return call(s -> s.isDirectory(param(loc)));
         } catch (IOException e) {
             return false;
         }
     }
 
     @Override
-    public boolean isFile(ISourceLocation uri) {
+    public boolean isFile(ISourceLocation loc) {
         try {
-            var cached = cachedDirectoryListing.getIfPresent(URIUtil.getParentLocation(uri));
+            var cached = cachedDirectoryListing.getIfPresent(URIUtil.getParentLocation(loc));
             if (cached != null) {
-                var result = cached.get().get(URIUtil.getLocationName(uri));
+                var result = cached.get().get(URIUtil.getLocationName(loc));
                 if (result != null) {
                     return !result;
                 }
             }
-            return call(s -> s.isFile(param(uri)));
+            return call(s -> s.isFile(param(loc)));
         } catch (IOException e) {
             return false;
         }
@@ -211,10 +211,10 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
             .build();
 
     @Override
-    public String[] list(ISourceLocation uri) throws IOException {
-        var result = call(s -> s.list(param(uri)));
+    public String[] list(ISourceLocation loc) throws IOException {
+        var result = call(s -> s.list(param(loc)));
         // we store the entries in a cache, for consecutive isDirectory/isFile calls
-        cachedDirectoryListing.put(uri, Lazy.defer(() -> {
+        cachedDirectoryListing.put(loc, Lazy.defer(() -> {
             Map<String, Boolean> lookup = new HashMap<>(result.length);
             for (var entry : result) {
                 lookup.put(entry.getName(), entry.getType().equals(FileType.Directory));
@@ -235,7 +235,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     }
 
     @Override
-    public OutputStream getOutputStream(ISourceLocation uri, boolean append) throws IOException {
+    public OutputStream getOutputStream(ISourceLocation loc, boolean append) throws IOException {
         // we have to collect all bytes into memory, there exist no streaming Base64 encoder in java jre
         // otherwise we could just store that base64 string.
         // when done with the outputstream, we can generate the base64 string and send it towards the LSP client
@@ -249,27 +249,27 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                 }
                 closed = true;
                 var contents = Base64.getEncoder().encodeToString(this.toByteArray());
-                call(s -> s.writeFile(new WriteFileRequest(uri, contents, append)));
-                cachedDirectoryListing.invalidate(URIUtil.getParentLocation(uri));
+                call(s -> s.writeFile(param(loc), contents, append, true, true));
+                cachedDirectoryListing.invalidate(URIUtil.getParentLocation(loc));
             }
         };
     }
 
     @Override
-    public void mkDirectory(ISourceLocation uri) throws IOException {
-        call(s -> s.mkDirectory(param(uri)));
-        cachedDirectoryListing.invalidate(URIUtil.getParentLocation(uri));
+    public void mkDirectory(ISourceLocation loc) throws IOException {
+        call(s -> s.mkDirectory(param(loc)));
+        cachedDirectoryListing.invalidate(URIUtil.getParentLocation(loc));
     }
 
     @Override
-    public void remove(ISourceLocation uri) throws IOException {
-        call(s -> s.remove(param(uri), false));
-        cachedDirectoryListing.invalidate(uri);
-        cachedDirectoryListing.invalidate(URIUtil.getParentLocation(uri));
+    public void remove(ISourceLocation loc) throws IOException {
+        call(s -> s.remove(param(loc), false));
+        cachedDirectoryListing.invalidate(loc);
+        cachedDirectoryListing.invalidate(URIUtil.getParentLocation(loc));
     }
 
     @Override
-    public void setLastModified(ISourceLocation uri, long timestamp) throws IOException {
+    public void setLastModified(ISourceLocation loc, long timestamp) throws IOException {
         throw new IOException("setLastModified not supported by vscode");
     }
 
@@ -335,22 +335,22 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     }
 
     @Override
-    public long size(ISourceLocation uri) throws IOException {
-        return call(s -> s.size(param(uri)));
+    public long size(ISourceLocation loc) throws IOException {
+        return call(s -> s.size(param(loc)));
     }
 
     @Override
-    public boolean isReadable(ISourceLocation uri) throws IOException {
-        return call(s -> s.isReadable(param(uri)));
+    public boolean isReadable(ISourceLocation loc) throws IOException {
+        return call(s -> s.isReadable(param(loc)));
     }
     @Override
-    public boolean isWritable(ISourceLocation uri) throws IOException {
-        return call(s -> s.isWritable(param(uri)));
+    public boolean isWritable(ISourceLocation loc) throws IOException {
+        return call(s -> s.isWritable(param(loc)));
     }
 
     @Override
-    public FileAttributes stat(ISourceLocation uri) throws IOException {
-        return call(s -> s.stat(param(uri))).getFileAttributes();
+    public FileAttributes stat(ISourceLocation loc) throws IOException {
+        return call(s -> s.stat(param(loc))).getFileAttributes();
     }
 
     private static IOException translateException(ResponseErrorException cause) {
