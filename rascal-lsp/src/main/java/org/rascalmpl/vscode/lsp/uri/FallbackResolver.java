@@ -131,14 +131,9 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         }
     }
 
-
-    private ISourceLocationRequest param(ISourceLocation uri) {
-        return new ISourceLocationRequest(uri);
-    }
-
     @Override
     public InputStream getInputStream(ISourceLocation loc) throws IOException {
-        var fileBody = call(s -> s.readFile(param(loc)));
+        var fileBody = call(s -> s.readFile(loc));
 
         // TODO: do the decoding in a stream, to avoid the extra intermediate
         // byte array
@@ -150,7 +145,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     @Override
     public boolean exists(ISourceLocation loc) {
         try {
-            return call(s -> s.exists(param(loc)));
+            return call(s -> s.exists(loc));
         } catch (IOException e) {
             return false;
         }
@@ -158,12 +153,12 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public long lastModified(ISourceLocation loc) throws IOException {
-        return TimeUnit.SECONDS.toMillis(call(s -> s.lastModified(param(loc))));
+        return TimeUnit.SECONDS.toMillis(call(s -> s.lastModified(loc)));
     }
 
     @Override
     public long created(ISourceLocation loc) throws IOException {
-        return TimeUnit.SECONDS.toMillis(call(s -> s.created(param(loc))));
+        return TimeUnit.SECONDS.toMillis(call(s -> s.created(loc)));
     }
 
     @Override
@@ -176,7 +171,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                     return result;
                 }
             }
-            return call(s -> s.isDirectory(param(loc)));
+            return call(s -> s.isDirectory(loc));
         } catch (IOException e) {
             return false;
         }
@@ -192,7 +187,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                     return !result;
                 }
             }
-            return call(s -> s.isFile(param(loc)));
+            return call(s -> s.isFile(loc));
         } catch (IOException e) {
             return false;
         }
@@ -212,7 +207,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public String[] list(ISourceLocation loc) throws IOException {
-        var result = call(s -> s.list(param(loc)));
+        var result = call(s -> s.list(loc));
         // we store the entries in a cache, for consecutive isDirectory/isFile calls
         cachedDirectoryListing.put(loc, Lazy.defer(() -> {
             Map<String, Boolean> lookup = new HashMap<>(result.length);
@@ -249,7 +244,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
                 }
                 closed = true;
                 var contents = Base64.getEncoder().encodeToString(this.toByteArray());
-                call(s -> s.writeFile(param(loc), contents, append, true, true));
+                call(s -> s.writeFile(loc, contents, append, true, true));
                 cachedDirectoryListing.invalidate(URIUtil.getParentLocation(loc));
             }
         };
@@ -257,13 +252,13 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public void mkDirectory(ISourceLocation loc) throws IOException {
-        call(s -> s.mkDirectory(param(loc)));
+        call(s -> s.mkDirectory(loc));
         cachedDirectoryListing.invalidate(URIUtil.getParentLocation(loc));
     }
 
     @Override
     public void remove(ISourceLocation loc) throws IOException {
-        call(s -> s.remove(param(loc), false));
+        call(s -> s.remove(loc, false));
         cachedDirectoryListing.invalidate(loc);
         cachedDirectoryListing.invalidate(URIUtil.getParentLocation(loc));
     }
@@ -336,21 +331,21 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     @Override
     public long size(ISourceLocation loc) throws IOException {
-        return call(s -> s.size(param(loc)));
+        return call(s -> s.size(loc));
     }
 
     @Override
     public boolean isReadable(ISourceLocation loc) throws IOException {
-        return call(s -> s.isReadable(param(loc)));
+        return call(s -> s.isReadable(loc));
     }
     @Override
     public boolean isWritable(ISourceLocation loc) throws IOException {
-        return call(s -> s.isWritable(param(loc)));
+        return call(s -> s.isWritable(loc));
     }
 
     @Override
     public FileAttributes stat(ISourceLocation loc) throws IOException {
-        return call(s -> s.stat(param(loc))).getFileAttributes();
+        return call(s -> s.stat(loc)).getFileAttributes();
     }
 
     private static IOException translateException(ResponseErrorException cause) {
