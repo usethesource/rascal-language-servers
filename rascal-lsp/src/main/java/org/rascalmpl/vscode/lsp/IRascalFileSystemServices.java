@@ -320,18 +320,6 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
             return value;
         }
     }
-
-    public static class LocationContent {
-        @NonNull private final String content;
-
-        public LocationContent(@NonNull String content) {
-            this.content = content;
-        }
-
-        public String getContent() {
-            return content;
-        }
-    }
     // @JsonNotification("rascal/filesystem/onDidChangeFile")
     @Override
     /*default */public void onDidChangeFile(FileChangeEvent event) { }
