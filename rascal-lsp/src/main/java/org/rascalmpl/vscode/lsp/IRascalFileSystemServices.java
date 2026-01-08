@@ -288,38 +288,6 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
                 .completedFuture(Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new));
     }
 
-    public static class FileChangeEvent {
-        @NonNull private final FileChangeType type;
-        @NonNull private final String uri;
-
-        public FileChangeEvent(FileChangeType type, @NonNull String uri) {
-            this.type = type;
-            this.uri = uri;
-        }
-
-        public FileChangeType getType() {
-            return type;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return Locations.toCheckedLoc(uri);
-        }
-    }
-
-    public enum FileChangeType {
-        Changed(1), Created(2), Deleted(3);
-
-        private final int value;
-
-        private FileChangeType(int val) {
-            assert val == 1 || val == 2 || val == 3;
-            this.value = val;
-        }
-
-        public int getValue() {
-            return value;
-        }
-    }
     // @JsonNotification("rascal/filesystem/onDidChangeFile")
     @Override
     /*default */public void onDidChangeFile(FileChangeEvent event) { }
