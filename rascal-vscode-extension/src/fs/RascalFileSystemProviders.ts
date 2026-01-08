@@ -150,9 +150,6 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
 function isUnknownFileSystem(scheme : string) : boolean {
     return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
 }
-interface LocationContent {
-    content: string;
-}
 
 interface WatchParameters {
     uri: string;
