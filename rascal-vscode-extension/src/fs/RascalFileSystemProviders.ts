@@ -97,21 +97,21 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
-        this.sendRequest(uri, "rascal/filesystem/watch", <WatchParameters>{
+        this.sendRequest(uri, "rascal/vfs/watcher/watch", <WatchParameters>{
             uri: uri.toString(),
             recursive:options.recursive,
             excludes: options.excludes
         });
 
         return new vscode.Disposable(() => {
-            this.sendRequest(uri, "rascal/filesystem/unwatch", {
+            this.sendRequest(uri, "rascal/vfs/watcher/unwatch", {
                 uri: uri.toString()
             });
         });
     }
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
-        return this.sendRequest(uri, "rascal/filesystem/stat");
+        return this.sendRequest(uri, "rascal/vfs/input/stat");
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
@@ -124,8 +124,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
-        return this.sendRequest<LocationContent>(uri, "rascal/filesystem/readFile")
-            .then(content => content.content)
+        return this.sendRequest<string>(uri, "rascal/filesystem/readFile")
             .then(str => Buffer.from(str, "base64"));
     }
 
