@@ -115,7 +115,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
         catch (TimeoutException te) {
             throw new IOException("VSCode took too long to reply, interruption to avoid deadlocks");
         }
-        catch(InterruptedException ie) {
+        catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw new UnsupportedOperationException("Thread should have been interrupted");
         }
