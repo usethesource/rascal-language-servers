@@ -119,12 +119,12 @@ public class DynamicCapabilities {
      */
     public CompletableFuture<Void> update(Collection<ILanguageContributions> contribs) {
         return CompletableFuture.supplyAsync(() -> {
-                logger.debug("Updating {} dynamic capabilities from {} contributions", dynamicCapabilities.size(), contribs.size());
-                // Copy the contributions so we know we are looking at a stable set of elements.
-                return lastContributions.updateAndGet(_old -> Set.copyOf(contribs));
-            }, exec)
-            .thenCompose(stableContribs -> CompletableFutureUtils.reduce(dynamicCapabilities.stream().map(cap -> updateRegistration(cap, stableContribs)), exec))
-            .thenAccept(_v -> logger.debug("Done updating dynamic capabilities"));
+            logger.debug("Updating {} dynamic capabilities from {} contributions", dynamicCapabilities.size(), contribs.size());
+            // Copy the contributions so we know we are looking at a stable set of elements.
+            return lastContributions.updateAndGet(_old -> Set.copyOf(contribs));
+        }, exec)
+        .thenCompose(stableContribs -> CompletableFutureUtils.reduce(dynamicCapabilities.stream().map(cap -> updateRegistration(cap, stableContribs)), exec))
+        .thenAccept(_v -> logger.debug("Done updating dynamic capabilities"));
     }
 
     /**
