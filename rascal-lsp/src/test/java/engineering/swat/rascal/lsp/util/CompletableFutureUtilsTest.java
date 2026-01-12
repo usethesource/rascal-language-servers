@@ -29,6 +29,7 @@ package engineering.swat.rascal.lsp.util;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.completedFuture;
+import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.filter;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.flatten;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
 
@@ -143,6 +144,14 @@ public class CompletableFutureUtilsTest {
 
         CompletableFuture<IList> reduced = flatten(outer.stream(), completedFuture(VF.list(), exec), IList::union);
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
+    }
+
+    @Test
+    public void filterFuturePredicate() throws InterruptedException, ExecutionException {
+        Function<Integer, CompletableFuture<Boolean>> isEven = i -> CompletableFuture.completedFuture(i % 2 == 0);
+        var nums = List.of(1, 2, 3, 4, 5, 6);
+        var filtered = filter(nums, isEven);
+        assertEquals(List.of(2, 4, 6), filtered.get());
     }
 
     private <T> Set<T> setUnion(Set<T> l, Set<T> r) {

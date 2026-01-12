@@ -54,7 +54,6 @@ import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
-import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
@@ -247,11 +246,7 @@ public class DynamicCapabilities {
         }
 
         // Filter contributions by providing this capability
-        return CompletableFutureUtils.<List<ILanguageContributions>>flatten(
-            contribs.stream().map(c -> cap.isProvidedBy(c).thenApply(b -> b.booleanValue() ? List.of(c) : List.of())),
-            CompletableFutureUtils.completedFuture(Collections.emptyList(), exec),
-            Lists::union
-        ).<@Nullable Registration>thenCompose(cs -> {
+        return CompletableFutureUtils.filter(contribs, cap::isProvidedBy).<@Nullable Registration>thenCompose(cs -> {
             if (cs.isEmpty()) {
                 return CompletableFutureUtils.completedFuture(null, exec);
             }

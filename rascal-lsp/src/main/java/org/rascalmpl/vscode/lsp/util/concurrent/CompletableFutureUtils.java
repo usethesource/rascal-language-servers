@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
@@ -53,24 +54,6 @@ public class CompletableFutureUtils {
     public static <T> CompletableFuture<List<T>> reduce(List<CompletableFuture<T>> futures, Executor exec) {
         return reduce(futures,
             completedFuture(new LinkedList<>(), exec),
-            Collections::singletonList, // unmodifiable, but never added to
-            CompletableFutureUtils::concat
-        );
-    }
-
-    /**
-     * Reduces a non-empty {@link List} of {@link CompletableFuture} to a single future that produces a list.
-     * @param <T> The type of the values that the futures yield.
-     * @param futures The futures to reduce.
-     * @return A future that yields a list of the results of the reduced futures.
-     * @throws IllegalArgumentException when the input list is empty.
-     */
-    public static <T> CompletableFuture<List<T>> reduce(List<CompletableFuture<T>> futures) {
-        if (futures.isEmpty()) {
-            throw new IllegalArgumentException("Cannot reduce empty list of futures");
-        }
-        return reduce(futures.subList(1, futures.size()),
-            futures.get(0).thenApply(Collections::singletonList),
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
         );
@@ -169,5 +152,21 @@ public class CompletableFutureUtils {
         var ls = new LinkedList<@PolyNull T>(l);
         ls.addAll(r);
         return ls;
+    }
+
+    /**
+     * Filters a collection of items on a predicate returning a future.
+     * @param <T> The type of the elements in the collection.
+     * @param items The collection to filter.
+     * @param predicate The future predicate to filter on.
+     * @return A single future that, if it completes, yields the filtered collection.
+     */
+    public static <T> CompletableFuture<Collection<T>> filter(Collection<T> items, Function<T, CompletableFuture<Boolean>> predicate) {
+        return reduce(
+            items.stream()
+                .map(i -> predicate.apply(i).thenApply(b -> b.booleanValue() ? List.of(i) : List.<T>of()))
+                .collect(Collectors.toList()),
+            CompletableFutureUtils::concat
+        ).thenApply(Function.identity());
     }
 }
