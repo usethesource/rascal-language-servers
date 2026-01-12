@@ -150,27 +150,24 @@ public class DynamicCapabilities {
                 if (existingRegistration != null) {
                     // this capability was removed
                     logger.trace("{} is no longer supported by contributions", method);
-                    return unregister(existingRegistration)
-                        .thenCompose(checkDone);
+                    return unregister(existingRegistration).thenCompose(checkDone);
                 }
                 logger.trace("{} is still not supported by contributions", method);
                 // nothing more to do
-                return checkDone.apply(true);
+                return eventuallyConsistent(cap, registration, contribs);
             }
 
             if (existingRegistration != null) {
                 if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
                     logger.trace("Options for {} did not change since last registration", method);
-                    return checkDone.apply(true);
+                    return eventuallyConsistent(cap, registration, contribs);
                 }
                 logger.trace("Options for {} changed since the previous registration ({} vs. {})", method, registration.getRegisterOptions(), existingRegistration.getRegisterOptions());
-                return register(registration, existingRegistration)
-                    .thenCompose(checkDone);
+                return register(registration, existingRegistration).thenCompose(checkDone);
             }
 
             logger.trace("Registering dynamic capability {}", registration);
-            return register(registration, existingRegistration)
-                .thenCompose(checkDone);
+            return register(registration, existingRegistration).thenCompose(checkDone);
         });
     }
 
