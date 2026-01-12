@@ -60,9 +60,9 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
  * Takes care of (un)registering capabilities dynamically.
  * Receives a list of supported capabilities ({@link AbstractDynamicCapability}) and notifies the client when capabilities change.
  */
-public class DynamicCapabilities {
+public class CapabilityRegistration {
 
-    private static final Logger logger = LogManager.getLogger(DynamicCapabilities.class);
+    private static final Logger logger = LogManager.getLogger(CapabilityRegistration.class);
 
     private final LanguageClient client;
     private final Executor exec;
@@ -80,7 +80,7 @@ public class DynamicCapabilities {
      * @param supportedCapabilities The capabilities to register with the client.
      * @param clientCapabilities The capabilities of the client. Determine whether dynamic registration is supported at all.
      */
-    public DynamicCapabilities(LanguageClient client, Executor exec, Set<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
+    public CapabilityRegistration(LanguageClient client, Executor exec, Set<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
         this.client = client;
         this.exec = exec;
         this.noop = CompletableFutureUtils.completedFuture(null, exec);

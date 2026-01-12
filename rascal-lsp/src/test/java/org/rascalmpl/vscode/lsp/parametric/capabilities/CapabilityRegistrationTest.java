@@ -80,11 +80,11 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import io.usethesource.vallang.IList;
 
 @RunWith(MockitoJUnitRunner.class)
-public class DynamicCapabilitiesTest {
+public class CapabilityRegistrationTest {
 
     private final ExecutorService exec = Executors.newCachedThreadPool();
 
-    private DynamicCapabilities dynCap;
+    private CapabilityRegistration dynCap;
 
     // Mocks
     @Spy private LanguageClientStub client;
@@ -95,7 +95,7 @@ public class DynamicCapabilitiesTest {
 
     @Before
     public void setUp() {
-        dynCap = new DynamicCapabilities(client, exec, Set.of(completion), clientCapabilities(true));
+        dynCap = new CapabilityRegistration(client, exec, Set.of(completion), clientCapabilities(true));
         dynCap.registerStaticCapabilities(serverCapabilities);
     }
 
@@ -319,7 +319,7 @@ public class DynamicCapabilitiesTest {
     public void hasNoDynamicCapability() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
 
-        dynCap = new DynamicCapabilities(client, exec, Set.of(completion), clientCapabilities(false));
+        dynCap = new CapabilityRegistration(client, exec, Set.of(completion), clientCapabilities(false));
         dynCap.registerStaticCapabilities(serverCapabilities);
 
         dynCap.update(List.of(contrib)).get();
@@ -331,7 +331,7 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void preferStaticRegistration() throws InterruptedException, ExecutionException {
-        dynCap = new DynamicCapabilities(client, exec, Set.of(new CompletionCapability(true)), clientCapabilities(true));
+        dynCap = new CapabilityRegistration(client, exec, Set.of(new CompletionCapability(true)), clientCapabilities(true));
         dynCap.registerStaticCapabilities(serverCapabilities);
 
         dynCap.update(List.of(new SomeContribs("."))).get();

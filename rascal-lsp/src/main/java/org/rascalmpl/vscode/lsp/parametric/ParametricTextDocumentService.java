@@ -138,8 +138,8 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -183,7 +183,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
-    private @MonotonicNonNull DynamicCapabilities dynamicCapabilities;
+    private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
@@ -248,7 +248,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    private DynamicCapabilities availableCapabilities() {
+    private CapabilityRegistration availableCapabilities() {
         if (dynamicCapabilities == null) {
             throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
         }
@@ -258,7 +258,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new DynamicCapabilities(availableClient(), exec, Set.of(new CompletionCapability()), clientCapabilities);
+        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, Set.of(new CompletionCapability()), clientCapabilities);
         dynamicCapabilities.registerStaticCapabilities(result);
 
         result.setDefinitionProvider(true);
