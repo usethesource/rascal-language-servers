@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
-import com.google.gson.JsonPrimitive;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -35,6 +34,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionKind;
@@ -47,6 +47,8 @@ import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+
+import com.google.gson.JsonPrimitive;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;

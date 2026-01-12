@@ -54,8 +54,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionOptions;
@@ -83,8 +81,6 @@ import io.usethesource.vallang.IList;
 
 @RunWith(MockitoJUnitRunner.class)
 public class DynamicCapabilitiesTest {
-
-    private static final Logger logger = LogManager.getLogger(DynamicCapabilitiesTest.class);
 
     private final ExecutorService exec = Executors.newCachedThreadPool();
 
@@ -184,14 +180,6 @@ public class DynamicCapabilitiesTest {
         }
     }
 
-    private CompletableFuture<Void> registerInParallel(List<ILanguageContributions> contribs) {
-        var updates = IntStream.rangeClosed(1, contribs.size()).boxed().map(i -> contribs.subList(0, i)).map(c -> {
-            logger.debug("Registering parallel contrib");
-            return dynCap.update(c);
-        }).collect(Collectors.toList());
-        return CompletableFutureUtils.reduce(updates, (_v1, _v2) -> null);
-    }
-
     //// TESTS
 
     @Test
@@ -246,7 +234,7 @@ public class DynamicCapabilitiesTest {
         if (expected instanceof CompletionRegistrationOptions) {
             var e = (CompletionRegistrationOptions) expected;
             var a = (CompletionRegistrationOptions) actual;
-            assertEquals(String.format("%s should have equal resolve provider flag", method), e.getResolveProvider().booleanValue(), a.getResolveProvider().booleanValue());
+            assertEquals(String.format("%s should have equal resolve provider flag", method), e.getResolveProvider(), a.getResolveProvider());
             assertEquals(String.format("%s should have equal trigger characters", method), sorted(e.getTriggerCharacters()), sorted(a.getTriggerCharacters()));
         } else {
             assertEquals(String.format("%s should have equal options"), expected, actual);

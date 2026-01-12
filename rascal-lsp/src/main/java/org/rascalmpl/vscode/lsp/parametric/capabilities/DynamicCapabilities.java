@@ -72,8 +72,8 @@ public class DynamicCapabilities {
     private final Set<AbstractDynamicCapability<?>> dynamicCapabilities;
     private final Set<AbstractDynamicCapability<?>> staticCapabilities;
 
-    // Map of method names with current registration values
     private final AtomicReference<Collection<ILanguageContributions>> lastContributions = new AtomicReference<>(Collections.emptyList());
+    // Map of method names with current registration values
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
     /**
@@ -141,8 +141,8 @@ public class DynamicCapabilities {
         var method = cap.methodName();
         var existingRegistration = currentRegistrations.get(method);
 
-        return reg.<Void>thenCompose(registration -> {
-            Function<Boolean, CompletableFuture<Void>> checkDone = successful -> successful
+        return reg.thenCompose(registration -> {
+            Function<Boolean, CompletableFuture<Void>> checkDone = successful -> successful.booleanValue()
                 ? eventuallyConsistent(cap, registration, contribs)
                 : noop;
 
@@ -171,6 +171,18 @@ public class DynamicCapabilities {
         });
     }
 
+    /**
+     * Ensure that a registration is eventually consistent.
+     *
+     * Check whether the inputs for computing this registration did not change while updating the registration.
+     * If they did not change, this registration arrived at a fixpoint and is done.
+     * Otherwise, this registration is updated again, based on the new inputs (contributions and previously registered registration).
+     * @param <T> The type of this capability's options.
+     * @param cap The capability for which the registration is being updated.
+     * @param r The registration that was computed.
+     * @param contribs The contributions that were used for registration computation.
+     * @return A future that completes when the registration is at a fixpoint.
+     */
     private <T> CompletableFuture<Void> eventuallyConsistent(AbstractDynamicCapability<T> cap, @Nullable Registration r, Collection<ILanguageContributions> contribs) {
         var currentContribs = lastContributions.get();
         var currentReg = currentRegistrations.get(cap.methodName());
@@ -244,9 +256,7 @@ public class DynamicCapabilities {
                 return CompletableFutureUtils.completedFuture(null, exec);
             }
 
-            var allOpts = cs.stream()
-                .<CompletableFuture<@Nullable T>>map(cap::options)
-                .collect(Collectors.toList());
+            var allOpts = cs.stream().<CompletableFuture<@Nullable T>>map(cap::options).collect(Collectors.toList());
             return CompletableFutureUtils.reduce(allOpts, cap::mergeNullableOptions) // non-empty, so no need to provide a reduction identity
                 .thenApply(opts -> new Registration(cap.id(), cap.methodName(), opts));
         });

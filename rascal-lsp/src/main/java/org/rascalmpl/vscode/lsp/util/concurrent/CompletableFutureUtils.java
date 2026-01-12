@@ -32,7 +32,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -113,7 +112,7 @@ public class CompletableFutureUtils {
      * @param concat A function that merges two values of {@link I}.
      * @return A future that yields a list of all the elements in the lists from the reduced futures.
      */
-    public static <I> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
+    public static <I extends Iterable<?>> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
         return reduce(futures,
             identity,
             Function.identity(),
@@ -150,7 +149,7 @@ public class CompletableFutureUtils {
      * @return A single future that, if it completes, yields the reduced result.
      */
     public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
-            CompletableFuture<C> identity, Function<? super I, ? extends C> map, BiFunction<? super C, ? super C, ? extends C> concat) {
+            CompletableFuture<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
         CompletableFuture<C> result = identity;
         for (var fut : futures) {
             result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, map.apply(t)));
