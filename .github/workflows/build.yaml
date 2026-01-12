@@ -84,7 +84,7 @@ jobs:
 
       - name: Cache vscode downloads 
         id: cache-vscode
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ./rascal-vscode-extension/uitests
           key: "vscode-${{matrix.os}}"
@@ -119,7 +119,7 @@ jobs:
         run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: Upload Screenshots
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: screenshots-${{ matrix.os }}
@@ -186,7 +186,7 @@ jobs:
           npx vsce package
 
       - name: upload final vsix 
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           path: rascal-vscode-extension/*.vsix
           retention-days: 20
