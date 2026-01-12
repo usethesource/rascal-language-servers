@@ -99,7 +99,7 @@ public class DynamicCapabilitiesTest {
 
     @Before
     public void setUp() {
-        dynCap = new DynamicCapabilities(client, exec, List.of(completion), clientCapabilities(true));
+        dynCap = new DynamicCapabilities(client, exec, Set.of(completion), clientCapabilities(true));
         dynCap.registerStaticCapabilities(serverCapabilities);
     }
 
@@ -331,7 +331,7 @@ public class DynamicCapabilitiesTest {
     public void hasNoDynamicCapability() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
 
-        dynCap = new DynamicCapabilities(client, exec, List.of(completion), clientCapabilities(false));
+        dynCap = new DynamicCapabilities(client, exec, Set.of(completion), clientCapabilities(false));
         dynCap.registerStaticCapabilities(serverCapabilities);
 
         dynCap.update(List.of(contrib)).get();
@@ -343,7 +343,7 @@ public class DynamicCapabilitiesTest {
 
     @Test
     public void preferStaticRegistration() throws InterruptedException, ExecutionException {
-        dynCap = new DynamicCapabilities(client, exec, List.of(new CompletionCapability(true)), clientCapabilities(true));
+        dynCap = new DynamicCapabilities(client, exec, Set.of(new CompletionCapability(true)), clientCapabilities(true));
         dynCap.registerStaticCapabilities(serverCapabilities);
 
         dynCap.update(List.of(new SomeContribs("."))).get();

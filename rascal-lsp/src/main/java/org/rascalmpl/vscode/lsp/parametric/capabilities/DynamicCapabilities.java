@@ -81,7 +81,7 @@ public class DynamicCapabilities {
      * @param supportedCapabilities The capabilities to register with the client.
      * @param clientCapabilities The capabilities of the client. Determine whether dynamic registration is supported at all.
      */
-    public DynamicCapabilities(LanguageClient client, Executor exec, /* TODO -> Set */ List<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
+    public DynamicCapabilities(LanguageClient client, Executor exec, Set<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
         this.client = client;
         this.exec = exec;
         this.noop = CompletableFutureUtils.completedFuture(null, exec);
