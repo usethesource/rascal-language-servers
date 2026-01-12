@@ -72,14 +72,14 @@ public class CompletableFutureUtils {
     }
 
     /**
-     * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link Iterable} to a single future that produces an {@link Iterable}.
+     * Flattens a {@link Stream} of {@link CompletableFuture} that produces values of type {@link I} to a single future that produces an {@link I}.
      * @param <I> The type of the result of the futures.
-     * @param futures The futures of which to reduce the result lists.
+     * @param futures A {@link Stream} of futures to reduce.
      * @param identity The identity function of {@link I}.
      * @param concat A function that merges two values of {@link I}.
-     * @return A future that yields a list of all the elements in the lists from the reduced futures.
+     * @return A single future that, if it completes, yields the reduced result.
      */
-    public static <I extends Iterable<?>> CompletableFuture<I> flatten(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
+    public static <I> CompletableFuture<I> reduce(Stream<CompletableFuture<I>> futures, CompletableFuture<I> identity, BinaryOperator<I> concat) {
         return reduce(futures,
             identity,
             Function.identity(),
