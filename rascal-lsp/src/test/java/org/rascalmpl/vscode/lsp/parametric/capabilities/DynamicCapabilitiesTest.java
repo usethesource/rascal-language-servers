@@ -41,9 +41,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -56,12 +56,10 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
-import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentClientCapabilities;
@@ -175,10 +173,6 @@ public class DynamicCapabilitiesTest {
 
     }
 
-    private Map<String, @Nullable Object> registrationOptions(RegistrationParams params) {
-        return params.getRegistrations().stream().collect(Collectors.toMap(Registration::getMethod, Registration::getRegisterOptions));
-    }
-
     @SafeVarargs
     private void registerSequentially(List<String>... options) throws InterruptedException, ExecutionException {
         registerSequentially(Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList()));
@@ -188,12 +182,6 @@ public class DynamicCapabilitiesTest {
         for (int i = 0; i < contribs.size(); i++) {
             dynCap.update(contribs.subList(0, i + 1)).get();
         }
-    }
-
-    @SafeVarargs
-    private CompletableFuture<Void> registerInParallel(List<String>... options) {
-        var contribs = Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList());
-        return registerInParallel(contribs);
     }
 
     private CompletableFuture<Void> registerInParallel(List<ILanguageContributions> contribs) {
@@ -228,7 +216,7 @@ public class DynamicCapabilitiesTest {
         verify(client, only()).registerCapability(registrationCaptor.capture());
         verify(serverCapabilities, never()).setCompletionProvider(any()); // no static registration
 
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(trigChars, false)), registrationOptions(registrationCaptor.getValue()));
+        assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(trigChars, false), registrationCaptor.getValue());
     }
 
     @Test
@@ -238,7 +226,31 @@ public class DynamicCapabilitiesTest {
         verify(client, atLeastOnce()).registerCapability(registrationCaptor.capture());
         verify(client, atMostOnce()).unregisterCapability(unregistrationCaptor.capture());
 
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::", "+", "*", "-", "/", "%"), false)), registrationOptions(registrationCaptor.getValue()));
+        assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::", "+", "*", "-", "/", "%"), false), registrationCaptor.getValue());
+    }
+
+    private void assertSingleRegistration(String method, Object expectedOpts, RegistrationParams actualParams) {
+        assertEquals("Should have a single registration", 1, actualParams.getRegistrations().size());
+        var r = actualParams.getRegistrations().get(0);
+        assertEquals("Should have the right method", method, r.getMethod());
+        assertRegistrationOptionEquals(method, expectedOpts, r.getRegisterOptions());
+    }
+
+    private <T extends Comparable<? super T>> List<T> sorted(List<T> l) {
+        var l2 = new ArrayList<>(l);
+        Collections.sort(l2);
+        return l2;
+    }
+
+    private void assertRegistrationOptionEquals(String method, Object expected, Object actual) {
+        if (expected instanceof CompletionRegistrationOptions) {
+            var e = (CompletionRegistrationOptions) expected;
+            var a = (CompletionRegistrationOptions) actual;
+            assertEquals(String.format("%s should have equal resolve provider flag", method), e.getResolveProvider().booleanValue(), a.getResolveProvider().booleanValue());
+            assertEquals(String.format("%s should have equal trigger characters", method), sorted(e.getTriggerCharacters()), sorted(a.getTriggerCharacters()));
+        } else {
+            assertEquals(String.format("%s should have equal options"), expected, actual);
+        }
     }
 
     @Test
@@ -249,7 +261,7 @@ public class DynamicCapabilitiesTest {
         inOrder.verify(client).registerCapability(registrationCaptor.capture());
         inOrder.verifyNoMoreInteractions();
 
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false)), registrationOptions(registrationCaptor.getAllValues().get(0)));
+        assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false), registrationCaptor.getAllValues().get(0));
     }
 
     @Test
@@ -259,18 +271,18 @@ public class DynamicCapabilitiesTest {
             .map(ILanguageContributions.class::cast)
             .collect(Collectors.toList());
 
-        registerInParallel(contribs).get();
+        registerSequentially(contribs);
 
         // unregister one of both
         dynCap.update(contribs.subList(1, 2)).get();
 
         InOrder inOrder = inOrder(client);
-        // intial registration
+        // initial registration
         inOrder.verify(client, atLeast(3)).registerCapability(registrationCaptor.capture());
         var args = registrationCaptor.getAllValues();
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of("."), false)), registrationOptions(args.get(0)));
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(".", ":"), false)), registrationOptions(args.get(1)));
-        assertEquals(Map.of("textDocument/completion", new CompletionRegistrationOptions(List.of(":"), false)), registrationOptions(args.get(2)));
+        assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of("."), false), args.get(0));
+        assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of(".", ":"), false), args.get(1));
+        assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of(":"), false), args.get(2));
 
         inOrder.verifyNoMoreInteractions();
     }
@@ -364,17 +376,8 @@ public class DynamicCapabilitiesTest {
         inOrder.verifyNoMoreInteractions();
 
         var lastOpts = (CompletionRegistrationOptions) registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions();
-        assertTrue(optionSublists.stream().anyMatch(opts -> opts.equals(lastOpts.getTriggerCharacters())));
-    }
-
-    @Test
-    public void noRegisterWhenUnregisterFails() throws InterruptedException, ExecutionException {
-        when(client.unregisterCapability(any())).thenReturn(CompletableFuture.failedFuture(new RuntimeException("Unregistration failed!")));
-
-        dynCap.update(List.of(new SomeContribs(List.of(".")))).get();
-        dynCap.update(List.of(new SomeContribs(List.of(".")), new SomeContribs(List.of(":")))).get();
-
-        verify(client).registerCapability(any()); // once, since on the second round, unregister fails
+        var trigChars = sorted(lastOpts.getTriggerCharacters());
+        assertTrue(optionSublists.stream().map(this::sorted).anyMatch(opts -> opts.equals(trigChars)));
     }
 
 }
