@@ -83,7 +83,7 @@ public class CodeActions {
             .map(actionParser);
 
         return CompletableFutureUtils
-            .flatten(actions, CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().list(), exec), IList::concat)
+            .reduce(actions, CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().list(), exec), IList::concat)
             .thenApply(IList::stream);
     }
 

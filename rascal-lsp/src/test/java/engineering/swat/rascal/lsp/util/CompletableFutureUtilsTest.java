@@ -30,7 +30,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.completedFuture;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.filter;
-import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.flatten;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
 
 import java.util.Arrays;
@@ -133,7 +132,7 @@ public class CompletableFutureUtilsTest {
         var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3));
         var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
 
-        CompletableFuture<IList> reduced = flatten(outer.stream(), completedFuture(VF.list(), exec), IList::concat);
+        CompletableFuture<IList> reduced = reduce(outer.stream(), completedFuture(VF.list(), exec), IList::concat);
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
     }
 
@@ -142,7 +141,7 @@ public class CompletableFutureUtilsTest {
         var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1));
         var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
 
-        CompletableFuture<IList> reduced = flatten(outer.stream(), completedFuture(VF.list(), exec), IList::union);
+        CompletableFuture<IList> reduced = reduce(outer.stream(), completedFuture(VF.list(), exec), IList::union);
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
     }
 
