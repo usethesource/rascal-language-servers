@@ -153,13 +153,13 @@ public class CapabilityRegistration {
                 }
                 logger.trace("{} is still not supported by contributions", method);
                 // nothing more to do
-                return eventuallyConsistent(cap, registration, contribs);
+                return checkDone.apply(true);
             }
 
             if (existingRegistration != null) {
                 if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
                     logger.trace("Options for {} did not change since last registration", method);
-                    return eventuallyConsistent(cap, registration, contribs);
+                    return checkDone.apply(true);
                 }
                 logger.trace("Options for {} changed since the previous registration ({} vs. {})", method, registration.getRegisterOptions(), existingRegistration.getRegisterOptions());
                 return register(registration, existingRegistration).thenCompose(checkDone);
