@@ -2,6 +2,10 @@
 
 We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
+## v-next
+
+* There is now a setting to influence how much memory is allocated for the Rascal and Parametric LSP servers (`rascal.lSP.maxHeapSize`).
+
 ## 0.13.0
 
 Works best with Rascal 0.41.2 (and rascal-maven-plugin 0.30.3). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
