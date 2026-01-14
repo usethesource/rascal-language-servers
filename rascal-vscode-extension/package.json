@@ -246,6 +246,8 @@
             "null"
           ],
           "default": null,
+          "minimum": 800,
+          "scope": "machine-overridable",
           "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
         },
         "rascal.interpreter.stackSize": {
@@ -254,6 +256,7 @@
             "null"
           ],
           "default": null,
+          "scope": "machine-overridable",
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
         },
         "rascal.lSP.maxHeapSize": {
