@@ -217,6 +217,14 @@ function calculateRascalMemoryReservation() {
 }
 
 function calculateDSLMemoryReservation(_dedicated: boolean) {
+    const config = vscode.workspace.getConfiguration('rascal.parametric.lSP');
+    if (config.has('maxHeapSize')) {
+        const maxHeapSize = config.get('maxHeapSize');
+        if (maxHeapSize !== null) {
+            return `-Xmx${maxHeapSize}M`;
+        }
+    }
+
     // this is a hard one, if you register many DSLs, it can grow quite a bit
     // 400MB per language is a reasonable estimate (for average sized languages)
     if (os.totalmem() >= gb(32)) {
