@@ -127,8 +127,9 @@ public class CapabilityRegistration {
     /**
      * Update the registration of a capability.
      * - If the capability is not yet registered, register it.
-     * - If the capability is already registered, and the options changed, update it (by unregistering and registering with new options).
+     * - If the capability is already registered, and the options changed, register it again.
      * - If the capability is already registered and the options did not change, do nothing.
+     * - If the capability is already registered, but not supported anymore, unregister it.
      * @param cap The capability to update.
      * @param registration The computed registration to do, or `null` when this capability is absent.
      * @return A future completing with `true` when successful, or `false` otherwise.
@@ -196,7 +197,6 @@ public class CapabilityRegistration {
 
     /**
      * Unregister this registration.
-     * Aims to be atomic, i.e. keeps local administration of registered capabilities in sync with the client.
      * @param reg The registration to undo.
      * @return A future completing with `true` if successful, and `false` otherwise.
      */
@@ -214,7 +214,6 @@ public class CapabilityRegistration {
 
     /**
      * Register this registration.
-     * Aims to be atomic, i.e. keeps local administration of registered capabilities in sync with the client.
      * @param reg The registration to do.
      * @return A future completing with `true` if successful, and `false` otherwise.
      */
