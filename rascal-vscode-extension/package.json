@@ -256,6 +256,16 @@
           "default": null,
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
         },
+        "rascal.lSP.maxHeapSize": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 800,
+          "scope": "machine-overridable",
+          "markdownDescription": "Provides the maximum heap space, in MB, for the Rascal LSP server.\n\nNeeds at least 800MB, but runs better with 2GB or more. _Set based on total available memory on machine._"
+        },
         "rascal.terminal.name.originFormat": {
           "type": "string",
           "default": "Project root",
