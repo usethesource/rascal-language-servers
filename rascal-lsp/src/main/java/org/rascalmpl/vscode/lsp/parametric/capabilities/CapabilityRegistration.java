@@ -117,13 +117,11 @@ public class CapabilityRegistration {
      * @return A future that completes with a boolean that is false when any registration failed, and true otherwise.
      */
     public CompletableFuture<Void> update(Collection<ILanguageContributions> contribs) {
-        return CompletableFuture.supplyAsync(() -> {
-            logger.debug("Updating {} dynamic capabilities from {} contributions", dynamicCapabilities.size(), contribs.size());
-            // Copy the contributions so we know we are looking at a stable set of elements.
-            return lastContributions.updateAndGet(_old -> Set.copyOf(contribs));
-        }, exec)
-        .thenCompose(stableContribs -> CompletableFutureUtils.reduce(dynamicCapabilities.stream().map(cap -> updateRegistration(cap, stableContribs)), exec))
-        .thenAccept(_v -> logger.debug("Done updating dynamic capabilities"));
+        logger.debug("Updating {} dynamic capabilities from {} contributions", dynamicCapabilities.size(), contribs.size());
+        // Copy the contributions so we know we are looking at a stable collection of elements.
+        lastContributions.set(List.copyOf(contribs));
+        return CompletableFutureUtils.reduce(dynamicCapabilities.stream().map(this::updateRegistration), exec)
+            .thenAccept(_v -> logger.debug("Done updating dynamic capabilities"));
     }
 
     /**
@@ -135,12 +133,13 @@ public class CapabilityRegistration {
      * @param registration The computed registration to do, or `null` when this capability is absent.
      * @return A future completing with `true` when successful, or `false` otherwise.
      */
-    private <T> CompletableFuture<Void> updateRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
+    private <T> CompletableFuture<Void> updateRegistration(AbstractDynamicCapability<T> cap) {
+        var contribs = lastContributions.get();
         var reg = tryBuildRegistration(cap, contribs);
         var method = cap.methodName();
-        var existingRegistration = currentRegistrations.get(method);
 
         return reg.thenCompose(registration -> {
+            var existingRegistration = currentRegistrations.get(method);
             Function<Boolean, CompletableFuture<Void>> checkDone = successful -> successful.booleanValue()
                 ? eventuallyConsistent(cap, registration, contribs)
                 : noop;
@@ -183,10 +182,8 @@ public class CapabilityRegistration {
      * @return A future that completes when the registration is at a fixpoint.
      */
     private <T> CompletableFuture<Void> eventuallyConsistent(AbstractDynamicCapability<T> cap, @Nullable Registration r, Collection<ILanguageContributions> contribs) {
-        var currentContribs = lastContributions.get();
-        var currentReg = currentRegistrations.get(cap.methodName());
-        if (contribs == currentContribs // instance comparison is safe since we took a read-only copy
-            && Objects.equals(currentReg, r)) {
+        if (contribs == lastContributions.get() // instance comparison is safe since we took a read-only copy
+            && Objects.equals(r, currentRegistrations.get(cap.methodName()))) {
             // Nothing changed; we're done
             return noop;
         }
@@ -194,7 +191,7 @@ public class CapabilityRegistration {
         // Something changed since we started...
         // To be sure we arrive at a fixpoint, we need to go again
         logger.trace("Something changed while registering {}; iterate until nothing changes", cap.methodName());
-        return updateRegistration(cap, currentContribs);
+        return updateRegistration(cap);
     }
 
     /**
