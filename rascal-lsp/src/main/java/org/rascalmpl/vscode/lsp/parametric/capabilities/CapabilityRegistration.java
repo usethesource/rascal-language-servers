@@ -128,14 +128,16 @@ public class CapabilityRegistration {
      * Update the registration of a capability (lock-free).
      *
      * 1. Compute the registration based on the current contributions.
-     * 2. Check existing registration.
+     * 2. Check existing registration for this capability.
      *    - If the capability is not yet registered, register it.
      *    - If the capability is already registered, and the options changed, register it again.
      *    - If the capability is already registered, but not supported anymore, unregister it.
      *    - If the capability is already registered, but the options did not change, do nothing.
      * 3. Ensure eventual consistency.
-     *    Another incoming update request might change the contributions or overwrite the registration from a different thread.
-     *    Before returning, check whether the inputs to this update changed. If so, recursively start from step (1).
+     *    Another incoming update request might change the contributions or overwrite the registration from a different
+     *    thread while this computation is busy.That makes any work done here outdated. Before returning, check whether
+     *    the inputs to this update changed. If so, recursively start from step (1), to re-compute based on the latest
+     *    inputs.
      * 4. Done.
      * @param cap The capability to update.
      * @param registration The computed registration to do, or `null` when this capability is absent.
