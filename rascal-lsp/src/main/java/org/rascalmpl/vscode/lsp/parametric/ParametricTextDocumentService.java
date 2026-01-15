@@ -994,6 +994,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
+        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
+        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
+        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
         availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
 
         fact.reloadContributions();

@@ -360,7 +360,7 @@ public class CapabilityRegistrationTest {
 
         InOrder inOrder = inOrder(client);
 
-        inOrder.verify(client, atLeast(N)).registerCapability(registrationCaptor.capture());
+        inOrder.verify(client, atLeast(1)).registerCapability(registrationCaptor.capture());
         inOrder.verifyNoMoreInteractions();
 
         var lastOpts = (CompletionRegistrationOptions) registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions();

@@ -40,7 +40,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -52,6 +51,7 @@ import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -119,6 +119,13 @@ public class CapabilityRegistration {
     public CompletableFuture<Void> update(Collection<ILanguageContributions> contribs) {
         logger.debug("Updating {} dynamic capabilities from {} contributions", dynamicCapabilities.size(), contribs.size());
         // Copy the contributions so we know we are looking at a stable collection of elements.
+
+        /*
+            *VERY IMPORTANT* Setting the atomic reference from the thread that called us.
+            We need to be sure that the `lastContributions` reference actually points to the most recently known contributions.
+            Therefore, we need to set this reference before delegating any work to futures, where we lose guaranteed execution order.
+            Additionally, this function should be called from a thread pool with predictable execution order.
+        */
         lastContributions.set(List.copyOf(contribs));
         return CompletableFutureUtils.reduce(dynamicCapabilities.stream().map(this::updateRegistration), exec)
             .thenAccept(_v -> logger.debug("Done updating dynamic capabilities"));
@@ -127,82 +134,113 @@ public class CapabilityRegistration {
     /**
      * Update the registration of a capability (lock-free).
      *
-     * 1. Compute the registration based on the current contributions.
-     * 2. Check existing registration for this capability.
+     * 1. Get the current contributions.
+     * 2. Compute the registration based on the contributions.
+     * 3. Check if the contributions did not change in the meantime. If they did, restart.
+     * 4. Lock on the local administration of current registrations.
+     * 5. Compute what to do to bring the registration up-to-date with the last contributions.
      *    - If the capability is not yet registered, register it.
-     *    - If the capability is already registered, and the options changed, register it again.
-     *    - If the capability is already registered, but not supported anymore, unregister it.
-     *    - If the capability is already registered, but the options did not change, do nothing.
-     * 3. Ensure eventual consistency.
+     *    - If the capability was already registered, and the options changed, register it again.
+     *    - If the capability was already registered, but not supported anymore, unregister it.
+     *    - In any other case, do nothing.
+     * 6. Ensure eventual consistency.
      *    Another incoming update request might change the contributions or overwrite the registration from a different
-     *    thread while this computation is busy.That makes any work done here outdated. Before returning, check whether
-     *    the inputs to this update changed. If so, recursively start from step (1), to re-compute based on the latest
-     *    inputs.
-     * 4. Done.
+     *    thread while this computation is busy. That makes any work done here outdated. Before returning, check the
+     *    following post-conditions:
+     *    - The contributions are still the same contributions that the update was based on.
+     *    - The computed registration update persisted (in the local administration).
+     *    If any of the post-conditions is false, the update for this capability needs to be re-computed,
+     *    to eventually arrive at a consistent state. Therefore, recursively start from step 1).
+     * 7. Done.
      * @param cap The capability to update.
      * @param registration The computed registration to do, or `null` when this capability is absent.
      * @return A future completing with `true` when successful, or `false` otherwise.
      */
     private <T> CompletableFuture<Void> updateRegistration(AbstractDynamicCapability<T> cap) {
         var contribs = lastContributions.get();
-        var reg = tryBuildRegistration(cap, contribs);
         var method = cap.methodName();
 
-        return reg.thenCompose(registration -> {
-            var existingRegistration = currentRegistrations.get(method);
-            if (registration == null) {
-                if (existingRegistration != null) {
-                    // this capability was removed
-                    logger.trace("Capability {} is no longer supported by contributions", method);
-                    return unregister(existingRegistration);
+        return tryBuildRegistration(cap, contribs).thenCompose(registration -> {
+            // Synchronize on `currentRegistrations`, so we can reliable compute the required registration
+            // and update the current registration without interference from other threads.
+            synchronized (currentRegistrations) {
+                // If someone else modified the contributions in the meantime, we need to restart.
+                // Since we took a read-only copy of the contributions, instance comparison can be used everywhere
+                if (lastContributions.get() != contribs) {
+                    return updateRegistration(cap);
                 }
-                logger.trace("Capability {} is still not supported by contributions", method);
-                return noop;
-            }
 
-            if (existingRegistration != null) {
-                if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
-                    logger.trace("Options for capability {} did not change since last registration", method);
-                    return noop;
+                // Get the remaining inputs for our computation.
+                var existingRegistration = currentRegistrations.get(method);
+
+                final CompletableFuture<Void> result;
+                if (registration == null) {
+                    if (existingRegistration == null) {
+                        logger.trace("Capability {} is still not supported by contributions", method);
+                        result = noop;
+                    } else {
+                        logger.trace("Capability {} is no longer supported by contributions", method);
+                        result = unregister(existingRegistration);
+                    }
+                } else if (existingRegistration != null) { // registration != null
+                    if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
+                        logger.trace("Options for capability {} did not change since last registration", method);
+                        result = noop;
+                    } else {
+                        logger.trace("Options for capability {} changed since the previous registration ({} vs. {})", method, registration.getRegisterOptions(), existingRegistration.getRegisterOptions());
+                        result = register(registration, existingRegistration);
+                    }
+                } else { // registration != null && existingRegistration == null
+                    logger.trace("Capability {} is now supported", method);
+                    result = register(registration, existingRegistration);
                 }
-                logger.trace("Options for capability {} changed since the previous registration ({} vs. {})", method, registration.getRegisterOptions(), existingRegistration.getRegisterOptions());
-                return register(registration, existingRegistration);
-            }
 
-            logger.trace("Capability {} is now supported", registration);
-            return register(registration, existingRegistration);
-        }).handle((_v, t) -> {
-            if (t != null) {
-                // An error occurred. Inform the user and do not recurse.
-                handleError(t, cap);
-                return noop;
-            }
+                return result.handle((_v, t) -> {
+                    if (t != null) {
+                        // An error occurred. Inform the user and do not recurse.
+                        handleError(t, cap);
+                        return noop;
+                    }
 
-            // Ensure that a registration is eventually consistent.
-            // Check whether the inputs for computing this registration did change while updating the registration.
-            if (contribs == lastContributions.get() // instance comparison is safe since we took a read-only copy
-               && Objects.equals(currentRegistrations.get(cap.methodName()), reg.join()) // `join` is safe, since `reg` is guaranteed to be completed here
-            ) {
-                // Nothing changed; we're done
-                return noop;
+                    // Ensure that the registration is eventually consistent.
+                    if (Objects.equals(currentRegistrations.get(method), registration) && lastContributions.get() == contribs) {
+                        // Our update persisted and the contributions did not change in the meantime. Success!
+                        return noop;
+                    }
+
+                    // Something changed while we were busy.
+                    // Update this registration again, in order to reach a consistent state eventually.
+                    logger.trace("Something changed while registering {}; iterate until nothing changes", cap.methodName());
+                    return updateRegistration(cap);
+                }).thenCompose(Function.identity());
             }
-            // Something changed since we started...
-            // To be sure we arrive at a fixpoint, we need to go again
-            logger.trace("Something changed while registering {}; iterate until nothing changes", cap.methodName());
-            return updateRegistration(cap);
-        }).thenCompose(Function.identity());
+        });
     }
 
     /**
      * Unregister this registration.
+     * First, we check if the local administration (`currentRegistrations`) contains the expected registration and atomically remove it.
+     * If this does not succeed, we return to our caller, which should handle this.
+     * which should check the administration after we are done, and possibly re-compute the registrations to do.
      * @param reg The registration to undo.
      * @return A future completing with `true` if successful, and `false` otherwise.
      */
     private CompletableFuture<Void> unregister(Registration reg) {
-        return client.unregisterCapability(new UnregistrationParams(List.of(new Unregistration(reg.getId(), reg.getMethod()))))
-            .thenAccept(_v -> currentRegistrations.remove(reg.getMethod(), reg))
-            .exceptionally(t -> {
-                throw new RegistrationException("unregistering", reg.getMethod(), t);
+        var method = reg.getMethod();
+        var removed = currentRegistrations.remove(method, reg);
+        if (!removed) {
+            // We lost a race. Someone else claimed this registration already. Do nothing, and let out caller handle the rest.
+            return noop;
+        }
+
+        logger.debug("Unregistering capability {}", reg.getMethod());
+        return client.unregisterCapability(new UnregistrationParams(List.of(new Unregistration(reg.getId(), method))))
+            .whenComplete((_v, t) -> {
+                if (t != null) {
+                    // Unregistration failed, probably because this capability is not supported by the client.
+                    // We attempt to revert the registration state to how it was at the start of this function.
+                    currentRegistrations.putIfAbsent(method, reg);
+                }
             });
     }
 
@@ -212,10 +250,21 @@ public class CapabilityRegistration {
      * @return A future completing with `true` if successful, and `false` otherwise.
      */
     private CompletableFuture<Void> register(Registration reg, @Nullable Registration existingRegistration) {
+        var method = reg.getMethod();
+        var updatedReg = currentRegistrations.compute(method, (k, v) -> Objects.equals(v, existingRegistration) ? reg : v); // atomically replace, but allow null value
+        if (updatedReg != reg) {
+            // We lost a race. Someone else claimed this registration already. Do nothing, and let out caller handle the rest.
+            return noop;
+        }
+
+        logger.debug("Registering capability {}", reg.getMethod());
         return client.registerCapability(new RegistrationParams(List.of(reg)))
-            .thenAccept(_v -> currentRegistrations.compute(reg.getMethod(), (k, v) -> Objects.equals(v, existingRegistration) ? reg : v))
-            .exceptionally(t -> {
-                throw new RegistrationException("registering", reg.getMethod(), t);
+            .whenComplete((_v, t) -> {
+                if (t != null) {
+                    // Registration failed, probably because this capability is not supported by the client.
+                    // We attempt to revert the registration state to how it was at the start of this function.
+                    currentRegistrations.compute(method, (k, v) -> Objects.equals(v, reg) ? existingRegistration : v); // atomically replace, or remove when `existingRegistration == null`
+                }
             });
     }
 
@@ -223,8 +272,11 @@ public class CapabilityRegistration {
         if (t instanceof CompletionException) {
             t = t.getCause();
         }
-        if (t instanceof RegistrationException) {
-            client.showMessage(new MessageParams(MessageType.Error, Objects.requireNonNullElseGet(((RegistrationException) t).getMessage(), () -> String.format("(Un)registration of capability %s failed", cap.methodName()))));
+        if (t instanceof ResponseErrorException) {
+            var message = t.getMessage() != null
+                ? t.getMessage()
+                : String.format("(Un)registration of capability %s failed", cap.methodName());
+            client.showMessage(new MessageParams(MessageType.Error, message));
         }
         logger.error("Unexpected error while (un)registering capability {}", cap.methodName(), t);
     }
@@ -244,12 +296,6 @@ public class CapabilityRegistration {
             return CompletableFutureUtils.reduce(allOpts, cap::mergeNullableOptions) // non-empty, so no need to provide a reduction identity
                 .thenApply(opts -> new Registration(cap.id(), cap.methodName(), opts));
         });
-    }
-
-    class RegistrationException extends RuntimeException {
-        RegistrationException(String task, String method, Throwable cause) {
-            super(String.format("%s capability %s failed.", StringUtils.capitalize(task), method), cause);
-        }
     }
 
 }
