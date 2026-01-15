@@ -265,14 +265,24 @@ public class CapabilityRegistrationTest {
         dynCap.update(contribs.subList(1, 2)).get();
 
         InOrder inOrder = inOrder(client);
+
         // initial registration
-        inOrder.verify(client, atLeast(3)).registerCapability(registrationCaptor.capture());
+        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+
+        // extra registration with extra trigger characters
+        inOrder.verify(client).unregisterCapability(any());
+        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+
+        // unregistration (partial)
+        inOrder.verify(client).unregisterCapability(any());
+        inOrder.verify(client).registerCapability(registrationCaptor.capture());
+
+        inOrder.verifyNoMoreInteractions();
+
         var args = registrationCaptor.getAllValues();
         assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of("."), false), args.get(0));
         assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of(".", ":"), false), args.get(1));
         assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of(":"), false), args.get(2));
-
-        inOrder.verifyNoMoreInteractions();
     }
 
     @Test

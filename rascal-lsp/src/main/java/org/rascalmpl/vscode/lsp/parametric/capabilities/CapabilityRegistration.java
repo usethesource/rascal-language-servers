@@ -188,7 +188,8 @@ public class CapabilityRegistration {
                         result = noop;
                     } else {
                         logger.trace("Options for capability {} changed since the previous registration ({} vs. {})", method, registration.getRegisterOptions(), existingRegistration.getRegisterOptions());
-                        result = register(registration, existingRegistration);
+                        // Unregister the existing registration before registering the updated one to prevent duplicate contributions
+                        result = unregister(existingRegistration).thenCompose(_v -> register(registration, null));
                     }
                 } else { // registration != null && existingRegistration == null
                     logger.trace("Capability {} is now supported", method);
