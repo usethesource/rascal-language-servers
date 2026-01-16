@@ -2,6 +2,10 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## v-next
+
+* There is now a setting to influence how much memory is allocated for the Rascal and Parametric LSP servers (`rascal.lSP.maxHeapSize`).
+
 ## Release 2.22.0 (VS Code: 0.13.0)
 
 Works best with rascal 0.41.2 (and rascal-maven-plugin: 0.30.2). Due to changes in the typechecker you will most likely also have to update your library dependencies to the latest release.
