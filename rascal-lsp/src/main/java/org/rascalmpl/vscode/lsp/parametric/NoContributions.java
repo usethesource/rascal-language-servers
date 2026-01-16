@@ -35,6 +35,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -169,6 +170,16 @@ public class NoContributions implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
+        throw new NoContributionException("completion");
+    }
+
+    @Override
+    public CompletableFuture<IList> completionTriggerCharacters() {
+        throw new NoContributionException("completionTriggerCharacters");
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasAnalysis() {
         return falsy;
     }
@@ -240,6 +251,11 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> hasCallHierarchy() {
+        return falsy;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCompletion() {
         return falsy;
     }
 

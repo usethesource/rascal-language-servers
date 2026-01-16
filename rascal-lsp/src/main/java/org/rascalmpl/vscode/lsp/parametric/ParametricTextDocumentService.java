@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -58,12 +59,16 @@ import org.eclipse.lsp4j.CallHierarchyItem;
 import org.eclipse.lsp4j.CallHierarchyOutgoingCall;
 import org.eclipse.lsp4j.CallHierarchyOutgoingCallsParams;
 import org.eclipse.lsp4j.CallHierarchyPrepareParams;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
@@ -133,12 +138,15 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 import org.rascalmpl.vscode.lsp.util.CallHierarchy;
 import org.rascalmpl.vscode.lsp.util.CodeActions;
+import org.rascalmpl.vscode.lsp.util.Completion;
 import org.rascalmpl.vscode.lsp.util.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
@@ -175,6 +183,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
+    private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
@@ -239,7 +248,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    public void initializeServerCapabilities(ServerCapabilities result) {
+    private CapabilityRegistration availableCapabilities() {
+        if (dynamicCapabilities == null) {
+            throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
+        }
+        return dynamicCapabilities;
+    }
+
+    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
+        // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
+        // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
+        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, Set.of(new CompletionCapability()), clientCapabilities);
+        dynamicCapabilities.registerStaticCapabilities(result);
+
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setHoverProvider(true);
@@ -921,6 +942,25 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(incomingOutgoingCalls(CallHierarchyOutgoingCall::new, params.getItem(), CallHierarchy.Direction.OUTGOING), Collections::emptyList);
     }
 
+    @Override
+    public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
+        logger.debug("Completion: {} at {} with {}", params.getTextDocument(), params.getPosition(), params.getContext());
+
+        var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
+        var contrib = contributions(loc);
+        var file = getFile(loc);
+
+        return recoverExceptions(file.getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(t -> {
+                var completion = new Completion();
+                var focus = TreeSearch.computeFocusList(t, loc.getBeginLine(), loc.getBeginColumn());
+                var cursorOffset = loc.getBeginColumn() - TreeAdapter.getLocation((ITree) focus.get(0)).getBeginColumn();
+                return contrib.completion(focus, VF.integer(cursorOffset), completion.triggerKindToRascal(params.getContext())).get()
+                    .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName(), loc.getBeginLine(), columns.get(loc)));
+            })
+            .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
+    }
 
     @Override
     public synchronized void registerLanguage(LanguageParameter lang) {
@@ -953,6 +993,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var clientCopy = availableClient();
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
+
+        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
+        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
+        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
+        availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
@@ -1016,6 +1061,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             facts.remove(lang.getName());
             contributions.remove(lang.getName());
         }
+
+        availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
     }
 
     @Override

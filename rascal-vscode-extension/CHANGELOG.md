@@ -4,6 +4,12 @@ We only list significant changes, for a full changelog please review the [commit
 
 ## v-next
 
+### New features for DSL developers
+
+* DSLs can contribute their own code completion using the `LanguageService::completion` contribution.
+
+### Improved features
+
 * There is now a setting to influence how much memory is allocated for the Rascal and Parametric LSP servers (`rascal.lSP.maxHeapSize`).
 
 ## 0.13.0

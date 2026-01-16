@@ -34,7 +34,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
@@ -55,6 +57,20 @@ public class CompletableFutureUtils {
             Collections::singletonList, // unmodifiable, but never added to
             CompletableFutureUtils::concat
         );
+    }
+
+    /**
+     * Reduces a {@link List} of {@link CompletableFuture} to a single future that yields a {@link T}.
+     * @param <T> The type of the values that the futures yield.
+     * @param futures The futures to reduce.
+     * @return A future that yields a list of the results of the reduced futures.
+     * @throws IllegalArgumentException when the list of futures is empty
+     */
+    public static <T> CompletableFuture<T> reduce(List<CompletableFuture<T>> futures, BinaryOperator<T> merge) {
+        if (futures.isEmpty()) {
+            throw new IllegalArgumentException("Cannot reduce empty list without identity value.");
+        }
+        return reduce(futures.subList(1, futures.size()), futures.get(0), Function.identity(), merge);
     }
 
     /**
@@ -110,7 +126,7 @@ public class CompletableFutureUtils {
      * @param <I> The type of the results of the input futures.
      * @param <C> The type of the result of the reduced future.
      * @param futures An {@link Iterable} of futures to reduce.
-     * @param identity The identity function of {@link C}.
+     * @param identity The identity function of {@link CompletableFuture} of {@link C}.
      * @param map A function that maps an {@link I} to a {@link C}.
      * @param concat A function that merges two values of {@link C}.
      * @return A single future that, if it completes, yields the reduced result.
@@ -125,7 +141,7 @@ public class CompletableFutureUtils {
         return result;
     }
 
-    private static <T> List<T> concat(List<T> l, List<T> r) {
+    private static <T> List<@PolyNull T> concat(List<@PolyNull T> l, List<@PolyNull T> r) {
         if (r.isEmpty()) {
             return l;
         }
@@ -133,8 +149,24 @@ public class CompletableFutureUtils {
             return r;
         }
 
-        var ls = new LinkedList<>(l);
+        var ls = new LinkedList<@PolyNull T>(l);
         ls.addAll(r);
         return ls;
+    }
+
+    /**
+     * Filters a collection of items on a predicate returning a future.
+     * @param <T> The type of the elements in the collection.
+     * @param items The collection to filter.
+     * @param predicate The future predicate to filter on.
+     * @return A single future that, if it completes, yields the filtered collection.
+     */
+    public static <T> CompletableFuture<Collection<T>> filter(Collection<T> items, Function<T, CompletableFuture<Boolean>> predicate) {
+        return reduce(
+            items.stream()
+                .map(i -> predicate.apply(i).thenApply(b -> b.booleanValue() ? List.of(i) : List.<T>of()))
+                .collect(Collectors.toList()),
+            CompletableFutureUtils::concat
+        ).thenApply(Function.identity());
     }
 }

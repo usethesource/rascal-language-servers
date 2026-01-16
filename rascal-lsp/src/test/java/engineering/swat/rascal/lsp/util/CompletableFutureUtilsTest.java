@@ -27,7 +27,9 @@
 package engineering.swat.rascal.lsp.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.completedFuture;
+import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.filter;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.reduce;
 
 import java.util.Arrays;
@@ -96,6 +98,24 @@ public class CompletableFutureUtilsTest {
     }
 
     @Test
+    public void sum() throws InterruptedException, ExecutionException {
+        var listFutList = List.of(
+            CompletableFuture.completedFuture(1),
+            CompletableFuture.completedFuture(2),
+            CompletableFuture.completedFuture(3)
+        );
+
+        CompletableFuture<Integer> reduced = reduce(listFutList, Integer::sum);
+        assertEquals(6, reduced.get().intValue());
+    }
+
+    @Test
+    public void reduceEmptyList() {
+        List<CompletableFuture<Integer>> l = new LinkedList<>();
+        assertThrows(IllegalArgumentException.class, () -> reduce(l, Integer::sum));
+    }
+
+    @Test
     public void reduceAndAddList() throws InterruptedException, ExecutionException {
         CompletableFuture<Integer> reduced = reduce(futList, completedFuture(0, exec), Function.identity(), Integer::sum);
         assertEquals(6, reduced.get().intValue());
@@ -114,6 +134,23 @@ public class CompletableFutureUtilsTest {
 
         CompletableFuture<IList> reduced = reduce(outer.stream(), completedFuture(VF.list(), exec), IList::concat);
         assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
+    }
+
+    @Test
+    public void flattenRascalListUnique() throws InterruptedException, ExecutionException {
+        var inner = VF.list(VF.integer(1), VF.integer(2), VF.integer(3), VF.integer(1));
+        var outer = List.of(CompletableFuture.completedFuture(inner), CompletableFuture.completedFuture(inner));
+
+        CompletableFuture<IList> reduced = reduce(outer.stream(), completedFuture(VF.list(), exec), IList::union);
+        assertEquals(VF.list(VF.integer(1), VF.integer(2), VF.integer(3)), reduced.get());
+    }
+
+    @Test
+    public void filterFuturePredicate() throws InterruptedException, ExecutionException {
+        Function<Integer, CompletableFuture<Boolean>> isEven = i -> CompletableFuture.completedFuture(i % 2 == 0);
+        var nums = List.of(1, 2, 3, 4, 5, 6);
+        var filtered = filter(nums, isEven);
+        assertEquals(List.of(2, 4, 6), filtered.get());
     }
 
     private <T> Set<T> setUnion(Set<T> l, Set<T> r) {
