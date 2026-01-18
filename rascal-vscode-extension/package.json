@@ -182,26 +182,6 @@
         ]
       }
     ],
-    "grammars": [
-      {
-        "language": "rascalmpl",
-        "scopeName": "source.rascalmpl",
-        "path": "./syntaxes/rascal.tmGrammar.json",
-        "tokenTypes": {
-          "string": "other",
-          "comment": "other"
-        }
-      },
-      {
-        "language": "parametric-rascalmpl",
-        "scopeName": "source.parametric-rascalmpl",
-        "path": "./syntaxes/parametric.tmGrammar.json",
-        "tokenTypes": {
-          "string": "other",
-          "comment": "other"
-        }
-      }
-    ],
     "semanticTokenScopes": [
       {
         "language": "rascalmpl",
