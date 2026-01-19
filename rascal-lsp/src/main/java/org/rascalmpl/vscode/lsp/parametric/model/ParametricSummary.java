@@ -53,7 +53,7 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.ScheduledCalcu
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.SummaryFields;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;

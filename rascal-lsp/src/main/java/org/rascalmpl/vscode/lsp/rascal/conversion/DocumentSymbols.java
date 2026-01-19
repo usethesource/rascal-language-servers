@@ -24,12 +24,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.rascal.conversion;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.Range;
