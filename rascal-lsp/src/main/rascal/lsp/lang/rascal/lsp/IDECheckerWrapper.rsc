@@ -87,7 +87,6 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     job("Building dependency graph", bool (void (str, int) step2) {
         while (tree <- checkForImports) {
             step2("Calculating imports for <tree.top.header.name>", 1);
-            println("Calculating imports for <tree.top.header.name>");
             currentSrc = tree.src.top;
             currentProject = inferProjectRoot(currentSrc);
             if (currentProject in workspaceFolders && currentProject.file notin {"rascal", "rascal-lsp"}) {
@@ -127,22 +126,16 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     msgs = [];
 
-    print("Modules per project: ");
-    iprintln(modulesPerProject);
-
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
 
     step("Checking upstream dependencies ", 1);
     job("Checking upstream dependencies", bool (void (str, int) step3) {
         for (project <- upstreamDependencies) {
             step3("Checked module in `<project.file>`", 1);
-            println("Checking module in `<project.file>`");
             pcfg = getPathConfig(project);
             checkOutdatedPathConfig(pcfg);
             modulesToCheck = calculateOutdated(modulesPerProject[project], pcfg);
             if (modulesToCheck != []) {
-                print("Checking modules: ");
-                iprintln(modulesToCheck);
                 msgs += check(modulesToCheck, rascalCompilerConfig(pcfg));
             }
         }
@@ -150,7 +143,6 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     }, totalWork=size(upstreamDependencies));
 
     step("Checking module <l>", 1);
-    println("Checking module <l>");
     pcfg = getPathConfig(initialProject);
     checkOutdatedPathConfig(pcfg);
     msgs += check(calculateOutdated(modulesPerProject[initialProject], pcfg) + [l], rascalCompilerConfig(pcfg));
@@ -178,8 +170,6 @@ private bool tplExpired(loc m, PathConfig pcfg) {
 loc pathConfigFile(PathConfig pcfg) = pcfg.bin + "rascal.pathconfig";
 
 void checkOutdatedPathConfig(PathConfig pcfg) {
-    print("Checking if path config is outdated");
-    iprintln(pcfg);
     pcfgFile = pathConfigFile(pcfg);
     try {
         if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
@@ -187,13 +177,11 @@ void checkOutdatedPathConfig(PathConfig pcfg) {
             // Be safe and remove TPLs
             for (loc f <- find(pcfg.bin, "tpl")) {
                 try {
-                    println("Removing <f>");
                     remove(f);
                 } catch IO(_): {
                     jobWarning("Cannot remove TPL", f);
                 }
             }
-            println("Writing path config to <pcfgFile>");
             writeBinaryValueFile(pcfgFile, pcfg);
         }
     } catch IO(str msg): {
