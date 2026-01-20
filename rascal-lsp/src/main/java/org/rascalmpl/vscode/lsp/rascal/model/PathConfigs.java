@@ -248,7 +248,7 @@ public class PathConfigs {
      */
     private static ISourceLocation inferProjectRoot(ISourceLocation member) {
         ISourceLocation lastRoot = member;
-        ISourceLocation root = lastRoot;
+        ISourceLocation root;
         do {
             root = lastRoot;
             lastRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(root));
