@@ -48,7 +48,7 @@ import util::PathConfig;
 import util::Reflective;
 import util::Util;
 
-tuple[type[Tree] as, str desc] asType(moduleId(), _) = <#QualifiedName, "module name">;
+tuple[type[Tree] as, str desc] asRoleType(moduleId(), _) = <#QualifiedName, "module name">;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<_, str defName, _, moduleId(), loc d, _>}, list[Tree] cursor, str newName, Tree(loc) getTree, Renamer r) {
     set[loc] useFiles = {};
@@ -72,38 +72,39 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
     } catch _: {;}
 
     for (loc f <- getSourceFiles(r)) {
-        m = getTree(f);
+        mtree = getTree(f);
 
         bool markedNew = false;
         bool markedUse = false;
-
-        top-down-break visit (m.top.header.imports) {
-            case modNameTree: {
-                // Import of exact module name
-                useFiles += f;
-                markedUse = true;
-            }
-        }
-        bottom-up-break visit(m) {
-            case QualifiedName qn: {
-                // Import of redundantly escaped module name
-                qnSize = size(asNames(qn));
-                if (qnSize == modNameNumberOfNames && modName == normalizeEscaping("<qn>")) {
+        if(Module m := mtree.top){
+            top-down-break visit (m.header.imports) {
+                case modNameTree: {
+                    // Import of exact module name
                     useFiles += f;
                     markedUse = true;
                 }
-                else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1) {
-                    qualPref = qualifiedPrefix(qn);
-                    if (qualPref.name == modName || normalizeEscaping(qualPref.name) == modName) {
+            }
+            bottom-up-break visit(m) {
+                case QualifiedName qn: {
+                    // Import of redundantly escaped module name
+                    qnSize = size(asNames(qn));
+                    if (qnSize == modNameNumberOfNames && modName == normalizeEscaping("<qn>")) {
                         useFiles += f;
                         markedUse = true;
                     }
-                    else if (qualPref.name == newModName || normalizeEscaping(qualPref.name) == newModName) {
-                        newFiles += f;
-                        markedNew = true;
+                    else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1) {
+                        qualPref = qualifiedPrefix(qn);
+                        if (qualPref.name == modName || normalizeEscaping(qualPref.name) == modName) {
+                            seFiles += f;
+                            markedUse = true;
+                        }
+                        else if (qualPref.name == newModName || normalizeEscaping(qualPref.name) == newModName) {
+                            newFiles += f;
+                            markedNew = true;
+                        }
                     }
+                    if (markedUse && markedNew) continue;
                 }
-                if (markedUse && markedNew) continue;
             }
         }
     }
@@ -130,7 +131,7 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
     }
 }
 
-void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, _>}, str newName, TModel tm, Renamer r) {
+void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), loc modDef, _>}, str newName, TModel tm, Renamer r) {
     // We get the module location from the uses. If there are no uses, this is skipped.
     // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
