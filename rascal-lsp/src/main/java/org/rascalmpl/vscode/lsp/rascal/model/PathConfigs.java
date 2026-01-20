@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -78,6 +79,7 @@ public class PathConfigs {
     public PathConfigs(Executor executor, PathConfigDiagnostics diagnostics) {
         this.diagnostics = diagnostics;
         this.executor = executor;
+        updater.start();
     }
 
     public void expungePathConfig(ISourceLocation project) {
@@ -91,6 +93,7 @@ public class PathConfigs {
     }
 
     public PathConfig lookupConfig(ISourceLocation forFile) {
+        forFile = forFile.top();
         ISourceLocation projectRoot = translatedRoots.get(forFile);
         return currentPathConfigs.computeIfAbsent(projectRoot, this::buildPathConfig);
     }
@@ -132,15 +135,17 @@ public class PathConfigs {
         }
     }
 
-    private class PathConfigUpdater extends Thread {
+    private class PathConfigUpdater {
         private final Map<ISourceLocation, PathConfig> currentPathConfigs;
         private final Map<ISourceLocation, List<WatchRegistration>> projectWatches;
 
         public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
-            super("Path Config updater");
-            setDaemon(true);
             this.currentPathConfigs = currentPathConfigs;
-            projectWatches = new ConcurrentHashMap<>();
+            this.projectWatches = new ConcurrentHashMap<>();
+        }
+
+        public void start() {
+            scheduleRun();
         }
 
         // we detect changes to roots, and keep track of the last changed time
@@ -152,9 +157,6 @@ public class PathConfigs {
          * these files when the project is closed.
          */
         public void watchFile(ISourceLocation projectRoot, ISourceLocation sourceFile) throws IOException {
-            if (!isAlive() && !isInterrupted()) {
-                start();
-            }
             Consumer<ISourceLocationChanged> callback = ignored ->
                 changedRoots.put(projectRoot, safeLastModified(sourceFile));
             reg.watch(sourceFile, false, callback);
@@ -173,16 +175,13 @@ public class PathConfigs {
             diagnostics.clearDiagnostics(projectRoot);
         }
 
-        @Override
-        public void run() {
-            while (true) {
-                try {
-                    Thread.sleep(TimeUnit.SECONDS.toMillis(1));
-                } catch (InterruptedException e) {
-                    // inside of a thread run, we have to stop in case of an interrupt.
-                    return;
-                }
+        private void scheduleRun() {
+            CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS, executor)
+                .execute(this::run);
+        }
 
+        private void run() {
+            try {
                 List<ISourceLocation> stabilizedRoots = changedRoots.entrySet().stream()
                     .filter(e -> FileTime.from(Instant.now()).to(TimeUnit.NANOSECONDS) - e.getValue() >= UPDATE_DELAY)
                     .map(Entry::getKey)
@@ -199,6 +198,9 @@ public class PathConfigs {
                 } catch (Exception e) {
                     logger.error("Unexpected error while building PathConfigs", e) ;
                 }
+
+            } finally {
+                scheduleRun();
             }
         }
 

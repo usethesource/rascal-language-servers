@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.rascal.conversion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,11 +44,12 @@ import org.eclipse.lsp4j.Range;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -179,7 +180,7 @@ public class Diagnostics {
     }
 
     private static DiagnosticRelatedInformation related(ColumnMaps cm, ISourceLocation loc, String message) {
-        return new DiagnosticRelatedInformation(Locations.toLSPLocation(loc, cm), message);
+        return new DiagnosticRelatedInformation(Locations.toLocation(loc, cm), message);
     }
 
     private static void storeFixCommands(IConstructor d, Diagnostic result) {
@@ -220,7 +221,7 @@ public class Diagnostics {
                 ((IList) dKW.getParameter("causes")).stream()
                 .map(IConstructor.class::cast)
                 .map(c -> new DiagnosticRelatedInformation(
-                    Locations.toLSPLocation(getMessageLocation(c), otherFiles),
+                    Locations.toLocation(getMessageLocation(c), otherFiles),
                     getMessageString(c)))
                 .collect(Collectors.toList())
             );

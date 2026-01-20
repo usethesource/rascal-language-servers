@@ -29,19 +29,17 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 import java.util.Objects;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.uri.FileAttributes;
 
-public class FileAttributesResult extends IOResult {
-    private @Nullable Boolean exists;
-    private @Nullable Integer type;
-    private @Nullable Long ctime;
-    private @Nullable Long mtime;
-    private @Nullable Integer size;
-    private @Nullable Integer permissions;
+public class FileAttributesResult {
+    private boolean exists;
+    private int type;
+    private long ctime;
+    private long mtime;
+    private int size;
+    private int permissions;
 
-    public FileAttributesResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Boolean exists, @Nullable Integer type, @Nullable Long ctime, @Nullable Long mtime, @Nullable Integer size, @Nullable Integer permissions) {
-        super(errorCode, errorMessage);
+    public FileAttributesResult(boolean exists, int type, long ctime, long mtime, int size, int permissions) {
         this.exists = exists;
         this.type = type;
         this.ctime = ctime;
@@ -60,13 +58,12 @@ public class FileAttributesResult extends IOResult {
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof FileAttributesResult) {
             var other = (FileAttributesResult)obj;
-            return super.equals(obj)
-                && Objects.equals(exists, other.exists)
-                && Objects.equals(type, other.type)
-                && Objects.equals(ctime, other.ctime)
-                && Objects.equals(mtime, other.mtime)
-                && Objects.equals(size, other.size)
-                && Objects.equals(permissions, other.permissions);
+            return exists == other.exists
+                && type == other.type
+                && ctime == other.ctime
+                && mtime == other.mtime
+                && size == other.size
+                && permissions == other.permissions;
         }
         return false;
     }
@@ -78,7 +75,7 @@ public class FileAttributesResult extends IOResult {
 
     @Override
     public String toString() {
-        return "FileStatResult [exists="+ exists + " type=" + type + " ctime=" + ctime + " mtime=" + mtime + " size=" + size + " permissions=" + permissions + " io=" + super.toString() + "]";
+        return "FileStatResult [exists="+ exists + " type=" + type + " ctime=" + ctime + " mtime=" + mtime + " size=" + size + " permissions=" + permissions + "]";
     }
 
 }

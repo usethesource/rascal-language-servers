@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.net.URI;
 import org.rascalmpl.library.lang.rascal.syntax.RascalParser;
 import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.parser.Parser;
@@ -36,6 +37,7 @@ import org.rascalmpl.parser.uptr.action.NoActionExecutor;
 import org.rascalmpl.parser.uptr.recovery.ToTokenRecoverer;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -53,12 +55,13 @@ public class RascalServices {
 
         // Parse
         RascalParser parser = new RascalParser();
+        URI uri = Locations.toUri(loc);
         ITree tree = parser.parse(
-            Parser.START_MODULE, loc.getURI(), input, MAX_AMB_DEPTH,
+            Parser.START_MODULE, uri, input, MAX_AMB_DEPTH,
             new NoActionExecutor(),
             new DefaultNodeFlattener<>(),
             new UPTRNodeFactory(true),
-            new ToTokenRecoverer(loc.getURI(), parser, new StackNodeIdDispenser(parser), MAX_RECOVERY_ATTEMPTS, MAX_RECOVERY_TOKENS));
+            new ToTokenRecoverer(uri, parser, new StackNodeIdDispenser(parser), MAX_RECOVERY_ATTEMPTS, MAX_RECOVERY_TOKENS));
 
         // We pre-emptively disambiguate parse errors here to avoid performance issues.
         // Parse forests with parse errors can be very large, and Rascal is currently

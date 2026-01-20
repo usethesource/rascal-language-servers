@@ -34,8 +34,11 @@ import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
+
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -45,7 +48,7 @@ import io.usethesource.vallang.IValue;
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
 
-    private final ExecutorService ownExecuter;
+    private final ExecutorService exec;
     private final String name;
 
     private static final <T> CompletableFuture<T> failedInitialization() {
@@ -65,10 +68,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> references = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementation = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> codeAction = failedInitialization();
-    private volatile CompletableFuture<ILanguageContributions> prepareRename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> rename = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> didRenameFiles = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> callHierarchy = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> completion = failedInitialization();
 
     private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
@@ -84,6 +88,8 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
     private volatile CompletableFuture<Boolean> hasDidRenameFiles = failedInitialization();
     private volatile CompletableFuture<Boolean> hasSelectionRange = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasCallHierarchy = failedInitialization();
+    private volatile CompletableFuture<Boolean> hasCompletion = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -93,7 +99,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
 
     public LanguageContributionsMultiplexer(String name, ExecutorService ownService) {
         this.name = name;
-        this.ownExecuter = ownService;
+        this.exec = ownService;
     }
 
     private final CopyOnWriteArrayList<KeyedLanguageContribution> contributions = new CopyOnWriteArrayList<>();
@@ -158,9 +164,10 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         implementation = findFirstOrDefault(ILanguageContributions::hasImplementation);
         codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction);
         rename = findFirstOrDefault(ILanguageContributions::hasRename);
-        prepareRename = findFirstOrDefault(ILanguageContributions::hasRename);
         didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles);
         selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange);
+        callHierarchy = findFirstOrDefault(ILanguageContributions::hasCallHierarchy);
+        completion = findFirstOrDefault(ILanguageContributions::hasCompletion);
 
         hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
         hasBuild = anyTrue(ILanguageContributions::hasBuild);
@@ -172,10 +179,12 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
         hasReferences = anyTrue(ILanguageContributions::hasReferences);
         hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
+        hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
         hasRename = anyTrue(ILanguageContributions::hasRename);
         hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
-        hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
         hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
+        hasCallHierarchy = anyTrue(ILanguageContributions::hasCallHierarchy);
+        hasCompletion = anyTrue(ILanguageContributions::hasCompletion);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -211,7 +220,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
             }
             // otherwise return the first one, that contains defaults on what to do if it's missing
             return firstOrFail();
-        }, ownExecuter);
+        }, exec);
     }
 
     private CompletableFuture<Boolean> anyTrue(Function<ILanguageContributions, CompletableFuture<Boolean>> predicate) {
@@ -222,7 +231,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
             Function<ILanguageContributions, CompletableFuture<T>> predicate,
             T falsy, BinaryOperator<T> or) {
 
-        var result = CompletableFuture.completedFuture(falsy);
+        var result = CompletableFutureUtils.completedFuture(falsy, exec);
         // no short-circuiting, but it's not problem, it's only triggered at the beginning of a registry
         // pretty soon the future will be completed.
         for (var c: contributions) {
@@ -248,7 +257,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     private <T> InterruptibleFuture<T> flatten(CompletableFuture<ILanguageContributions> target, Function<ILanguageContributions, InterruptibleFuture<T>> call) {
-        return InterruptibleFuture.flatten(target.thenApply(call), ownExecuter);
+        return InterruptibleFuture.flatten(target.thenApply(call), exec);
     }
 
     @Override
@@ -282,13 +291,18 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data) {
+        return callHierarchy.thenApply(c -> c.parseCallHierarchyData(data)).thenCompose(Function.identity());
+    }
+
+    @Override
     public InterruptibleFuture<IList> inlayHint(ITree input) {
         return flatten(inlayHint, c -> c.inlayHint(input));
     }
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        return flatten(prepareRename, c -> c.prepareRename(focus));
+        return flatten(rename, c -> c.prepareRename(focus));
     }
 
     @Override
@@ -327,13 +341,28 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSelectionRange() {
-        return hasSelectionRange;
+    public InterruptibleFuture<IList> selectionRange(IList focus) {
+        return flatten(selectionRange, c -> c.selectionRange(focus));
     }
 
     @Override
-    public InterruptibleFuture<IList> selectionRange(IList focus) {
-        return flatten(selectionRange, c -> c.selectionRange(focus));
+    public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
+        return flatten(completion, c -> c.completion(focus, cursorOffset, trigger));
+    }
+
+    @Override
+    public CompletableFuture<IList> completionTriggerCharacters() {
+        return completion.thenCompose(ILanguageContributions::completionTriggerCharacters);
+    }
+
+    @Override
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
+        return flatten(callHierarchy, c -> c.prepareCallHierarchy(focus));
+    }
+
+    @Override
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
+        return flatten(callHierarchy, c -> c.incomingOutgoingCalls(hierarchyItem, direction));
     }
 
     @Override
@@ -392,6 +421,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public CompletableFuture<Boolean> hasSelectionRange() {
+        return hasSelectionRange;
+    }
+
+    @Override
     public CompletableFuture<Boolean> hasRename() {
         return hasRename;
     }
@@ -399,6 +433,15 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> hasDidRenameFiles() {
         return hasDidRenameFiles;
+    }
+
+    public CompletableFuture<Boolean> hasCallHierarchy() {
+        return hasCallHierarchy;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> hasCompletion() {
+        return hasCompletion;
     }
 
     @Override
@@ -425,4 +468,5 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     public void cancelProgress(String progressId) {
         contributions.forEach(klc -> klc.contrib.cancelProgress(progressId));
     }
+
 }

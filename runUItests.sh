@@ -22,7 +22,7 @@ npm run compile-tests
 # test what was compiled
 VSCODE_VERSION=$(grep '"vscode":' package.json | awk -F^ '{ print $2 }' | awk -F\" '{ print $1 }')
 echo "Running tests with VSCode version $VSCODE_VERSION"
-exec npx extest setup-and-run out/test/vscode-suite/*.test.js \
+RASCAL_LSP_DEV_DEPLOY=true npx extest setup-and-run out/test/vscode-suite/*.test.js \
     --code_version "${VSCODE_VERSION}" \
     --storage $UITESTS \
     --extensions_dir $UITESTS/extensions_dir

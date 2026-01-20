@@ -14,7 +14,7 @@
     "color": "#ffffff",
     "theme": "light"
   },
-  "version": "0.13.0-head",
+  "version": "0.13.1-head",
   "engines": {
     "vscode": "^1.90.0",
     "node": ">=20.9.0"
@@ -23,7 +23,7 @@
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
-    "url": "https://github.com/usethesource/rascal-language-servers"
+    "url": "git+https://github.com/usethesource/rascal-language-servers.git"
   },
   "bugs": {
     "url": "https://github.com/usethesource/rascal-language-servers/issues"
@@ -72,8 +72,8 @@
           "when": "false"
         },
         {
-            "command": "rascalmpl.copySourceLocation",
-            "when": "false"
+          "command": "rascalmpl.copySourceLocation",
+          "when": "false"
         }
       ],
       "view/item/context": [
@@ -246,6 +246,8 @@
             "null"
           ],
           "default": null,
+          "minimum": 800,
+          "scope": "machine-overridable",
           "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
         },
         "rascal.interpreter.stackSize": {
@@ -254,12 +256,37 @@
             "null"
           ],
           "default": null,
+          "scope": "machine-overridable",
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
+        },
+        "rascal.lSP.maxHeapSize": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 800,
+          "scope": "machine-overridable",
+          "markdownDescription": "Provides the maximum heap space, in MB, for the Rascal LSP server.\n\nNeeds at least 800MB, but runs better with 2GB or more. _Set based on total available memory on machine._"
+        },
+        "rascal.parametric.lSP.maxHeapSize": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 800,
+          "scope": "machine-overridable",
+          "markdownDescription": "Provides the maximum heap space, in MB, for the Parametric LSP server.\n\nNeeds at least 800MB, but runs better with more. 400MB per language is a reasonable estimate, for average-sized languages. _Set based on total available memory on machine._"
         },
         "rascal.terminal.name.originFormat": {
           "type": "string",
           "default": "Project root",
-          "enum": ["Project root", "Module (qualified)", "Module (unqualified)"],
+          "enum": [
+            "Project root",
+            "Module (qualified)",
+            "Module (unqualified)"
+          ],
           "markdownDescription": "Specifies the format of `<origin>` in Rascal terminal name `Rascal terminal (<origin>)`"
         }
       }
@@ -296,7 +323,7 @@
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "3.x",
     "chai": "4.x",
-    "esbuild": "0.25.x",
+    "esbuild": "0.27.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",

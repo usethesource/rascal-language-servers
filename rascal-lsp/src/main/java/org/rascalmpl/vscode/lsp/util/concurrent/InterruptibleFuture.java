@@ -94,8 +94,8 @@ public class InterruptibleFuture<T> {
         return new InterruptibleFuture<>(future.thenCombineAsync(other, fn, executor), interrupt);
     }
 
-    public static <T> InterruptibleFuture<T> completedFuture(T result) {
-        return new InterruptibleFuture<>(CompletableFuture.completedFuture(result), () -> {});
+    public static <T> InterruptibleFuture<T> completedFuture(T result, Executor exec) {
+        return new InterruptibleFuture<>(CompletableFutureUtils.completedFuture(result, exec), () -> {});
     }
 
     /**

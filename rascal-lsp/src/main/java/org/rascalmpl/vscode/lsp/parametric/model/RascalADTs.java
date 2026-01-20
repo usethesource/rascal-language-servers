@@ -48,6 +48,9 @@ public class RascalADTs {
         public static final String IMPLEMENTATION = "implementation";
         public static final String CODE_ACTION = "codeAction";
         public static final String SELECTION_RANGE = "selectionRange";
+        public static final String CALL_HIERARCHY = "callHierarchy";
+        public static final String COMPLETION = "completion";
+        public static final String COMPLETION_TRIGGER_CHARACTERS = "additionalTriggerCharacters";
 
         public static final String RENAME_SERVICE = "renameService";
         public static final String PREPARE_RENAME_SERVICE = "prepareRenameService";
@@ -89,5 +92,70 @@ public class RascalADTs {
         public static final String COMMAND = "command";
         public static final String TITLE = "title";
         public static final String KIND = "kind";
+    }
+
+    public static class CallHierarchyFields {
+        private CallHierarchyFields() { }
+
+        public static final String NAME = "name";
+        public static final String KIND = "kind";
+        public static final String DEFINITION = "src";
+        public static final String SELECTION = "selection";
+        public static final String TAGS = "tags";
+        public static final String DETAIL = "detail";
+        public static final String DATA = "data";
+    }
+
+    public static class CompletionFields {
+        private CompletionFields() { }
+
+        public static final String INVOKED = "invoked";
+        public static final String TRIGGER = "trigger";
+        public static final String CHARACTER = "character";
+
+        public static final String KIND = "kind";
+        public static final String EDIT = "edit";
+        public static final String LABEL = "label";
+        public static final String LABEL_DETAIL = "labelDetail";
+        public static final String LABEL_DESCRIPTION = "labelDescription";
+        public static final String DETAIL = "detail";
+        public static final String DOCUMENTATION = "documentation";
+        public static final String SORT_TEXT = "sortText";
+        public static final String FILTER_TEXT = "filterText";
+        public static final String DEPRECATED = "deprecated";
+        public static final String PRESELECT = "preselect";
+        public static final String COMMIT_CHARACTERS = "commitCharacters";
+        public static final String ADDITIONAL_CHANGES = "additionalChanges";
+        public static final String COMMAND = "command";
+
+        public static final String NEW_TEXT = "newText";
+        public static final String START_COLUMN = "startColumn";
+        public static final String INSERT_END_COLUMN = "insertEndColumn";
+        public static final String REPLACE_END_COLUMN = "replaceEndColumn";
+        public static final String SNIPPET = "snippet";
+    }
+
+    public static class FileSystemChangeFields {
+        private FileSystemChangeFields() { }
+
+        public static final String CREATED = "created";
+        public static final String RENAMED = "renamed";
+        public static final String REMOVED = "removed";
+        public static final String CHANGED = "changed";
+
+        public static final String FILE = "file";
+        public static final String FROM = "from";
+        public static final String TO = "to";
+        public static final String EDITS = "edits";
+    }
+
+    public static class TextEditFields {
+        private TextEditFields() { }
+
+        public static final String RANGE = "range";
+        public static final String REPLACEMENT = "replacement";
+        public static final String LABEL = "label";
+        public static final String DESCRIPTION = "description";
+        public static final String NEEDS_CONFIRMATION = "needsConfirmation";
     }
 }
