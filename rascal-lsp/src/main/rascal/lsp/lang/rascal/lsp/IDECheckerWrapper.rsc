@@ -214,14 +214,14 @@ loc inferProjectRoot(loc member) {
 
     do {
         root = parentRoot;
-        parentRoot = inferLongestProjectRoot(root.parent);
+        parentRoot = inferDeepestProjectRoot(root.parent);
     } while (root.parent? && parentRoot != root.parent);
     return root;
 }
 
 @synopsis{Infers the longest project root-like path that `member` is in.}
 @pitfalls{Might return a sub-directory of `target/`.}
-loc inferLongestProjectRoot(loc member) {
+loc inferDeepestProjectRoot(loc member) {
     current = targetToProject(member);
     if (!isDirectory(current)) {
         current = current.parent;

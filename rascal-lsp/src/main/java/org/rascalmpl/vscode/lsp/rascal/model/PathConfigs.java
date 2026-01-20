@@ -251,7 +251,7 @@ public class PathConfigs {
         ISourceLocation root = lastRoot;
         do {
             root = lastRoot;
-            lastRoot = inferLongestProjectRoot(URIUtil.getParentLocation(root));
+            lastRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(root));
         } while (!lastRoot.equals(URIUtil.getParentLocation(root)));
         return root;
     }
@@ -259,7 +259,7 @@ public class PathConfigs {
     /**
      * Infers the longest project root-like path that `member` is in. Might return a sub-directory of `target/`.
      */
-    private static ISourceLocation inferLongestProjectRoot(ISourceLocation member) {
+    private static ISourceLocation inferDeepestProjectRoot(ISourceLocation member) {
         ISourceLocation current = member;
         URIResolverRegistry reg = URIResolverRegistry.getInstance();
         if (!reg.isDirectory(current)) {
