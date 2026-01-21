@@ -156,8 +156,6 @@ bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str new
     for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
         success = success && testProject(modules, "Test_<mm.name>_<cursorOcc>", bool(set[TestModule] modulesByLocation, loc testDir, PathConfig pcfg) {
             <cursor, focus> = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
-
-            println("Renaming \'<oldName>\' from <focus[0].src>");
             <edits, msgs> = rascalRenameSymbol(cursor, focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
 
             throwMessagesIfError(msgs);
