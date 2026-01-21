@@ -73,7 +73,7 @@ bool isPrefixOf(loc prefix, loc l) = l.scheme == prefix.scheme
 @synopsis{
     Try to parse string `name` as reified type `begin` and return whether this succeeded.
 }
-Maybe[&T] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
+Maybe[&T <: Tree] tryParseAs(type[&T <: Tree] begin, str name, bool allowAmbiguity = false) {
     try {
         return just(parse(begin, name, allowAmbiguity = allowAmbiguity));
     } catch ParseError(_): {
