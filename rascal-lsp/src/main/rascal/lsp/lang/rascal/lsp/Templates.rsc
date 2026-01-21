@@ -30,6 +30,7 @@ module lang::rascal::lsp::Templates
 import IO;
 import Location;
 import String;
+import util::LanguageServer;
 import util::PathConfig;
 import util::Reflective;
 
