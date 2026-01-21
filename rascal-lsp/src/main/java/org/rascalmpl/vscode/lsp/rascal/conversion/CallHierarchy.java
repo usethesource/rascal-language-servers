@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.rascal.conversion;
 
 import com.google.gson.JsonPrimitive;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Optional;
@@ -102,7 +103,7 @@ public class CallHierarchy {
 
         var ci = new CallHierarchyItem(name, kind, Locations.toUri(def.top()).toString(), definitionRange, selectionRange);
         var kws = cons.asWithKeywordParameters();
-        ci.setTags(KeywordParameter.get(CallHierarchyFields.TAGS, kws, Collections.emptyList(), DocumentSymbols::symbolTagToLSP));
+        ci.setTags(new ArrayList<>(KeywordParameter.get(CallHierarchyFields.TAGS, kws, Collections.emptySet(), DocumentSymbols::symbolTagToLSP)));
         ci.setDetail(KeywordParameter.get(CallHierarchyFields.DETAIL, kws, (String) null));
         ci.setData(KeywordParameter.get(CallHierarchyFields.DATA, kws, null, this::serializeData));
 

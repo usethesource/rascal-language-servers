@@ -26,8 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.conversion;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.DocumentSymbol;
@@ -94,10 +96,10 @@ public class DocumentSymbols {
         Range range = Locations.toRange((ISourceLocation) symbol.get("range"), om);
         Range selection = KeywordParameter.get("selection", kwp, range, om);
         String detail = KeywordParameter.get("detail", kwp, symbolName); // LSP default for detail is name
-        List<SymbolTag> tags = KeywordParameter.get("tags", kwp, Collections.emptyList(), DocumentSymbols::symbolTagToLSP);
+        Set<SymbolTag> tags = KeywordParameter.get("tags", kwp, Collections.emptySet(), DocumentSymbols::symbolTagToLSP);
 
         var lspSymbol = new DocumentSymbol(symbolName, kind, range, selection, detail, children);
-        lspSymbol.setTags(tags); // since 3.16
+        lspSymbol.setTags(new ArrayList<>(tags)); // since 3.16
         return lspSymbol;
     }
 

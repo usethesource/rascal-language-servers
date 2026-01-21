@@ -252,7 +252,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
         private InterruptibleFuture<Lazy<List<Diagnostic>>> extractMessages(@UnderInitialization MessagesOnlyScheduledSummary this, InterruptibleFuture<IConstructor> summary) {
             return summary.thenApply(s -> Lazy.defer(() ->
-                KeywordParameter.get("messages", s.asWithKeywordParameters(), Collections.emptyList(), d -> Diagnostics.translateDiagnostic((IConstructor)(((ITuple)d).get(1)), columns))));
+                new ArrayList<>(KeywordParameter.get("messages", s.asWithKeywordParameters(), Collections.emptySet(), d -> Diagnostics.translateDiagnostic((IConstructor)(((ITuple)d).get(1)), columns)))));
         }
     }
 
