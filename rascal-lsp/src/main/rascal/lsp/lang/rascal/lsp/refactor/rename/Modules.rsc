@@ -95,7 +95,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
                     else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1) {
                         qualPref = qualifiedPrefix(qn);
                         if (qualPref.name == modName || normalizeEscaping(qualPref.name) == modName) {
-                            seFiles += f;
+                            useFiles += f;
                             markedUse = true;
                         }
                         else if (qualPref.name == newModName || normalizeEscaping(qualPref.name) == newModName) {

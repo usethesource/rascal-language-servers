@@ -51,7 +51,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 }
 
 // Pattern variables
-tuple[type[Tree] as, str desc] asType(patternVariableId(), _) = <#Name, "pattern variable name">;
+tuple[type[Tree] as, str desc] asRoleType(patternVariableId(), _) = <#Name, "pattern variable name">;
 
 tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{<loc scope, _, _, patternVariableId(), _, _>}, list[Tree] cursor, str newName, Tree(loc) _, Renamer _) =
     <{scope.top}, {scope.top}, singleNameFilter(newName)(cursor[-1]) ? {scope.top} : {}>;
