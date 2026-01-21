@@ -267,7 +267,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         if (constructor == null) {
             return false;
         }
-        return KeywordParameter.get(parameter, constructor.asWithKeywordParameters(), false);
+        return KeywordParameter.get(parameter, constructor.asWithKeywordParameters(), true);
     }
 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
