@@ -33,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
@@ -54,6 +53,7 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.SummaryFields;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -69,7 +69,6 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.IWithKeywordParameters;
 
 /**
  * The purpose of this interface is to provide a general abstraction for
@@ -252,15 +251,8 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         }
 
         private InterruptibleFuture<Lazy<List<Diagnostic>>> extractMessages(@UnderInitialization MessagesOnlyScheduledSummary this, InterruptibleFuture<IConstructor> summary) {
-            return summary.thenApply(s -> Lazy.defer(() -> {
-                var sum = s.asWithKeywordParameters();
-                if (sum.hasParameter("messages")) {
-                    return ((ISet)sum.getParameter("messages")).stream()
-                        .map(d -> Diagnostics.translateDiagnostic((IConstructor)(((ITuple)d).get(1)), columns))
-                        .collect(Collectors.toList());
-                }
-                return Collections.emptyList();
-            }));
+            return summary.thenApply(s -> Lazy.defer(() ->
+                KeywordParameter.get("messages", s.asWithKeywordParameters(), Collections.emptyList(), d -> Diagnostics.translateDiagnostic((IConstructor)(((ITuple)d).get(1)), columns))));
         }
     }
 
@@ -339,14 +331,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
                 .thenApply(IConstructor::asWithKeywordParameters)
                 .thenApply(s ->
                     Lazy.defer(() ->
-                        translateRelation(logName, getKWFieldSet(s, kwField), valueMapper)));
-        }
-
-        private IRelation<ISet> getKWFieldSet(@UnderInitialization FullScheduledSummary this, IWithKeywordParameters<? extends IConstructor> data, String name) {
-            if (data.hasParameter(name)) {
-                return ((ISet) data.getParameter(name)).asRelation();
-            }
-            return IRascalValueFactory.getInstance().set().asRelation();
+                        translateRelation(logName, KeywordParameter.get(kwField, s, IRascalValueFactory.getInstance().set()).asRelation(), valueMapper)));
         }
 
         private <T> IRangeMap<List<T>> translateRelation(@UnderInitialization FullScheduledSummary this, String logName,

@@ -45,6 +45,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
@@ -87,23 +88,13 @@ public class DocumentSymbols {
     public static DocumentSymbol toLSP(IConstructor symbol, final LineColumnOffsetMap om) {
         IWithKeywordParameters<?> kwp = symbol.asWithKeywordParameters();
 
-        List<DocumentSymbol> children = kwp.hasParameter("children") ?
-            ((IList) kwp.getParameter("children"))
-                .stream()
-                .map(c -> toLSP((IConstructor) c, om))
-                .collect(Collectors.toList())
-            : Collections.emptyList();
-
+        List<DocumentSymbol> children = KeywordParameter.get("children", kwp, Collections.emptyList(), c -> toLSP((IConstructor) c, om));
         SymbolKind kind = symbolKindToLSP((IConstructor) symbol.get("kind"));
         String symbolName = ((IString) symbol.get("name")).getValue();
         Range range = Locations.toRange((ISourceLocation) symbol.get("range"), om);
-        Range selection = kwp.hasParameter("selection")
-            ? Locations.toRange(((ISourceLocation) kwp.getParameter("selection")), om)
-            : range;
-        String detail = kwp.hasParameter("detail") ? ((IString) kwp.getParameter("detail")).getValue() : null;
-        List<SymbolTag> tags = kwp.hasParameter("tags") ?
-            symbolTagsToLSP((ISet) kwp.getParameter("tags"))
-            : Collections.emptyList();
+        Range selection = KeywordParameter.get("selection", kwp, range, om);
+        String detail = KeywordParameter.get("detail", kwp, symbolName); // LSP default for detail is name
+        List<SymbolTag> tags = KeywordParameter.get("tags", kwp, Collections.emptyList(), DocumentSymbols::symbolTagToLSP);
 
         var lspSymbol = new DocumentSymbol(symbolName, kind, range, selection, detail, children);
         lspSymbol.setTags(tags); // since 3.16
@@ -122,12 +113,12 @@ public class DocumentSymbols {
         if (tags == null) {
             return Collections.emptyList();
         }
-        return tags.stream()
-            .map(IConstructor.class::cast)
-            .map(IConstructor::getName)
-            .map(DocumentSymbols::capitalize)
-            .map(SymbolTag::valueOf)
-            .collect(Collectors.toList());
+        return tags.stream().map(DocumentSymbols::symbolTagToLSP).collect(Collectors.toList());
+    }
+
+    static SymbolTag symbolTagToLSP(IValue tag) {
+        var name = ((IConstructor) tag).getName();
+        return SymbolTag.valueOf(DocumentSymbols.capitalize(name));
     }
 
     public static ISet symbolTagsToRascal(@Nullable List<SymbolTag> tags) {

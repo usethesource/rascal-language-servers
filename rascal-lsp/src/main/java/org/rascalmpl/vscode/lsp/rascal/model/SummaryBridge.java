@@ -38,6 +38,7 @@ import org.eclipse.lsp4j.Range;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -80,8 +81,8 @@ public class SummaryBridge {
 
     public SummaryBridge(ISourceLocation self, IConstructor summary, ColumnMaps cm) {
         this.data = summary.asWithKeywordParameters();
-        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), self, v -> Locations.toLocation((ISourceLocation)v, cm), cm));
-        typeNames = Lazy.defer(() -> translateMap(getKWFieldMap(data, "locationTypes"), self, v -> ((IString)v).getValue(), cm));
+        definitions = Lazy.defer(() -> translateRelation(KeywordParameter.get("useDef", data, EMPTY_SET), self, v -> Locations.toLocation((ISourceLocation) v, cm), cm));
+        typeNames = Lazy.defer(() -> translateMap(KeywordParameter.get("locationTypes", data, EMPTY_MAP), self, v -> ((IString) v).getValue(), cm));
 
     }
 
@@ -126,20 +127,6 @@ public class SummaryBridge {
             }
         });
         return result;
-    }
-
-    private static ISet getKWFieldSet(IWithKeywordParameters<? extends IConstructor> data, String name) {
-        if (data.hasParameter(name)) {
-            return (ISet) data.getParameter(name);
-        }
-        return EMPTY_SET;
-    }
-
-    private static IMap getKWFieldMap(IWithKeywordParameters<? extends IConstructor> data, String name) {
-        if (data.hasParameter(name)) {
-            return (IMap) data.getParameter(name);
-        }
-        return EMPTY_MAP;
     }
 
     private static <T> T replaceNull(@Nullable T value, T defaultValue) {

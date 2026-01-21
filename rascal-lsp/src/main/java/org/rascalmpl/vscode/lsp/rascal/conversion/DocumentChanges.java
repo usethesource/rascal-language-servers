@@ -47,7 +47,6 @@ import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
@@ -121,14 +120,9 @@ public class DocumentChanges {
 
         // Mirror defaults in `util::LanguageServer`
         // Setting any of those, means setting the defaults for the remaing ones
-        var label = kws.hasParameter(RascalADTs.TextEditFields.LABEL)
-            ? ((IString) kws.getParameter(RascalADTs.TextEditFields.LABEL)).getValue()
-            : "";
-        var description = kws.hasParameter(RascalADTs.TextEditFields.DESCRIPTION)
-            ? ((IString) kws.getParameter(RascalADTs.TextEditFields.DESCRIPTION)).getValue()
-            : label;
-        var needsConfirmation = kws.hasParameter(RascalADTs.TextEditFields.NEEDS_CONFIRMATION)
-            && ((IBool) kws.getParameter(RascalADTs.TextEditFields.NEEDS_CONFIRMATION)).getValue();
+        var label = KeywordParameter.get(RascalADTs.TextEditFields.LABEL, kws, "");
+        var description = KeywordParameter.get(RascalADTs.TextEditFields.DESCRIPTION, kws, label);
+        var needsConfirmation = KeywordParameter.get(RascalADTs.TextEditFields.NEEDS_CONFIRMATION, kws, false);
         var key = String.format("%s_%s_%b", label, description, needsConfirmation);
 
         changeAnnotations.computeIfAbsent(key, k -> {

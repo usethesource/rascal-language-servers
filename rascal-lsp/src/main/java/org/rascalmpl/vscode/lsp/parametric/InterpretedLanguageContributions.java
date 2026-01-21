@@ -51,6 +51,7 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
+import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -266,8 +267,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         if (constructor == null) {
             return false;
         }
-        var val = constructor.asWithKeywordParameters().getParameter(parameter);
-        return !(val instanceof IBool) || ((IBool)val).getValue();
+        return KeywordParameter.get(parameter, constructor.asWithKeywordParameters(), false);
     }
 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
