@@ -47,91 +47,46 @@ import io.usethesource.vallang.IWithKeywordParameters;
 
 public class KeywordParameter {
     public static @PolyNull String get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull String defaultVal) {
-        if (kws.hasParameter(name)) {
-            var param = kws.getParameter(name);
-            if (param instanceof IString) {
-                return ((IString) param).getValue();
-            }
-        }
-        return defaultVal;
+        return getCastTransform(IString.class, name, kws, defaultVal, IString::getValue);
     }
 
     public static boolean get(String name, IWithKeywordParameters<? extends IValue> kws, boolean defaultVal) {
-        if (kws.hasParameter(name)) {
-            var param = kws.getParameter(name);
-            if (param instanceof IBool) {
-                return ((IBool) param).getValue();
-            }
-        }
-        return defaultVal;
+        return getCastTransform(IBool.class, name, kws, defaultVal, IBool::getValue);
     }
 
     public static @PolyNull ISet get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull ISet defaultVal) {
-        if (kws.hasParameter(name)) {
-            var param = kws.getParameter(name);
-            if (param instanceof ISet) {
-                return ((ISet) param);
-            }
-        }
-        return defaultVal;
+        return getCastTransform(ISet.class, name, kws, defaultVal, Function.identity());
     }
 
     public static @PolyNull IList get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull IList defaultVal) {
-        if (kws.hasParameter(name)) {
-            var param = kws.getParameter(name);
-            if (param instanceof IList) {
-                return ((IList) param);
-            }
-        }
-        return defaultVal;
+        return getCastTransform(IList.class, name, kws, defaultVal, Function.identity());
     }
 
     public static @PolyNull IMap get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull IMap defaultVal) {
-        if (kws.hasParameter(name)) {
-            var param = kws.getParameter(name);
-            if (param instanceof IMap) {
-                return ((IMap) param);
-            }
-        }
-        return defaultVal;
+        return getCastTransform(IMap.class, name, kws, defaultVal, Function.identity());
     }
 
-    public static <T> @PolyNull List<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull List<T> defaultVal, Function<? super IValue, ? extends T> map) {
-        if (kws.hasParameter(name)) {
-            var param = kws.getParameter(name);
-            if (param instanceof IList) {
-                return ((IList) param).stream().map(map).collect(Collectors.toList());
-            }
-        }
-        return defaultVal;
+    public static <T> @PolyNull List<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull List<T> defaultVal, Function<? super IValue, ? extends T> transform) {
+        return getCastTransform(IList.class, name, kws, defaultVal, s -> s.stream().map(transform).collect(Collectors.toList()));
     }
 
-    public static <T> @PolyNull Set<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Set<T> defaultVal, Function<? super IValue, ? extends T> map) {
-        if (kws.hasParameter(name)) {
-            var param = kws.getParameter(name);
-            if (param instanceof ISet) {
-                return ((ISet) param).stream().map(map).collect(Collectors.toSet());
-            }
-        }
-        return defaultVal;
+    public static <T> @PolyNull Set<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Set<T> defaultVal, Function<? super IValue, ? extends T> transform) {
+        return getCastTransform(ISet.class, name, kws, defaultVal, s -> s.stream().map(transform).collect(Collectors.toSet()));
     }
 
     public static @PolyNull Range get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Range defaultVal, LineColumnOffsetMap cm) {
-        if (kws.hasParameter(name)) {
-            var param = kws.getParameter(name);
-            if (param instanceof ISourceLocation) {
-                return Locations.toRange((ISourceLocation) param, cm);
-            }
-        }
-
-        return defaultVal;
+        return getCastTransform(ISourceLocation.class, name, kws, defaultVal, r -> Locations.toRange(r, cm));
     }
 
-    public static <T> @PolyNull T get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull T defaultVal, Function<? super IConstructor, ? extends @PolyNull T> map) {
+    public static <T> @PolyNull T get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull T defaultVal, Function<? super IConstructor, ? extends @PolyNull T> transform) {
+        return getCastTransform(IConstructor.class, name, kws, defaultVal, transform);
+    }
+
+    private static <T, V extends IValue> @PolyNull T getCastTransform(Class<V> ival, String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull T defaultVal, Function<? super V, ? extends @PolyNull T> transform) {
         if (kws.hasParameter(name)) {
             var param = kws.getParameter(name);
-            if (param instanceof IConstructor) {
-                return map.apply((IConstructor) param);
+            if (ival.isInstance(param)) {
+                return transform.apply(ival.cast(param));
             }
         }
         return defaultVal;
