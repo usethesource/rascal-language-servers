@@ -26,7 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
-import java.util.HashSet;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 public class Sets {
@@ -41,7 +42,13 @@ public class Sets {
             return a;
         }
 
-        var c = new HashSet<>(a);
+        var c = new LinkedHashSet<>(a);
+        c.addAll(b);
+        return c;
+    }
+
+    public static <T> Set<T> union(Collection<T> a, Collection<T> b) {
+        var c = new LinkedHashSet<>(a);
         c.addAll(b);
         return c;
     }
