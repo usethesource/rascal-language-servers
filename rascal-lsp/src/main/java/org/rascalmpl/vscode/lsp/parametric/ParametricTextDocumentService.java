@@ -262,7 +262,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, Set.of(new CompletionCapability()), clientCapabilities);
+        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities, new CompletionCapability());
         dynamicCapabilities.registerStaticCapabilities(result);
 
         result.setDefinitionProvider(true);
