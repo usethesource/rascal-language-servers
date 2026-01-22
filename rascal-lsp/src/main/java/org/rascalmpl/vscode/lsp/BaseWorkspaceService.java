@@ -85,13 +85,11 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         var clientWorkspaceCap = clientCap.getWorkspace();
 
         WorkspaceServerCapabilities workspaceCapabilities = new WorkspaceServerCapabilities();
-        if (clientWorkspaceCap != null) {
-            if (clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
-                var folderOptions = new WorkspaceFoldersOptions();
-                folderOptions.setSupported(true);
-                folderOptions.setChangeNotifications(true);
-                workspaceCapabilities.setWorkspaceFolders(folderOptions);
-            }
+        if (clientWorkspaceCap != null && clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
+            var folderOptions = new WorkspaceFoldersOptions();
+            folderOptions.setSupported(true);
+            folderOptions.setChangeNotifications(true);
+            workspaceCapabilities.setWorkspaceFolders(folderOptions);
         }
 
         capabilities.setWorkspace(workspaceCapabilities);

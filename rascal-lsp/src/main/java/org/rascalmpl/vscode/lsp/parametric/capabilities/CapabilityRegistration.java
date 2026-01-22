@@ -287,7 +287,7 @@ public class CapabilityRegistration {
         }
 
         // Filter contributions by providing this capability
-        return CompletableFutureUtils.filter(languages, l -> cap.isProvidedBy(l)).<@Nullable Registration>thenCompose(cs -> {
+        return CompletableFutureUtils.filter(languages, cap::isProvidedBy).<@Nullable Registration>thenCompose(cs -> {
             if (cs.isEmpty()) {
                 return CompletableFutureUtils.completedFuture(null, exec);
             }
