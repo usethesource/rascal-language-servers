@@ -24,14 +24,24 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.concurrent.ExecutorService;
-import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import java.util.List;
+import java.util.concurrent.Executor;
+import org.eclipse.lsp4j.FileOperationFilter;
+import org.eclipse.lsp4j.FileOperationOptions;
+import org.eclipse.lsp4j.FileOperationPattern;
+import org.eclipse.lsp4j.ServerCapabilities;
 
-public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
-        super(exec, docService);
+public class DidDeleteFilesCapability  extends FileOperationCapability {
+
+    public DidDeleteFilesCapability(Executor exec) {
+        super("workspace/didDeleteFiles", exec);
     }
+
+    @Override
+    protected void registerStatically(ServerCapabilities result) {
+        result.getWorkspace().getFileOperations().setDidDelete(new FileOperationOptions(List.of(new FileOperationFilter(new FileOperationPattern("**/*")))));
+    }
+
 }
