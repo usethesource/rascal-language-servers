@@ -972,7 +972,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private <K, V> Map<V, Set<K>> invertMap(Map<K, V> m) {
-        return m.entrySet().stream().collect(Collectors.toMap(Entry::getValue, ((Function<Entry<K, V>, K>)Entry::getKey).andThen(Set::of), Sets::union));
+        return m.entrySet().stream().collect(Collectors.toMap(Entry::getValue, e -> Set.of(e.getKey()), Sets::union));
     }
 
     @Override
@@ -1042,7 +1042,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
             @Override
             public Set<String> fileExtensions() {
-                return Collections.unmodifiableSet(extensionsByLang.get(e.getKey()));
+                return extensionsByLang.getOrDefault(e.getKey(), Collections.emptySet());
             }
         }).collect(Collectors.toSet());
     }
