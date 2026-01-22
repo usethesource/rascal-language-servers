@@ -57,22 +57,22 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
     }
 
     @Override
-    final protected boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities) {
+    protected final boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities) {
         return clientCapabilities.getWorkspace().getFileOperations().getDynamicRegistration();
     }
 
     @Override
-    final protected CompletableFuture<Boolean> isProvidedBy(ICapabilityParams params) {
+    protected final CompletableFuture<Boolean> isProvidedBy(ICapabilityParams params) {
         return CompletableFutureUtils.completedFuture(!params.fileExtensions().isEmpty(), exec);
     }
 
     @Override
-    final protected FileOperationOptions mergeOptions(FileOperationOptions o1, FileOperationOptions o2) {
+    protected final FileOperationOptions mergeOptions(FileOperationOptions o1, FileOperationOptions o2) {
         return new FileOperationOptions(new ArrayList<>(Sets.union(o1.getFilters(), o2.getFilters())));
     }
 
     @Override
-    final protected CompletableFuture<@Nullable FileOperationOptions> options(ICapabilityParams params) {
+    protected final CompletableFuture<@Nullable FileOperationOptions> options(ICapabilityParams params) {
         return CompletableFutureUtils.completedFuture(new FileOperationOptions(params.fileExtensions().stream().map(FileOperationCapability::extensionFilter).collect(Collectors.toList())), exec);
     }
 
