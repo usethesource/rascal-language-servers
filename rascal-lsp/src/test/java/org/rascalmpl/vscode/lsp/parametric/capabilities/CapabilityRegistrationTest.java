@@ -41,6 +41,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -74,6 +75,7 @@ import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.NoContributions;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -169,6 +171,30 @@ public class CapabilityRegistrationTest {
 
     }
 
+    private static final LanguageParameter TEST_LANG = new LanguageParameter("", "test-lang", new String[] {"ext1", "ext2"}, "Main", "main", null);
+
+    private Collection<ICapabilityParams> params(Collection<ILanguageContributions> contribs) {
+        return contribs.stream().map(c -> param(TEST_LANG, c)).collect(Collectors.toSet());
+    }
+
+    private Collection<ICapabilityParams> params(ILanguageContributions contribs) {
+        return Set.of(param(TEST_LANG, contribs));
+    }
+
+    private ICapabilityParams param(LanguageParameter lang, ILanguageContributions contribs) {
+        return new ICapabilityParams() {
+            @Override
+            public ILanguageContributions contributions() {
+                return contribs;
+            }
+
+            @Override
+            public Set<String> fileExtensions() {
+                return Set.of(lang.getExtensions());
+            }
+        };
+    }
+
     @SafeVarargs
     private void registerSequentially(List<String>... options) throws InterruptedException, ExecutionException {
         registerSequentially(Stream.of(options).map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList()));
@@ -176,7 +202,7 @@ public class CapabilityRegistrationTest {
 
     private void registerSequentially(List<ILanguageContributions> contribs) throws InterruptedException, ExecutionException {
         for (int i = 0; i < contribs.size(); i++) {
-            dynCap.update(contribs.subList(0, i + 1)).get();
+            dynCap.update(params(contribs.subList(0, i + 1))).get();
         }
     }
 
@@ -200,7 +226,7 @@ public class CapabilityRegistrationTest {
         var trigChars = List.of(".", "::");
         var contribs = new SomeContribs(trigChars);
 
-        dynCap.update(List.of(contribs)).get();
+        dynCap.update(params(contribs)).get();
         verify(client, only()).registerCapability(registrationCaptor.capture());
         verify(serverCapabilities, never()).setCompletionProvider(any()); // no static registration
 
@@ -262,7 +288,7 @@ public class CapabilityRegistrationTest {
         registerSequentially(contribs);
 
         // unregister one of both
-        dynCap.update(contribs.subList(1, 2)).get();
+        dynCap.update(params(contribs.subList(1, 2))).get();
 
         InOrder inOrder = inOrder(client);
 
@@ -287,7 +313,7 @@ public class CapabilityRegistrationTest {
 
     @Test
     public void registerAndUnregister() throws InterruptedException, ExecutionException {
-        dynCap.update(List.of(new SomeContribs(List.of(".")))).get();
+        dynCap.update(params(new SomeContribs(List.of(".")))).get();
         dynCap.update(List.of()).get(); // empty multiplexer
 
         InOrder inOrder = inOrder(client);
@@ -299,8 +325,8 @@ public class CapabilityRegistrationTest {
     @Test
     public void registerAndUpdateEmpty() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
-        dynCap.update(List.of(contrib)).get();
-        dynCap.update(List.of(contrib, new NoContributions(contrib.getName(), exec))).get();
+        dynCap.update(params(contrib)).get();
+        dynCap.update(params(List.of(contrib, new NoContributions(contrib.getName(), exec)))).get();
 
         verify(client, only()).registerCapability(any());
     }
@@ -308,7 +334,7 @@ public class CapabilityRegistrationTest {
     @Test
     public void registerEmpty() throws InterruptedException, ExecutionException {
         var contrib = new NoContributions("NoneLang", exec);
-        dynCap.update(List.of(contrib)).get();
+        dynCap.update(params(contrib)).get();
 
         verify(client, never()).unregisterCapability(any());
         verify(client, never()).registerCapability(any());
@@ -317,9 +343,10 @@ public class CapabilityRegistrationTest {
     @Test
     public void nullOptionCapability() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
+        var param = param(TEST_LANG, contrib);
 
-        when(completion.options(contrib)).thenReturn(CompletableFuture.completedFuture(null));
-        dynCap.update(List.of(contrib)).get();
+        when(completion.options(param)).thenReturn(CompletableFuture.completedFuture(null));
+        dynCap.update(Set.of(param)).get();
 
         verify(client, only()).registerCapability(registrationCaptor.capture());
         assertNull(registrationCaptor.getValue().getRegistrations().get(0).getRegisterOptions());
@@ -332,7 +359,7 @@ public class CapabilityRegistrationTest {
         dynCap = new CapabilityRegistration(client, exec, Set.of(completion), clientCapabilities(false));
         dynCap.registerStaticCapabilities(serverCapabilities);
 
-        dynCap.update(List.of(contrib)).get();
+        dynCap.update(params(contrib)).get();
 
         verify(client, never()).registerCapability(any());
         verify(client, never()).unregisterCapability(any());
@@ -344,7 +371,7 @@ public class CapabilityRegistrationTest {
         dynCap = new CapabilityRegistration(client, exec, Set.of(new CompletionCapability(true)), clientCapabilities(true));
         dynCap.registerStaticCapabilities(serverCapabilities);
 
-        dynCap.update(List.of(new SomeContribs("."))).get();
+        dynCap.update(params(new SomeContribs("."))).get();
 
         verify(client, never()).registerCapability(any());
         verify(client, never()).unregisterCapability(any());
@@ -360,7 +387,7 @@ public class CapabilityRegistrationTest {
         var contribs = expectedTrigChars.stream().map(SomeContribs::new).map(ILanguageContributions.class::cast).collect(Collectors.toList());
         for (int i = 0; i < N; i++) {
             var sl = contribs.subList(0, i + 1);
-            var job = CompletableFuture.supplyAsync(() -> dynCap.update(sl), callerExec).thenCompose(Function.identity());
+            var job = CompletableFuture.supplyAsync(() -> dynCap.update(params(sl)), callerExec).thenCompose(Function.identity());
             jobs.add(job);
         }
         var optionSublists = IntStream.range(0, N).boxed().map(i -> expectedTrigChars.subList(0, i + 1)).collect(Collectors.toList());
