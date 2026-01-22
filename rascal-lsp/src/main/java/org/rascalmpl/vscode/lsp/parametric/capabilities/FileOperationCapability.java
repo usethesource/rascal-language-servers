@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.ArrayList;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -50,12 +49,6 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
         this.exec = exec;
     }
 
-    final FileOperationOptions fromExtensions(Set<String> extensions) {
-        return new FileOperationOptions(extensions.stream()
-            .map(ext -> new FileOperationFilter(new FileOperationPattern(String.format("**/*.%s", ext))))
-            .collect(Collectors.toList()));
-    }
-
     @Override
     protected final boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities) {
         return clientCapabilities.getWorkspace().getFileOperations().getDynamicRegistration();
@@ -73,7 +66,9 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
 
     @Override
     protected final CompletableFuture<@Nullable FileOperationOptions> options(ICapabilityParams params) {
-        return CompletableFutureUtils.completedFuture(new FileOperationOptions(params.fileExtensions().stream().map(FileOperationCapability::extensionFilter).collect(Collectors.toList())), exec);
+        return CompletableFutureUtils.completedFuture(new FileOperationOptions(params.fileExtensions().stream()
+            .map(FileOperationCapability::extensionFilter)
+            .collect(Collectors.toList())), exec);
     }
 
     private static FileOperationFilter extensionFilter(String ext) {
