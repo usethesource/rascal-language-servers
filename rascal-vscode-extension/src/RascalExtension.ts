@@ -268,7 +268,7 @@ export class RascalExtension implements vscode.Disposable {
         shellArgs.push();
         shellArgs.push(
             '-Dfile.encoding=UTF8'
-            , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
+            // , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
             , `-Drascal.languageRegistryPort=${await this.rascal.languageRegistry.serverPort}`
             , 'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
             , '--remoteIDEServicesPort'

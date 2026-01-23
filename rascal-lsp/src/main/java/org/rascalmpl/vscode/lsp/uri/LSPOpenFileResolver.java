@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ISourceLocationInput;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -122,7 +123,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
         }
         var current = getEditorState(uri).getCurrentContent();
         var modified = current.getTimestamp();
-        var isWritable = FallbackResolver.getInstance().isWritable(stripLspPrefix(uri));
+        var isWritable = URIResolverRegistry.getInstance().externalRegistry.isWritable(stripLspPrefix(uri));
         return new FileAttributes(
             true, true,
             modified, modified, //We fix the creation timestamp to be equal to the last modified time
