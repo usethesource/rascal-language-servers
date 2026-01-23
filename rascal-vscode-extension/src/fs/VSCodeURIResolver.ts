@@ -118,6 +118,16 @@ function connectWatchHandler(connection: rpc.MessageConnection, handler: ISource
     req("unwatch", handler.unwatch);
 }
 
+interface ILogicalSourceLocationResolver {
+    resolve(req: ISourceLocation) : Promise<ISourceLocation>
+}
+
+function connectLogicalResolver(connection: rpc.MessageConnection, handler: ILogicalSourceLocationResolver, toClear: Disposable[]) {
+    toClear.push(connection.onRequest(
+        new rpc.RequestType1<ISourceLocation, ISourceLocation, void>("rascal/vfs/logical/resolveLocation"), handler.resolve.bind(handler)
+    ));
+}
+
 // client side implementation receiving watch events
 export interface WatchEventReceiver {
     emitWatch(event: ISourceLocationChanged): void;
@@ -404,6 +414,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch not defined for: ' + removeWatch.uri, 'NotDefined');
     }
 
+    async resolve(req: ISourceLocation): Promise<ISourceLocation> {
+        return req;
+    }
+
     dispose() {
         this.activeWatches.clear();
         this.toClear.forEach(c => c.dispose());
@@ -413,8 +427,6 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             // ignore errors here, ase we are disposing anyway
         }
     }
-
-
 }
 
 class WatcherCallbacks implements Disposable {
