@@ -67,7 +67,7 @@ export async function activateLanguageClient(
         openEditor(uri, range, viewColumn);
     });
 
-    const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
+    const schemesReply = client.sendRequest<string[]>("rascal/vfs/schemes");
 
     schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);

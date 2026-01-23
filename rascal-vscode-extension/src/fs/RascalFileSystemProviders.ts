@@ -115,7 +115,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
-        return this.sendRequest<FileWithType[]>(uri, "rascal/filesystem/readDirectory")
+        return this.sendRequest<FileWithType[]>(uri, "rascal/vfs/input/list")
             .then(c => c.map(ft => [ft.name, ft.type]));
     }
 
@@ -124,12 +124,12 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
-        return this.sendRequest<string>(uri, "rascal/filesystem/readFile")
+        return this.sendRequest<string>(uri, "rascal/vfs/output/mkDirectory")
             .then(str => Buffer.from(str, "base64"));
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
-        return this.sendRequest(uri, "rascal/filesystem/writeFile", {
+        return this.sendRequest(uri, "rascal/vfs/output/writeFile", {
             uri: uri.toString(),
             append: false,
             create:options.create,
@@ -139,7 +139,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {
-        return this.sendRequest(uri, "rascal/filesystem/delete", uri.toString(), options.recursive);
+        return this.sendRequest(uri, "rascal/vfs/output/remove", uri.toString(), options.recursive);
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
