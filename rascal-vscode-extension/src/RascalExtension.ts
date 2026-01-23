@@ -266,15 +266,16 @@ export class RascalExtension implements vscode.Disposable {
             );
         }
         shellArgs.push();
+        const vfsServerPort = await this.vfsServer.serverPort;
         shellArgs.push(
             '-Dfile.encoding=UTF8'
-            // , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
             , `-Drascal.languageRegistryPort=${await this.rascal.languageRegistry.serverPort}`
-            , 'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
+            , `-Drascal.remoteResolverRegistryPort=${vfsServerPort}`
+            , 'org.rascalmpl.shell.RascalShell'
             , '--remoteIDEServicesPort'
             , '' + remoteIDEServicesConfiguration.port
             , '--vfsPort'
-            , '' + await this.vfsServer.serverPort
+            , '' + vfsServerPort
         );
         return shellArgs.concat(extraArgs || []);
     }
