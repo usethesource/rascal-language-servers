@@ -49,7 +49,7 @@ import String;
 import lang::rascal::\syntax::Rascal;
 
 import lang::rascalcore::check::Checker;
-import  lang::rascalcore::check::ATypeBase;
+import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::lsp::refactor::rename::Common;
