@@ -69,21 +69,16 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
     static final Logger IRascalFileSystemServices__logger = LogManager.getLogger(IRascalFileSystemServices.class);
     public static final ExecutorService executor = NamedThreadPool.cachedDaemon("rascal-vfs");
 
-    //@JsonRequest("rascal/filesystem/resolveLocation")
     @Override
-    /*default */public CompletableFuture<ISourceLocation> resolveLocation(ISourceLocation loc) {
+    public CompletableFuture<ISourceLocation> resolveLocation(ISourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // ISourceLocation tmp = loc.toRascalLocation();
-
-                // ISourceLocation resolved = Locations.toClientLocation(tmp);
                 ISourceLocation resolved = Locations.toClientLocation(URIResolverRegistry.getInstance().logicalToPhysical(loc));
 
                 if (resolved == null) {
                     return loc;
                 }
 
-                // return SourceLocation.fromRascalLocation(resolved);
                 return resolved;
             } catch (Exception e) {
                 IRascalFileSystemServices__logger.warn("Could not resolve location {}", loc, e);
@@ -92,12 +87,10 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    //@JsonRequest("rascal/filesystem/watch")
     @Override
-    /*default */public CompletableFuture<Void> watch(WatchRequest params) {
+    public CompletableFuture<Void> watch(WatchRequest params) {
         return CompletableFuture.runAsync(() -> {
             try {
-                // ISourceLocation loc = Locations.toLoc(params.getURI());
                 ISourceLocation loc = params.getLocation();
 
                 URIResolverRegistry.getInstance().watch(loc, params.isRecursive(), changed -> {
@@ -145,12 +138,10 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         return true;
     }
 
-    //@JsonRequest("rascal/filesystem/stat")
     @Override
-    /*default */public CompletableFuture<FileAttributesResult> stat(ISourceLocation loc) {
+    public CompletableFuture<FileAttributesResult> stat(ISourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // ISourceLocation loc = Locations.toLoc(uri);
                 if (!reg.exists(loc)) {
                     throw new FileNotFoundException();
                 }
@@ -175,12 +166,10 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    //@JsonRequest("rascal/filesystem/readDirectory")
     @Override
-    /*default */public CompletableFuture<FileWithType[]> list(ISourceLocation loc) {
+    public CompletableFuture<FileWithType[]> list(ISourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // ISourceLocation loc = Locations.toLoc(uri);
                 if (!reg.isDirectory(loc)) {
                     throw VSCodeFSError.notADirectory(loc);
                 }
@@ -192,12 +181,10 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    //@JsonRequest("rascal/filesystem/createDirectory")
     @Override
-    /*default */public CompletableFuture<Void> mkDirectory(ISourceLocation loc) {
+    public CompletableFuture<Void> mkDirectory(ISourceLocation loc) {
         return CompletableFuture.runAsync(() -> {
             try {
-                // reg.mkDirectory(Locations.toLoc(uri));
                 reg.mkDirectory(loc);
             } catch (IOException | RuntimeException e) {
                 throw new VSCodeFSError(e);
@@ -205,11 +192,9 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    //@JsonRequest("rascal/filesystem/readFile")
     @Override
-    /*default */public CompletableFuture<String> readFile(ISourceLocation loc) {
+    public CompletableFuture<String> readFile(ISourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
-            // try (InputStream source = new Base64InputStream(reg.getInputStream(Locations.toLoc(uri)), true)) {
             try (InputStream source = new Base64InputStream(reg.getInputStream(loc), true)) {
                 return new String(source.readAllBytes(), StandardCharsets.US_ASCII);
             } catch (IOException | RuntimeException e) {
@@ -218,13 +203,10 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    //@JsonRequest("rascal/filesystem/writeFile")
     @Override
-    /*default */public CompletableFuture<Void> writeFile(ISourceLocation loc, String content, boolean append, boolean create, boolean overwrite) {
+    public CompletableFuture<Void> writeFile(ISourceLocation loc, String content, boolean append, boolean create, boolean overwrite) {
         return CompletableFuture.runAsync(() -> {
             try {
-                // ISourceLocation loc = Locations.toLoc(uri);
-
                 boolean fileExists = reg.exists(loc);
                 if (!fileExists && !create) {
                     throw new FileNotFoundException(loc.toString());
@@ -250,12 +232,10 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    //@JsonRequest("rascal/filesystem/delete")
     @Override
-    /*default */public CompletableFuture<Void> remove(ISourceLocation loc, boolean recursive) {
+    public CompletableFuture<Void> remove(ISourceLocation loc, boolean recursive) {
         return CompletableFuture.runAsync(() -> {
             try {
-                // ISourceLocation loc = Locations.toLoc(uri);
                 reg.remove(loc, recursive);
             } catch (IOException e) {
                 throw new CompletionException(e);
@@ -263,14 +243,10 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    //@JsonRequest("rascal/filesystem/rename")
     @Override
-    /*default */public CompletableFuture<Void> rename(ISourceLocation from, ISourceLocation to, boolean overwrite) {
+    public CompletableFuture<Void> rename(ISourceLocation from, ISourceLocation to, boolean overwrite) {
         return CompletableFuture.runAsync(() -> {
             try {
-                // ISourceLocation oldLoc = Locations.toLoc(from);
-                // ISourceLocation newLoc = Locations.toLoc(to);
-                // reg.rename(oldLoc, newLoc, overwrite);
                 reg.rename(from, to, overwrite);
             } catch (IOException e) {
                 throw new CompletionException(e);
@@ -278,9 +254,8 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    // @JsonNotification("rascal/filesystem/onDidChangeFile")
     @Override
-    /*default */public void onDidChangeFile(FileChangeEvent event) { }
+    public void onDidChangeFile(FileChangeEvent event) { }
 
     /** Maps common exceptions to FileSystemError in VS Code */
     public static class VSCodeFSError extends ResponseErrorException {
