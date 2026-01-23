@@ -117,7 +117,7 @@ public abstract class BaseLanguageServer {
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
-            .configureGson(b -> GsonUtils.configureGson(b, GsonUtils.ComplexTypeMode.ENCODE_AS_JSON_OBJECT))
+            .configureGson(GsonUtils.complexAsJsonObject())
             .setExecutorService(threadPool)
             .create();
 
