@@ -33,7 +33,7 @@ import { JsonRpcServer } from "../util/JsonRpcServer";
 declare type ISourceLocation = URI;
 
 /**
- * VSCode implements this and offers it to the rascal-lsp server
+ * VS Code implements this and offers it to the rascal-lsp server
  */
 interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher { }
 
@@ -43,7 +43,7 @@ interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutp
 //interface VSCodeResolverClient extends WatchEventReceiver {}
 
 
-// Rascal's interface reduce to a subset we can support
+// Rascal's interface reduced to a subset we can support
 interface ISourceLocationInput {
     readFile(req: ISourceLocationRequest): Promise<string>;
     exists(req: ISourceLocationRequest): Promise<boolean>;
@@ -78,7 +78,7 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<boolean>("isWritable", handler.isWritable);
 }
 
-// Rascal's interface reduce to a subset we can support
+// Rascal's interface reduced to a subset we can support
 interface ISourceLocationOutput {
     writeFile(req: WriteFileRequest ): Promise<void>;
     mkDirectory(req: ISourceLocationRequest): Promise<void>;
@@ -103,7 +103,7 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req1("rename", handler.rename);
 }
 
-// Rascal's interface reduce to a subset we can support
+// Rascal's interface reduced to a subset we can support
 interface ISourceLocationWatcher {
     watch(newWatch: WatchRequest): Promise<void>;
     unwatch(removeWatch: WatchRequest): Promise<void>;
