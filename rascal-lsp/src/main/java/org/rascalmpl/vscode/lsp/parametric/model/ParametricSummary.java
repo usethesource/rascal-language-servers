@@ -34,8 +34,8 @@ import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
@@ -44,6 +44,7 @@ import org.eclipse.lsp4j.MarkedString;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
@@ -52,11 +53,10 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.ScheduledCalcu
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions.SummaryConfig;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.SummaryFields;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
-import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
@@ -498,13 +498,13 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
                 return null;
             }
 
-            var pos = Locations.toRascalPosition(file, cursor, columns);
-            var focus = TreeSearch.computeFocusList(tree.get(), pos.getLine(), pos.getCharacter());
+            var pos = Locations.setRange(file, new Range(cursor, cursor), columns);
+            var focus = TreeSearch.computeFocusList(tree.get(), pos.getBeginLine(), pos.getBeginColumn());
 
             InterruptibleFuture<ISet> set = null;
 
             if (focus.isEmpty()) {
-                logger.trace("{}: could not find substree at line {} and offset {}", logName, pos.getLine(), pos.getCharacter());
+                logger.trace("{}: could not find substree at line {} and offset {}", logName, pos.getBeginLine(), pos.getBeginColumn());
                 set = InterruptibleFuture.completedFuture(IRascalValueFactory.getInstance().set(), exec);
             } else {
                 logger.trace("{}: looked up focus with length: {}, now calling dedicated function", logName, focus.length());

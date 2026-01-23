@@ -47,6 +47,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
@@ -75,7 +76,6 @@ import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.MarkupContent;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
-import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
@@ -121,16 +121,16 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
+import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
+import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
-import org.rascalmpl.vscode.lsp.util.CodeActions;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
-import org.rascalmpl.vscode.lsp.util.DocumentChanges;
-import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
-import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.SelectionRanges;
-import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -230,7 +230,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         }
     }
 
-    public void initializeServerCapabilities(ServerCapabilities result) {
+    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
@@ -408,8 +408,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return recoverExceptions(file.getCurrentTreeAsync(false)
             .thenApply(Versioned::get)
             .thenApply(tr -> {
-                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
-                IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                ISourceLocation rascalCursorPos = Locations.setPosition(file.getLocation(), params.getPosition(), columns);
+                IList focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getBeginLine(), rascalCursorPos.getBeginColumn());
                 return findQualifiedNameUnderCursor(focus);
             })
             .thenApply(cur -> Locations.toRange(TreeAdapter.getLocation(cur), columns))
@@ -430,8 +430,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 return t;
             })
             .thenCompose(tr -> {
-                Position rascalCursorPos = Locations.toRascalPosition(file.getLocation(), params.getPosition(), columns);
-                var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getLine(), rascalCursorPos.getCharacter());
+                ISourceLocation rascalCursorPos = Locations.setPosition(file.getLocation(), params.getPosition(), columns);
+                var focus = TreeSearch.computeFocusList(tr, rascalCursorPos.getBeginLine(), rascalCursorPos.getBeginColumn());
                 var cursorTree = findQualifiedNameUnderCursor(focus);
                 var workspaceFolders = availableWorkspaceServices().workspaceFolders()
                     .stream()
@@ -491,7 +491,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), () -> null);
         }
         else {
-            return CompletableFuture.completedFuture(null);
+            return CompletableFutureUtils.completedFuture(null, exec);
         }
     }
 
@@ -611,9 +611,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
             .thenApply(tr -> params.getPositions().stream()
-                .map(p -> Locations.toRascalPosition(file.getLocation(), p, columns))
+                .map(p -> Locations.setPosition(file.getLocation(), p, columns))
                 .map(p -> {
-                    var focus = TreeSearch.computeFocusList(tr, p.getLine(), p.getCharacter());
+                    var focus = TreeSearch.computeFocusList(tr, p.getBeginLine(), p.getBeginColumn());
                     var locs = SelectionRanges.uniqueTreeLocations(focus);
                     return SelectionRanges.toSelectionRange(p, locs, columns);
                 })
@@ -684,7 +684,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
         // CompletableFuture<Stream<IValue>>
         CompletableFuture<Stream<IValue>> quickfixes
-            = CodeActions.extractActionsFromDiagnostics(params, availableRascalServices()::parseCodeActions);
+            = CodeActions.extractActionsFromDiagnostics(params, availableRascalServices()::parseCodeActions, exec);
 
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
@@ -693,9 +693,8 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose((ITree tree) -> {
-                    var doc = params.getTextDocument();
-                    var range = Locations.toRascalRange(doc, params.getRange(), columns);
-                    return computeCodeActions(range.getStart().getLine(), range.getStart().getCharacter(), tree, availableFacts().getPathConfig(Locations.toLoc(doc)));
+                    var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), columns);
+                    return computeCodeActions(loc.getBeginLine(), loc.getBeginColumn(), tree, availableFacts().getPathConfig(loc));
                 })
                 .thenApply(IList::stream)
             , Stream::empty)
@@ -708,7 +707,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
         return CompletableFuture.supplyAsync(() -> TreeSearch.computeFocusList(tree, startLine, startColumn), exec)
             .thenCompose(focus -> focus.isEmpty()
-                ? CompletableFuture.completedFuture(focus /* an empty list */)
+                ? CompletableFutureUtils.completedFuture(focus /* an empty list */, exec)
                 : availableRascalServices().codeActions(focus, pcfg).get());
     }
 

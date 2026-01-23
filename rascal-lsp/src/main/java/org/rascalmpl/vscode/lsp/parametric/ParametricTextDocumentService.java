@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -58,12 +59,16 @@ import org.eclipse.lsp4j.CallHierarchyItem;
 import org.eclipse.lsp4j.CallHierarchyOutgoingCall;
 import org.eclipse.lsp4j.CallHierarchyOutgoingCallsParams;
 import org.eclipse.lsp4j.CallHierarchyPrepareParams;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
@@ -133,18 +138,21 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
+import org.rascalmpl.vscode.lsp.rascal.conversion.CallHierarchy;
+import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Completion;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
+import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
-import org.rascalmpl.vscode.lsp.util.CallHierarchy;
-import org.rascalmpl.vscode.lsp.util.CodeActions;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
-import org.rascalmpl.vscode.lsp.util.DocumentChanges;
-import org.rascalmpl.vscode.lsp.util.DocumentSymbols;
-import org.rascalmpl.vscode.lsp.util.FoldingRanges;
-import org.rascalmpl.vscode.lsp.util.SelectionRanges;
-import org.rascalmpl.vscode.lsp.util.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -175,6 +183,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
+    private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
 
     private final Map<ISourceLocation, TextDocumentState> files;
     private final ColumnMaps columns;
@@ -239,7 +248,19 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    public void initializeServerCapabilities(ServerCapabilities result) {
+    private CapabilityRegistration availableCapabilities() {
+        if (dynamicCapabilities == null) {
+            throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
+        }
+        return dynamicCapabilities;
+    }
+
+    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
+        // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
+        // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
+        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, Set.of(new CompletionCapability()), clientCapabilities);
+        dynamicCapabilities.registerStaticCapabilities(result);
+
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setHoverProvider(true);
@@ -449,14 +470,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
-        ISourceLocation loc = Locations.toLoc(params.getTextDocument());
+        ISourceLocation loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
         ILanguageContributions contribs = contributions(loc);
-        Position rascalPos = Locations.toRascalPosition(loc, params.getPosition(), columns);
         return getFile(loc)
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(tree -> computeRename(contribs,
-                        rascalPos.getLine(), rascalPos.getCharacter(), params.getNewName(), tree));
+                        loc.getBeginLine(), loc.getBeginColumn(), params.getNewName(), tree));
     }
 
     private CompletableFuture<WorkspaceEdit> computeRename(final ILanguageContributions contribs, final int startLine,
@@ -691,6 +711,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private TextDocumentState getFile(ISourceLocation loc) {
+        loc = loc.top();
         TextDocumentState file = files.get(loc);
         if (file == null) {
             throw new ResponseErrorException(unknownFileError(loc, loc));
@@ -752,13 +773,13 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
         logger.debug("codeAction: {}", params);
 
-        var location = Locations.toLoc(params.getTextDocument());
+        var location = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), columns);
         final ILanguageContributions contribs = contributions(location);
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
         // and which came back with the codeAction's list of relevant (in scope) diagnostics:
         // CompletableFuture<Stream<IValue>>
-        var quickfixes = CodeActions.extractActionsFromDiagnostics(params, contribs::parseCodeActions);
+        var quickfixes = CodeActions.extractActionsFromDiagnostics(params, contribs::parseCodeActions, exec);
 
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
@@ -766,10 +787,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             getFile(location)
                 .getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
-                .thenCompose(tree -> {
-                    var range = Locations.toRascalRange(location, params.getRange(), columns);
-                    return computeCodeActions(contribs, range.getStart().getLine(), range.getStart().getCharacter(), tree);
-                })
+                .thenCompose(tree -> computeCodeActions(contribs, location.getBeginLine(), location.getBeginColumn(), tree))
                 .thenApply(IList::stream)
             , Stream::empty)
             ;
@@ -866,25 +884,24 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(t -> CompletableFutureUtils.reduce(params.getPositions().stream()
-                    .map(p -> Locations.toRascalPosition(loc, p, columns))
+                    .map(p -> Locations.setPosition(loc, p, columns))
                     .map(p -> computeSelection
-                        .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getLine(), p.getCharacter())))
+                        .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getBeginLine(), p.getBeginColumn())))
                         .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, columns)))
-                    .collect(Collectors.toUnmodifiableList()))),
+                    .collect(Collectors.toUnmodifiableList()), exec)),
             Collections::emptyList);
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
-        final var loc = Locations.toLoc(params.getTextDocument());
+        final var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
         final var contrib = contributions(loc);
         final var file = getFile(loc);
 
         return recoverExceptions(file.getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
-            .thenCompose(t -> {
-                final var pos = Locations.toRascalPosition(loc, params.getPosition(), columns);
-                return contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, pos.getLine(), pos.getCharacter()))
+            .thenCompose(t ->
+                contrib.prepareCallHierarchy(TreeSearch.computeFocusList(t, loc.getBeginLine(), loc.getBeginColumn()))
                     .get()
                     .thenApply(items -> {
                         var ch = new CallHierarchy(exec);
@@ -892,8 +909,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                             .map(IConstructor.class::cast)
                             .map(ci -> ch.toLSP(ci, columns))
                             .collect(Collectors.toList());
-                    });
-            }), Collections::emptyList);
+                    })), Collections::emptyList);
     }
 
     private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
@@ -926,6 +942,25 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(incomingOutgoingCalls(CallHierarchyOutgoingCall::new, params.getItem(), CallHierarchy.Direction.OUTGOING), Collections::emptyList);
     }
 
+    @Override
+    public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
+        logger.debug("Completion: {} at {} with {}", params.getTextDocument(), params.getPosition(), params.getContext());
+
+        var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
+        var contrib = contributions(loc);
+        var file = getFile(loc);
+
+        return recoverExceptions(file.getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(t -> {
+                var completion = new Completion();
+                var focus = TreeSearch.computeFocusList(t, loc.getBeginLine(), loc.getBeginColumn());
+                var cursorOffset = loc.getBeginColumn() - TreeAdapter.getLocation((ITree) focus.get(0)).getBeginColumn();
+                return contrib.completion(focus, VF.integer(cursorOffset), completion.triggerKindToRascal(params.getContext())).get()
+                    .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName(), loc.getBeginLine(), columns.get(loc)));
+            })
+            .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
+    }
 
     @Override
     public synchronized void registerLanguage(LanguageParameter lang) {
@@ -959,6 +994,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
+        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
+        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
+        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
+        availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
+
         fact.reloadContributions();
         fact.setClient(clientCopy);
 
@@ -976,6 +1016,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private void updateFileState(LanguageParameter lang, ISourceLocation f) {
+        f = f.top();
         logger.trace("File of language {} - updating state: {}", lang.getName(), f);
         // Since we cannot know what happened to this file before we were called, we need to be careful about races.
         // It might have been closed in the meantime, so we compute the new value if the key still exists, based on the current value.
@@ -1020,6 +1061,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             facts.remove(lang.getName());
             contributions.remove(lang.getName());
         }
+
+        availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
     }
 
     @Override

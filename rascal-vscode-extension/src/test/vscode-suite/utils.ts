@@ -29,7 +29,7 @@ import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
 import * as os from 'os';
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, CodeLens, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 import path = require("path");
 
 export async function sleep(ms: number) {
@@ -509,4 +509,12 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             }
         }
     });
+}
+
+export async function expectCompletions(editor: TextEditor, expectedLabels: string[]) {
+    const completionMenu = new ContentAssist(editor);
+    const completions = await completionMenu.getItems();
+    expect(completions).to.have.length(expectedLabels.length);
+    const labels: string[] = await Promise.all(completions.map(c => c.getLabel()));
+    expect(labels).to.deep.equal(expectedLabels);
 }

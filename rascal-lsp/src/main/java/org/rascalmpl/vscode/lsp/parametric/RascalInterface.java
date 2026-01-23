@@ -39,6 +39,7 @@ import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IConstructor;
@@ -67,8 +68,9 @@ public class RascalInterface {
                     .setRemoteInterface(LanguageRegistry.class)
                     .setInput(socket.getInputStream())
                     .setOutput(socket.getOutputStream())
+                    .setExecutorService(NamedThreadPool.cachedDaemon("rascal-interface"))
                     .create();
-                
+
                 clientLauncher.startListening();
                 registry = clientLauncher.getRemoteProxy();
             }

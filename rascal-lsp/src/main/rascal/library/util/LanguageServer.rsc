@@ -220,6 +220,19 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((callHierarchy)) service discovers callable definitions and call sites. It consists of two subservices.
     1. The first argument, `callableItem`, computes ((CallHierarchyItem))s (definitions) for a given cursor.
     2. The second argument, `calculateCalls`, computes ((incoming)) or ((outgoing)) calls (uses) of a given ((CallHierarchyItem)) `ci`. It returns a list relation of ((CallHierarchyItem))s and the location(s) of the call(s) to `ci` these definitions have.
+* The ((completion)) service is called with the current the focus, the offset of the cursor inside the smallest focus tree (`focus[0]`), and the how the user triggered completion (explicit invocation or by typing a trigger character).
+    It should return a list of completion suggestions.
+    - If a non-empty list is returned the user is asked to select one of the completion suggestions.
+    - If an empty list is returned, an empty list of completions is presented to the user.
+    - When `completionService` throws an exception no completion popup is shown.
+    The optional list of trigger characters can contain a list of extra characters that trigger completion.
+    These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
+
+    We have chosen to support all features of the LSP CompletionItem except:
+    * To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
+    * Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
+
+Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -288,7 +301,106 @@ data LanguageService
     | callHierarchy (
         list[CallHierarchyItem] (Focus _focus) prepareService,
         lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) callsService)
+    | completion(list[CompletionItem] (Focus _focus, int cursorOffset, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = [])
     ;
+
+@description{
+Definition of completion service. Kept separate from the LanguageService for now to allow for easy discussion.
+`completionService`` is called with the current the focus, the offset of the cursor inside the smallest focus tree (`focus[0]`), and the how the user triggered completion (explicit invocation or by typing a trigger character).
+ It should return a list of completion suggestions.
+ - If a non-empty list is returned the user is asked to select one of the completion suggestions.
+ - If an empty list is returned, an empty list of completions is presented to the user.
+ - When `completionService` throws an exception no completion popup is shown.
+ The optional list of trigger characters can contain a list of extra characters that trigger completion.
+ These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
+
+We have choosen to support all features of the LSP CompletionItem except:
+* To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
+* Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
+
+Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
+}
+
+@synopsis{Represents a concrete completion proposal that the user can select.}
+@description{
+The following fields can be used:
+    * *kind* (required): Used to indicate what kind of completion this is. This is typically used to show an appropriate icon next to the completion item.
+    * *edit* (required): Specification of the edit that will occur if this completion proposal is accepted by the user.
+    * *label* (required): The label shown to identify the completion item. The label should make it clear for the user what the result of the completion will be.
+    * *labelDetail*: Shown directly after the label and can for instance be used to show the function parameters.
+    * *labelDescription*: Shown after the label details. This is typically used to show information about the (return) type when a completion is a function or variable.
+    * *detail*: Text that is shown when the user asks for more information about a particular completion.
+    * *documentation*: Markup that documents the construct that a completion will generate.
+    * *sortText*: Used to sort the list of completions. If not set, completion suggestions will be sorted based on *label*.
+    * *filterText*: Used to filter the list of completions based on user input while selecting a completion item. A known VSCode quirk is that
+        if *completionEdit* starts before the cursor, the text currently before the cursor is included as "user input" for filtering.
+        For example if the user starts completion like this: `pr|i` (where `|` represents the cursor) and you generate the completion edit to
+        replace the whole string `pri` with `print`, *filterText* should be set to `pr` or the completion will not show up in the list.
+        If you leave this blank, the correct filter text will be generated for you. If not, we assume you know what you are doing and use the
+        *filterText* you provide as-is.
+    * *deprecated*: Set this to `true` to mark this completion suggestion as deprecated.
+    * *commitCharacters*: When one of these characters is typed, the completion suggestion is accepted and the character is inserted after the completed text.
+    * *additionalChanges*: Any additional changes anywhere else in the document. This can for instance be used to add imports.
+    * *command*: Command executed after the completion edits are done. For instance, in some cases it might be practical to move the cursor after the edit.
+}
+data CompletionItem = completionItem(
+    CompletionItemKind kind,
+    CompletionEdit edit,
+
+    str label,
+    str labelDetail = "",
+    str labelDescription = "",
+
+    str detail = "",
+    str documentation = "",
+
+    str sortText = "",
+    str filterText = "",
+
+    bool deprecated = false,
+    bool preselect = false,
+
+    list[str] commitCharacters = [],
+
+    list[TextEdit] additionalChanges = [],
+
+    Command command = noop()
+);
+
+@synopsis{Definition of a completion edit}
+@description{
+    * *startColumn (required): The column where the completion edit operation will take place. Must be at or before the cursor position.
+    * *insertEndColumn* (required): End column when the user chooses completion by insertion  (for instance by pressing "Enter" in VSCode).
+    * *replaceEndColumn* (required): End column when the user chooses completion by replacement (for instance by pressing "Shift-Enter" in VSCode).
+        Note: *insertEndColumn* must not be larger than *replaceEndColumn* and both must be at or to the right of the cursor position.
+    * *newText* (required): The text that will be used to perform the completion. Depending on what kind of completion (insertion
+        or replacement) selected by the user, the original text from *startColumn* to either *insertEndColumn* or *replaceEndColumn* will
+        be replaced by *newText*.
+    * *snippet*: Can be set to true to indicate that the replacement text should be interpreted as a snippet.
+        Snippets can contain tabstops, placeholders, choices, and variables. For more information about snippets see the
+        [LSP specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#snippet_syntax).
+        Note that it is the responsibility of the language developer that snippets as presented to the user are syntactically correct to
+        provide a decent user experience.
+}
+data CompletionEdit = completionEdit(
+    int startColumn,
+    int insertEndColumn,
+    int replaceEndColumn,
+    str newText,
+    bool snippet = false
+);
+
+@synopsis{What kind of completion item is returned.}
+@description{
+    In VSCode this is used mainly to display a small icon next to each completion item.
+    The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): `namespace`, `package`, `string`, `number`, `boolean`, `array`, `object`, `key`, `null`.
+}
+alias CompletionItemKind = DocumentSymbolKind;
+
+@synopsis{
+Manual invocation or invocation by trigger characters
+}
+data CompletionTrigger = invoked() | character(str trigger);
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
@@ -535,9 +647,10 @@ data Summary = summary(loc src,
     rel[loc, loc]     implementations = {}
 );
 
-data Completion = completion(str newText, str proposal=newText);
-
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
+@description{
+    Invalid values for kind are: text, unit, value, keyword, snippet, color, reference, folder. These can only be used as ((CompletionItemKind))
+}
 data DocumentSymbol
     = symbol(
         str name,
@@ -549,6 +662,10 @@ data DocumentSymbol
         set[DocumentSymbolTag] tags = {}
     );
 
+@description{
+    List of types that can be used for DocumentSymbol and CompletionItem.
+    The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): `namespace`, `package`, `string`, `number`, `boolean`, `array`, `object`, `key`, `null`.
+}
 data DocumentSymbolKind
 	= \file()
 	| \module()
@@ -576,13 +693,19 @@ data DocumentSymbolKind
 	| \event()
 	| \operator()
 	| \typeParameter()
+    | \text()
+    | \unit()
+    | \value()
+    | \keyword()
+    | \snippet()
+    | \color()
+    | \reference()
+    | \folder()
     ;
 
 data DocumentSymbolTag
     = \deprecated()
     ;
-
-data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
 @synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
 @description{

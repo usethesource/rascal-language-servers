@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.rascal.conversion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -139,6 +139,10 @@ public class DocumentChanges {
         });
 
         return key;
+    }
+
+    public static List<TextEdit> translateTextEdits(IList edits, final ColumnMaps columns) {
+        return translateTextEdits(edits, null, columns, new HashMap<>());
     }
 
     private static List<TextEdit> translateTextEdits(IList edits, @Nullable String parentAnno, final ColumnMaps columns, Map<String, ChangeAnnotation> changeAnnotations) {

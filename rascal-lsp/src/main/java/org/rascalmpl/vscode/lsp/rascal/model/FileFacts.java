@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -43,8 +42,9 @@ import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lists;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
@@ -159,7 +159,7 @@ public class FileFacts {
             parseMessages = msgs;
             sendDiagnostics();
         }
-        
+
         @Override
         public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
             typeCheckerMessages = msgs;
@@ -205,7 +205,7 @@ public class FileFacts {
         public void clearDiagnostics() {
             summary.invalidate();
             typeCheckerMessages.clear();
-            typeCheckResults.replace(CompletableFuture.completedFuture(Map.of()));
+            typeCheckResults.replace(CompletableFutureUtils.completedFuture(Map.of(), exec));
             client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), List.of()));
         }
     }
@@ -223,7 +223,7 @@ public class FileFacts {
 
         @Override
         public CompletableFuture<@Nullable SummaryBridge> getSummary() {
-            return CompletableFuture.completedFuture(null);
+            return CompletableFutureUtils.completedFuture(null, exec);
         }
 
         @Override

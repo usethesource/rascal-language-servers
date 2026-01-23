@@ -35,10 +35,10 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.util.Lazy;
-import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeMapLookup;
@@ -80,7 +80,7 @@ public class SummaryBridge {
 
     public SummaryBridge(ISourceLocation self, IConstructor summary, ColumnMaps cm) {
         this.data = summary.asWithKeywordParameters();
-        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), self, v -> Locations.toLSPLocation((ISourceLocation)v, cm), cm));
+        definitions = Lazy.defer(() -> translateRelation(getKWFieldSet(data, "useDef"), self, v -> Locations.toLocation((ISourceLocation)v, cm), cm));
         typeNames = Lazy.defer(() -> translateMap(getKWFieldMap(data, "locationTypes"), self, v -> ((IString)v).getValue(), cm));
 
     }
