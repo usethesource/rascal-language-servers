@@ -278,16 +278,6 @@ public class IRascalFileSystemServices implements IRemoteResolverRegistry {
         }, executor);
     }
 
-    //@JsonRequest("rascal/filesystem/schemes")
-    @Override
-    /*default */public CompletableFuture<String[]> fileSystemSchemes() {
-        Set<String> inputs = reg.getRegisteredInputSchemes();
-        Set<String> logicals = reg.getRegisteredLogicalSchemes();
-
-        return CompletableFuture
-                .completedFuture(Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new));
-    }
-
     // @JsonNotification("rascal/filesystem/onDidChangeFile")
     @Override
     /*default */public void onDidChangeFile(FileChangeEvent event) { }
