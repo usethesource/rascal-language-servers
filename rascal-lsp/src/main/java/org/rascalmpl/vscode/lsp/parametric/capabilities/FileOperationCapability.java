@@ -38,7 +38,9 @@ import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationPatternKind;
 import org.eclipse.lsp4j.FileOperationPatternOptions;
+import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -91,6 +93,20 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
         return new FileOperationFilter(pat);
     }
 
+    private static FileOperationsServerCapabilities fileOperationCapabilities(ServerCapabilities caps) {
+        var workspace = caps.getWorkspace();
+        if (workspace == null) {
+            workspace = new WorkspaceServerCapabilities();
+            caps.setWorkspace(workspace);
+        }
+        var fileOps = workspace.getFileOperations();
+        if (fileOps == null) {
+            fileOps = new FileOperationsServerCapabilities();
+            workspace.setFileOperations(fileOps);
+        }
+        return fileOps;
+    }
+
     /**
      * File created notification capability.
      *
@@ -104,7 +120,7 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
 
         @Override
         protected void registerStatically(ServerCapabilities result) {
-            result.getWorkspace().getFileOperations().setDidCreate(staticOptions());
+            fileOperationCapabilities(result).setDidCreate(staticOptions());
         }
 
     }
@@ -122,7 +138,7 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
 
         @Override
         protected void registerStatically(ServerCapabilities result) {
-            result.getWorkspace().getFileOperations().setDidDelete(staticOptions());
+            fileOperationCapabilities(result).setDidDelete(staticOptions());
         }
 
     }
@@ -140,7 +156,7 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
 
         @Override
         protected void registerStatically(ServerCapabilities result) {
-            result.getWorkspace().getFileOperations().setDidRename(staticOptions());
+            fileOperationCapabilities(result).setDidRename(staticOptions());
         }
 
     }
