@@ -54,7 +54,6 @@ import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 public class SemanticTokenizer {
@@ -415,10 +414,7 @@ public class SemanticTokenizer {
                 category = TokenTypes.AMBIGUITY;
             }
 
-            IValue catParameter = tree.asWithKeywordParameters().getParameter("category");
-            if (category == null && catParameter != null) {
-                category = ((IString) catParameter).getValue();
-            }
+            category = KeywordParameter.get("category", tree.asWithKeywordParameters(), category);
 
             IConstructor prod = TreeAdapter.getProduction(tree);
             if (category == null && ProductionAdapter.isDefault(prod)) {

@@ -51,7 +51,6 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.CompletionFields;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
@@ -86,22 +85,24 @@ public class Completion {
 
                 var edit = (IConstructor) c.get(CompletionFields.EDIT);
                 ci.setTextEdit(Either.forRight(editToLSP(edit, editLine, offsets)));
-                ci.setInsertTextFormat(isSnippet(edit) ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
+                ci.setInsertTextFormat(KeywordParameter.get(CompletionFields.SNIPPET, edit.asWithKeywordParameters(), false)
+                    ? InsertTextFormat.Snippet
+                    : InsertTextFormat.PlainText);
                 ci.setInsertTextMode(InsertTextMode.AsIs);
                 ci.setLabel(((IString) c.get(CompletionFields.LABEL)).getValue());
                 ci.setKind(itemKindToLSP((IConstructor) c.get(CompletionFields.KIND)));
                 var label = new CompletionItemLabelDetails();
-                label.setDetail(getKwParamString(kws, CompletionFields.LABEL_DETAIL, ""));
-                label.setDescription(getKwParamString(kws, CompletionFields.LABEL_DESCRIPTION, ""));
+                label.setDetail(KeywordParameter.get(CompletionFields.LABEL_DETAIL, kws, ""));
+                label.setDescription(KeywordParameter.get(CompletionFields.LABEL_DESCRIPTION, kws, ""));
                 ci.setLabelDetails(label);
-                ci.setDetail(getKwParamString(kws, CompletionFields.DETAIL, ""));
-                ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, getKwParamString(kws, CompletionFields.DOCUMENTATION, "")));
-                ci.setSortText(getKwParamString(kws, CompletionFields.SORT_TEXT, ""));
-                ci.setFilterText(getKwParamString(kws, CompletionFields.FILTER_TEXT, ""));
-                ci.setTags(getKwParamBool(kws, CompletionFields.DEPRECATED, false) ? List.of(CompletionItemTag.Deprecated) : Collections.emptyList());
-                ci.setPreselect(getKwParamBool(kws, CompletionFields.PRESELECT, false));
-                ci.setCommitCharacters(getKwParamList(kws, CompletionFields.COMMIT_CHARACTERS, VF.list()).stream().map(ch -> ((IString) ch).getValue()).collect(Collectors.toList()));
-                ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(getKwParamList(kws, CompletionFields.ADDITIONAL_CHANGES, VF.list()), docService.getColumnMaps()));
+                ci.setDetail(KeywordParameter.get(CompletionFields.DETAIL, kws, ""));
+                ci.setDocumentation(new MarkupContent(MarkupKind.MARKDOWN, KeywordParameter.get(CompletionFields.DOCUMENTATION, kws, "")));
+                ci.setSortText(KeywordParameter.get(CompletionFields.SORT_TEXT, kws, ""));
+                ci.setFilterText(KeywordParameter.get(CompletionFields.FILTER_TEXT, kws, ""));
+                ci.setTags(KeywordParameter.get(CompletionFields.DEPRECATED, kws, false) ? List.of(CompletionItemTag.Deprecated) : Collections.emptyList());
+                ci.setPreselect(KeywordParameter.get(CompletionFields.PRESELECT, kws, false));
+                ci.setCommitCharacters(KeywordParameter.get(CompletionFields.COMMIT_CHARACTERS, kws, List.of(), ch -> ((IString) ch).getValue()));
+                ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(KeywordParameter.get(CompletionFields.ADDITIONAL_CHANGES, kws, VF.list()), docService.getColumnMaps()));
                 var command = getCommand(kws, dedicatedLanguageName, languageName);
                 if (command != null) {
                     ci.setCommand(command);
@@ -130,11 +131,6 @@ public class Completion {
         );
     }
 
-    private boolean isSnippet(IConstructor edit) {
-        return edit.asWithKeywordParameters().hasParameter(CompletionFields.SNIPPET)
-            && ((IBool) edit.asWithKeywordParameters().getParameter(CompletionFields.SNIPPET)).getValue();
-    }
-
     private CompletionItemKind itemKindToLSP(IConstructor kind) {
         var docSymKind = DocumentSymbols.symbolKindToLSP(kind);
         try {
@@ -143,21 +139,6 @@ public class Completion {
             logger.warn("Completion has item kind {}, but only values from DocumentSymbolKind are supported.", docSymKind.name());
             return CompletionItemKind.Text;
         }
-    }
-
-    private String getKwParamString(IWithKeywordParameters<? extends IConstructor> c, String label, String defaultVal) {
-        var param = c.getParameter(label);
-        return param instanceof IString ? ((IString) param).getValue() : defaultVal;
-    }
-
-    private boolean getKwParamBool(IWithKeywordParameters<? extends IConstructor> c, String label, boolean defaultVal) {
-        var param = c.getParameter(label);
-        return param instanceof IBool ? ((IBool) param).getValue() : defaultVal;
-    }
-
-    private IList getKwParamList(IWithKeywordParameters<? extends IConstructor> c, String label, IList defaultVal) {
-        var param = c.getParameter(label);
-        return param instanceof IList ? (IList) param : defaultVal;
     }
 
     public IConstructor triggerKindToRascal(@Nullable CompletionContext context) {

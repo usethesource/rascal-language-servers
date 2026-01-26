@@ -85,3 +85,25 @@ public abstract class ResourceOperation {
   public @Nullable String getAnnotationId() {}
   public void setAnnotationId(final @Nullable String annotationId) { }
 }
+
+
+package org.eclipse.lsp4j;
+
+import java.util.List;
+import org.checkerframework.checker.nullness.qual.*;
+
+public class Diagnostic {
+  public void setRelatedInformation(@Nullable final List<DiagnosticRelatedInformation> relatedInformation) { }
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.eclipse.lsp4j.*;
+import java.util.List;
+import org.checkerframework.checker.nullness.qual.*;
+
+public class CallHierarchyItem {
+  public void setDetail(@Nullable final String detail) { }
+  public void setData(@Nullable final Object data) { }
+}

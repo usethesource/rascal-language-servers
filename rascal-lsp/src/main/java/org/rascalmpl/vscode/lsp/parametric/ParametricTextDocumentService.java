@@ -153,6 +153,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
@@ -163,7 +164,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
-import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -644,8 +644,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var label = ((IString) t.get("label")).getValue();
         var kind = (IConstructor) t.get("kind");
         var tKW = t.asWithKeywordParameters();
-        var toolTip = (IString)tKW.getParameter("toolTip");
-        var atEnd = tKW.hasParameter("atEnd") && ((IBool)tKW.getParameter("atEnd")).getValue();
+        var toolTip = KeywordParameter.get("toolTip", tKW, (String) null);
+        var atEnd = KeywordParameter.get("atEnd", tKW, false);
 
         // translate to lsp
         var result = new InlayHint(Locations.toPosition(loc, columns, atEnd), Either.forLeft(label.trim()));
@@ -653,7 +653,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         result.setPaddingLeft(label.startsWith(" "));
         result.setPaddingRight(label.endsWith(" "));
         if (toolTip != null && toolTip.length() > 0) {
-            result.setTooltip(toolTip.getValue());
+            result.setTooltip(toolTip);
         }
         return result;
     }
