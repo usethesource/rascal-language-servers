@@ -29,6 +29,9 @@ package org.rascalmpl.vscode.lsp.parametric.capabilities;
 import java.util.Set;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
+/**
+ * Provider of parameters required to compute which instances of {@link AbstractDynamicCapability} are supported and what options they should be registered with.
+ */
 public interface ICapabilityParams {
     ILanguageContributions contributions();
     Set<String> fileExtensions();

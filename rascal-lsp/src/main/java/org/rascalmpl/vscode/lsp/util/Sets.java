@@ -34,6 +34,9 @@ public class Sets {
 
     private Sets() { /* hide implicit constructor */ }
 
+    /**
+     * Order-preserving set union.
+     */
     public static <T> Set<T> union(Set<T> a, Set<T> b) {
         if (a.isEmpty()) {
             return b;
@@ -47,6 +50,9 @@ public class Sets {
         return c;
     }
 
+    /**
+     * Order-preserving set union.
+     */
     public static <T> Set<T> union(Collection<T> a, Collection<T> b) {
         var c = new LinkedHashSet<>(a);
         c.addAll(b);
