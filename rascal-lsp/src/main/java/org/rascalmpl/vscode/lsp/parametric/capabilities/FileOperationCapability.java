@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -37,9 +38,13 @@ import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationPatternKind;
 import org.eclipse.lsp4j.FileOperationPatternOptions;
+import org.eclipse.lsp4j.ServerCapabilities;
 import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
+/**
+ * Collection of capabilities related to file operations.
+ */
 public abstract class FileOperationCapability extends AbstractDynamicCapability<FileOperationOptions> {
 
     private final Executor exec;
@@ -71,11 +76,73 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
             .collect(Collectors.toList())), exec);
     }
 
+    /**
+     * Options to use when registering statically, i.e. nothing is known about the registered languages.
+     */
+    private static FileOperationOptions staticOptions() {
+        // Since we do not know what the extenstions of the to-be-registered languages are, we match on anything.
+        return new FileOperationOptions(List.of(new FileOperationFilter(new FileOperationPattern("**/*"))));
+    }
+
     private static FileOperationFilter extensionFilter(String ext) {
         var pat = new FileOperationPattern(String.format("**/*.%s", ext));
         pat.setOptions(new FileOperationPatternOptions(true));
         pat.setMatches(FileOperationPatternKind.File);
         return new FileOperationFilter(pat);
+    }
+
+    /**
+     * File created notification capability.
+     *
+     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#workspace_didCreateFiles
+     */
+    public static class DidCreateFiles extends FileOperationCapability {
+
+        public DidCreateFiles(Executor exec) {
+            super("workspace/didCreateFiles", exec);
+        }
+
+        @Override
+        protected void registerStatically(ServerCapabilities result) {
+            result.getWorkspace().getFileOperations().setDidCreate(staticOptions());
+        }
+
+    }
+
+    /**
+     * File deleted notification capability.
+     *
+     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#workspace_didDeleteFiles
+     */
+    public static class DidDeleteFiles extends FileOperationCapability {
+
+        public DidDeleteFiles(Executor exec) {
+            super("workspace/didDeleteFiles", exec);
+        }
+
+        @Override
+        protected void registerStatically(ServerCapabilities result) {
+            result.getWorkspace().getFileOperations().setDidDelete(staticOptions());
+        }
+
+    }
+
+    /**
+     * File renamed notification capability.
+     *
+     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#workspace_didRenameFiles
+     */
+    public static class DidRenameFiles extends FileOperationCapability {
+
+        public DidRenameFiles(Executor exec) {
+            super("workspace/didRenameFiles", exec);
+        }
+
+        @Override
+        protected void registerStatically(ServerCapabilities result) {
+            result.getWorkspace().getFileOperations().setDidRename(staticOptions());
+        }
+
     }
 
 }
