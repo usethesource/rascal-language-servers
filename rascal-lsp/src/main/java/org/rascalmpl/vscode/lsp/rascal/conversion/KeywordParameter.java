@@ -26,9 +26,11 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.conversion;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.Range;
@@ -36,6 +38,7 @@ import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IBool;
+import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -66,12 +69,16 @@ public class KeywordParameter {
         return getCastTransform(IMap.class, name, kws, defaultVal, Function.identity());
     }
 
-    public static <T> @PolyNull List<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull List<T> defaultVal, Function<? super IValue, ? extends T> transform) {
-        return getCastTransform(IList.class, name, kws, defaultVal, s -> s.stream().map(transform).collect(Collectors.toList()));
+    public static <T, C extends Collection<T>> @PolyNull List<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull List<T> defaultVal, Function<? super IValue, T> transform) {
+        return get(IList.class, name, kws, defaultVal, transform, Collectors.toList());
     }
 
-    public static <T> @PolyNull Set<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Set<T> defaultVal, Function<? super IValue, ? extends T> transform) {
-        return getCastTransform(ISet.class, name, kws, defaultVal, s -> s.stream().map(transform).collect(Collectors.toSet()));
+    public static <T, C extends Collection<T>> @PolyNull Set<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Set<T> defaultVal, Function<? super IValue, T> transform) {
+        return get(ISet.class, name, kws, defaultVal, transform, Collectors.toSet());
+    }
+
+    public static <T, C extends Collection<T>, I extends ICollection<I>> @PolyNull C get(Class<I> ival, String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull C defaultVal, Function<? super IValue, T> transform, Collector<T, ?, C> collector) {
+        return getCastTransform(ival, name, kws, defaultVal, s -> s.stream().map(transform).collect(collector));
     }
 
     public static @PolyNull Range get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Range defaultVal, LineColumnOffsetMap cm) {

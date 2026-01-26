@@ -111,13 +111,6 @@ public class DocumentSymbols {
         return VF.constructor(TF.constructor(store, symbolKindAdt, kind.name().toLowerCase()));
     }
 
-    public static List<SymbolTag> symbolTagsToLSP(@Nullable ISet tags) {
-        if (tags == null) {
-            return Collections.emptyList();
-        }
-        return tags.stream().map(DocumentSymbols::symbolTagToLSP).collect(Collectors.toList());
-    }
-
     static SymbolTag symbolTagToLSP(IValue tag) {
         var name = ((IConstructor) tag).getName();
         return SymbolTag.valueOf(DocumentSymbols.capitalize(name));

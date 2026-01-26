@@ -27,13 +27,13 @@
 package org.rascalmpl.vscode.lsp.rascal.conversion;
 
 import com.google.gson.JsonPrimitive;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.eclipse.lsp4j.CallHierarchyItem;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -42,6 +42,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -103,7 +104,7 @@ public class CallHierarchy {
 
         var ci = new CallHierarchyItem(name, kind, Locations.toUri(def.top()).toString(), definitionRange, selectionRange);
         var kws = cons.asWithKeywordParameters();
-        ci.setTags(new ArrayList<>(KeywordParameter.get(CallHierarchyFields.TAGS, kws, Collections.emptySet(), DocumentSymbols::symbolTagToLSP)));
+        ci.setTags(KeywordParameter.get(ISet.class, CallHierarchyFields.TAGS, kws, Collections.emptyList(), DocumentSymbols::symbolTagToLSP, Collectors.toList()));
         ci.setDetail(KeywordParameter.get(CallHierarchyFields.DETAIL, kws, (String) null));
         ci.setData(KeywordParameter.get(CallHierarchyFields.DATA, kws, null, this::serializeData));
 
