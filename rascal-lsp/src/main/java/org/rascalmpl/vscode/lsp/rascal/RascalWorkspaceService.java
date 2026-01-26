@@ -33,6 +33,7 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
+import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -43,16 +44,28 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     private static final List<FileOperationFilter> fileFilters = List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")));
 
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-        super(exec, documentService, fileFilters);
+        super(exec, documentService);
     }
 
     @Override
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders,
             ServerCapabilities capabilities) {
         super.initialize(clientCap, currentWorkspaceFolders, capabilities);
-        var workspaceCapabilities = capabilities.getWorkspace();
-        if (clientCap.getWorkspace().getFileOperations().getDidCreate().booleanValue()) {
-            workspaceCapabilities.getFileOperations().setDidCreate(new FileOperationOptions(fileFilters));
+
+        var clientCapabilities = clientCap.getWorkspace();
+        if (capabilities.getWorkspace().getFileOperations() == null) {
+            capabilities.getWorkspace().setFileOperations(new FileOperationsServerCapabilities());
+        }
+        var fileOperationCapabilities = capabilities.getWorkspace().getFileOperations();
+        var whichFiles = new FileOperationOptions(fileFilters);
+        if (clientCapabilities.getFileOperations().getDidCreate().booleanValue()) {
+            fileOperationCapabilities.setDidCreate(whichFiles);
+        }
+        if (clientCapabilities.getFileOperations().getDidRename().booleanValue()) {
+            fileOperationCapabilities.setDidRename(whichFiles);
+        }
+        if (clientCapabilities.getFileOperations().getDidDelete().booleanValue()) {
+            fileOperationCapabilities.setDidDelete(whichFiles);
         }
     }
 

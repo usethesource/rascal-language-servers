@@ -24,14 +24,38 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.util;
 
-import java.util.concurrent.ExecutorService;
-import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
-public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
-        super(exec, docService);
+public class Sets {
+
+    private Sets() { /* hide implicit constructor */ }
+
+    /**
+     * Order-preserving set union.
+     */
+    public static <T> Set<T> union(Set<T> a, Set<T> b) {
+        if (a.isEmpty()) {
+            return b;
+        }
+        if (b.isEmpty()) {
+            return a;
+        }
+
+        var c = new LinkedHashSet<>(a);
+        c.addAll(b);
+        return c;
+    }
+
+    /**
+     * Order-preserving set union.
+     */
+    public static <T> Set<T> union(Collection<T> a, Collection<T> b) {
+        var c = new LinkedHashSet<>(a);
+        c.addAll(b);
+        return c;
     }
 }

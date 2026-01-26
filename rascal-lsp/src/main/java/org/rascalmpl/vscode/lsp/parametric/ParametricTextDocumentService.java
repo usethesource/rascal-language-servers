@@ -31,6 +31,7 @@ import java.io.Reader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -140,6 +141,8 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.ICapabilityParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -154,6 +157,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -258,7 +262,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, Set.of(new CompletionCapability()), clientCapabilities);
+        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities
+            , new CompletionCapability()
+            , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
+        );
         dynamicCapabilities.registerStaticCapabilities(result);
 
         result.setDefinitionProvider(true);
@@ -994,17 +1001,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
-        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
-        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
-        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
-        availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
-
         fact.reloadContributions();
         fact.setClient(clientCopy);
 
         for (var extension: lang.getExtensions()) {
             this.registeredExtensions.put(extension, lang.getName());
         }
+
+        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
+        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
+        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
+        availableCapabilities().update(buildLanguageParams());
 
         // If we opened any files with this extension before, now associate them with contributions
         var extensions = Arrays.asList(lang.getExtensions());
@@ -1013,6 +1020,25 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 updateFileState(lang, f);
             }
         }
+    }
+
+    /**
+     * Works iff `contributions` and `registeredExtensions` are in sync.
+     * As long as this in only called from synchronized {@link registerLanguage}/{@link unregisterLanguage}, this should work fine.
+     */
+    private Collection<ICapabilityParams> buildLanguageParams() {
+        var extensionsByLang = Maps.invert(registeredExtensions);
+        return contributions.entrySet().stream().map(e -> new ICapabilityParams() {
+            @Override
+            public ILanguageContributions contributions() {
+                return e.getValue();
+            }
+
+            @Override
+            public Set<String> fileExtensions() {
+                return extensionsByLang.getOrDefault(e.getKey(), Collections.emptySet());
+            }
+        }).collect(Collectors.toSet());
     }
 
     private void updateFileState(LanguageParameter lang, ISourceLocation f) {
@@ -1062,7 +1088,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             contributions.remove(lang.getName());
         }
 
-        availableCapabilities().update(Collections.unmodifiableCollection(contributions.values()));
+        availableCapabilities().update(buildLanguageParams());
     }
 
     @Override

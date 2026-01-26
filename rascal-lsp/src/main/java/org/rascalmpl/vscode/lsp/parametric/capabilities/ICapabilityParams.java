@@ -24,14 +24,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.concurrent.ExecutorService;
-import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import java.util.Set;
+import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
-public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
-        super(exec, docService);
-    }
+/**
+ * Provider of parameters required to compute which instances of {@link AbstractDynamicCapability} are supported and what options they should be registered with.
+ */
+public interface ICapabilityParams {
+    ILanguageContributions contributions();
+    Set<String> fileExtensions();
 }
