@@ -83,18 +83,14 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         }
 
         var clientWorkspaceCap = clientCap.getWorkspace();
-
-        if (capabilities.getWorkspace() == null) {
-            capabilities.setWorkspace(new WorkspaceServerCapabilities());
-        }
-
-        var workspaceCapabilities = capabilities.getWorkspace();
+        var workspaceCapabilities = new WorkspaceServerCapabilities();
         if (clientWorkspaceCap != null && clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
             var folderOptions = new WorkspaceFoldersOptions();
             folderOptions.setSupported(true);
             folderOptions.setChangeNotifications(true);
             workspaceCapabilities.setWorkspaceFolders(folderOptions);
         }
+        capabilities.setWorkspace(workspaceCapabilities);
     }
 
     public List<WorkspaceFolder> workspaceFolders() {
