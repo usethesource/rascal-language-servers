@@ -37,7 +37,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -158,7 +157,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
-import org.rascalmpl.vscode.lsp.util.Sets;
+import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -971,10 +970,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
     }
 
-    private <K, V> Map<V, Set<K>> invertMap(Map<K, V> m) {
-        return m.entrySet().stream().collect(Collectors.toMap(Entry::getValue, e -> Set.of(e.getKey()), Sets::union));
-    }
-
     @Override
     public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
@@ -1033,7 +1028,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
      * As long as this in only called from synchronized {@link registerLanguage}/{@link unregisterLanguage}, this should work fine.
      */
     private Collection<ICapabilityParams> buildLanguageParams() {
-        var extensionsByLang = invertMap(registeredExtensions);
+        var extensionsByLang = Maps.invert(registeredExtensions);
         return contributions.entrySet().stream().map(e -> new ICapabilityParams() {
             @Override
             public ILanguageContributions contributions() {
