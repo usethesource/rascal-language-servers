@@ -49,6 +49,9 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
 public class KeywordParameter {
+
+    private KeywordParameter() { /* hide implicit constructor */ }
+
     public static @PolyNull String get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull String defaultVal) {
         return getCastTransform(IString.class, name, kws, defaultVal, IString::getValue);
     }
@@ -69,11 +72,11 @@ public class KeywordParameter {
         return getCastTransform(IMap.class, name, kws, defaultVal, Function.identity());
     }
 
-    public static <T, C extends Collection<T>> @PolyNull List<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull List<T> defaultVal, Function<? super IValue, T> transform) {
+    public static <T> @PolyNull List<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull List<T> defaultVal, Function<? super IValue, T> transform) {
         return get(IList.class, name, kws, defaultVal, transform, Collectors.toList());
     }
 
-    public static <T, C extends Collection<T>> @PolyNull Set<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Set<T> defaultVal, Function<? super IValue, T> transform) {
+    public static <T> @PolyNull Set<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Set<T> defaultVal, Function<? super IValue, T> transform) {
         return get(ISet.class, name, kws, defaultVal, transform, Collectors.toSet());
     }
 
