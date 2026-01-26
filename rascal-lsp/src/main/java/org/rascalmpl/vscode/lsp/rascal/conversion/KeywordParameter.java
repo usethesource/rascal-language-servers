@@ -48,51 +48,137 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
 
+/**
+ * Utility class to for common operations on keyword parameters.
+ */
 public class KeywordParameter {
 
     private KeywordParameter() { /* hide implicit constructor */ }
 
+    /**
+     * Get a keyword parameter of string type.
+     * @param name The parameter name.
+     * @param kws The value with keyword parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or is not a string.
+     */
     public static @PolyNull String get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull String defaultVal) {
         return getCastTransform(IString.class, name, kws, defaultVal, IString::getValue);
     }
 
+    /**
+     * Get a keyword parameter of boolean type.
+     * @param name The parameter name.
+     * @param kws The value with keyword parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or is not a boolean.
+     */
     public static boolean get(String name, IWithKeywordParameters<? extends IValue> kws, boolean defaultVal) {
         return getCastTransform(IBool.class, name, kws, defaultVal, IBool::getValue);
     }
 
+    /**
+     * Get a keyword parameter of set type.
+     * @param name The parameter name.
+     * @param kws The value with keyword parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or is not a set.
+     */
     public static @PolyNull ISet get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull ISet defaultVal) {
         return getCastTransform(ISet.class, name, kws, defaultVal, Function.identity());
     }
 
+    /**
+     * Get a keyword parameter of list type.
+     * @param name The parameter name.
+     * @param kws The value with keyword parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or is not a list.
+     */
     public static @PolyNull IList get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull IList defaultVal) {
         return getCastTransform(IList.class, name, kws, defaultVal, Function.identity());
     }
 
+    /**
+     * Get a keyword parameter of map type.
+     * @param name The parameter name.
+     * @param kws The value with keyword parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or is not a map.
+     */
     public static @PolyNull IMap get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull IMap defaultVal) {
         return getCastTransform(IMap.class, name, kws, defaultVal, Function.identity());
     }
 
+    /**
+     * Get a keyword parameter of list type.
+     * @param <T> The type of the elements in the result list.
+     * @param name The parameter name.
+     * @param kws The value with keyword parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or is not a list.
+     * @param transform A function that maps Rascal list elements to Java objects of type {@link T}.
+     */
     public static <T> @PolyNull List<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull List<T> defaultVal, Function<? super IValue, T> transform) {
         return get(IList.class, name, kws, defaultVal, transform, Collectors.toList());
     }
 
+    /**
+     * Get a keyword parameter of set type.
+     * @param <T> The type of the elements in the result set.
+     * @param name The parameter name.
+     * @param kws The value with keyword parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or is not a set.
+     * @param transform A function that maps Rascal set elements to Java objects of type {@link T}.
+     */
     public static <T> @PolyNull Set<T> get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Set<T> defaultVal, Function<? super IValue, T> transform) {
         return get(ISet.class, name, kws, defaultVal, transform, Collectors.toSet());
     }
 
-    public static <T, C extends Collection<T>, I extends ICollection<I>> @PolyNull C get(Class<I> ival, String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull C defaultVal, Function<? super IValue, T> transform, Collector<T, ?, C> collector) {
+    /**
+     * Get a keyword param of a Rascal {@link ICollection} type as a Java {@link Collection}.
+     * @param <I> The type of the source Rascal collection.
+     * @param <C> The type of the result Java collection.
+     * @param <T> The type of the elements in the result collection.
+     * @param ival The concrete collection type of the parameter.
+     * @param name The name of the parameter.
+     * @param kws The value with parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or does not match the requested type.
+     * @param transform A function that maps {@link IValue}s to elements of type {@link T}.
+     * @param collector A collectors that converts a stream of {@link T} to the result collection type.
+     */
+    public static <I extends ICollection<I>, C extends Collection<T>, T> @PolyNull C get(Class<I> ival, String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull C defaultVal, Function<? super IValue, T> transform, Collector<T, ?, C> collector) {
         return getCastTransform(ival, name, kws, defaultVal, s -> s.stream().map(transform).collect(collector));
     }
-
+    /**
+     * Get a keyword parameter of loc type.
+     * @param name The parameter name.
+     * @param kws The value with keyword parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or is not a set.
+     * @param cm The column map to use when converting {@link ISourceLocation} to {@link Range}.
+     */
     public static @PolyNull Range get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull Range defaultVal, LineColumnOffsetMap cm) {
         return getCastTransform(ISourceLocation.class, name, kws, defaultVal, r -> Locations.toRange(r, cm));
     }
 
+    /**
+     * Get a keyword parameter of constructor type.
+     * @param <T> The type of the result value.
+     * @param name The parameter name.
+     * @param kws The value with parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or does not match the requested type.
+     * @param transform A function that maps the constructor value to a {@link T}.
+     */
     public static <T> @PolyNull T get(String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull T defaultVal, Function<? super IConstructor, ? extends @PolyNull T> transform) {
         return getCastTransform(IConstructor.class, name, kws, defaultVal, transform);
     }
 
-    private static <T, V extends IValue> @PolyNull T getCastTransform(Class<V> ival, String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull T defaultVal, Function<? super V, ? extends @PolyNull T> transform) {
+    /**
+     * Get a keyword param of a Rascal value.
+     * @param <V> The expected type of the parameter.
+     * @param <T> The type of the result value.
+     * @param ival The expected class of the parameter value.
+     * @param name  The parameter name.
+     * @param kws The value with parameters.
+     * @param defaultVal A default value to return when the parameter does not exist or does not match the requested type.
+     * @param transform A function that maps {@link IValue}s to elements of type {@link T}.
+     * @return The transformed parameter value or default.
+     */
+    private static <V extends IValue, T> @PolyNull T getCastTransform(Class<V> ival, String name, IWithKeywordParameters<? extends IValue> kws, @PolyNull T defaultVal, Function<? super V, ? extends @PolyNull T> transform) {
         if (kws.hasParameter(name)) {
             var param = kws.getParameter(name);
             if (ival.isInstance(param)) {
