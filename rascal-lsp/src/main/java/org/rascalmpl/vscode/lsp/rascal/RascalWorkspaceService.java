@@ -33,10 +33,8 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
-import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
-import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
@@ -54,14 +52,6 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         super.initialize(clientCap, currentWorkspaceFolders, capabilities);
 
         var clientCapabilities = clientCap.getWorkspace();
-
-        if (capabilities.getWorkspace() == null) {
-            capabilities.setWorkspace(new WorkspaceServerCapabilities());
-        }
-        if (capabilities.getWorkspace().getFileOperations() == null) {
-            capabilities.getWorkspace().setFileOperations(new FileOperationsServerCapabilities());
-        }
-
         var fileOperationCapabilities = capabilities.getWorkspace().getFileOperations();
         var whichFiles = new FileOperationOptions(fileFilters);
         if (clientCapabilities.getFileOperations().getDidCreate().booleanValue()) {
