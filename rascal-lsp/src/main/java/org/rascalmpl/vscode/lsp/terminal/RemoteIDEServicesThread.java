@@ -42,6 +42,8 @@ import org.rascalmpl.ideservices.IRemoteIDEServices;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.IDEServicesConfiguration;
 
+import io.usethesource.vallang.type.TypeStore;
+
 /**
  * Thread launcher for (remote) IDEServices, running within rascal-lsp
  */
@@ -74,7 +76,7 @@ public class RemoteIDEServicesThread extends Thread {
                         .setRemoteInterface(IRemoteIDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
-                        .configureGson(GsonUtils::configureGson)
+                        .configureGson(b -> GsonUtils.configureGson(b, GsonUtils.ComplexTypeMode.ENCODE_AS_JSON_OBJECT, new TypeStore()))
                         .setExecutorService(exec)
                         .setExceptionHandler(e -> {
                             logger.error(e);
