@@ -45,9 +45,6 @@ import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FileDelete;
-import org.eclipse.lsp4j.FileOperationFilter;
-import org.eclipse.lsp4j.FileOperationOptions;
-import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -72,13 +69,11 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     private final IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
-    private final List<FileOperationFilter> interestedInFiles;
 
 
-    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService, List<FileOperationFilter> interestedInFiles) {
+    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
         this.documentService = documentService;
         this.exec = exec;
-        this.interestedInFiles = interestedInFiles;
     }
 
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders, ServerCapabilities capabilities) {
@@ -89,32 +84,17 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
         var clientWorkspaceCap = clientCap.getWorkspace();
 
-        WorkspaceServerCapabilities workspaceCapabilities = new WorkspaceServerCapabilities();
-        if (clientWorkspaceCap != null) {
-            if (clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
-                var folderOptions = new WorkspaceFoldersOptions();
-                folderOptions.setSupported(true);
-                folderOptions.setChangeNotifications(true);
-                workspaceCapabilities.setWorkspaceFolders(folderOptions);
-            }
-
-            var fileOperationCapabilities = new FileOperationsServerCapabilities();
-            var whichFiles = new FileOperationOptions(interestedInFiles);
-            boolean watchesSet = false;
-            if (clientWorkspaceCap.getFileOperations().getDidRename().booleanValue()) {
-                fileOperationCapabilities.setDidRename(whichFiles);
-                watchesSet = true;
-            }
-            if (clientWorkspaceCap.getFileOperations().getDidDelete().booleanValue()) {
-                fileOperationCapabilities.setDidDelete(whichFiles);
-                watchesSet = true;
-            }
-            if (watchesSet) {
-                workspaceCapabilities.setFileOperations(fileOperationCapabilities);
-            }
+        if (capabilities.getWorkspace() == null) {
+            capabilities.setWorkspace(new WorkspaceServerCapabilities());
         }
 
-        capabilities.setWorkspace(workspaceCapabilities);
+        var workspaceCapabilities = capabilities.getWorkspace();
+        if (clientWorkspaceCap != null && clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
+            var folderOptions = new WorkspaceFoldersOptions();
+            folderOptions.setSupported(true);
+            folderOptions.setChangeNotifications(true);
+            workspaceCapabilities.setWorkspaceFolders(folderOptions);
+        }
     }
 
     public List<WorkspaceFolder> workspaceFolders() {
