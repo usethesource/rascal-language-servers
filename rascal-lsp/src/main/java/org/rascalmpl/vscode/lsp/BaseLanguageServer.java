@@ -71,7 +71,6 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.type.TypeStore;
 
 /**
 * The main language server class for Rascal is build on top of the Eclipse lsp4j library
@@ -118,7 +117,7 @@ public abstract class BaseLanguageServer {
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
-            .configureGson(b -> GsonUtils.configureGson(b, GsonUtils.ComplexTypeMode.ENCODE_AS_JSON_OBJECT, new TypeStore()))
+            .configureGson(GsonUtils.complexAsBase64String())
             .setExecutorService(threadPool)
             .create();
 
