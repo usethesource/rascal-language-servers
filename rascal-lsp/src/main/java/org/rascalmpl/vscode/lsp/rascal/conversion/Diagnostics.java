@@ -213,19 +213,12 @@ public class Diagnostics {
         result.setSeverity(translateSeverity(d));
         result.setMessage(getMessageString(d));
         result.setRange(range);
-
-
-        var dKW = d.asWithKeywordParameters();
-        if (dKW.hasParameter("causes")) {
-            result.setRelatedInformation(
-                ((IList) dKW.getParameter("causes")).stream()
-                .map(IConstructor.class::cast)
-                .map(c -> new DiagnosticRelatedInformation(
+        result.setRelatedInformation(KeywordParameter.get("causes", d.asWithKeywordParameters(), (List<DiagnosticRelatedInformation>) null, v -> {
+            var c = (IConstructor) v;
+            return new DiagnosticRelatedInformation(
                     Locations.toLocation(getMessageLocation(c), otherFiles),
-                    getMessageString(c)))
-                .collect(Collectors.toList())
-            );
-        }
+                    getMessageString(c));
+        }));
 
         storeFixCommands(d, result);
         return result;

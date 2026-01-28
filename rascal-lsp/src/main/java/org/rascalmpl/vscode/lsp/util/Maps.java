@@ -24,14 +24,30 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.util;
 
-import java.util.concurrent.ExecutorService;
-import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.checkerframework.checker.nonempty.qual.NonEmpty;
 
-public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
-        super(exec, docService);
+/**
+ * Generic utilities for {@link Map}s.
+ */
+public class Maps {
+
+    private Maps() { /* hide implicit constructor  */}
+
+    /**
+     * Invert a map with non-unique values.
+     * @param <K> The type of the keys.
+     * @param <V> The type of the values.
+     * @param m The map to invert.
+     * @return A map that associates every value from `m` with the set of keys it was associated with as value.
+     */
+    public static <K, V> Map<V, @NonEmpty Set<K>> invert(Map<K, V> m) {
+        return m.entrySet().stream().collect(Collectors.toMap(Entry::getValue, e -> Set.of(e.getKey()), Sets::union));
     }
+
 }

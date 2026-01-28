@@ -34,7 +34,6 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
 import org.eclipse.lsp4j.ServerCapabilities;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 
 import io.usethesource.vallang.IString;
 
@@ -54,8 +53,8 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected CompletableFuture<@Nullable CompletionRegistrationOptions> options(ILanguageContributions contribs) {
-        return contribs.completionTriggerCharacters()
+    protected CompletableFuture<@Nullable CompletionRegistrationOptions> options(ICapabilityParams params) {
+        return params.contributions().completionTriggerCharacters()
             .thenApply(triggers -> {
                 var trigList = triggers.stream()
                     .map(IString.class::cast)
@@ -66,8 +65,8 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected CompletableFuture<Boolean> isProvidedBy(ILanguageContributions contribs) {
-        return contribs.hasCompletion();
+    protected CompletableFuture<Boolean> isProvidedBy(ICapabilityParams params) {
+        return params.contributions().hasCompletion();
     }
 
     @Override

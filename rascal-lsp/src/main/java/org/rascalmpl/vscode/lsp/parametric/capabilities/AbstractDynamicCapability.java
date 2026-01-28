@@ -91,14 +91,14 @@ public abstract class AbstractDynamicCapability<O> {
      * @param contribs The {@link ILanguageContributions} that this capability reflects.
      * @return A future resolving to the options.
      */
-    protected abstract CompletableFuture<@Nullable O> options(ILanguageContributions contribs);
+    protected abstract CompletableFuture<@Nullable O> options(ICapabilityParams language);
 
     /**
      * Checks whether the given language contributions contain a contribution that provides this capability.
      * @param contribs The {@link ILanguageContributions} that this capability reflects.
      * @return A future resolving to `true` if there is such a contribution, or `false` otherwise.
      */
-    protected abstract CompletableFuture<Boolean> isProvidedBy(ILanguageContributions contribs);
+    protected abstract CompletableFuture<Boolean> isProvidedBy(ICapabilityParams language);
 
     /**
      * Merges two non-null option objects.
