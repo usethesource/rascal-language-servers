@@ -33,6 +33,7 @@ import List;
 import Set;
 import util::Benchmark;
 import util::Math;
+import Message;
 import analysis::diff::edits::TextEdits;
 
 loc rascalProj(loc projDir) = projDir + "rascal";
@@ -66,9 +67,9 @@ map[str, num] benchmarks(loc projDir) = benchmark((
     //   , "[rascal] nonterminal label": run(rascalProj(projDir), "src/org/rascalmpl/library/lang/rascal/syntax/Rascal.rsc", "lhs", newName = "lefthandside", libs = [typepalLib])
 ), safeRuns(3, intMedian, realTimeOf));
 
-num(void()) safeRuns(int numRuns, num(list[num]) aggregate, int(void()) measure) = int(void() f) {
+num(void()) safeRuns(int numRuns, num(list[num]) aggregate, int(void()) measure) = num(void() f) {
     try {
-        return aggregate([measure(f) | _ <- [0..numRuns]]);
+        return aggregate([n | _ <- [0..numRuns], num n := measure(f)]);
     } catch e: {
         println("[ERROR] <e>");
         return -1;

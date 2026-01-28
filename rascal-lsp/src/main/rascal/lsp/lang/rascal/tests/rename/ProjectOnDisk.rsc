@@ -54,6 +54,6 @@ Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 
         );
     }
     // extension for Rascal compiler
-    pcfg = pcfg[resources = pcfg.bin];
+    pcfg = pcfg[resources = [pcfg.bin]];
     return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
 }

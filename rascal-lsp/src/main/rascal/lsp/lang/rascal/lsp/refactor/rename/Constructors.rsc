@@ -79,4 +79,4 @@ set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr
 }
 
 // ADT constructors
-tuple[type[Tree] as, str desc] asType(constructorId(), defType(acons(aadt(_, _, dataSyntax()), _, _))) = <#Name, "data constructor name">;
+tuple[type[Tree] as, str desc] asRoleType(constructorId(), defType(acons(aadt(_, _, dataSyntax()), _, _))) = <#Name, "data constructor name">;

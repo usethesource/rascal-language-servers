@@ -34,6 +34,7 @@ import Set;
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
 import lang::rascalcore::check::Checker;
+import analysis::diff::edits::TextEdits;
 
 test bool deepModule() = testRenameOccurrences({
     byText("some::path::to::Foo", "

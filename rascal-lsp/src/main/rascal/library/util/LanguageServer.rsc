@@ -750,6 +750,13 @@ Provides extra context for all contained ((util::LanguageServer::TextEdit))s at 
 }
 data FileSystemChange(str label = "", str description = "", bool needsConfirmation = false);
 
+@synopsis{Shorthand for file changes, with additional context for LSP.}
+@description{
+Provides extra context for all contained ((util::LanguageServer::TextEdit))s at once.
+}
+FileSystemChange changed(list[TextEdit] edits:[replace(loc l, str _), *_], str label = "", str description = "", bool needsConfirmation = false)
+    = changed(l.top, edits, label=label, description=description, needsConfirmation=needsConfirmation);
+
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
 Commands can be any closed term a() pure value without open variables or function/closure values embedded in it). Add any constructor you need to express the execution parameters
