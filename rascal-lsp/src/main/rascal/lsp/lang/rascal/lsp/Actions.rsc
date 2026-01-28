@@ -34,7 +34,7 @@ import analysis::diff::edits::TextEdits;
 import ParseTree;
 import String;
 import lang::rascal::vis::ImportGraph;
-extend util::Reflective; // extend for private `vscodeSettingsFile`
+import util::Reflective;
 import util::IDEServices;
 import List;
 import IO;
@@ -46,7 +46,6 @@ The commands must be evaluated by ((evaluateRascalCommand))
 data Command
     = visualImportGraphCommand(PathConfig pcfg)
     | sortImportsAndExtends(Header h)
-    | excludeTargetFromSearch(PathConfig pcfg)
     ;
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
@@ -65,11 +64,6 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
         result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")]
                +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends")]
                ;
-    }
-
-    // Check if the settings already exist and exclude some folders
-    if (!exists(vscodeSettingsFile(pcfg.projectRoot)) || !contains(readFile(vscodeSettingsFile(pcfg.projectRoot)), "search.exclude")) {
-        result += [action(command=excludeTargetFromSearch(pcfg), title="Exclude target directory from search")];
     }
 
     return result;
@@ -159,9 +153,4 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
 
     applyDocumentsEdits([changed(h@\loc.top, [replace(h.imports@\loc, newHeader)])]);
     return ("result":true);
-}
-
-value evaluateRascalCommand(excludeTargetFromSearch(PathConfig pcfg)) {
-    newRascalVsCodeSettings(pcfg.projectRoot);
-    return ("result": true);
 }
