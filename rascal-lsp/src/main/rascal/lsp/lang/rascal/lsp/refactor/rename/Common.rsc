@@ -340,7 +340,7 @@ rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
 loc parentScope(loc l, TModel tm) {
     if (tm.scopes[l]?) {
         return tm.scopes[l];
-    } else if (just(loc scope) := findSmallestContaining(tm.scopes<inner>, l, containmentPred = isStrictlyContainedIn)) {
+    } else if (just(loc scope) := findSmallestContaining(tm.scopes<inner>, l)) {
         return scope;
     }
     return |global-scope:///|;
