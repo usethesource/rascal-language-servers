@@ -33,7 +33,7 @@ import * as vscode from 'vscode';
 const VSCODE_DIR = ".vscode";
 const SETTINGS_FILE = "settings.json";
 
-const INITIAL_SETTINGS = `{}`;
+const EMPTY_SETTINGS = `{}`;
 const SEARCH_EXCLUDE = `
     "search.exclude": {
         "/target/": true
@@ -61,18 +61,19 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
             }
             // Fix settings for newly opened projects
             for (const a of changes.added) {
-                await this.fixWorkspaceSettings(a.uri);
+                await this.createAndFixWorkspaceSettings(a.uri);
             }
         });
 
         const watcher = vscode.workspace.createFileSystemWatcher(posix.join("**", VSCODE_DIR, "*.json"));
+        watcher.onDidCreate(f => this.fixWorkspaceSettings(this.projectRootFromSettings(f)), this, this.disposables);
         watcher.onDidChange(f => this.fixWorkspaceSettings(this.projectRootFromSettings(f)), this, this.disposables);
         watcher.onDidDelete(this.clearFileDiagnostics, this, this.disposables);
         this.disposables.push(watcher);
 
         // Fix settings for currently open projects
         for (const projectRoot of vscode.workspace.workspaceFolders || []) {
-            this.fixWorkspaceSettings(projectRoot.uri); // Note dangling promise
+            this.createAndFixWorkspaceSettings(projectRoot.uri); // Do not await; process workspaces in parallel
         }
 
         // Register code actions
@@ -91,33 +92,61 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         this.diagnostics.delete(uri);
     }
 
-    private async fixWorkspaceSettings(projectRoot: vscode.Uri) {
+    private async createAndFixWorkspaceSettings(projectRoot: vscode.Uri) {
+        await this.createWorkspaceSettings(projectRoot);
+        await this.fixWorkspaceSettings(projectRoot);
+    }
+
+    private async createWorkspaceSettings(projectRoot: vscode.Uri) {
         const projectName = posix.basename(projectRoot.path);
         const settingsFile = vscode.Uri.joinPath(projectRoot, VSCODE_DIR, SETTINGS_FILE);
 
-        const diags: vscode.Diagnostic[] = [];
-
-        if (!fs.existsSync(settingsFile.fsPath)) {
-            const res = await vscode.window.showInformationMessage(`Project '${projectName}' does not have a VS Code settings file. Create one?`, Y, N);
-            if (res !== Y) {
-                return;
-            }
-            await writeFile(settingsFile.fsPath, INITIAL_SETTINGS);
+        if (fs.existsSync(settingsFile.fsPath)) {
+            return;
         }
 
-        const settingsDoc = await vscode.workspace.openTextDocument(settingsFile);
+        // Offer to create the missing file.
+        const res = await vscode.window.showInformationMessage(`Project '${projectName}' does not have a VS Code settings file. Create one?`, Y, N);
+        if (res !== Y) {
+            return;
+        }
+        await writeFile(settingsFile.fsPath, EMPTY_SETTINGS);
+    }
+
+    private async fixWorkspaceSettings(projectRoot: vscode.Uri) {
+        const settingsDiagnostics: vscode.Diagnostic[] = [];
+        const settingsFile = vscode.Uri.joinPath(projectRoot, VSCODE_DIR, SETTINGS_FILE);
+
         try {
-            // Settings might have comments, trailing commas, etc., so we use JSON5
-            const settings = JSON5.parse(settingsDoc.getText());
+            // If it does not exist, we have nothing to do here.
+            if (!fs.existsSync(settingsFile.fsPath)) {
+                return;
+            }
+
+            const settingsDoc = await vscode.workspace.openTextDocument(settingsFile);
+            const contents = settingsDoc.getText();
+
+            if (contents.trim().length === 0) {
+                // Empty file; offer to insert object
+                const d = new vscode.Diagnostic(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)), "Empty settings file.", vscode.DiagnosticSeverity.Warning);
+                d.code = FixKind.insertEmptySettings;
+                settingsDiagnostics.push(d);
+                return; // Since anything else will fail for this file, stop here.
+            }
+
+            // Settings might have comments, trailing commas, etc., so we use JSON5.
+            const settings = JSON5.parse(contents);
             if (!("search.exclude" in settings)) {
-                const d = new vscode.Diagnostic(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)), "Files in `target` appear in search results. Be careful; editing those files breaks the project build.", vscode.DiagnosticSeverity.Warning);
+                const d = new vscode.Diagnostic(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)), "Target folder appears in search results. Editing those files breaks the project build.", vscode.DiagnosticSeverity.Warning);
                 d.code = FixKind.insertSearchExclude;
-                diags.push(d);
+                settingsDiagnostics.push(d);
             }
         } catch (e) {
             // The settings are not valid JSON, or something else we cannot recover from.
+            console.error(e);
+        } finally {
+            this.diagnostics.set(settingsFile, settingsDiagnostics);
         }
-        this.diagnostics.set(settingsFile, diags);
     }
 
     dispose() {
@@ -131,9 +160,17 @@ class FixSettingsActions implements vscode.CodeActionProvider {
         const result: vscode.CodeAction[] = [];
         for (const d of context.diagnostics) {
             switch (d.code) {
+                case FixKind.insertEmptySettings: {
+                    const insertEmptyBlock = new vscode.CodeAction("Insert blank settings", vscode.CodeActionKind.QuickFix);
+                    insertEmptyBlock.diagnostics = [d];
+                    insertEmptyBlock.edit = new vscode.WorkspaceEdit();
+                    insertEmptyBlock.edit.insert(document.uri, document.positionAt(0), EMPTY_SETTINGS);
+                    result.push(insertEmptyBlock);
+                    break;
+                }
                 case FixKind.insertSearchExclude: {
                     const beginOfSettings = document.positionAt(document.getText().indexOf("{") + 1);
-                    const addSearchExclude = new vscode.CodeAction("Exclude `target` from search", vscode.CodeActionKind.QuickFix);
+                    const addSearchExclude = new vscode.CodeAction("Exclude target from search", vscode.CodeActionKind.QuickFix);
                     addSearchExclude.diagnostics = [d];
                     addSearchExclude.edit = new vscode.WorkspaceEdit();
                     addSearchExclude.edit.insert(document.uri, beginOfSettings, SEARCH_EXCLUDE);
@@ -148,5 +185,6 @@ class FixSettingsActions implements vscode.CodeActionProvider {
 }
 
 enum FixKind {
-    insertSearchExclude
+    insertEmptySettings,
+    insertSearchExclude,
 }
