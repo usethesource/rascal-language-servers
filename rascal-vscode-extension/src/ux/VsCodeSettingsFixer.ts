@@ -24,17 +24,27 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as fs from 'fs/promises';
+import * as fs from 'fs';
+import { writeFile } from 'fs/promises';
+import * as JSON5 from 'json5';
 import { posix } from 'path';
 import * as vscode from 'vscode';
 
 const VSCODE_DIR = ".vscode";
 const SETTINGS_FILE = "settings.json";
+
+const INITIAL_SETTINGS = `{}`;
 const SEARCH_EXCLUDE = `
     "search.exclude": {
         "/target/": true
     },
 `;
+const Y = "Yes, please!";
+const N = "No, thanks.";
+
+/**
+ * Create/fix the VS Code settings file and suggest appropriate settings for Rascal projects.
+ */
 export class VsCodeSettingsFixer implements vscode.Disposable {
 
     private readonly diagnostics: vscode.DiagnosticCollection;
@@ -42,11 +52,12 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
 
     constructor () {
         this.diagnostics = vscode.languages.createDiagnosticCollection("VSCode workspace settings diagnostics");
+        this.disposables.push(this.diagnostics);
 
         vscode.workspace.onDidChangeWorkspaceFolders(async changes => {
             // Clean up diagnostics when closing a project
             for (const r of changes.removed) {
-                this.diagnostics.delete(buildSettingsPath(r.uri));
+                this.clearWorkspaceDiagnostics(r.uri);
             }
             // Fix settings for newly opened projects
             for (const a of changes.added) {
@@ -54,9 +65,10 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
             }
         });
 
-        const watcher = vscode.workspace.createFileSystemWatcher(posix.join("**", VSCODE_DIR, SETTINGS_FILE));
-        watcher.onDidChange(this.fixWorkspaceSettings, this, this.disposables);
-        watcher.onDidDelete(e => this.diagnostics.delete(e), this, this.disposables);
+        const watcher = vscode.workspace.createFileSystemWatcher(posix.join("**", VSCODE_DIR, "*.json"));
+        watcher.onDidChange(f => this.fixWorkspaceSettings(this.projectRootFromSettings(f)), this, this.disposables);
+        watcher.onDidDelete(this.clearFileDiagnostics, this, this.disposables);
+        this.disposables.push(watcher);
 
         // Fix settings for currently open projects
         for (const projectRoot of vscode.workspace.workspaceFolders || []) {
@@ -64,36 +76,54 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         }
 
         // Register code actions
-        this.disposables.push(vscode.languages.registerCodeActionsProvider({ pattern: posix.join("**", VSCODE_DIR, SETTINGS_FILE) }, new FixSettingsActions()));
+        this.disposables.push(vscode.languages.registerCodeActionsProvider({ pattern: posix.join("**", VSCODE_DIR, "**") }, new FixSettingsActions()));
+    }
+
+    private projectRootFromSettings(uri: vscode.Uri): vscode.Uri {
+        return vscode.Uri.joinPath(uri, "..", "..");
+    }
+
+    private clearWorkspaceDiagnostics(uri: vscode.Uri) {
+        this.clearFileDiagnostics(vscode.Uri.joinPath(uri, VSCODE_DIR, SETTINGS_FILE));
+    }
+
+    private clearFileDiagnostics(uri: vscode.Uri) {
+        this.diagnostics.delete(uri);
     }
 
     private async fixWorkspaceSettings(projectRoot: vscode.Uri) {
-        const vsCodeDir = vscode.Uri.joinPath(projectRoot, VSCODE_DIR);
-        const settingsFile = vscode.Uri.joinPath(vsCodeDir, SETTINGS_FILE);
+        const projectName = posix.basename(projectRoot.path);
+        const settingsFile = vscode.Uri.joinPath(projectRoot, VSCODE_DIR, SETTINGS_FILE);
+
+        const diags: vscode.Diagnostic[] = [];
+
+        if (!fs.existsSync(settingsFile.fsPath)) {
+            const res = await vscode.window.showInformationMessage(`Project '${projectName}' does not have a VS Code settings file. Create one?`, Y, N);
+            if (res !== Y) {
+                return;
+            }
+            await writeFile(settingsFile.fsPath, INITIAL_SETTINGS);
+        }
 
         const settingsDoc = await vscode.workspace.openTextDocument(settingsFile);
-        const contents = settingsDoc.getText();
-        if (contents.trim().length === 0) {
-            await fs.writeFile(settingsFile.toString(), "{}");
-        }
         try {
-            const settings = JSON.parse(contents);
+            // Settings might have comments, trailing commas, etc., so we use JSON5
+            const settings = JSON5.parse(settingsDoc.getText());
             if (!("search.exclude" in settings)) {
                 const d = new vscode.Diagnostic(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)), "Files in `target` appear in search results. Be careful; editing those files breaks the project build.", vscode.DiagnosticSeverity.Warning);
                 d.code = FixKind.insertSearchExclude;
-                this.diagnostics.set(settingsFile, [d]);
+                diags.push(d);
             }
-        } catch { /* ignore errors */ }
+        } catch (e) {
+            // The settings are not valid JSON, or something else we cannot recover from.
+        }
+        this.diagnostics.set(settingsFile, diags);
     }
 
     dispose() {
         this.disposables.forEach(d => d.dispose());
     }
 
-}
-
-function buildSettingsPath(projectRoot: vscode.Uri) {
-    return vscode.Uri.joinPath(projectRoot, VSCODE_DIR, SETTINGS_FILE);
 }
 
 class FixSettingsActions implements vscode.CodeActionProvider {
