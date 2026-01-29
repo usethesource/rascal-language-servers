@@ -245,16 +245,13 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
 
         <found, tm, ms> = getTModelForModule(mname, ms);
         if (!found) {
-            if (ms.status[mname]?) {
+            if (ms.status[mname]? && MStatus::ignored() in ms.status[mname]) {
                 // If a module is annotated with `@ignoreCompiler`, silently skip it
-                if (MStatus::ignored() in ms.status[mname]) {
-                    // We just need a way to map the TModel back to the module location, so let's artificially add that
-                    return tmodel()
-                        [modelName = mname]
-                        [moduleLocs = (mname: l)]
-                        ;
-                }
-                throw "No TModel for module \'<mname>\'";
+                // We just need a way to map the TModel back to the module location, so let's artificially add that
+                return tmodel()
+                    [modelName = mname]
+                    [moduleLocs = (mname: l)]
+                    ;
             }
             throw "No TModel for module \'<mname>\'";
         }

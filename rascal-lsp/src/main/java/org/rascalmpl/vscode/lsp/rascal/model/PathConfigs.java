@@ -243,7 +243,23 @@ public class PathConfigs {
         }
     }
 
+    /**
+     * Infers the root of the project that `member` is in.
+     */
     private static ISourceLocation inferProjectRoot(ISourceLocation member) {
+        ISourceLocation lastRoot = member;
+        ISourceLocation root;
+        do {
+            root = lastRoot;
+            lastRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(root));
+        } while (!lastRoot.equals(URIUtil.getParentLocation(root)));
+        return root;
+    }
+
+    /**
+     * Infers the longest project root-like path that `member` is in. Might return a sub-directory of `target/`.
+     */
+    private static ISourceLocation inferDeepestProjectRoot(ISourceLocation member) {
         ISourceLocation current = member;
         URIResolverRegistry reg = URIResolverRegistry.getInstance();
         if (!reg.isDirectory(current)) {
@@ -254,13 +270,13 @@ public class PathConfigs {
             if (reg.exists(URIUtil.getChildLocation(current, "META-INF/RASCAL.MF"))) {
                 return current;
             }
-
-            if (URIUtil.getParentLocation(current).equals(current)) {
+            var parent = URIUtil.getParentLocation(current);
+            if (parent.equals(current)) {
                 // we went all the way up to the root
                 return reg.isDirectory(member) ? member : URIUtil.getParentLocation(member);
             }
 
-            current = URIUtil.getParentLocation(current);
+            current = parent;
         }
 
         return current;

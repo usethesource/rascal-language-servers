@@ -53,7 +53,6 @@ import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
@@ -71,7 +70,7 @@ public class CapabilityRegistration {
     private final Set<AbstractDynamicCapability<?>> dynamicCapabilities;
     private final Set<AbstractDynamicCapability<?>> staticCapabilities;
 
-    private final AtomicReference<Collection<ILanguageContributions>> lastContributions = new AtomicReference<>(Collections.emptyList());
+    private final AtomicReference<Collection<ICapabilityParams>> lastParams = new AtomicReference<>(Collections.emptyList());
     // Map of method names with current registration values
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
@@ -80,7 +79,7 @@ public class CapabilityRegistration {
      * @param supportedCapabilities The capabilities to register with the client.
      * @param clientCapabilities The capabilities of the client. Determine whether dynamic registration is supported at all.
      */
-    public CapabilityRegistration(LanguageClient client, Executor exec, Set<AbstractDynamicCapability<?>> supportedCapabilities, ClientCapabilities clientCapabilities) {
+    public CapabilityRegistration(LanguageClient client, Executor exec, ClientCapabilities clientCapabilities, AbstractDynamicCapability<?>... supportedCapabilities) {
         this.client = client;
         this.exec = exec;
         this.noop = CompletableFutureUtils.completedFuture(null, exec);
@@ -113,11 +112,11 @@ public class CapabilityRegistration {
 
     /**
      * Update capabilities for language contributions.
-     * @param contribs The contributions to represent.
+     * @param languages The contributions to represent.
      * @return A future that completes with a boolean that is false when any registration failed, and true otherwise.
      */
-    public CompletableFuture<Void> update(Collection<ILanguageContributions> contribs) {
-        logger.debug("Updating {} dynamic capabilities from {} contributions", dynamicCapabilities.size(), contribs.size());
+    public CompletableFuture<Void> update(Collection<ICapabilityParams> languages) {
+        logger.debug("Updating {} dynamic capabilities for {} languages", dynamicCapabilities.size(), languages.size());
         // Copy the contributions so we know we are looking at a stable collection of elements.
 
         /*
@@ -126,7 +125,7 @@ public class CapabilityRegistration {
             Therefore, we need to set this reference before delegating any work to futures, where we lose guaranteed execution order.
             Additionally, this function should be called from a thread pool with predictable execution order.
         */
-        lastContributions.set(List.copyOf(contribs));
+        lastParams.set(List.copyOf(languages));
         return CompletableFutureUtils.reduce(dynamicCapabilities.stream().map(this::updateRegistration), exec)
             .thenAccept(_v -> logger.debug("Done updating dynamic capabilities"));
     }
@@ -157,16 +156,16 @@ public class CapabilityRegistration {
      * @return A future completing with `true` when successful, or `false` otherwise.
      */
     private <T> CompletableFuture<Void> updateRegistration(AbstractDynamicCapability<T> cap) {
-        var contribs = lastContributions.get();
+        var params = lastParams.get();
         var method = cap.methodName();
 
-        return tryBuildRegistration(cap, contribs).thenCompose(registration -> {
+        return tryBuildRegistration(cap, params).thenCompose(registration -> {
             // Synchronize on `currentRegistrations`, so we can reliable compute the required registration
             // and update the current registration without interference from other threads.
             synchronized (currentRegistrations) {
                 // If someone else modified the contributions in the meantime, we need to restart.
                 // Since we took a read-only copy of the contributions, instance comparison can be used everywhere
-                if (lastContributions.get() != contribs) {
+                if (lastParams.get() != params) {
                     return updateRegistration(cap);
                 }
 
@@ -204,7 +203,7 @@ public class CapabilityRegistration {
                     }
 
                     // Ensure that the registration is eventually consistent.
-                    if (Objects.equals(currentRegistrations.get(method), registration) && lastContributions.get() == contribs) {
+                    if (Objects.equals(currentRegistrations.get(method), registration) && lastParams.get() == params) {
                         // Our update persisted and the contributions did not change in the meantime. Success!
                         return noop;
                     }
@@ -282,13 +281,13 @@ public class CapabilityRegistration {
         logger.error("Unexpected error while (un)registering capability {}", cap.methodName(), t);
     }
 
-    private <T> CompletableFuture<@Nullable Registration> tryBuildRegistration(AbstractDynamicCapability<T> cap, Collection<ILanguageContributions> contribs) {
-        if (contribs.isEmpty()) {
+    private <T> CompletableFuture<@Nullable Registration> tryBuildRegistration(AbstractDynamicCapability<T> cap, Collection<ICapabilityParams> languages) {
+        if (languages.isEmpty()) {
             return CompletableFutureUtils.completedFuture(null, exec);
         }
 
         // Filter contributions by providing this capability
-        return CompletableFutureUtils.filter(contribs, cap::isProvidedBy).<@Nullable Registration>thenCompose(cs -> {
+        return CompletableFutureUtils.filter(languages, cap::isProvidedBy).<@Nullable Registration>thenCompose(cs -> {
             if (cs.isEmpty()) {
                 return CompletableFutureUtils.completedFuture(null, exec);
             }
