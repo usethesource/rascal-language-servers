@@ -143,7 +143,6 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
             }
         } catch (e) {
             // The settings are not valid JSON, or something else we cannot recover from.
-            console.error(e);
         } finally {
             this.diagnostics.set(settingsFile, settingsDiagnostics);
         }
