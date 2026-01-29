@@ -51,7 +51,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 TModel augmentFormalUses(Tree tr, TModel tm, TModel(loc) getModel) {
     rel[loc funcDef, str kwName, loc kwLoc] keywordFormalDefs = {
         *(fileTm.defines<idRole, scope, id, defined>)[keywordFormalId()]
-        | loc f <- getModuleFile(tm) + (tm.paths<to>)
+        | loc f <- tr.src + (tm.paths<to>)
         , fileTm := getModel(f.top)
     };
     visit (tr) {

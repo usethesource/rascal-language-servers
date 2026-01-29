@@ -247,7 +247,13 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
         if (!found) {
             if (ms.status[mname]?) {
                 // If a module is annotated with `@ignoreCompiler`, silently skip it
-                if (MStatus::ignored() in ms.status[mname]) return tmodel();
+                if (MStatus::ignored() in ms.status[mname]) {
+                    // We just need a way to map the TModel back to the module location, so let's artificially add that
+                    return tmodel()
+                        [modelName = mname]
+                        [moduleLocs = (mname: l)]
+                        ;
+                }
                 throw "No TModel for module \'<mname>\'";
             }
             throw "No TModel for module \'<mname>\'";
@@ -402,7 +408,7 @@ private loc nameSuffix(loc l, set[Define] defs, Renamer r) {
 
 void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     escName = normalizeEscaping(newName);
-    tm = getConditionallyAugmentedTModel(getModuleScopes(tm)[tm.modelName].top, defs, {augmentUses()}, r);
+    tm = getConditionallyAugmentedTModel(getModuleFile(tm), defs, {augmentUses()}, r);
 
     definitions = {<d.defined, d> | d <- defs};
     useDefs = toMap(tm.useDef o definitions);

@@ -67,7 +67,7 @@ set[Define] findAdditionalConstructorDefinitions(set[Define] cursorDefs, Tree tr
         return {};
     }
 
-    loc localScope = getModuleScopes(tm)[tm.modelName];
+    loc localScope = getModuleFile(tm);
     if (!any(Define d <- cursorDefs, isContainedInScope(d.defined, localScope, tm) || isContainedInScope(localScope, d.scope, tm))) {
         return {};
     }
