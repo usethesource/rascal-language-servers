@@ -235,7 +235,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
 
     TModel logicalToPhysical(TModel tm) = visit(tm) {
         case loc l => tm.logical2physical[l] ? l
-    };
+    }[logical2physical=l2p] when l2p := tm.logical2physical;
 
     TModel tmodelForLoc(loc l) {
         pcfg = getPathConfig(l);
