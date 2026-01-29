@@ -66,7 +66,7 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
     return any(loc fromScope <- reachableFrom, isContainedIn(l, fromScope));
 }
 
-loc getModuleFile(TModel tm) = tm.moduleLocs[tm.modelName] when tm.moduleLocs[tm.modelName]?;
+loc getModuleFile(TModel tm) = tm.moduleLocs[tm.modelName].top when tm.moduleLocs[tm.modelName]?;
 
 private set[str] reservedNames = getRascalReservedIdentifiers();
 
