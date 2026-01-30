@@ -167,8 +167,7 @@ bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expressi
 void renameAdditionalUses(set[Define] fieldDefs, str newName, TModel tm, Renamer r) {
     if (any(role <- fieldDefs.idRole, !isFieldRole(role)) || {} := fieldDefs) fail renameAdditionalUses;
 
-    loc mloc = getModuleScopes(tm)[tm.modelName].top;
-    Tree tr = r.getConfig().parseLoc(mloc);
+    Tree tr = r.getConfig().parseLoc(getModuleFile(tm));
     visit (tr) {
         case (Expression) `<Expression e> has <Name n>`: {
             eFieldDefs = getFieldDefinitions(e, "<n>", tm, r.getConfig().tmodelForLoc);
