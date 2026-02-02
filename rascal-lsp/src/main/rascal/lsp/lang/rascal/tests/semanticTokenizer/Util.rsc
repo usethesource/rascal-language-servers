@@ -91,7 +91,7 @@ alias SemanticToken = tuple[
     str tokenType,
     str tokenModifier];
 
-@javaClass{org.rascalmpl.vscode.lsp.util.SemanticTokenizerTester}
+@javaClass{org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizerTester}
 java list[SemanticToken] toTokens(Tree _, bool _, bool _);
 
 //

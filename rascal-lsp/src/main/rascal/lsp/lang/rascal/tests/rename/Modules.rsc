@@ -133,7 +133,7 @@ test bool stdlibImport() = testRenameOccurrences({
 }, oldName = "IO", newName = "InOut");
 
 test bool simpleEscapedModule() = testRenameOccurrences({
-    byText("Foo", "int foo = 8;", {0}, newName = "Bar"),
+    byText("Foo", "public int foo = 8;", {0}, newName = "Bar"),
     byText("Main", "import \\Foo;
                    'int bar = \\Foo::foo;", {0, 1}, skipCursors = {1})
 }, oldName = "Foo", newName = "Bar");

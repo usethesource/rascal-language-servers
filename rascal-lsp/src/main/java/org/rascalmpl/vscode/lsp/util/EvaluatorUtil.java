@@ -114,6 +114,7 @@ public class EvaluatorUtil {
                 actualEval.jobStart(task);
                 synchronized (actualEval) {
                     boolean jobSuccess = false;
+                    boolean endedAll = false;
                     try {
                         runningEvaluator.set(actualEval);
                         if (interrupted.get()) {
@@ -126,9 +127,10 @@ public class EvaluatorUtil {
                         // Since the interrupt is not caught by try-catch in Rascal, any jobs started from Rascal with the same name as this task will be 'nested', and might lead to stale progress bars.
                         // Here, we remove all (nested) jobs.
                         actualEval.endAllJobs();
+                        endedAll = true;
                         return interruptedResult;
                     } finally {
-                        if (jobSuccess) {
+                        if (jobSuccess || !endedAll) {
                             actualEval.jobEnd(task, jobSuccess);
                         }
                         if (monitor instanceof RascalLSPMonitor) {
@@ -375,7 +377,7 @@ public class EvaluatorUtil {
     public static CompletableFuture<Evaluator> makeFutureEvaluator(LSPContext context, String label, IRascalMonitor monitor, PathConfig pcfg, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
-            IDEServices services = new LSPIDEServices(context.client, context.docService, context.workspaceService, customLog, monitor);
+            IDEServices services = new LSPIDEServices(context.client, context.docService, context.workspaceService, monitor);
             boolean jobSuccess = false;
             String jobName = "Loading " + label;
             try {

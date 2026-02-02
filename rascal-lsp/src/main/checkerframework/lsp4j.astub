@@ -1,0 +1,109 @@
+package org.eclipse.lsp4j.jsonrpc.messages;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class ResponseError {
+   public ResponseError(ResponseErrorCode code, String message, @Nullable Object data) {
+   }
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class CodeLens {
+  public CodeLens() {
+  }
+
+  public CodeLens(final Range range) {
+  }
+
+  public CodeLens(final Range range, final @Nullable Command command, final @Nullable Object data) {
+  }
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class SelectionRange {
+
+  public SelectionRange(final Range range, final @Nullable SelectionRange parent) {
+  }
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class VersionedTextDocumentIdentifier extends TextDocumentIdentifier {
+
+  public VersionedTextDocumentIdentifier(final String uri, final @Nullable Integer version) {
+  }
+}
+
+
+package org.eclipse.lsp4j;
+
+import java.util.List;
+import org.eclipse.lsp4j.jsonrpc.util.Preconditions;
+import org.eclipse.lsp4j.jsonrpc.util.ToStringBuilder;
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DocumentSymbol {
+
+  public DocumentSymbol(final String name, final SymbolKind kind, final Range range, final Range selectionRange, final @Nullable String detail) {
+  }
+
+  public DocumentSymbol(final String name, final SymbolKind kind, final Range range, final Range selectionRange, final @Nullable String detail, final @Nullable List<DocumentSymbol> children) {
+  }
+}
+
+
+package org.eclipse.lsp4j.services;
+
+
+import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.jsonrpc.services.*;
+import org.checkerframework.checker.nullness.qual.*;
+
+@JsonSegment("textDocument")
+public interface TextDocumentService {
+	@JsonRequest
+	default CompletableFuture<@Nullable Hover> hover(HoverParams params) { }
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public abstract class ResourceOperation {
+  public @Nullable String getAnnotationId() {}
+  public void setAnnotationId(final @Nullable String annotationId) { }
+}
+
+
+package org.eclipse.lsp4j;
+
+import java.util.List;
+import org.checkerframework.checker.nullness.qual.*;
+
+public class Diagnostic {
+  public void setRelatedInformation(@Nullable final List<DiagnosticRelatedInformation> relatedInformation) { }
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.eclipse.lsp4j.*;
+import java.util.List;
+import org.checkerframework.checker.nullness.qual.*;
+
+public class CallHierarchyItem {
+  public void setDetail(@Nullable final String detail) { }
+  public void setData(@Nullable final Object data) { }
+}

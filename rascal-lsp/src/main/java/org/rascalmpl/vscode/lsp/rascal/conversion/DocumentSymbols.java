@@ -24,11 +24,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.rascal.conversion;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolInformation;
@@ -36,6 +39,7 @@ import org.eclipse.lsp4j.SymbolKind;
 import org.eclipse.lsp4j.SymbolTag;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
@@ -43,9 +47,20 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IWithKeywordParameters;
+import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
 
 public class DocumentSymbols {
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
+    private static final TypeFactory TF = TypeFactory.getInstance();
+    private static final TypeStore store = new TypeStore();
+
+    private static final Type symbolKindAdt = TF.abstractDataType(store, "DocumentSymbolKind");
+    private static final Type symbolTagAdt = TF.abstractDataType(store, "DocumentSymbolTag");
+
     // hide constructor for static class
     private DocumentSymbols() {}
 
@@ -75,33 +90,46 @@ public class DocumentSymbols {
     public static DocumentSymbol toLSP(IConstructor symbol, final LineColumnOffsetMap om) {
         IWithKeywordParameters<?> kwp = symbol.asWithKeywordParameters();
 
-        List<DocumentSymbol> children = kwp.hasParameter("children") ?
-            ((IList) kwp.getParameter("children"))
-                .stream()
-                .map(c -> toLSP((IConstructor) c, om))
-                .collect(Collectors.toList())
-            : Collections.emptyList();
-
-        String kindName = ((IConstructor) symbol.get("kind")).getName();
-        SymbolKind kind = SymbolKind.valueOf(capitalize(kindName));
+        List<DocumentSymbol> children = KeywordParameter.get("children", kwp, Collections.emptyList(), c -> toLSP((IConstructor) c, om));
+        SymbolKind kind = symbolKindToLSP((IConstructor) symbol.get("kind"));
         String symbolName = ((IString) symbol.get("name")).getValue();
         Range range = Locations.toRange((ISourceLocation) symbol.get("range"), om);
-        Range selection = kwp.hasParameter("selection")
-            ? Locations.toRange(((ISourceLocation) kwp.getParameter("selection")), om)
-            : range;
-        String detail = kwp.hasParameter("detail") ? ((IString) kwp.getParameter("detail")).getValue() : null;
-        List<SymbolTag> tags = kwp.hasParameter("tags") ?
-            ((ISet) kwp.getParameter("tags"))
-                .stream()
-                .map(IConstructor.class::cast)
-                .map(IConstructor::getName)
-                .map(DocumentSymbols::capitalize)
-                .map(SymbolTag::valueOf)
-                .collect(Collectors.toList())
-            : Collections.emptyList();
+        Range selection = KeywordParameter.get("selection", kwp, range, om);
+        String detail = KeywordParameter.get("detail", kwp, symbolName); // LSP default for detail is name
+        Set<SymbolTag> tags = KeywordParameter.get("tags", kwp, Collections.emptySet(), DocumentSymbols::symbolTagToLSP);
 
         var lspSymbol = new DocumentSymbol(symbolName, kind, range, selection, detail, children);
-        lspSymbol.setTags(tags); // since 3.16
+        lspSymbol.setTags(new ArrayList<>(tags)); // since 3.16
         return lspSymbol;
+    }
+
+    public static SymbolKind symbolKindToLSP(IConstructor kind) {
+        return SymbolKind.valueOf(capitalize(kind.getName()));
+    }
+
+    public static IConstructor symbolKindToRascal(SymbolKind kind) {
+        return VF.constructor(TF.constructor(store, symbolKindAdt, kind.name().toLowerCase()));
+    }
+
+    static SymbolTag symbolTagToLSP(IValue tag) {
+        var name = ((IConstructor) tag).getName();
+        return SymbolTag.valueOf(DocumentSymbols.capitalize(name));
+    }
+
+    public static ISet symbolTagsToRascal(@Nullable List<SymbolTag> tags) {
+        if (tags == null) {
+            return VF.set();
+        }
+        return tags.stream()
+            .map(t -> VF.constructor(TF.constructor(store, symbolTagAdt, t.name().toLowerCase())))
+            .collect(VF.setWriter());
+    }
+
+    public static Type getSymbolKindType() {
+        return symbolKindAdt;
+    }
+
+    public static TypeStore getStore() {
+        return store;
     }
 }

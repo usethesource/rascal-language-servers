@@ -41,10 +41,6 @@ public class ISourceLocationChanged {
     @NonNull
     private ISourceLocationChangeType changeType;
 
-
-    public ISourceLocationChanged() {
-    }
-
     public ISourceLocationChanged(@NonNull String watchId, @NonNull String location, @NonNull ISourceLocationChangeType changeType) {
         this.watchId = watchId;
         this.location = location;

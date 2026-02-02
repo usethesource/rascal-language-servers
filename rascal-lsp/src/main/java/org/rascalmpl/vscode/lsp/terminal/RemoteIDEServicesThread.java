@@ -24,64 +24,71 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer;
-import org.rascalmpl.vscode.lsp.terminal.TerminalIDEServer;
+import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.ideservices.GsonUtils;
+import org.rascalmpl.ideservices.IRemoteIDEServices;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.IDEServicesConfiguration;
 
-public class IDEServicesThread extends Thread {
-    private final IBaseLanguageClient ideClient;
+/**
+ * Thread launcher for (remote) IDEServices, running within rascal-lsp
+ */
+public class RemoteIDEServicesThread extends Thread {
     private final ServerSocket serverSocket;
+    private final LanguageClient languageClient;
     private final IBaseTextDocumentService docService;
-    private final BaseWorkspaceService workspaceService;
-    private static final Logger logger = LogManager.getLogger(IDEServicesThread.class);
+    private final ExecutorService exec;
 
-    public IDEServicesThread(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, ServerSocket socket) {
-        super("Terminal IDE Services Thread");
-        setDaemon(true);
-        this.serverSocket = socket;
-        this.ideClient = client;
+    public static final Logger logger = LogManager.getLogger(RemoteIDEServicesThread.class);
+
+    public RemoteIDEServicesThread(ServerSocket serverSocket, LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService exec) {
+        super("Remote IDE Services Thread");
+        this.serverSocket = serverSocket;
+        this.languageClient = languageClient;
         this.docService = docService;
-        this.workspaceService = workspaceService;
+        this.exec = exec;
     }
 
     @Override
     public void run() {
         try {
-            while(true) {
+            while (true) {
                 try {
                     Socket connection = serverSocket.accept();
                     connection.setTcpNoDelay(true);
 
-                    Launcher<ITerminalIDEServer> ideServicesServerLauncher = new Launcher.Builder<ITerminalIDEServer>()
-                        .setLocalService(new TerminalIDEServer(ideClient, docService, workspaceService))
-                        .setRemoteInterface(ITerminalIDEServer.class) // TODO this should be an empty interface?
+                    Launcher<IRemoteIDEServices> remoteIDEServicesLauncher = new Launcher.Builder<IRemoteIDEServices>()
+                        .setLocalService(new RemoteIDEServicesServer(languageClient, docService, exec))
+                        .setRemoteInterface(IRemoteIDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
+                        .configureGson(GsonUtils::configureGson)
+                        .setExecutorService(exec)
                         .setExceptionHandler(e -> {
                             logger.error(e);
                             return new ResponseError(ResponseErrorCode.InternalError, e.getMessage() == null ? "unknown" : e.getMessage(), e);
                         })
                         .create();
 
-                    logger.trace("Terminal IDE services starts listening");
-                    ideServicesServerLauncher.startListening();
-                }
-                catch (Throwable e) {
-                    logger.error("Making a connection for Terminal IDE services failed", e);
+                    logger.trace("Remote IDE services thread started");
+                    remoteIDEServicesLauncher.startListening();
+                } catch (Throwable e) {
+                    logger.error("Failed to start Remote IDE services thread");
                 }
             }
-        }
-        finally {
+        } finally {
             try {
                 serverSocket.close();
             } catch (IOException e) {
@@ -90,23 +97,10 @@ public class IDEServicesThread extends Thread {
         }
     }
 
-    /**
-     * Start a server for remote IDE services. These are used
-     * by an implementation of @see IDEServices that is given to Rascal terminal REPLS
-     * when they are started in the context of the LSP. This way
-     * Rascal REPLs get access to @see IDEServices to provide browsers
-     * for interactive visualizations, starting editors and resolving IDE project URI.
-     * @param actualLanguageServer
-     *
-     * @return the port number that the IDE services are running on
-     * @throws IOException when a new server socket can not be established.
-     */
-    public static IDEServicesConfiguration startIDEServices(IBaseLanguageClient client, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService) {
+    public static IDEServicesConfiguration startRemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService threadPool) {
         try {
             ServerSocket socket = new ServerSocket(0);
-
-            new IDEServicesThread(client, docService, workspaceService, socket).start();
-
+            new RemoteIDEServicesThread(socket, languageClient, docService, threadPool).start();
             return new IDEServicesConfiguration(socket.getLocalPort());
         } catch (IOException e) {
             throw new RuntimeException(e);
