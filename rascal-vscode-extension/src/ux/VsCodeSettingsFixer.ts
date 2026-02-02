@@ -24,8 +24,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as fs from 'fs';
-import { writeFile } from 'fs/promises';
 import * as JSON5 from 'json5';
 import { posix } from 'path';
 import * as vscode from 'vscode';
@@ -101,16 +99,17 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         const projectName = posix.basename(projectRoot.path);
         const settingsFile = vscode.Uri.joinPath(projectRoot, VSCODE_DIR, SETTINGS_FILE);
 
-        if (fs.existsSync(settingsFile.fsPath)) {
+        try {
+            await vscode.workspace.fs.stat(settingsFile);
             return;
-        }
+        } catch (_missing) { /* continue */ }
 
         // Offer to create the missing file.
         const res = await vscode.window.showInformationMessage(`Project '${projectName}' does not have a VS Code settings file. Create one?`, Y, N);
         if (res !== Y) {
             return;
         }
-        await writeFile(settingsFile.fsPath, EMPTY_SETTINGS);
+        await vscode.workspace.fs.writeFile(settingsFile, Buffer.from(EMPTY_SETTINGS));
     }
 
     private async fixWorkspaceSettings(projectRoot: vscode.Uri) {
@@ -118,8 +117,10 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         const settingsFile = vscode.Uri.joinPath(projectRoot, VSCODE_DIR, SETTINGS_FILE);
 
         try {
-            // If it does not exist, we have nothing to do here.
-            if (!fs.existsSync(settingsFile.fsPath)) {
+            try {
+                await vscode.workspace.fs.stat(settingsFile);
+            } catch (_missing) {
+                // If it does not exist, we have nothing to do here.
                 return;
             }
 
