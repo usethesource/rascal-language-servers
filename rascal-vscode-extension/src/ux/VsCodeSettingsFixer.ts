@@ -67,20 +67,20 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
             }
             // Fix settings for newly opened projects
             for (const a of changes.added) {
-                await this.createAndFixWorkspaceSettings(a.uri);
+                await this.createSettingsIfMissing(a.uri);
             }
         });
 
         const settingsGlob = posix.join("**", VSCODE_DIR, SETTINGS_FILE);
         const watcher = vscode.workspace.createFileSystemWatcher(settingsGlob);
-        watcher.onDidCreate(f => this.fixWorkspaceSettings(this.projectRootFromSettings(f)), this, this.disposables);
-        watcher.onDidChange(f => this.fixWorkspaceSettings(this.projectRootFromSettings(f)), this, this.disposables);
+        watcher.onDidCreate(f => this.fixSettings(this.projectRootFromSettings(f)), this, this.disposables);
+        watcher.onDidChange(f => this.fixSettings(this.projectRootFromSettings(f)), this, this.disposables);
         watcher.onDidDelete(this.clearFileDiagnostics, this, this.disposables);
         this.disposables.push(watcher);
 
         // Fix settings for currently open projects
         for (const projectRoot of vscode.workspace.workspaceFolders || []) {
-            this.createAndFixWorkspaceSettings(projectRoot.uri); // Do not await; process workspaces in parallel
+            this.createSettingsIfMissing(projectRoot.uri); // Do not await; process workspaces in parallel
         }
 
         // Register code actions
@@ -99,12 +99,7 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         this.diagnostics.delete(uri);
     }
 
-    private async createAndFixWorkspaceSettings(projectRoot: vscode.Uri) {
-        await this.createWorkspaceSettings(projectRoot);
-        await this.fixWorkspaceSettings(projectRoot);
-    }
-
-    private async createWorkspaceSettings(projectRoot: vscode.Uri) {
+    private async createSettingsIfMissing(projectRoot: vscode.Uri) {
         const projectName = posix.basename(projectRoot.path);
         const settingsFile = vscode.Uri.joinPath(projectRoot, VSCODE_DIR, SETTINGS_FILE);
 
@@ -121,7 +116,7 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         await vscode.workspace.fs.writeFile(settingsFile, Buffer.from(DEFAULT_SETTINGS));
     }
 
-    private async fixWorkspaceSettings(projectRoot: vscode.Uri) {
+    private async fixSettings(projectRoot: vscode.Uri) {
         const settingsDiagnostics: vscode.Diagnostic[] = [];
         const settingsFile = vscode.Uri.joinPath(projectRoot, VSCODE_DIR, SETTINGS_FILE);
 
