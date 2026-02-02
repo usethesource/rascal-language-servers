@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import * as JSON5 from 'json5';
+import * as jsonc from 'jsonc-parser';
 import { posix } from 'path';
 import * as vscode from 'vscode';
 
@@ -136,8 +136,8 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
                 // Empty file; insert full settings
                 d.code = FixKind.insertSettings;
             } else {
-                // Settings might have comments, trailing commas, etc., so we use JSON5.
-                const settings = JSON5.parse(contents);
+                // Settings might have comments, trailing commas, etc., so we use JSONC.
+                const settings = jsonc.parse(contents);
                 if (!(SEARCH_EXCLUDE_SETTING_KEY in settings)) {
                     d.code = FixKind.insertSearchExclude;
                 } else if (!("target" in settings[SEARCH_EXCLUDE_SETTING_KEY] || "/target/" in settings[SEARCH_EXCLUDE_SETTING_KEY])) {
