@@ -29,7 +29,9 @@ module lang::rascal::tests::rename::Modules
 
 import IO;
 import List;
+import Location;
 import Set;
+import String;
 
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
@@ -224,19 +226,23 @@ private bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], 
     testDir = |memory:///tests/move|;
     remove(testDir);
     pcfg = getTestPathConfig(testDir);
-    srcDir = pcfg.srcs[0];
     getPathConfig = PathConfig(loc l) {
         return pcfg;
     };
 
     // We test renaming *after* files have been moved, so we use the new name for the path here
-    modsAndPaths = {<m, srcDir + "<m.newName>.rsc"> | m <- modules, moved(m)};
+    modsAndPaths = {<m, srcsFile(replaceAll(m.newName, "\\", ""), pcfg, RASCAL_CONF, force=true)> | m <- modules, moved(m)};
+
+    if (debug) {
+        print("Mods and paths: ");
+        iprintln(modsAndPaths);
+    }
 
     for (<byText(name, body, _), p> <- modsAndPaths) {
         writeFile(p, "module <name>\n<body>");
     }
 
-    renames = [<old, new> | <m, new> <- modsAndPaths, old := new.parent + "<m.name>.rsc"];
+    renames = [<old, new> | <m, new> <- modsAndPaths, srcDir := relativize(pcfg.srcs, new), old := srcsFile(replaceAll(m.name, "\\", ""), pcfg, RASCAL_CONF, force=true)];
 
     edits = rascalRenameModule(renames, toSet(pcfg.srcs), getPathConfig);
 
@@ -253,6 +259,9 @@ private bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], 
 
         print("Expected edits: ");
         iprintln(expectedEdits);
+
+        print("Additional edits: ");
+        iprintln(additionalEdits);
     }
 
     verifyTypeCorrectRenaming(testDir, edits<0>, pcfg);
@@ -262,7 +271,7 @@ private bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], 
     }
 
     return {r | /r:replace(_, _) := edits<0>}
-        == expectedEdits + additionalReplaces;
+        == expectedEdits + additionalEdits;
 }
 
 test bool moveWithinFolder() = moveRenameTest({byText("A", "", {}, newName = "B")});
@@ -277,7 +286,7 @@ test bool moveReferenced() = moveRenameTest({
         'import B;
         'int a = B::b;", {}),
     byText("B", "int b = 0;", {}, newName = "BB")
-}, additionalEdits = {<<0, 7>, <0, 8>>});
+});
 
 test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
 test bool moveEscaped2() = moveRenameTest({byText("\\A", "", {}, newName = "\\B")});

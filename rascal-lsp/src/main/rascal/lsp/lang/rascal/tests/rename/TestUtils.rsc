@@ -56,6 +56,7 @@ import util::PathConfig;
 import util::Reflective;
 import util::Util;
 
+public LanguageFileConfig RASCAL_CONF = fileConfig();
 
 //// Fixtures and utility functions
 data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
