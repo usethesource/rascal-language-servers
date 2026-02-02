@@ -32,6 +32,7 @@
     "url": "https://github.com/sponsors/usethesource/"
   },
   "dependencies": {
+    "jsonc-parser": "3.x",
     "tar": "7.x",
     "vscode-languageclient": "9.x",
     "yauzl": "3.x"
