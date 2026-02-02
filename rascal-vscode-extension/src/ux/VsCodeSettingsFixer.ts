@@ -63,7 +63,8 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
             }
         });
 
-        const watcher = vscode.workspace.createFileSystemWatcher(posix.join("**", VSCODE_DIR, "*.json"));
+        const settingsGlob = posix.join("**", VSCODE_DIR, SETTINGS_FILE);
+        const watcher = vscode.workspace.createFileSystemWatcher(settingsGlob);
         watcher.onDidCreate(f => this.fixWorkspaceSettings(this.projectRootFromSettings(f)), this, this.disposables);
         watcher.onDidChange(f => this.fixWorkspaceSettings(this.projectRootFromSettings(f)), this, this.disposables);
         watcher.onDidDelete(this.clearFileDiagnostics, this, this.disposables);
@@ -75,11 +76,11 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         }
 
         // Register code actions
-        this.disposables.push(vscode.languages.registerCodeActionsProvider({ pattern: posix.join("**", VSCODE_DIR, "**") }, new FixSettingsActions()));
+        this.disposables.push(vscode.languages.registerCodeActionsProvider({ pattern: settingsGlob }, new FixSettingsActions()));
     }
 
     private projectRootFromSettings(uri: vscode.Uri): vscode.Uri {
-        return vscode.Uri.joinPath(uri, "..", "..");
+        return uri.with({ path: posix.dirname(posix.dirname(uri.path)) });
     }
 
     private clearWorkspaceDiagnostics(uri: vscode.Uri) {
