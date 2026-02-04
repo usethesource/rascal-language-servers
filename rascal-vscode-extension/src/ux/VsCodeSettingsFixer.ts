@@ -195,7 +195,7 @@ class FixSettingsActions implements vscode.CodeActionProvider {
 
     private fixTargetExclude(settingsDoc: vscode.TextDocument, diag: vscode.Diagnostic): vscode.CodeAction {
         const d = new vscode.CodeAction("Exclude target from search", vscode.CodeActionKind.QuickFix);
-        const edits = jsonc.modify(settingsDoc.getText(), ["search.exclude", "/target/"], true, {});
+        const edits = jsonc.modify(settingsDoc.getText(), [SEARCH_EXCLUDE_SETTING_KEY, "/target/"], true, {formattingOptions: {keepLines: true}});
         d.edit = new vscode.WorkspaceEdit();
         d.edit.set(settingsDoc.uri, this.convertEdits(settingsDoc, edits));
         d.diagnostics = [diag];

@@ -114,8 +114,7 @@ enum FixKind {
 
 export async function isRascalProject(projectRoot: vscode.Uri) {
     try {
-        const mfURI = buildMFChildPath(projectRoot);
-        await vscode.workspace.fs.stat(mfURI);
+        await vscode.workspace.fs.stat(buildMFChildPath(projectRoot));
         return true;
     }
     catch (_missingFile) {
