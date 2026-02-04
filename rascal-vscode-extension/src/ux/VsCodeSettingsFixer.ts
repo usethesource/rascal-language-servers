@@ -31,6 +31,7 @@ import { buildMFChildPath, isRascalProject } from './RascalMFValidator';
 
 const VSCODE_DIR = ".vscode";
 const SETTINGS_FILE = "settings.json";
+const SETTINGS_GLOB = posix.join("**", VSCODE_DIR, SETTINGS_FILE);
 
 const SEARCH_EXCLUDE_SETTING_KEY = "search.exclude";
 const EXCLUDE_ENTRY = `"/target/": true,`;
@@ -52,6 +53,9 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
     private readonly disposables: vscode.Disposable[] = [];
 
     constructor () {
+        // Register code actions
+        this.disposables.push(vscode.languages.registerCodeActionsProvider({ pattern: SETTINGS_GLOB }, new FixSettingsActions()));
+
         this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal project settings");
         this.disposables.push(this.diagnostics);
 
@@ -66,10 +70,9 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
             }
         });
 
-        const settingsGlob = posix.join("**", VSCODE_DIR, SETTINGS_FILE);
-        const watcher = vscode.workspace.createFileSystemWatcher(settingsGlob);
-        watcher.onDidCreate(f => this.fixSettings(this.projectRootFromSettings(f)), this, this.disposables);
-        watcher.onDidChange(f => this.fixSettings(this.projectRootFromSettings(f)), this, this.disposables);
+        const watcher = vscode.workspace.createFileSystemWatcher(SETTINGS_GLOB);
+        watcher.onDidCreate(f => this.fixSettings(projectRoot(f)), this, this.disposables);
+        watcher.onDidChange(f => this.fixSettings(projectRoot(f)), this, this.disposables);
         watcher.onDidDelete(this.clearFileDiagnostics, this, this.disposables);
         this.disposables.push(watcher);
 
@@ -77,13 +80,6 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         for (const projectRoot of vscode.workspace.workspaceFolders || []) {
             this.fixSettings(projectRoot.uri); // Do not await; process workspaces in parallel
         }
-
-        // Register code actions
-        this.disposables.push(vscode.languages.registerCodeActionsProvider({ pattern: settingsGlob }, new FixSettingsActions()));
-    }
-
-    private projectRootFromSettings(uri: vscode.Uri): vscode.Uri {
-        return uri.with({ path: posix.dirname(posix.dirname(uri.path)) });
     }
 
     private clearWorkspaceDiagnostics(uri: vscode.Uri) {
@@ -94,8 +90,8 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         this.diagnostics.delete(uri);
     }
 
-    private async fixSettings(projectRoot: vscode.Uri) {
-        if (!await isRascalProject(projectRoot)) {
+    private async fixSettings(projectRoot: vscode.Uri | undefined) {
+        if (!projectRoot || !await isRascalProject(projectRoot)) {
             return;
         }
 
@@ -111,38 +107,46 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
 
 }
 
+function projectRoot(uri: vscode.Uri): vscode.Uri | undefined {
+    while (!hasFile(uri, buildMFChildPath)) {
+        const newUri = uri.with({ path: posix.dirname(uri.path) });
+        if (newUri === uri) {
+            return undefined;
+        }
+        uri = newUri;
+    }
+    return uri;
+}
+
 async function createSettingsDiagnostic(projectRoot: vscode.Uri): Promise<{uri: vscode.Uri, diag: vscode.Diagnostic} | undefined> {
     const warning = "The projects target folder appears in search results. Editing those files breaks the project build.";
 
-    if (!await hasSettingsFile(projectRoot)) {
+    if (!await hasFile(projectRoot, buildSettingsPath)) {
         // Settings file does not exist. Put the diagnostic on the RASCAL.MF file instead.
         const manifest = await vscode.workspace.openTextDocument(buildMFChildPath(projectRoot));
         const d = new vscode.Diagnostic(manifest.lineAt(0).range, warning, vscode.DiagnosticSeverity.Warning);
-        d.code = {
-            value: FixKind.createSettings,
-            target: buildSettingsPath(projectRoot),
-        };
+        d.code = FixKind.createSettings;
         return {uri: manifest.uri, diag: d};
     }
 
     // Settings file exists
     const settingsDoc = await vscode.workspace.openTextDocument(buildSettingsPath(projectRoot));
-    const settings = jsonc.parse(settingsDoc.getText());
-    if (settings && ("target" in settings[SEARCH_EXCLUDE_SETTING_KEY] || "/target/" in settings[SEARCH_EXCLUDE_SETTING_KEY])) {
-        return;
+    const settings = jsonc.parseTree(settingsDoc.getText());
+    if (settings) {
+        const target = jsonc.findNodeAtLocation(settings, [SEARCH_EXCLUDE_SETTING_KEY, "/target/"]);
+        if (target && jsonc.getNodeValue(target) === true) {
+            return;
+        }
     }
 
     const d = new vscode.Diagnostic(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)), warning, vscode.DiagnosticSeverity.Warning);
-    d.code = {
-        value: FixKind.fixTargetExclude,
-        target: buildSettingsPath(projectRoot),
-    };
+    d.code = FixKind.fixTargetExclude;
     return {uri: settingsDoc.uri, diag: d};
 }
 
-async function hasSettingsFile(projectRoot: vscode.Uri) {
+async function hasFile(projectRoot: vscode.Uri, findPath: (u: vscode.Uri) => vscode.Uri) {
     try {
-        await vscode.workspace.fs.stat(buildSettingsPath(projectRoot));
+        await vscode.workspace.fs.stat(findPath(projectRoot));
         return true;
     } catch (_missing) {
         return false;
@@ -154,20 +158,22 @@ function buildSettingsPath(projectRoot: vscode.Uri) {
 }
 
 class FixSettingsActions implements vscode.CodeActionProvider {
-    provideCodeActions(document: vscode.TextDocument, _range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, _token: vscode.CancellationToken): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
-        let result: Promise<vscode.CodeAction[]> = new Promise(_ => []);
+    async provideCodeActions(document: vscode.TextDocument, _range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, _token: vscode.CancellationToken): Promise<(vscode.CodeAction | vscode.Command)[]> {
+        const result: vscode.CodeAction[] = [];
         for (const d of context.diagnostics) {
-            if (d.code instanceof Object) {
-                switch (d.code.value) {
-                    case FixKind.createSettings: {
-                        const settingsUri = d.code.target;
-                        result = result.then(r => r.concat(this.createSettings(settingsUri, d)));
+            switch (d.code) {
+                case FixKind.createSettings: {
+                    const root = projectRoot(document.uri);
+                    if (!root) {
                         break;
                     }
-                    case FixKind.fixTargetExclude: {
-                        result = result.then(r => r.concat(this.fixTargetExclude(document, d)));
-                        break;
-                    }
+                    const settingsUri = buildSettingsPath(root);
+                    result.push(await this.createSettings(settingsUri, d));
+                    break;
+                }
+                case FixKind.fixTargetExclude: {
+                    result.push(await this.fixTargetExclude(document, d));
+                    break;
                 }
             }
         }
