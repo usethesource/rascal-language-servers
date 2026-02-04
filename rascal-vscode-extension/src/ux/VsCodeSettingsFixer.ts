@@ -71,7 +71,7 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
             }
         });
 
-        const updateSettings = async f => this.fixSettings(await projectRoot(f));
+        const updateSettings = async (f: vscode.Uri) => this.fixSettings(await projectRoot(f));
         const watcher = vscode.workspace.createFileSystemWatcher(SETTINGS_GLOB);
         watcher.onDidCreate(updateSettings, this, this.disposables);
         watcher.onDidChange(updateSettings, this, this.disposables);
