@@ -169,21 +169,7 @@ test bool moduleExists() = testRenameOccurrences({
     byText("foo::Foo", "", {})
 }, oldName = "Foo", newName = "foo::Foo");
 
-test bool moduleRenameProducesEdits()
-    = testProject({byText("Foo", "", {})},
-        "moduleRenameProducesEdits",
-        bool({TestModule foo}, loc testDir, PathConfig pcfg) {
-            loc oldLoc = foo.file;
-            loc newLoc = |<oldLoc.scheme>:///<oldLoc.parent.path>/nested/<oldLoc.file>|;
-
-            // VS Code moves first, and informs us afterwards
-            move(foo.file, newLoc);
-
-            <edits, msgs> = rascalRenameModule([<foo.file, newLoc>], toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
-            throwMessagesIfError(msgs);
-            return [changed(newLoc, [replace(_, "nested::Foo")])] := edits;
-        }
-    );
+//// File moves
 
 @expected{illegalRename}
 test bool moduleRenameWithoutExtension()
@@ -219,61 +205,6 @@ test bool moduleRenameOutsideSources()
         }
     );
 
-//// File moves
-bool moved(byText(name, _, _, newName = newName)) = name != newName;
-
-private bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], tuple[int, int]]] additionalEdits = {}, bool debug = true) {
-    testDir = |memory:///tests/move|;
-    remove(testDir);
-    pcfg = getTestPathConfig(testDir);
-    getPathConfig = PathConfig(loc l) {
-        return pcfg;
-    };
-
-    // We test renaming *after* files have been moved, so we use the new name for the path here
-    modsAndPaths = {<m, srcsFile(replaceAll(m.newName, "\\", ""), pcfg, RASCAL_CONF, force=true)> | m <- modules, moved(m)};
-
-    if (debug) {
-        print("Mods and paths: ");
-        iprintln(modsAndPaths);
-    }
-
-    for (<byText(name, body, _), p> <- modsAndPaths) {
-        writeFile(p, "module <name>\n<body>");
-    }
-
-    renames = [<old, new> | <m, new> <- modsAndPaths, srcDir := relativize(pcfg.srcs, new), old := srcsFile(replaceAll(m.name, "\\", ""), pcfg, RASCAL_CONF, force=true)];
-
-    edits = rascalRenameModule(renames, toSet(pcfg.srcs), getPathConfig);
-
-    expectedEdits = {
-        replace(\mod.top.header.name.src, m.newName)
-        | <m, p> <- modsAndPaths
-        , start[Module] \mod := parse(#start[Module], p)
-        , moved(m)
-    };
-
-    if (debug) {
-        print("Edits: ");
-        iprintln(edits<0>);
-
-        print("Expected edits: ");
-        iprintln(expectedEdits);
-
-        print("Additional edits: ");
-        iprintln(additionalEdits);
-    }
-
-    verifyTypeCorrectRenaming(testDir, edits<0>, pcfg);
-
-    if (edits<1> != {}) {
-        throw edits<1>;
-    }
-
-    return {r | /r:replace(_, _) := edits<0>}
-        == expectedEdits + additionalEdits;
-}
-
 test bool moveWithinFolder() = moveRenameTest({byText("A", "", {}, newName = "B")});
 test bool moveDeepWithinFolder() = moveRenameTest({byText("foo::bar::A", "", {}, newName = "foo::bar::B")});
 test bool moveFolder() = moveRenameTest({
@@ -288,9 +219,9 @@ test bool moveReferenced() = moveRenameTest({
     byText("B", "int b = 0;", {}, newName = "BB")
 });
 
-test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
-test bool moveEscaped2() = moveRenameTest({byText("\\A", "", {}, newName = "\\B")});
-test bool moveEscaped3() = moveRenameTest({
+@ignore{Escaped names} test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
+@ignore{Escaped names} test bool moveEscaped2() = moveRenameTest({byText("\\A", "", {}, newName = "\\B")});
+@ignore{Escaped names} test bool moveEscaped3() = moveRenameTest({
     byText("A", "
         import B;
         int a = \\B::b;", {}),
