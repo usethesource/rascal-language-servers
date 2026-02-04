@@ -174,7 +174,7 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str new
         return [replace(l, normalizeEscaping(newName))
             | /QualifiedName qn := m
             , <oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
-            , [<newName, projWithRenamedMod>] := qualifiedNameChanges[oldName]
+            , [<newName, projWithRenamedMod>] := qualifiedNameChanges[normalizeEscaping(oldName)]
             , isReachable(projWithRenamedMod, wsProject)
         ];
     }

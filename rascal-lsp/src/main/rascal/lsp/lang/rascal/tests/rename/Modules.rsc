@@ -219,11 +219,11 @@ test bool moveReferenced() = moveRenameTest({
     byText("B", "int b = 0;", {}, newName = "BB")
 });
 
-@ignore{Escaped names} test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
-@ignore{Escaped names} test bool moveEscaped2() = moveRenameTest({byText("\\A", "", {}, newName = "\\B")});
-@ignore{Escaped names} test bool moveEscaped3() = moveRenameTest({
+test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
+test bool moveEscaped2() = moveRenameTest({byText("\\A", "", {}, newName = "\\B")});
+test bool moveEscaped3() = moveRenameTest({
     byText("A", "
         import B;
         int a = \\B::b;", {}),
     byText("B", "int b = 0;", {}, newName = "BB")
-}, additionalEdits = {/* TODO Replace qualified name */});
+});
