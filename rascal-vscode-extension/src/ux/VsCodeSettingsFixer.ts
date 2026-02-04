@@ -27,7 +27,7 @@
 import * as jsonc from 'jsonc-parser';
 import { posix } from 'path';
 import * as vscode from 'vscode';
-import { buildMFChildPath, isRascalProject } from './RascalMFValidator';
+import { buildMFChildPath, isRascalProject, MF_FILE } from './RascalMFValidator';
 
 const VSCODE_DIR = ".vscode";
 const SETTINGS_FILE = "settings.json";
@@ -55,6 +55,7 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
     constructor () {
         // Register code actions
         this.disposables.push(vscode.languages.registerCodeActionsProvider({ pattern: SETTINGS_GLOB }, new FixSettingsActions()));
+        this.disposables.push(vscode.languages.registerCodeActionsProvider({ pattern: posix.join("**", MF_FILE) }, new FixSettingsActions()));
 
         this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal project settings");
         this.disposables.push(this.diagnostics);
@@ -70,10 +71,11 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
             }
         });
 
+        const updateSettings = async f => this.fixSettings(await projectRoot(f));
         const watcher = vscode.workspace.createFileSystemWatcher(SETTINGS_GLOB);
-        watcher.onDidCreate(f => this.fixSettings(projectRoot(f)), this, this.disposables);
-        watcher.onDidChange(f => this.fixSettings(projectRoot(f)), this, this.disposables);
-        watcher.onDidDelete(this.clearFileDiagnostics, this, this.disposables);
+        watcher.onDidCreate(updateSettings, this, this.disposables);
+        watcher.onDidChange(updateSettings, this, this.disposables);
+        watcher.onDidDelete(updateSettings, this, this.disposables);
         this.disposables.push(watcher);
 
         // Fix settings for currently open projects
@@ -82,8 +84,9 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         }
     }
 
-    private clearWorkspaceDiagnostics(uri: vscode.Uri) {
-        this.clearFileDiagnostics(vscode.Uri.joinPath(uri, VSCODE_DIR, SETTINGS_FILE));
+    private clearWorkspaceDiagnostics(projectRoot: vscode.Uri) {
+        this.clearFileDiagnostics(buildSettingsPath(projectRoot));
+        this.clearFileDiagnostics(buildMFChildPath(projectRoot));
     }
 
     private clearFileDiagnostics(uri: vscode.Uri) {
@@ -98,6 +101,8 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
         const res = await createSettingsDiagnostic(projectRoot);
         if (res) {
             this.diagnostics.set(res.uri, [res.diag]);
+        } else {
+            this.clearWorkspaceDiagnostics(projectRoot);
         }
     }
 
