@@ -112,8 +112,8 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
 
 }
 
-function projectRoot(uri: vscode.Uri): vscode.Uri | undefined {
-    while (!hasFile(uri, buildMFChildPath)) {
+async function projectRoot(uri: vscode.Uri): Promise<vscode.Uri | undefined> {
+    while (!await hasFile(uri, buildMFChildPath)) {
         const newUri = uri.with({ path: posix.dirname(uri.path) });
         if (newUri === uri) {
             return undefined;
@@ -168,7 +168,7 @@ class FixSettingsActions implements vscode.CodeActionProvider {
         for (const d of context.diagnostics) {
             switch (d.code) {
                 case FixKind.createSettings: {
-                    const root = projectRoot(document.uri);
+                    const root = await projectRoot(document.uri);
                     if (!root) {
                         break;
                     }
