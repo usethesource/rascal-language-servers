@@ -136,7 +136,7 @@ void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, 
     // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
         for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
-            just(<qualPref, prefLoc>) := qualifiedPrefix(qn), moduleName == qualPref) {
+            just(<moduleName, prefLoc>) := qualifiedPrefix(qn)) {
             r.textEdit(replace(prefLoc, newName));
         }
     }
