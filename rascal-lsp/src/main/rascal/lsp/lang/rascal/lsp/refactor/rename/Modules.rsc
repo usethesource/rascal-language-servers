@@ -44,6 +44,7 @@ import Set;
 import String;
 
 import util::FileSystem;
+import util::Maybe;
 import util::PathConfig;
 import util::Reflective;
 import util::Util;
@@ -92,13 +93,13 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
                     useFiles += f;
                     markedUse = true;
                 }
-                else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1) {
-                    qualPref = qualifiedPrefix(qn);
-                    if (qualPref.name == modName) {
+                else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1
+                       , just(<qualPref, _>) := qualifiedPrefix(qn)) {
+                    if (qualPref == modName) {
                         useFiles += f;
                         markedUse = true;
                     }
-                    else if (qualPref.name == newModName) {
+                    else if (qualPref == newModName) {
                         newFiles += f;
                         markedNew = true;
                     }
@@ -135,19 +136,26 @@ void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, 
     // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
         for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
-            pref := qualifiedPrefix(qn), moduleName == pref.name) {
-            r.textEdit(replace(pref.l, newName));
+            just(<qualPref, prefLoc>) := qualifiedPrefix(qn), moduleName == qualPref) {
+            r.textEdit(replace(prefLoc, newName));
         }
     }
 }
 
 private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <normalizeEscaping("<qn>"), qn.src>;
-private tuple[str name, loc l] qualifiedPrefix(QualifiedName qn) {
-    list[Name] prefixNames = prefix([n | n <- qn.names]);
-    if ([] := prefixNames) return <"", |unknown:///|>;
+private Maybe[tuple[str, loc]] qualifiedPrefix(QualifiedName qn) {
+    if (qn.src.length <= 3) {
+        // Since '::' is (at least) two long, this is a single name; no prefix
+        return nothing();
+    }
+
+    prefixNames = prefix([n | n <- qn.names]);
+    if ([] := prefixNames) {
+        return nothing();
+    }
 
     // Normalize like in ((normalizeEscaping)) now that we're processing the individual names
-    return <intercalate("::", [escapeMinusIdentifier(escapeReservedName(forceUnescapeNames("<n>"))) | n <- prefixNames]), cover([n.src | n <- prefixNames])>;
+    return just(<intercalate("::", [escapeMinusIdentifier(escapeReservedName(forceUnescapeNames("<n>"))) | n <- prefixNames]), cover([n.src | n <- prefixNames])>);
 }
 
 private bool isReachable(PathConfig toProject, PathConfig fromProject) =
@@ -177,12 +185,19 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str new
     }
     try {
         start[Module] m = parseModuleWithSpaces(f);
-        return [replace(l, normalizeEscaping(newName))
-            | /QualifiedName qn := m
-            , <oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
-            , [<newName, projWithRenamedMod>] := qualifiedNameChanges[oldName]
-            , isReachable(projWithRenamedMod, wsProject)
-        ];
+        list[TextEdit] edits = [];
+        for (/QualifiedName qn := m) {
+            names = {fullQualifiedName(qn)};
+            if (just(pref) := qualifiedPrefix(qn)) {
+                names += pref;
+            }
+            for (<oldName, l> <- names
+               , [<newName, projWithRenamedMod>] := qualifiedNameChanges[oldName]
+               , isReachable(projWithRenamedMod, wsProject)) {
+                edits += replace(l, newName);
+            }
+        }
+        return edits;
     }
     catch Java("ParseError", str msg): return getChangesByContents(contents, wsProject, qualifiedNameChanges, registerMessage);
     catch JavaException("ParseError", str msg): return getChangesByContents(contents, wsProject, qualifiedNameChanges, registerMessage);
