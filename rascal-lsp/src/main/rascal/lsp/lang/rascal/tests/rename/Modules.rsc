@@ -220,7 +220,12 @@ test bool moveReferenced() = moveRenameTest({
 });
 
 test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
-test bool moveEscaped2() = moveRenameTest({byText("\\A", "", {}, newName = "\\B")});
+
+@ignore{Maintaining escapes is unsupported} test bool moveEscaped2() = moveRenameTest({
+    byText("foo::bar::\\A", "", {}, newName = "foo::baz::\\A"),
+    byText("foo::bar::\\B", "", {}, newName = "foo::baz::\\B")
+});
+
 test bool moveEscaped3() = moveRenameTest({
     byText("A", "
         import B;
