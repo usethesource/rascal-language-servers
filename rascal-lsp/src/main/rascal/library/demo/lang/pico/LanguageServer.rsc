@@ -177,11 +177,11 @@ set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.s
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
-    = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
+    = [CodeAction::action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
 list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program])
-    = [action(command=removeDecl(program, x, title="remove <x>"))];
+    = [CodeAction::action(command=removeDecl(program, x, title="remove <x>"))];
 
 default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 
