@@ -153,8 +153,7 @@ private bool isReachable(PathConfig toProject, PathConfig fromProject) =
     toProject == fromProject           // Both configs belong to the same project
  || toProject.bin in fromProject.libs; // The using project can import the declaring project
 
-list[TextEdit] getChangesByContents(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
-    str contents = readFile(f);
+list[TextEdit] getChangesByContents(str contents, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
     changesInFile = [<oldName, newName>
         | <oldName, newName, projWithRenamedMod> <- qualifiedNameChanges
         , contains(contents, oldName) && isReachable(projWithRenamedMod, wsProject)
@@ -169,6 +168,12 @@ list[TextEdit] getChangesByContents(loc f, PathConfig wsProject, lrel[str oldNam
 }
 
 list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
+    str contents = readFile(f);
+    if (!any(str qName <- qualifiedNameChanges.oldName, str fName := qName[findLast(qName, ":") + 1..], contains(contents, fName))) {
+        // Since the escaping in qualifiedNameChanges is already normalized, no need to do that here.
+        // If the base of the module name (filename without extension) does not appear in the module, we have nothing to do there for sure.
+        return [];
+    }
     try {
         start[Module] m = parseModuleWithSpaces(f);
         return [replace(l, normalizeEscaping(newName))
@@ -178,8 +183,8 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str new
             , isReachable(projWithRenamedMod, wsProject)
         ];
     }
-    catch Java("ParseError", str msg): return getChangesByContents(f, wsProject, qualifiedNameChanges, registerMessage);
-    catch JavaException("ParseError", str msg): return getChangesByContents(f, wsProject, qualifiedNameChanges, registerMessage);
+    catch Java("ParseError", str msg): return getChangesByContents(contents, wsProject, qualifiedNameChanges, registerMessage);
+    catch JavaException("ParseError", str msg): return getChangesByContents(contents, wsProject, qualifiedNameChanges, registerMessage);
     // Catch all
     catch e: registerMessage(error("<e>", f));
     return [];
