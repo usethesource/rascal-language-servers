@@ -182,7 +182,7 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str new
     }
 
     str contents = readFile(f);
-    if (!any(str qName <- qualifiedNameChanges.oldName, all(str name <- split("::", qName), contains(contents, normalizeSingleNameEscaping(name))))) {
+    if (!any(str qName <- qualifiedNameChanges.oldName, str basename := normalizeSingleNameEscaping(qName[findLast(qName, ":") + 1..]), contains(contents, basename))) {
         // Since the escaping in qualifiedNameChanges is already normalized, no need to do that here.
         // If the base of the module name (filename without extension) does not appear in the module, we have nothing to do there for sure.
         return [];
