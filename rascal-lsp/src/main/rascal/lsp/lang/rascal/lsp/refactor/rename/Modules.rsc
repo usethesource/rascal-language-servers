@@ -177,6 +177,10 @@ list[TextEdit] getChangesByContents(str contents, PathConfig wsProject, lrel[str
 }
 
 list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
+    if ([] := qualifiedNameChanges) {
+        return [];
+    }
+
     str contents = readFile(f);
     if (!any(str qName <- qualifiedNameChanges.oldName, str fName := qName[findLast(qName, ":") + 1..], contains(contents, fName))) {
         // Since the escaping in qualifiedNameChanges is already normalized, no need to do that here.
