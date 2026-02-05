@@ -274,28 +274,3 @@ tuple[list[DocumentEdit], set[Message]] propagateModuleRenames(lrel[loc old, loc
 
     return <any(msg <- messages, msg is error) ? [] : toList(edits), messages>;
 }
-
-void benchmark(loc rascal = |home:///swat/projects/Rascal/rascal|) {
-    pcfg = pathConfig(
-        srcs = [
-            rascal + "src/org/rascalmpl/library"
-          , rascal + "src/org/rascalmpl/compiler"
-        ],
-        bin = rascal + "target/classes"
-    );
-
-    moves = [
-        <rascal + "src/org/rascalmpl/library/List.rsc", rascal + "src/org/rascalmpl/library/nested/List.rsc">,
-        <rascal + "src/org/rascalmpl/library/Set.rsc", rascal + "src/org/rascalmpl/library/nested/Set.rsc">,
-        <rascal + "src/org/rascalmpl/library/Map.rsc", rascal + "src/org/rascalmpl/library/nested/Map.rsc">,
-        <rascal + "src/org/rascalmpl/library/Relation.rsc", rascal + "src/org/rascalmpl/library/nested/Relation.rsc">,
-        <rascal + "src/org/rascalmpl/library/util/Math.rsc", rascal + "src/org/rascalmpl/library/nested/utility/Math.rsc">
-    ];
-
-    <edits, messages> = propagateModuleRenames(moves, {rascal}, PathConfig(loc _) { return pcfg; });
-    print("Messages: ");
-    iprintln(messages);
-
-    print("Edits: ");
-    println(size(edits));
-}
