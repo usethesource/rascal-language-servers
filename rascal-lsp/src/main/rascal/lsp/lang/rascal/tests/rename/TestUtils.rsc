@@ -56,6 +56,7 @@ import util::PathConfig;
 import util::Reflective;
 import util::Util;
 
+public LanguageFileConfig RASCAL_CONF = fileConfig();
 
 //// Fixtures and utility functions
 data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
@@ -76,7 +77,7 @@ private list[DocumentEdit] groupEditsByFile(list[DocumentEdit] _: [*pre, changed
     groupEditsByFile([*pre, changed(f, [*e1, *e2]), *mid, *post]);
 private default list[DocumentEdit] groupEditsByFile(list[DocumentEdit] edits) = edits;
 
-private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
+void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
     list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
 
@@ -149,6 +150,60 @@ bool testProject(set[TestModule] modules, str testName, bool(set[TestModule] mod
     }
 
     return result;
+}
+
+bool isMoved(byText(name, _, _, newName = newName)) = name != newName;
+
+bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], tuple[int, int]]] additionalEdits = {}, bool debug = false) {
+    testDir = |memory:///tests/move|;
+    remove(testDir);
+    pcfg = getTestPathConfig(testDir);
+    getPathConfig = PathConfig(loc l) {
+        return pcfg;
+    };
+
+    // We test renaming *after* files have been moved, so we use the new name for the path here
+    modsAndPaths = {<m, srcsFile(replaceAll(m.newName, "\\", ""), pcfg, RASCAL_CONF, force=true)> | m <- modules, isMoved(m)};
+
+    if (debug) {
+        print("Mods and paths: ");
+        iprintln(modsAndPaths);
+    }
+
+    for (<byText(name, body, _), p> <- modsAndPaths) {
+        writeFile(p, "module <name>\n<body>");
+    }
+
+    renames = [<old, new> | <m, new> <- modsAndPaths, srcDir := relativize(pcfg.srcs, new), old := srcsFile(replaceAll(m.name, "\\", ""), pcfg, RASCAL_CONF, force=true)];
+
+    edits = rascalRenameModule(renames, toSet(pcfg.srcs), getPathConfig);
+
+    expectedEdits = {
+        replace(\mod.top.header.name.src, m.newName)
+        | <m, p> <- modsAndPaths
+        , start[Module] \mod := parse(#start[Module], p)
+        , isMoved(m)
+    };
+
+    if (debug) {
+        print("Edits: ");
+        iprintln(edits<0>);
+
+        print("Expected edits: ");
+        iprintln(expectedEdits);
+
+        print("Additional edits: ");
+        iprintln(additionalEdits);
+    }
+
+    verifyTypeCorrectRenaming(testDir, edits<0>, pcfg);
+
+    if (edits<1> != {}) {
+        throw edits<1>;
+    }
+
+    return {r | /r:replace(_, _) := edits<0>}
+        == expectedEdits + additionalEdits;
 }
 
 bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
@@ -379,10 +434,9 @@ private tuple[loc, list[Tree]] findCursor(loc f, str id, int occ) {
 }
 
 private loc storeTestModule(loc dir, str name, str body) {
-    str moduleStr = "
-    'module <name>
-    '<body>
-    ";
+    str moduleStr = "module <trim(name)>
+                    '<trim(body)>
+                    '";
 
     loc moduleFile = dir + "rascal" + (moduleNameToPath(name) + ".rsc");
     writeFile(moduleFile, moduleStr);

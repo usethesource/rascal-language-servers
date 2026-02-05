@@ -171,10 +171,10 @@ list[TextEdit] getChangesByContents(loc f, PathConfig wsProject, lrel[str oldNam
 list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
     try {
         start[Module] m = parseModuleWithSpaces(f);
-        return [replace(l, normalizeEscaping(newName))
+        return [replace(l, newName)
             | /QualifiedName qn := m
             , <oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
-            , [<newName, projWithRenamedMod>] := qualifiedNameChanges[oldName]
+            , [<newName, projWithRenamedMod>] := qualifiedNameChanges[normalizeEscaping(oldName)]
             , isReachable(projWithRenamedMod, wsProject)
         ];
     }
