@@ -154,7 +154,7 @@ bool testProject(set[TestModule] modules, str testName, bool(set[TestModule] mod
 
 bool isMoved(byText(name, _, _, newName = newName)) = name != newName;
 
-bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], tuple[int, int]]] additionalEdits = {}, bool debug = true) {
+bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], tuple[int, int]]] additionalEdits = {}, bool debug = false) {
     testDir = |memory:///tests/move|;
     remove(testDir);
     pcfg = getTestPathConfig(testDir);
