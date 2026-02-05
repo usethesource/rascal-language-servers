@@ -94,11 +94,11 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
                 }
                 else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1) {
                     qualPref = qualifiedPrefix(qn);
-                    if (qualPref.name == modName || normalizeEscaping(qualPref.name) == modName) {
+                    if (qualPref.name == modName) {
                         useFiles += f;
                         markedUse = true;
                     }
-                    else if (qualPref.name == newModName || normalizeEscaping(qualPref.name) == newModName) {
+                    else if (qualPref.name == newModName) {
                         newFiles += f;
                         markedNew = true;
                     }
@@ -135,18 +135,19 @@ void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), modDef, 
     // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
         for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
-            pref := qualifiedPrefix(qn), moduleName == normalizeEscaping(pref.name)) {
+            pref := qualifiedPrefix(qn), moduleName == pref.name) {
             r.textEdit(replace(pref.l, newName));
         }
     }
 }
 
-private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <"<qn>", qn.src>;
+private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <normalizeEscaping("<qn>"), qn.src>;
 private tuple[str name, loc l] qualifiedPrefix(QualifiedName qn) {
     list[Name] prefixNames = prefix([n | n <- qn.names]);
     if ([] := prefixNames) return <"", |unknown:///|>;
 
-    return <intercalate("::", ["<n>" | n <- prefixNames]), cover([n.src | n <- prefixNames])>;
+    // Normalize like in ((normalizeEscaping)) now that we're processing the individual names
+    return <intercalate("::", [escapeMinusIdentifier(escapeReservedName(forceUnescapeNames("<n>"))) | n <- prefixNames]), cover([n.src | n <- prefixNames])>;
 }
 
 private bool isReachable(PathConfig toProject, PathConfig fromProject) =
