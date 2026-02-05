@@ -155,7 +155,7 @@ private Maybe[tuple[str, loc]] qualifiedPrefix(QualifiedName qn) {
     }
 
     // Normalize like in ((normalizeEscaping)) now that we're processing the individual names
-    return just(<intercalate("::", [escapeMinusIdentifier(escapeReservedName(forceUnescapeNames("<n>"))) | n <- prefixNames]), cover([n.src | n <- prefixNames])>);
+    return just(<intercalate("::", [normalizeSingleNameEscaping("<n>") | n <- prefixNames]), cover([n.src | n <- prefixNames])>);
 }
 
 private bool isReachable(PathConfig toProject, PathConfig fromProject) =
@@ -182,7 +182,7 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str new
     }
 
     str contents = readFile(f);
-    if (!any(str qName <- qualifiedNameChanges.oldName, str fName := qName[findLast(qName, ":") + 1..], contains(contents, fName))) {
+    if (!any(str qName <- qualifiedNameChanges.oldName, all(str name <- split("::", qName), contains(contents, normalizeSingleNameEscaping(name))))) {
         // Since the escaping in qualifiedNameChanges is already normalized, no need to do that here.
         // If the base of the module name (filename without extension) does not appear in the module, we have nothing to do there for sure.
         return [];
