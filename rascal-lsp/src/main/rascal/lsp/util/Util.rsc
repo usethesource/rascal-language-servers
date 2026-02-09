@@ -40,7 +40,7 @@ import util::Reflective;
     Finds the smallest location in `wrappers` than contains `l`. If none contains `l`, returns `nothing().`
     Accepts a predicate deciding containment as an optional argument.
 }
-Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l, bool(loc, loc) containmentPred = isContainedIn) {
+Maybe[loc] findSmallestContaining(set[loc] wrappers, loc l, bool(loc, loc) containmentPred = isStrictlyContainedIn) {
     Maybe[loc] result = nothing();
     for (w <- wrappers, containmentPred(l, w)) {
         switch (result) {

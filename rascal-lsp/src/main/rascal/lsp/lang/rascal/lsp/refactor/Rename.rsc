@@ -236,19 +236,23 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
 
     TModel tmodelForTree(Tree tr) = tmodelForLoc(tr.src.top);
 
+    TModel logicalToPhysical(TModel tm) = visit(tm) {
+        case loc l => tm.logical2physical[l] ? l
+    }[logical2physical=l2p] when l2p := tm.logical2physical;
+
     TModel tmodelForLoc(loc l) {
         pcfg = getPathConfig(l);
         mname = getModuleName(l, pcfg);
 
         ccfg = rascalCompilerConfig(pcfg);
         <found, tm, ms> = getTModelForModule(mname, ms);
-        if (found) return tm;
+        if (found) return logicalToPhysical(tm);
 
         ms = rascalTModelForNames([mname], ccfg, dummy_compile1);
 
         <found, tm, ms> = getTModelForModule(mname, ms);
         if (!found) throw "No TModel for module \'<mname>\'";
-        return tm;
+        return logicalToPhysical(tm);
     }
 
     @synopsis{
