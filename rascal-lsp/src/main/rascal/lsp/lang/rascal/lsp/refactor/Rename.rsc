@@ -49,6 +49,7 @@ import String;
 import lang::rascal::\syntax::Rascal;
 
 import lang::rascalcore::check::Checker;
+import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
 
 import lang::rascal::lsp::refactor::rename::Common;
@@ -68,6 +69,8 @@ import util::FileSystem;
 import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
+
+import analysis::diff::edits::TextEdits;
 
 private bool isQualifiedUse(loc use, Define _:<_, str id, _, _, _, _>) = size(id) != use.length;
 
@@ -136,7 +139,7 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
 
 void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, dt>, str name, Renamer r) {
     escName = normalizeEscaping(name);
-    <t, desc> = asType(role, dt);
+    <t, desc> = asRoleType(role, dt);
     if (tryParseAs(t, escName) is nothing) {
         r.msg(error(at, "<escName> is not a valid <desc>"));
     }
@@ -215,7 +218,7 @@ Tree findCursorInTree(Tree t, loc cursorLoc) {
 }
 
 @synopsis{Due to how the focus list is computed and the grammar for concrete syntax, we cannot easily find the exact name that the cursor is at.}
-list[Tree] extendFocusWithConcreteSyntax([Concrete c, *tail], loc cursorLoc) = [findCursorInTree(c, cursorLoc), c, *tail];
+list[Tree] extendFocusWithConcreteSyntax([Concrete c, *Tree tail], loc cursorLoc) = [findCursorInTree(c, cursorLoc), c, *tail];
 default list[Tree] extendFocusWithConcreteSyntax(list[Tree] cursor, loc _) = cursor;
 
 data AugmentComponents = augmentUses() | augmentDefs();
@@ -229,7 +232,7 @@ TModel getConditionallyAugmentedTModel(loc l, set[Define] defs, set[AugmentCompo
     : r.getConfig().tmodelForLoc(l);
 
 public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, set[loc] workspaceFolders, PathConfig(loc) getPathConfig) {
-    ModuleStatus ms = moduleStatus({}, {}, (), [], (), [], {}, (), (), (), (), pathConfig(), tconfig());
+    ModuleStatus ms =  moduleStatus({}, {}, (), [], (), [], {}, (), (), (), (), pathConfig(), tconfig());
 
     TModel tmodelForTree(Tree tr) = tmodelForLoc(tr.src.top);
 
@@ -358,7 +361,7 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFiles(set[Define] defs, list[T
     escNewName = normalizeEscaping(newName);
     for (<role, dt> <- defs<idRole, defInfo>) {
         hasError = false;
-        <t, desc> = asType(role, dt);
+        <t, desc> = asRoleType(role, dt);
         if (tryParseAs(t, escNewName) is nothing) {
             hasError = true;
             r.msg(error(cursor[0], "\'<escNewName>\' is not a valid <desc>"));
