@@ -57,9 +57,9 @@ import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.vfs.FileAttributesResult;
 import org.rascalmpl.uri.vfs.FileAttributesResult.FilePermission;
 import org.rascalmpl.uri.vfs.FileAttributesResult.FileType;
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.uri.vfs.IRemoteResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
