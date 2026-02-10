@@ -54,9 +54,6 @@ export async function activateLanguageClient(
 
     await client.start();
     logger.setClient(client);
-    client.sendNotification("rascal/vfs/register", {
-        port: await vfsServer.serverPort
-    });
 
     client.onNotification("rascal/showContent", (uri: string, title: string, viewColumn: integer) => {
         showContentPanel(uri, title, viewColumn);
