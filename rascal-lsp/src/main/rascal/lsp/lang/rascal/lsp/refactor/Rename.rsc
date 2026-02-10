@@ -242,7 +242,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
 
     TModel tmodelForLoc(loc l) {
         pcfg = getPathConfig(l);
-        mname = getModuleName(l, pcfg);
+        mname = getRascalModuleName(l, pcfg);
 
         ccfg = rascalCompilerConfig(pcfg);
         <found, tm, ms> = getTModelForModule(mname, ms);
