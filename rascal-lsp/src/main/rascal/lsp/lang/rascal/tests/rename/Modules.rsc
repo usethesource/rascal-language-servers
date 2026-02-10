@@ -29,11 +29,16 @@ module lang::rascal::tests::rename::Modules
 
 import IO;
 import List;
+import Location;
 import Set;
+import String;
+
+import util::PathConfig;
 
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
 import lang::rascalcore::check::Checker;
+import analysis::diff::edits::TextEdits;
 
 test bool deepModule() = testRenameOccurrences({
     byText("some::path::to::Foo", "
@@ -164,21 +169,7 @@ test bool moduleExists() = testRenameOccurrences({
     byText("foo::Foo", "", {})
 }, oldName = "Foo", newName = "foo::Foo");
 
-test bool moduleRenameProducesEdits()
-    = testProject({byText("Foo", "", {})},
-        "moduleRenameProducesEdits",
-        bool({TestModule foo}, loc testDir, PathConfig pcfg) {
-            loc oldLoc = foo.file;
-            loc newLoc = |<oldLoc.scheme>:///<oldLoc.parent.path>/nested/<oldLoc.file>|;
-
-            // VS Code moves first, and informs us afterwards
-            move(foo.file, newLoc);
-
-            <edits, msgs> = rascalRenameModule([<foo.file, newLoc>], toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
-            throwMessagesIfError(msgs);
-            return [changed(newLoc, [replace(_, "nested::Foo")])] := edits;
-        }
-    );
+//// File moves
 
 @expected{illegalRename}
 test bool moduleRenameWithoutExtension()
@@ -213,3 +204,31 @@ test bool moduleRenameOutsideSources()
             return false;
         }
     );
+
+test bool moveWithinFolder() = moveRenameTest({byText("A", "", {}, newName = "B")});
+test bool moveDeepWithinFolder() = moveRenameTest({byText("foo::bar::A", "", {}, newName = "foo::bar::B")});
+test bool moveFolder() = moveRenameTest({
+    byText("foo::bar::A", "", {}, newName = "foo::baz::A"),
+    byText("foo::bar::B", "", {}, newName = "foo::baz::B")
+});
+
+test bool moveReferenced() = moveRenameTest({
+    byText("A", "
+        'import B;
+        'int a = B::b;", {}),
+    byText("B", "int b = 0;", {}, newName = "BB")
+});
+
+test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
+
+@ignore{Maintaining escapes is unsupported} test bool moveEscaped2() = moveRenameTest({
+    byText("foo::bar::\\A", "", {}, newName = "foo::baz::\\A"),
+    byText("foo::bar::\\B", "", {}, newName = "foo::baz::\\B")
+});
+
+test bool moveEscaped3() = moveRenameTest({
+    byText("A", "
+        import B;
+        int a = \\B::b;", {}),
+    byText("B", "int b = 0;", {}, newName = "BB")
+});

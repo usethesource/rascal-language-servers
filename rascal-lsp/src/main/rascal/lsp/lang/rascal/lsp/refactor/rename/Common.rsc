@@ -87,12 +87,12 @@ Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
 
 private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
 
-private set[&T] escapeSet(type[&T <: Tree] T, str n) {
-    set[&T] res = {};
-    if (just(&T t) := tryParseAs(T, n)) {
+private set[&T <: Tree] escapeSet(type[&T <: Tree] T, str n) {
+    set[&T <: Tree] res = {};
+    if (just(&T <: Tree t) := tryParseAs(T, n)) {
         res += t;
     }
-    if (just(&T t) := tryParseAs(T, forceEscapeSingleName(n))) {
+    if (just(&T <: Tree t) := tryParseAs(T, forceEscapeSingleName(n))) {
         res += t;
     }
     return res;
@@ -340,7 +340,7 @@ rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
 loc parentScope(loc l, TModel tm) {
     if (tm.scopes[l]?) {
         return tm.scopes[l];
-    } else if (just(loc scope) := findSmallestContaining(tm.scopes<inner>, l, containmentPred = isStrictlyContainedIn)) {
+    } else if (just(loc scope) := findSmallestContaining(tm.scopes<inner>, l)) {
         return scope;
     }
     return |global-scope:///|;

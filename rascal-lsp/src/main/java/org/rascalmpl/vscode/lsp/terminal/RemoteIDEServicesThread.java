@@ -74,7 +74,7 @@ public class RemoteIDEServicesThread extends Thread {
                         .setRemoteInterface(IRemoteIDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
-                        .configureGson(GsonUtils.complexAsJsonObject())
+                        .configureGson(GsonUtils.complexAsBase64String())
                         .setExecutorService(exec)
                         .setExceptionHandler(e -> {
                             logger.error(e);
