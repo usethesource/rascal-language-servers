@@ -165,7 +165,7 @@ export interface RenameRequest {
 }
 
 export interface WatchRequest {
-    uri: ISourceLocation;
+    loc: ISourceLocation;
     /**
      * subscription id, this helps the calling in linking up to the original request
      * as the watches are recursive
@@ -387,20 +387,20 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly activeWatches = new Map<string, WatcherCallbacks>();
 
     async watch(newWatch: WatchRequest): Promise<void> {
-        this.logger.trace("[VFS] watch: ", newWatch.uri);
-        const watchKey = newWatch.uri + newWatch.recursive;
+        this.logger.trace("[VFS] watch: ", newWatch.loc);
+        const watchKey = newWatch.loc + newWatch.recursive;
         if (!this.activeWatches.has(watchKey)) {
-            const watcher = new WatcherCallbacks(this.toUri(newWatch.uri), newWatch.recursive, this.watchListener, newWatch.watcher);
+            const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watcher);
             this.activeWatches.set(watchKey, watcher);
             this.toClear.push(watcher);
             return;
         }
-        throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch already defined for: ' + newWatch.uri, 'AlreadyDefined');
+        throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch already defined for: ' + newWatch.loc, 'AlreadyDefined');
     }
 
     async unwatch(removeWatch: WatchRequest): Promise<void> {
-        this.logger.trace("[VFS] unwatch: ", removeWatch.uri);
-        const watchKey = removeWatch.uri + removeWatch.recursive;
+        this.logger.trace("[VFS] unwatch: ", removeWatch.loc);
+        const watchKey = removeWatch.loc + removeWatch.recursive;
         const watcher = this.activeWatches.get(watchKey);
         if (watcher) {
             this.activeWatches.delete(watchKey);
@@ -411,7 +411,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             }
             return;
         }
-        throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch not defined for: ' + removeWatch.uri, 'NotDefined');
+        throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch not defined for: ' + removeWatch.loc, 'NotDefined');
     }
 
     async resolve(req: ISourceLocation): Promise<ISourceLocation> {
