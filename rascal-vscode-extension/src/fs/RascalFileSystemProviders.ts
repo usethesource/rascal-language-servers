@@ -97,15 +97,15 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
-        this.sendRequest(uri, "rascal/vfs/watcher/watch", <WatchParameters>{
-            uri: uri.toString(),
-            recursive:options.recursive,
-            excludes: options.excludes
+        this.sendRequest(uri, "rascal/vfs/watcher/watch", {
+            loc: uri.toString(),
+            recursive: options.recursive
         });
 
         return new vscode.Disposable(() => {
             this.sendRequest(uri, "rascal/vfs/watcher/unwatch", {
-                uri: uri.toString()
+                loc: uri.toString(),
+                recursive: options.recursive
             });
         });
     }
@@ -149,12 +149,6 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
 
 function isUnknownFileSystem(scheme : string) : boolean {
     return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
-}
-
-interface WatchParameters {
-    uri: string;
-    recursive: boolean;
-    excludes:Array<string>;
 }
 
 interface FileWithType {
