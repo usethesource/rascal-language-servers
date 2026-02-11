@@ -43,6 +43,7 @@ import org.eclipse.lsp4j.MarkedString;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.rascalmpl.util.Lazy;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -54,7 +55,6 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.SummaryFields;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
-import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
