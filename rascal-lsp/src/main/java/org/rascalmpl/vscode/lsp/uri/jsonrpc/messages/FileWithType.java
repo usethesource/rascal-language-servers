@@ -26,37 +26,23 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import org.rascalmpl.uri.vfs.FileAttributesResult.FileType;
 
-public class ReadFileResult {
+public class FileWithType {
+    @NonNull private final String name;
+    @NonNull private final FileType type;
 
-    @NonNull private String contents;
-
-    public ReadFileResult(@NonNull String contents) {
-        this.contents = contents;
+    public FileWithType(@NonNull String name, @NonNull FileType type) {
+        this.name = name;
+        this.type = type;
     }
 
-    public String getContents() {
-        return contents;
+    public String getName() {
+        return name;
     }
 
-    @Override
-    public boolean equals(@Nullable Object obj) {
-        if (obj instanceof ReadFileResult) {
-            return contents.equals(((ReadFileResult)obj).contents);
-        }
-        return false;
+    public FileType getType() {
+        return type;
     }
-
-    @Override
-    public int hashCode() {
-        return contents.hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return "ReadFileResult [contents=" + contents + "]";
-    }
-
 }

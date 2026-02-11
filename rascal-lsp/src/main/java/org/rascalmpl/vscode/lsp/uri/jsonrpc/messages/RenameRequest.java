@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
+import java.net.URISyntaxException;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
@@ -40,10 +41,6 @@ public class RenameRequest {
     private String to;
 
     private boolean overwrite;
-
-    @SuppressWarnings("initialization.fields.uninitialized")
-    public RenameRequest() {
-    }
 
     public RenameRequest(String from, String to, boolean overwrite) {
         this.from = from;
@@ -65,8 +62,16 @@ public class RenameRequest {
         return to;
     }
 
-    public boolean getOverwrite() {
+    public boolean isOverwrite() {
         return overwrite;
+    }
+
+    public ISourceLocation getFromLocation() throws URISyntaxException {
+        return Locations.toCheckedLoc(from);
+    }
+
+    public ISourceLocation getToLocation() throws URISyntaxException {
+        return Locations.toCheckedLoc(to);
     }
 
     @Override

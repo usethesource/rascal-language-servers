@@ -41,46 +41,45 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
-import org.checkerframework.checker.nullness.qual.Nullable;
+
 import org.apache.commons.codec.binary.Base64InputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.UnsupportedSchemeException;
+import org.rascalmpl.uri.vfs.FileAttributesResult;
+import org.rascalmpl.uri.vfs.FileAttributesResult.FilePermission;
+import org.rascalmpl.uri.vfs.FileAttributesResult.FileType;
+import org.rascalmpl.util.NamedThreadPool;
+import org.rascalmpl.uri.vfs.IRemoteResolverRegistry;
 import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValueFactory;
 
-public interface IRascalFileSystemServices {
+import io.usethesource.vallang.ISourceLocation;
+
+public class IRascalFileSystemServices implements IRemoteResolverRegistry {
     static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     static final Logger IRascalFileSystemServices__logger = LogManager.getLogger(IRascalFileSystemServices.class);
-    static final ExecutorService executor = NamedThreadPool.cachedDaemon("rascal-vfs");
+    public static final ExecutorService executor = NamedThreadPool.cachedDaemon("rascal-vfs");
 
-    @JsonRequest("rascal/filesystem/resolveLocation")
-    default CompletableFuture<SourceLocation> resolveLocation(SourceLocation loc) {
+    @Override
+    public CompletableFuture<ISourceLocation> resolveLocation(ISourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                ISourceLocation tmp = loc.toRascalLocation();
-
-                ISourceLocation resolved = Locations.toClientLocation(tmp);
+                ISourceLocation resolved = Locations.toClientLocation(URIResolverRegistry.getInstance().logicalToPhysical(loc));
 
                 if (resolved == null) {
                     return loc;
                 }
 
-                return SourceLocation.fromRascalLocation(resolved);
+                return resolved;
             } catch (Exception e) {
                 IRascalFileSystemServices__logger.warn("Could not resolve location {}", loc, e);
                 return loc;
@@ -88,8 +87,8 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/watch")
-    default CompletableFuture<Void> watch(WatchParameters params) {
+    @Override
+    public CompletableFuture<Void> watch(WatchRequest params) {
         return CompletableFuture.runAsync(() -> {
             try {
                 ISourceLocation loc = params.getLocation();
@@ -101,7 +100,7 @@ public interface IRascalFileSystemServices {
                         throw new RuntimeException(e);
                     }
                 });
-            } catch (IOException | URISyntaxException | RuntimeException e) {
+            } catch (IOException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
         }, executor);
@@ -139,18 +138,17 @@ public interface IRascalFileSystemServices {
         return true;
     }
 
-    @JsonRequest("rascal/filesystem/stat")
-    default CompletableFuture<FileStat> stat(URIParameter uri) {
+    @Override
+    public CompletableFuture<FileAttributesResult> stat(ISourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                ISourceLocation loc = uri.getLocation();
                 if (!reg.exists(loc)) {
                     throw new FileNotFoundException();
                 }
                 var created = reg.created(loc);
                 var lastModified = reg.lastModified(loc);
                 if (reg.isDirectory(loc)) {
-                    return new FileStat(FileType.Directory, created, lastModified, 0, null);
+                    return new FileAttributesResult(true, FileType.Directory, created, lastModified, 0, null);
                 }
                 long size = 0;
                 if (reg.supportsReadableFileChannel(loc)) {
@@ -161,59 +159,56 @@ public interface IRascalFileSystemServices {
                 else {
                     size = Prelude.__getFileSize(IRascalValueFactory.getInstance(), loc).longValue();
                 }
-                return new FileStat(FileType.File, created, lastModified, size, readonly(loc) ? FilePermission.Readonly : null);
+                return new FileAttributesResult(true, FileType.File, created, lastModified, size, readonly(loc) ? FilePermission.Readonly : null);
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/readDirectory")
-    default CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) {
+    @Override
+    public CompletableFuture<FileWithType[]> list(ISourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                ISourceLocation loc = uri.getLocation();
                 if (!reg.isDirectory(loc)) {
                     throw VSCodeFSError.notADirectory(loc);
                 }
                 return Arrays.stream(reg.list(loc)).map(l -> new FileWithType(URIUtil.getLocationName(l),
                         reg.isDirectory(l) ? FileType.Directory : FileType.File)).toArray(FileWithType[]::new);
-            } catch (IOException | URISyntaxException | RuntimeException e) {
+            } catch (IOException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/createDirectory")
-    default CompletableFuture<Void> createDirectory(URIParameter uri) {
+    @Override
+    public CompletableFuture<Void> mkDirectory(ISourceLocation loc) {
         return CompletableFuture.runAsync(() -> {
             try {
-                reg.mkDirectory(uri.getLocation());
-            } catch (IOException | URISyntaxException | RuntimeException e) {
+                reg.mkDirectory(loc);
+            } catch (IOException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/readFile")
-    default CompletableFuture<LocationContent> readFile(URIParameter uri) {
+    @Override
+    public CompletableFuture<String> readFile(ISourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
-            try (InputStream source = new Base64InputStream(reg.getInputStream(uri.getLocation()), true)) {
-                return new LocationContent(new String(source.readAllBytes(), StandardCharsets.US_ASCII));
-            } catch (IOException | URISyntaxException | RuntimeException e) {
+            try (InputStream source = new Base64InputStream(reg.getInputStream(loc), true)) {
+                return new String(source.readAllBytes(), StandardCharsets.US_ASCII);
+            } catch (IOException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/writeFile")
-    default CompletableFuture<Void> writeFile(WriteFileParameters params) {
+    @Override
+    public CompletableFuture<Void> writeFile(ISourceLocation loc, String content, boolean append, boolean create, boolean overwrite) {
         return CompletableFuture.runAsync(() -> {
             try {
-                ISourceLocation loc = params.getLocation();
-
                 boolean fileExists = reg.exists(loc);
-                if (!fileExists && !params.isCreate()) {
+                if (!fileExists && !create) {
                     throw new FileNotFoundException(loc.toString());
                 }
                 if (fileExists && reg.isDirectory(loc)) {
@@ -221,403 +216,46 @@ public interface IRascalFileSystemServices {
                 }
 
                 ISourceLocation parentFolder = URIUtil.getParentLocation(loc);
-                if (!reg.exists(parentFolder) && params.isCreate()) {
+                if (!reg.exists(parentFolder) && create) {
                     throw new FileNotFoundException(parentFolder.toString());
                 }
 
-                if (fileExists && params.isCreate() && !params.isOverwrite()) {
+                if (fileExists && create && !overwrite) {
                     throw new FileAlreadyExistsException(loc.toString());
                 }
                 try (OutputStream target = reg.getOutputStream(loc, false)) {
-                    target.write(Base64.getDecoder().decode(params.getContent()));
+                    target.write(Base64.getDecoder().decode(content));
                 }
-            } catch (IOException | URISyntaxException | RuntimeException e) {
+            } catch (IOException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/delete")
-    default CompletableFuture<Void> delete(DeleteParameters params) {
+    @Override
+    public CompletableFuture<Void> remove(ISourceLocation loc, boolean recursive) {
         return CompletableFuture.runAsync(() -> {
             try {
-                ISourceLocation loc = params.getLocation();
-                reg.remove(loc, params.isRecursive());
-            } catch (IOException | URISyntaxException e) {
+                reg.remove(loc, recursive);
+            } catch (IOException e) {
                 throw new CompletionException(e);
             }
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/rename")
-    default CompletableFuture<Void> rename(RenameParameters params) {
+    @Override
+    public CompletableFuture<Void> rename(ISourceLocation from, ISourceLocation to, boolean overwrite) {
         return CompletableFuture.runAsync(() -> {
             try {
-                ISourceLocation oldLoc = params.getOldLocation();
-                ISourceLocation newLoc = params.getNewLocation();
-                reg.rename(oldLoc, newLoc, params.isOverwrite());
-            } catch (IOException | URISyntaxException e) {
+                reg.rename(from, to, overwrite);
+            } catch (IOException e) {
                 throw new CompletionException(e);
             }
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/schemes")
-    default CompletableFuture<String[]> fileSystemSchemes() {
-        Set<String> inputs = reg.getRegisteredInputSchemes();
-        Set<String> logicals = reg.getRegisteredLogicalSchemes();
-
-        return CompletableFuture
-                .completedFuture(Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new));
-    }
-
-    @JsonNotification("rascal/filesystem/onDidChangeFile")
-    default void onDidChangeFile(FileChangeEvent event) { }
-
-
-    public static class DeleteParameters {
-        private final String uri;
-        private final boolean recursive;
-
-        public DeleteParameters(String uri, boolean recursive) {
-            this.uri = uri;
-            this.recursive = recursive;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return new URIParameter(uri).getLocation();
-        }
-
-        public boolean isRecursive() {
-            return recursive;
-        }
-    }
-
-    public static class RenameParameters {
-        private final String oldUri;
-        private final String newUri;
-        private final boolean overwrite;
-
-        public RenameParameters(String oldUri, String newUri, boolean overwrite) {
-            this.oldUri = oldUri;
-            this.newUri = newUri;
-            this.overwrite = overwrite;
-        }
-
-        public ISourceLocation getOldLocation() throws URISyntaxException {
-            return new URIParameter(oldUri).getLocation();
-        }
-
-        public ISourceLocation getNewLocation() throws URISyntaxException {
-            return new URIParameter(newUri).getLocation();
-        }
-
-        public boolean isOverwrite() {
-            return overwrite;
-        }
-    }
-
-    public static class WatchParameters {
-        private final String uri;
-        private final boolean recursive;
-        private final String[] excludes;
-
-        public WatchParameters(String uri, boolean recursive, String[] excludes) {
-            this.uri = uri;
-            this.recursive = recursive;
-            this.excludes = excludes;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return new URIParameter(uri).getLocation();
-        }
-
-        public String[] getExcludes() {
-            return excludes;
-        }
-
-        public boolean isRecursive() {
-            return recursive;
-        }
-    }
-
-    public static class SourceLocation {
-        @NonNull private final String uri;
-        private final int @Nullable[] offsetLength;
-        private final int @Nullable[] beginLineColumn;
-        private final int @Nullable[] endLineColumn;
-
-        public static SourceLocation fromRascalLocation(ISourceLocation loc) {
-            if (loc.hasOffsetLength()) {
-                if (loc.hasLineColumn()) {
-                    return new SourceLocation(Locations.toUri(loc).toString(), loc.getOffset(), loc.getLength(), loc.getBeginLine(), loc.getBeginColumn(), loc.getEndLine(), loc.getEndColumn());
-                }
-                else {
-                    return new SourceLocation(Locations.toUri(loc).toString(), loc.getOffset(), loc.getLength());
-                }
-            }
-            else {
-                return new SourceLocation(Locations.toUri(loc).toString());
-            }
-        }
-
-        public ISourceLocation toRascalLocation() throws URISyntaxException {
-            final IValueFactory VF = IRascalValueFactory.getInstance();
-            ISourceLocation tmp = Locations.toCheckedLoc(uri);
-
-            if (hasOffsetLength()) {
-                if (hasLineColumn()) {
-                    tmp = VF.sourceLocation(tmp,getOffset(), getLength(), getBeginLine(), getEndLine(), getBeginColumn(), getEndColumn());
-                }
-                else {
-                    tmp = VF.sourceLocation(tmp, getOffset(), getLength());
-                }
-            }
-
-            return tmp;
-        }
-
-        private SourceLocation(String uri, int offset, int length, int beginLine, int beginColumn, int endLine, int endColumn) {
-            this.uri = uri;
-            this.offsetLength = new int[] {offset, length};
-            this.beginLineColumn = new int [] {beginLine, beginColumn};
-            this.endLineColumn = new int [] {endLine, endColumn};
-        }
-
-        private SourceLocation(String uri, int offset, int length) {
-            this.uri = uri;
-            this.offsetLength = new int[] {offset, length};
-            this.beginLineColumn = null;
-            this.endLineColumn = null;
-        }
-
-        private SourceLocation(String uri) {
-            this.uri = uri;
-            this.offsetLength = null;
-            this.beginLineColumn = null;
-            this.endLineColumn = null;
-        }
-
-        public String getUri() {
-            return uri;
-        }
-
-        @EnsuresNonNullIf(expression = "this.offsetLength", result = true)
-        public boolean hasOffsetLength() {
-            return offsetLength != null;
-        }
-
-        @EnsuresNonNullIf(expression = "this.endLineColumn", result = true)
-        @EnsuresNonNullIf(expression = "this.beginLineColumn", result = true)
-        public boolean hasLineColumn() {
-            return beginLineColumn != null && endLineColumn != null;
-        }
-
-        public int getOffset() {
-            if (!hasOffsetLength()) {
-                throw new IllegalStateException("This location has no offset");
-            }
-            return offsetLength[0];
-        }
-
-        public int getLength() {
-            if (!hasOffsetLength()) {
-                throw new IllegalStateException("This location has no length");
-            }
-            return offsetLength[1];
-        }
-
-        public int getBeginLine() {
-            if (!hasLineColumn()) {
-                throw new IllegalStateException("This location has no line and columns");
-            }
-            return beginLineColumn[0];
-        }
-
-        public int getBeginColumn() {
-            if (!hasLineColumn()) {
-                throw new IllegalStateException("This location has no line and columns");
-            }
-            return beginLineColumn[1];
-        }
-
-        public int getEndLine() {
-            if (!hasLineColumn()) {
-                throw new IllegalStateException("This location has no line and columns");
-            }
-            return endLineColumn[0];
-        }
-
-        public int getEndColumn() {
-            if (!hasLineColumn()) {
-                throw new IllegalStateException("This location has no line and columns");
-            }
-            return endLineColumn[1];
-        }
-    }
-
-    public static class FileChangeEvent {
-        @NonNull private final FileChangeType type;
-        @NonNull private final String uri;
-
-        public FileChangeEvent(FileChangeType type, @NonNull String uri) {
-            this.type = type;
-            this.uri = uri;
-        }
-
-        public FileChangeType getType() {
-            return type;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return new URIParameter(uri).getLocation();
-        }
-    }
-
-    public enum FileChangeType {
-        Changed(1), Created(2), Deleted(3);
-
-        private final int value;
-
-        private FileChangeType(int val) {
-            assert val == 1 || val == 2 || val == 3;
-            this.value = val;
-        }
-
-        public int getValue() {
-            return value;
-        }
-    }
-
-    // The fields of are only used on the TS side
-    @SuppressWarnings("unused")
-    public static class FileStat {
-        private final FileType type;
-        private final long ctime;
-        private final long mtime;
-        private final long size;
-
-        private @Nullable FilePermission permissions;
-
-        public FileStat(FileType type, long ctime, long mtime, long size, @Nullable FilePermission permissions) {
-            this.type = type;
-            this.ctime = ctime;
-            this.mtime = mtime;
-            this.size = size;
-            this.permissions = permissions;
-        }
-
-    }
-
-    public enum FileType {
-        Unknown(0), File(1), Directory(2), SymbolicLink(64);
-
-        private final int value;
-
-        private FileType(int val) {
-            assert val == 0 || val == 1 || val == 2 || val == 64;
-            this.value = val;
-        }
-
-        public int getValue() {
-            return value;
-        }
-    }
-
-    // this enum models the enum inside vscode, which in the future might become an enum flag
-    // in that case we have to solve that
-    public enum FilePermission {
-        Readonly(1);
-        private final int value;
-        private FilePermission(int val) {
-            assert val == 1;
-            this.value = val;
-        }
-
-        public int getValue() {
-            return value;
-        }
-    }
-
-    public static class FileWithType {
-        @NonNull private final String name;
-        @NonNull private final FileType type;
-
-        public FileWithType(@NonNull String name, @NonNull FileType type) {
-            this.name = name;
-            this.type = type;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public FileType getType() {
-            return type;
-        }
-    }
-
-    public static class LocationContent {
-        @NonNull private final String content;
-
-        public LocationContent(@NonNull String content) {
-            this.content = content;
-        }
-
-        public String getContent() {
-            return content;
-        }
-    }
-
-    public static class URIParameter {
-        @NonNull private final String uri;
-
-        public URIParameter(@NonNull String uri) {
-            this.uri = uri;
-        }
-
-        public String getUri() {
-            return uri;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return Locations.toCheckedLoc(uri);
-        }
-    }
-
-    public static class WriteFileParameters {
-        @NonNull private final String uri;
-        @NonNull private final String content;
-        private final boolean create;
-        private final boolean overwrite;
-
-        public WriteFileParameters(@NonNull String uri, @NonNull String content, boolean create, boolean overwrite) {
-            this.uri = uri;
-            this.content = content;
-            this.create = create;
-            this.overwrite = overwrite;
-        }
-
-        public String getUri() {
-            return uri;
-        }
-
-        public ISourceLocation getLocation() throws URISyntaxException {
-            return new URIParameter(uri).getLocation();
-        }
-
-        public String getContent() {
-            return content;
-        }
-
-        public boolean isCreate() {
-            return create;
-        }
-
-        public boolean isOverwrite() {
-            return overwrite;
-        }
-    }
+    @Override
+    public void onDidChangeFile(FileChangeEvent event) { }
 
     /** Maps common exceptions to FileSystemError in VS Code */
     public static class VSCodeFSError extends ResponseErrorException {
