@@ -28,26 +28,15 @@ package org.rascalmpl.vscode.lsp.uri;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.nio.file.AccessDeniedException;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.NotDirectoryException;
-import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
-
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.gson.JsonPrimitive;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -55,12 +44,9 @@ public class FallbackResolver implements ILogicalSourceLocationResolver {
 
     private static @MonotonicNonNull FallbackResolver instance = null;
 
-    // The FallbackResolver is dynamically instantiated by URIResolverRegistry. By implementing it as a singleton and
-    // making it avaible through this method, we allow the IBaseTextDocumentService implementations to interact with it.
     public static FallbackResolver getInstance() {
         if (instance == null) {
             instance = new FallbackResolver();
-            //throw new IllegalStateException("FallbackResolver accessed before initialization");
         }
         return instance;
     }
@@ -68,18 +54,6 @@ public class FallbackResolver implements ILogicalSourceLocationResolver {
     private FallbackResolver() {
         instance = this;
     }
-
-    /**
-     * Rascal's current implementions sometimes ask for a directory listing
-     * and then iterate over all the entries checking if they are a directory.
-     * This is super slow for this jsonrcp, so we store the last directory listing
-     * and check inside
-     */
-    private final Cache<ISourceLocation, Lazy<Map<String, Boolean>>> cachedDirectoryListing
-        = Caffeine.newBuilder()
-            .expireAfterWrite(Duration.ofSeconds(5))
-            .maximumSize(1000)
-            .build();
 
     @Override
     public String scheme() {
@@ -131,38 +105,4 @@ public class FallbackResolver implements ILogicalSourceLocationResolver {
         }
         throw new IOException("File is not managed by lsp");
     }
-
-    private static IOException translateException(ResponseErrorException cause) {
-        var error = cause.getResponseError();
-        switch (error.getCode()) {
-            case -1: return new IOException("Generic error: " + error.getMessage());
-            case -2: {
-                if (error.getData() instanceof JsonPrimitive) {
-                    var data = (JsonPrimitive)error.getData();
-                    if (data.isString()) {
-                        switch (data.getAsString()) {
-                            case "FileExists": // fall-through
-                            case "EntryExists":
-                                return new FileAlreadyExistsException(error.getMessage());
-                            case "FileNotFound": // fall-through
-                            case "EntryNotFound":
-                                return new NoSuchFileException(error.getMessage());
-                            case "FileNotADirectory": // fall-through
-                            case "EntryNotADirectory":
-                                return new NotDirectoryException(error.getMessage());
-                            case "FileIsADirectory": // fall-through
-                            case "EntryIsADirectory":
-                                return new IOException("File is a directory: " + error.getMessage());
-                            case "NoPermissions":
-                                return new AccessDeniedException(error.getMessage());
-                        }
-                    }
-                }
-                return new IOException("File system error: " + error.getMessage() + " data: " + error.getData());
-            }
-            case -3: return new IOException("Rascal native scheme's should not be forwarded to VS Code");
-            default: return new IOException("Missing case for: " + error);
-        }
-    }
-
 }
