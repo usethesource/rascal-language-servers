@@ -150,6 +150,8 @@ describe('IDE', function () {
         await bench.executeCommand("Go to Definition");
         await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
 
+        // Warning: changes to `IO` might break the lookups/locations from here on.
+        // Update the test expectations when this is the case.
         await editor.selectText(selectId, 6);
         const defLoc = await editor.getCoordinates();
 
