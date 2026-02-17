@@ -58,7 +58,6 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
     modName = normalizeEscaping(defName);
     modNameTree = [QualifiedName] modName;
     newModName = normalizeEscaping(newName);
-    newModNameTree = [QualifiedName] newModName;
 
     modNameNumberOfNames = size(findAll(modName, "::")) + 1;
     newModNameNumberOfNames = size(findAll(newModName, "::")) + 1;
@@ -89,17 +88,17 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
                 case QualifiedName qn: {
                     // Import of redundantly escaped module name
                     qnSize = size(asNames(qn));
-                    if (qnSize == modNameNumberOfNames && modName == normalizeEscaping("<qn>")) {
+                    if (!markedUse && qnSize == modNameNumberOfNames && modName == normalizeEscaping("<qn>")) {
                         useFiles += f;
                         markedUse = true;
                     }
                     else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1
                         , just(<qualPref, _>) := qualifiedPrefix(qn)) {
-                        if (qualPref == modName) {
+                        if (!markedUse && qualPref == modName) {
                             useFiles += f;
                             markedUse = true;
                         }
-                        else if (qualPref == newModName) {
+                        else if (!markedNew && qualPref == newModName) {
                             newFiles += f;
                             markedNew = true;
                         }
