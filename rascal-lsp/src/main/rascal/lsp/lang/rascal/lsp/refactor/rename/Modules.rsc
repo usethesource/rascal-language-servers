@@ -44,6 +44,7 @@ import Set;
 import String;
 
 import util::FileSystem;
+import util::Maybe;
 import util::PathConfig;
 import util::Reflective;
 import util::Util;
@@ -57,7 +58,6 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
     modName = normalizeEscaping(defName);
     modNameTree = [QualifiedName] modName;
     newModName = normalizeEscaping(newName);
-    newModNameTree = [QualifiedName] newModName;
 
     modNameNumberOfNames = size(findAll(modName, "::")) + 1;
     newModNameNumberOfNames = size(findAll(newModName, "::")) + 1;
@@ -88,17 +88,17 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
                 case QualifiedName qn: {
                     // Import of redundantly escaped module name
                     qnSize = size(asNames(qn));
-                    if (qnSize == modNameNumberOfNames && modName == normalizeEscaping("<qn>")) {
+                    if (!markedUse && qnSize == modNameNumberOfNames && modName == normalizeEscaping("<qn>")) {
                         useFiles += f;
                         markedUse = true;
                     }
-                    else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1) {
-                        qualPref = qualifiedPrefix(qn);
-                        if (qualPref.name == modName || normalizeEscaping(qualPref.name) == modName) {
+                    else if (qnSize == modNameNumberOfNames + 1 || qnSize == newModNameNumberOfNames + 1
+                        , just(<qualPref, _>) := qualifiedPrefix(qn)) {
+                        if (!markedUse && qualPref == modName) {
                             useFiles += f;
                             markedUse = true;
                         }
-                        else if (qualPref.name == newModName || normalizeEscaping(qualPref.name) == newModName) {
+                        else if (!markedNew && qualPref == newModName) {
                             newFiles += f;
                             markedNew = true;
                         }
@@ -136,26 +136,33 @@ void renameAdditionalUses(set[Define] _:{<_, moduleName, _, moduleId(), loc modD
     // That's intended, since this function is only supposed to rename uses.
     if ({loc u, *_} := tm.useDef<0>) {
         for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
-            pref := qualifiedPrefix(qn), moduleName == normalizeEscaping(pref.name)) {
-            r.textEdit(replace(pref.l, newName));
+            just(<moduleName, prefLoc>) := qualifiedPrefix(qn)) {
+            r.textEdit(replace(prefLoc, newName));
         }
     }
 }
 
-private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <"<qn>", qn.src>;
-private tuple[str name, loc l] qualifiedPrefix(QualifiedName qn) {
-    list[Name] prefixNames = prefix([n | n <- qn.names]);
-    if ([] := prefixNames) return <"", |unknown:///|>;
+private tuple[str, loc] fullQualifiedName(QualifiedName qn) = <normalizeEscaping("<qn>"), qn.src>;
+private Maybe[tuple[str, loc]] qualifiedPrefix(QualifiedName qn) {
+    if (qn.src.length <= 3) {
+        // Since '::' is (at least) two long, this is a single name; no prefix
+        return nothing();
+    }
 
-    return <intercalate("::", ["<n>" | n <- prefixNames]), cover([n.src | n <- prefixNames])>;
+    prefixNames = prefix([n | n <- qn.names]);
+    if ([] := prefixNames) {
+        return nothing();
+    }
+
+    // Normalize like in ((normalizeEscaping)) now that we're processing the individual names
+    return just(<intercalate("::", [normalizeSingleNameEscaping("<n>") | n <- prefixNames]), cover([n.src | n <- prefixNames])>);
 }
 
 private bool isReachable(PathConfig toProject, PathConfig fromProject) =
     toProject == fromProject           // Both configs belong to the same project
  || toProject.bin in fromProject.libs; // The using project can import the declaring project
 
-list[TextEdit] getChangesByContents(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
-    str contents = readFile(f);
+list[TextEdit] getChangesByContents(str contents, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
     changesInFile = [<oldName, newName>
         | <oldName, newName, projWithRenamedMod> <- qualifiedNameChanges
         , contains(contents, oldName) && isReachable(projWithRenamedMod, wsProject)
@@ -170,17 +177,34 @@ list[TextEdit] getChangesByContents(loc f, PathConfig wsProject, lrel[str oldNam
 }
 
 list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
+    if ([] := qualifiedNameChanges) {
+        return [];
+    }
+
+    str contents = readFile(f);
+    if (!any(str qName <- qualifiedNameChanges.oldName, str basename := normalizeSingleNameEscaping(qName[findLast(qName, ":") + 1..]), contains(contents, basename))) {
+        // Since the escaping in qualifiedNameChanges is already normalized, no need to do that here.
+        // If the base of the module name (filename without extension) does not appear in the module, we have nothing to do there for sure.
+        return [];
+    }
     try {
         start[Module] m = parseModuleWithSpaces(f);
-        return [replace(l, newName)
-            | /QualifiedName qn := m
-            , <oldName, l> <- {fullQualifiedName(qn), qualifiedPrefix(qn)}
-            , [<newName, projWithRenamedMod>] := qualifiedNameChanges[normalizeEscaping(oldName)]
-            , isReachable(projWithRenamedMod, wsProject)
-        ];
+        list[TextEdit] edits = [];
+        for (/QualifiedName qn := m) {
+            names = {fullQualifiedName(qn)};
+            if (just(pref) := qualifiedPrefix(qn)) {
+                names += pref;
+            }
+            for (<oldName, l> <- names
+               , [<newName, projWithRenamedMod>] := qualifiedNameChanges[oldName]
+               , isReachable(projWithRenamedMod, wsProject)) {
+                edits += replace(l, newName);
+            }
+        }
+        return edits;
     }
-    catch Java("ParseError", str msg): return getChangesByContents(f, wsProject, qualifiedNameChanges, registerMessage);
-    catch JavaException("ParseError", str msg): return getChangesByContents(f, wsProject, qualifiedNameChanges, registerMessage);
+    catch Java("ParseError", str msg): return getChangesByContents(contents, wsProject, qualifiedNameChanges, registerMessage);
+    catch JavaException("ParseError", str msg): return getChangesByContents(contents, wsProject, qualifiedNameChanges, registerMessage);
     // Catch all
     catch e: registerMessage(error("<e>", f));
     return [];

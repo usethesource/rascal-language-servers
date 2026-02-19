@@ -27,6 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::tests::rename::ProjectOnDisk
 
+import IO;
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
 import util::Reflective;
@@ -34,7 +35,7 @@ import lang::rascalcore::check::Checker;
 
 import analysis::diff::edits::TextEdits;
 
-Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) {
+Edits renameOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) {
     PathConfig pcfg;
     if (projectDir.file == "rascal") {
         pcfg = pathConfig(
@@ -56,4 +57,32 @@ Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 
     // extension for Rascal compiler
     pcfg = pcfg[resources = [pcfg.bin]];
     return getEdits(projectDir + file, {projectDir}, occurrence, oldName, newName, PathConfig(_) { return pcfg; });
+}
+
+Edits renameFilesOnDisk(loc rascalDir) {
+    pcfg = pathConfig(
+        srcs = [
+            rascalDir + "src/org/rascalmpl/library"
+          , rascalDir + "src/org/rascalmpl/compiler"
+        ],
+        bin = rascalDir + "target/classes"
+    );
+
+    moves = [
+        <rascalDir + "src/org/rascalmpl/library/List.rsc", rascalDir + "src/org/rascalmpl/library/nested/List.rsc">,
+        <rascalDir + "src/org/rascalmpl/library/Set.rsc", rascalDir + "src/org/rascalmpl/library/nested/Set.rsc">,
+        <rascalDir + "src/org/rascalmpl/library/Map.rsc", rascalDir + "src/org/rascalmpl/library/nested/Map.rsc">,
+        <rascalDir + "src/org/rascalmpl/library/Relation.rsc", rascalDir + "src/org/rascalmpl/library/nested/Relation.rsc">,
+        <rascalDir + "src/org/rascalmpl/library/util/Math.rsc", rascalDir + "src/org/rascalmpl/library/nested/utility/Math.rsc">
+    ];
+
+    <edits, messages> = rascalRenameModule(moves, {rascalDir}, PathConfig(loc _) { return pcfg; });
+
+    print("Messages: ");
+    iprintln(messages);
+
+    print("Edits: ");
+    println(size(edits));
+
+    return <edits, messages>;
 }
