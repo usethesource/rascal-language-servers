@@ -37,12 +37,15 @@ import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Stream;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -60,12 +63,11 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -312,11 +314,6 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public void registerVFS(VFSRegister registration) {
-            VSCodeVFSClient.buildAndRegister(registration.getPort());
-        }
-
-        @Override
         public void cancelProgress(WorkDoneProgressCancelParams params) {
             lspDocumentService.cancelProgress(params.getToken().getLeft());
         }
@@ -325,6 +322,15 @@ public abstract class BaseLanguageServer {
         public void setMinimumLogLevel(String level) {
             final var l = Level.toLevel(level, Level.DEBUG); // fall back to debug when the string cannot be mapped
             Configurator.setRootLevel(l);
+        }
+
+        @Override
+        public CompletableFuture<String[]> fileSystemSchemes() {
+            var reg = URIResolverRegistry.getInstance();
+            Set<String> inputs = reg.getRegisteredInputSchemes();
+            Set<String> logicals = reg.getRegisteredLogicalSchemes();
+
+            return CompletableFuture.completedFuture(Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new));
         }
     }
 }
