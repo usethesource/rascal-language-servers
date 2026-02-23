@@ -54,6 +54,7 @@ import org.rascalmpl.uri.URIUtil;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -95,7 +96,14 @@ public class PathConfigs {
     public PathConfig lookupConfig(ISourceLocation forFile) {
         forFile = forFile.top();
         ISourceLocation projectRoot = translatedRoots.get(forFile);
-        return currentPathConfigs.computeIfAbsent(projectRoot, this::buildPathConfig);
+        return currentPathConfigs.compute(projectRoot, (project, current) -> (current == null || hasErrors(current)) ? buildPathConfig(project) : current);
+    }
+
+    private static boolean hasErrors(PathConfig pcfg) {
+        return pcfg.getMessages().stream()
+            .filter(IConstructor.class::isInstance)
+            .map(IConstructor.class::cast)
+            .anyMatch(e -> "error".equals(e.getName()));
     }
 
     private static long safeLastModified(ISourceLocation uri) {
