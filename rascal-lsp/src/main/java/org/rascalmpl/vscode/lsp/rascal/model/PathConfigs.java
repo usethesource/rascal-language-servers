@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -45,6 +44,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
@@ -229,14 +229,8 @@ public class PathConfigs {
     private static final Pattern detectParent = Pattern.compile("<\\s*parent\\s*>");
 
     private static boolean hasParentSection(URIResolverRegistry reg, ISourceLocation mainPom) {
-        try (var pom = new BufferedReader(reg.getCharacterReader(mainPom))) {
-            String line;
-            while ((line = pom.readLine()) != null) {
-                if (detectParent.matcher(line).matches()) {
-                    return true;
-                }
-            }
-            return false;
+        try (var pom = reg.getCharacterReader(mainPom)) {
+            return detectParent.matcher(Prelude.consumeInputStream(pom)).find();
         }
         catch (IOException ignored) {
             return false;
