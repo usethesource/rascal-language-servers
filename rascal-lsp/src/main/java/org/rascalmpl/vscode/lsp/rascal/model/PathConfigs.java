@@ -229,12 +229,9 @@ public class PathConfigs {
     private static final Pattern detectParent = Pattern.compile("<\\s*parent\\s*>");
 
     private static boolean hasParentSection(URIResolverRegistry reg, ISourceLocation mainPom) {
-        try (var pom = new BufferedReader(reg.getCharacterReader(mainPom))) {
-            String line;
-            while ((line = pom.readLine()) != null) {
-                if (detectParent.matcher(line).matches()) {
-                    return true;
-                }
+        try (var is = reg.getInputStream(mainPom)) {
+            if (detectParent.matcher(new String(is.readAllBytes())).find()) {
+                return true;
             }
             return false;
         }
