@@ -42,8 +42,10 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
@@ -66,7 +68,7 @@ public class PathConfigs {
     private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
 
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
-    private final Map<ISourceLocation, PathConfig> currentPathConfigs = new ConcurrentHashMap<>();
+    private final Map<ISourceLocation, Pair<PathConfig, Long>> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
         Caffeine.newBuilder()
@@ -96,11 +98,22 @@ public class PathConfigs {
     public PathConfig lookupConfig(ISourceLocation forFile) {
         forFile = forFile.top();
         ISourceLocation projectRoot = translatedRoots.get(forFile);
-        return currentPathConfigs.compute(projectRoot, (project, current) -> (current == null || hasErrors(current)) ? buildPathConfig(project) : current);
+        return currentPathConfigs
+            .compute(projectRoot, (project, current) -> shouldBeRecomputed(current) ? buildPathConfig(project) : current)
+            .getKey();
     }
 
-    private static boolean hasErrors(PathConfig pcfg) {
-        return pcfg.getMessages().stream()
+    private static boolean shouldBeRecomputed(@Nullable Pair<PathConfig, Long> entry) {
+        if (entry == null) {
+            // No previously computed config
+            return true;
+        }
+        if (Instant.ofEpochMilli(entry.getRight()).plusSeconds(1).isAfter(Instant.now())) {
+            // Previous config is less than a second old
+            return false;
+        }
+        // Previous config had errors
+        return entry.getLeft().getMessages().stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
             .anyMatch(e -> "error".equals(e.getName()));
@@ -115,9 +128,9 @@ public class PathConfigs {
         }
     }
 
-    private PathConfig buildPathConfig(ISourceLocation projectRoot) {
+    private Pair<PathConfig, Long> buildPathConfig(ISourceLocation projectRoot) {
         try {
-            logger.debug("Building pcfg from: {}", projectRoot);
+            logger.debug("Building path config for: {}", projectRoot);
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);
@@ -125,7 +138,6 @@ public class PathConfigs {
             registerMavenWatches(reg, projectRoot);
 
             var result = updater.actualBuild(projectRoot);
-            logger.debug("New path config: {}", result);
             return result;
         }
         catch (IOException e) {
@@ -144,10 +156,10 @@ public class PathConfigs {
     }
 
     private class PathConfigUpdater {
-        private final Map<ISourceLocation, PathConfig> currentPathConfigs;
+        private final Map<ISourceLocation, Pair<PathConfig, Long>> currentPathConfigs;
         private final Map<ISourceLocation, List<WatchRegistration>> projectWatches;
 
-        public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
+        public PathConfigUpdater(Map<ISourceLocation, Pair<PathConfig, Long>> currentPathConfigs) {
             this.currentPathConfigs = currentPathConfigs;
             this.projectWatches = new ConcurrentHashMap<>();
         }
@@ -212,11 +224,13 @@ public class PathConfigs {
             }
         }
 
-        private PathConfig actualBuild(ISourceLocation projectRoot) {
+        private Pair<PathConfig, Long> actualBuild(ISourceLocation projectRoot) {
+            var time = Instant.now();
             var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+            logger.debug("Path config for {}: {}", projectRoot, pathConfig);
             // Publish diagnostics in a background thread
             executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages()));
-            return pathConfig;
+            return Pair.of(pathConfig, time.toEpochMilli());
         }
 
     }
