@@ -175,7 +175,7 @@ test bool moduleExists() = testRenameOccurrences({
 test bool moduleRenameWithoutExtension()
     = testProject({byText("Foo", "", {})},
         "moduleRenameWithoutExtension",
-        bool({TestModule foo}, loc testDir, PathConfig pcfg) {
+        bool({TestModule foo}, loc _testDir, PathConfig pcfg) {
             loc oldLoc = foo.file;
             loc newLoc = |<oldLoc.scheme>:///<oldLoc.path[..-4]>|; // remove .rsc extension
 
@@ -192,7 +192,7 @@ test bool moduleRenameWithoutExtension()
 test bool moduleRenameOutsideSources()
     = testProject({byText("Foo", "", {})},
         "moduleRenameOutsideSources",
-        bool({TestModule foo}, loc testDir, PathConfig pcfg) {
+        bool({TestModule foo}, loc _testDir, PathConfig pcfg) {
             loc oldLoc = foo.file;
             loc newLoc = |<oldLoc.scheme>:///<oldLoc.parent.parent.path>/<oldLoc.file>|;
 
