@@ -78,7 +78,11 @@ str escapeReservedName(str name) = name in reservedNames ? forceEscapeSingleName
 str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n <- split(sep, qname)]);
 
 @memo{maximumSize(100), expireAfter(minutes=5)}
-str normalizeEscaping(str qname, str sep = "::") = perName(qname, str(str n) { return escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(n))); }, sep = sep);
+str normalizeEscaping(str qname, str sep = "::") = perName(qname, normalizeSingleNameEscaping, sep = sep);
+
+// Order is important; unescape everything *first* before re-escaping where necessary
+@memo{maximumSize(100), expireAfter(minutes=5)}
+str normalizeSingleNameEscaping(str name) = escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(name)));
 
 @memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
 
