@@ -53,8 +53,8 @@ import util::Util;
 
 data RenameConfig(
     set[loc] workspaceFolders = {}
-  , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
-  , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc l, Renamer r) { throw "Not implemented."; }
+  , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "Path config for <l> not implemented"; }
+  , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc _, Renamer _) { throw "Not implemented."; }
 );
 
 bool isContainedInScope(loc l, loc scope, TModel tm) {

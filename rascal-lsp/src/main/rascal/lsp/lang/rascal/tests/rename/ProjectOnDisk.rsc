@@ -35,7 +35,7 @@ import lang::rascalcore::check::Checker;
 import analysis::diff::edits::TextEdits;
 
 Edits testProjectOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, str newName = "<oldName>_new", list[str] srcDirs = ["src/main/rascal"], list[loc] libs = []) {
-    PathConfig pcfg;
+    PathConfig pcfg = pathConfig();
     if (projectDir.file == "rascal") {
         pcfg = pathConfig(
             srcs = [ projectDir + "src/org/rascalmpl/library"
