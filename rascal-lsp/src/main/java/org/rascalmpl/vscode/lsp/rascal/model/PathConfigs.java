@@ -98,9 +98,12 @@ public class PathConfigs {
     public PathConfig lookupConfig(ISourceLocation forFile) {
         forFile = forFile.top();
         ISourceLocation projectRoot = translatedRoots.get(forFile);
-        return currentPathConfigs
-            .compute(projectRoot, (project, current) -> shouldBeRecomputed(current) ? buildPathConfig(project) : current)
-            .getKey();
+        var entry = currentPathConfigs.compute(projectRoot, (project, current) -> shouldBeRecomputed(current) ? buildPathConfig(project) : current);
+        if (entry == null) {
+            // This can only happen when the `compute` function throws an exception
+            throw new RuntimeException(String.format("Path config computation for %s failed", projectRoot));
+        }
+        return entry.getKey();
     }
 
     private static boolean shouldBeRecomputed(@Nullable Pair<PathConfig, Instant> entry) {
