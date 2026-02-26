@@ -34,7 +34,9 @@ import analysis::typepal::TModel;
 import analysis::diff::edits::TextEdits;
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
+
 import lang::rascalcore::check::BasicRascalConfig;
+import lang::rascalcore::check::ModuleLocations;
 
 import IO;
 import List;
@@ -63,8 +65,8 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
     newModNameNumberOfNames = size(findAll(newModName, "::")) + 1;
 
     try {
-        loc oldLoc = getModuleLocation(modName, r.getConfig().getPathConfig(d.top));
-        loc newLoc = getModuleLocation(newModName, r.getConfig().getPathConfig(d.top));
+        loc oldLoc = getRascalModuleLocation(modName, r.getConfig().getPathConfig(d.top));
+        loc newLoc = getRascalModuleLocation(newModName, r.getConfig().getPathConfig(d.top));
         if (oldLoc != newLoc) {
             r.msg(error(d, "Cannot rename, since module \'<newModName>\' already exists at <newLoc>"));
             return <{}, {}, {}>;

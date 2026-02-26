@@ -53,8 +53,8 @@ import util::Util;
 
 data RenameConfig(
     set[loc] workspaceFolders = {}
-  , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
-  , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc l, Renamer r) { throw "Not implemented."; }
+  , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "Path config for <l> not implemented"; }
+  , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc _, Renamer _) { throw "Not implemented."; }
 );
 
 bool isContainedInScope(loc l, loc scope, TModel tm) {
@@ -363,13 +363,13 @@ set[&T] flatMapPerFile(set[&U] us, set[&T](loc, set[&U]) func, rel[&U, loc] locO
 set[&T] flatMapPerFile(set[Define] defs, set[&T](loc, set[Define]) func) =
     flatMapPerFile(defs, func, {<d, d.defined> | d <- defs});
 
-default void renameAdditionalUses(set[Define] defs, str newName, TModel tm, Renamer r) {}
+default void renameAdditionalUses(set[Define] _defs, str _newName, TModel _tm, Renamer _r) {}
 
 @synopsis{Decide if a cursor is supported based on focus list only.}
-default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
+default bool isUnsupportedCursor(list[Tree] _cursor, Renamer _r) = false;
 
 @synopsis{Decide whether a cursor is supported based on type information.}
-default bool isUnsupportedCursor(list[Tree] cursor, TModel tm, Renamer _) = false;
+default bool isUnsupportedCursor(list[Tree] _cursor, TModel _tm, Renamer _r) = false;
 
-@synopsis{Decide whether a cusro is supported based on resolved definitions.}
-default bool isUnsupportedCursor(list[Tree] cursor, set[Define] cursorDefs, TModel tm, Renamer _) = false;
+@synopsis{Decide whether a cursor is supported based on resolved definitions.}
+default bool isUnsupportedCursor(list[Tree] _cursor, set[Define] _cursorDefs, TModel _tm, Renamer _r) = false;
