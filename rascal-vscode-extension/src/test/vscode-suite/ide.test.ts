@@ -142,21 +142,29 @@ describe('IDE', function () {
     });
 
     it("go to definition works", async () => {
+        const selectId = "fileName";
+
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
         await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
 
-        await editor.selectText("&T", 0);
+        // Warning: changes to `IO` might break the lookups/locations from here on.
+        // Update the test expectations when this is the case.
+        await editor.selectText(selectId, 6);
         const defLoc = await editor.getCoordinates();
 
-        await editor.selectText("&T", 1);
+        await editor.selectText(selectId, 7);
+        const useLoc = await editor.getCoordinates();
+
+        expect(useLoc).not.to.deep.equal(defLoc, "Expected cursor to be elsewhere - def and use location are equal");
         await bench.executeCommand("Go to Definition");
         await driver.wait(async () => {
             const jumpLoc = await editor.getCoordinates();
-            return defLoc[0] === jumpLoc[0] && defLoc[1] === jumpLoc[1];
-        }, Delays.slow, "We should jump to the right position");
+            return jumpLoc[0] === defLoc[0]                    // Jump to def line
+                && jumpLoc[1] === defLoc[1] - selectId.length; // Jump to left side of def
+        }, Delays.normal, "Expected cursor to jump to the definition");
     });
 
     it("go to definition works across projects", async () => {
