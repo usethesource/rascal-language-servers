@@ -58,13 +58,16 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         }
         var fileOperationCapabilities = capabilities.getWorkspace().getFileOperations();
         var whichFiles = new FileOperationOptions(fileFilters);
-        if (clientCapabilities.getFileOperations().getDidCreate().booleanValue()) {
+        var operations = clientCapabilities.getFileOperations();
+        if (operations != null && operations.getDidCreate().booleanValue()) {
             fileOperationCapabilities.setDidCreate(whichFiles);
         }
-        if (clientCapabilities.getFileOperations().getDidRename().booleanValue()) {
+        operations = clientCapabilities.getFileOperations();
+        if (operations != null && operations.getDidRename().booleanValue()) {
             fileOperationCapabilities.setDidRename(whichFiles);
         }
-        if (clientCapabilities.getFileOperations().getDidDelete().booleanValue()) {
+        operations = clientCapabilities.getFileOperations();
+        if (operations != null && operations.getDidDelete().booleanValue()) {
             fileOperationCapabilities.setDidDelete(whichFiles);
         }
     }
