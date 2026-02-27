@@ -4,6 +4,14 @@ We only list significant changes, for a full changelog please review the [commit
 
 ## v-next
 
+## Release 2.22.1 (VS Code: 0.13.1)
+
+Works best with Rascal 0.42.0 (and rascal-maven-plugin 0.30.7). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
+
+### New Features for Rascal Developers
+
+* Project `target` folders, containing binaries, are now excluded from search results by default to prevent duplicate results. The IDE provides a quick-fix to help configuring existing projects.
+
 ### New features for DSL developers
 
 * DSLs can contribute their own code completion using the `LanguageService::completion` contribution.
@@ -11,6 +19,20 @@ We only list significant changes, for a full changelog please review the [commit
 ### Improved features
 
 * There is now a setting to influence how much memory is allocated for the Rascal and Parametric LSP servers (`rascal.lSP.maxHeapSize`).
+* Automatic reference updates when moving files have been improved for escaped module references.
+* Automatic reference updates when moving files is now a lot faster in many cases.
+* In some cases, changes to the parent POM of multi-project workspaces were not immediately visible in the project path configuration. This has been fixed.
+* Various improvements for multi-project workspaces.
+* Various performance & reliability improvements.
+
+### Rascal 0.42.0 highlights
+
+Below is a summary of the [full release-notes for rascal 0.42.x](https://www.rascal-mpl.org/release-notes/rascal-0-42-x-release-notes/).
+
+* Many improvements to the type-checker and the messages it produces.
+* The interpreter is more robust when importing/extending complex module structures.
+* The REPL betters supports (re)loading of modules.
+* The debugger has gained many new features, improving the debugging experience.
 
 ## 0.13.0
 
