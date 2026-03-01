@@ -1,5 +1,5 @@
-local rascal_lsp = require("rascal_lsp")
-local classpath = rascal_lsp.get_classpath() or ""
+local jar = require("rascal.jar")
+local classpath = jar.get_classpath() or ""
 
 return {
   name = "rascal_lsp",
