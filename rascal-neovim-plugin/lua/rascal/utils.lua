@@ -4,7 +4,7 @@ local M = {}
 ---@return string
 function M.get_project_root()
   for dir in vim.fs.parents(vim.api.nvim_buf_get_name(0)) do
-    if vim.uv.fs_stat(dir .. "/build.properties") then
+    if vim.uv.fs_stat(dir .. "/META-INF") or vim.uv.fs_stat(dir .. "/pom.xml") then
       return dir
     end
   end

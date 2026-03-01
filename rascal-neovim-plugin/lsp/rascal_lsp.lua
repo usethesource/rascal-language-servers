@@ -16,5 +16,5 @@ return {
     "org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer",
   },
   filetypes = { "rascal" },
-  root_markers = { "build.properties" },
+  root_markers = { "META-INF", "pom.xml" },
 }
