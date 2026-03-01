@@ -84,3 +84,13 @@ vim.lsp.config("rascal_lsp", {
 ```
 
 See [lsp/rascal_lsp.lua](lsp/rascal_lsp.lua) for details.
+
+## Testing
+
+This plugin can be tested by running
+
+```sh
+./tests/run
+```
+
+Before testing, make sure that `build.sh` was run in the parent directory.
