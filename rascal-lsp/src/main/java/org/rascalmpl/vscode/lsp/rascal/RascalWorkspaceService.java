@@ -34,10 +34,13 @@ import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
+import org.eclipse.lsp4j.FileOperationsWorkspaceCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.util.Capabilities;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
 
@@ -52,20 +55,18 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             ServerCapabilities capabilities) {
         super.initialize(clientCap, currentWorkspaceFolders, capabilities);
 
-        var clientCapabilities = clientCap.getWorkspace();
         if (capabilities.getWorkspace().getFileOperations() == null) {
             capabilities.getWorkspace().setFileOperations(new FileOperationsServerCapabilities());
         }
         var fileOperationCapabilities = capabilities.getWorkspace().getFileOperations();
         var whichFiles = new FileOperationOptions(fileFilters);
-        var operations = clientCapabilities.getFileOperations();
-        if (operations != null && operations.getDidCreate().booleanValue()) {
+        if (Capabilities.has(clientCap::getWorkspace, WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidCreate)) {
             fileOperationCapabilities.setDidCreate(whichFiles);
         }
-        if (operations != null && operations.getDidRename().booleanValue()) {
+        if (Capabilities.has(clientCap::getWorkspace, WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidRename)) {
             fileOperationCapabilities.setDidRename(whichFiles);
         }
-        if (operations != null && operations.getDidDelete().booleanValue()) {
+        if (Capabilities.has(clientCap::getWorkspace, WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidDelete)) {
             fileOperationCapabilities.setDidDelete(whichFiles);
         }
     }

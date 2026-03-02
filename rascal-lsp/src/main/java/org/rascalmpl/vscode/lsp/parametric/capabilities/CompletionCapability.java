@@ -31,9 +31,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.TextDocumentClientCapabilities;
+import org.rascalmpl.vscode.lsp.util.Capabilities;
 
 import io.usethesource.vallang.IString;
 
@@ -76,7 +79,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
 
     @Override
     protected boolean isDynamicallySupportedBy(ClientCapabilities client) {
-        return client.getTextDocument().getCompletion().getDynamicRegistration();
+        return Capabilities.has(client::getTextDocument, TextDocumentClientCapabilities::getCompletion, CompletionCapabilities::getDynamicRegistration);
     }
 
     @Override
