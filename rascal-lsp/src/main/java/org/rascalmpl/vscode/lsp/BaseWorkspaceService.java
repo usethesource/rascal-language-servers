@@ -54,7 +54,7 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
-import org.rascalmpl.vscode.lsp.util.Capabilities;
+import org.rascalmpl.vscode.lsp.util.Nullables;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -89,7 +89,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         }
 
         var workspaceCapabilities = capabilities.getWorkspace();
-        if (Capabilities.has(clientCap::getWorkspace, WorkspaceClientCapabilities::getWorkspaceFolders)) {
+        if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getWorkspaceFolders)) {
             var folderOptions = new WorkspaceFoldersOptions();
             folderOptions.setSupported(true);
             folderOptions.setChangeNotifications(true);

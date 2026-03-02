@@ -40,7 +40,7 @@ import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.util.Capabilities;
+import org.rascalmpl.vscode.lsp.util.Nullables;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
 
@@ -60,13 +60,13 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         }
         var fileOperationCapabilities = capabilities.getWorkspace().getFileOperations();
         var whichFiles = new FileOperationOptions(fileFilters);
-        if (Capabilities.has(clientCap::getWorkspace, WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidCreate)) {
+        if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidCreate)) {
             fileOperationCapabilities.setDidCreate(whichFiles);
         }
-        if (Capabilities.has(clientCap::getWorkspace, WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidRename)) {
+        if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidRename)) {
             fileOperationCapabilities.setDidRename(whichFiles);
         }
-        if (Capabilities.has(clientCap::getWorkspace, WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidDelete)) {
+        if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidDelete)) {
             fileOperationCapabilities.setDidDelete(whichFiles);
         }
     }
