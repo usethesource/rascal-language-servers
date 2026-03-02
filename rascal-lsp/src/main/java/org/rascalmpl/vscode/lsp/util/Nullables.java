@@ -35,6 +35,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
  */
 public class Nullables {
 
+    private Nullables () { /* hide implicit constructor */}
+
     /**
      * Check a boolean value in a nullable object.
      * @param <A> The type of the containing object.
