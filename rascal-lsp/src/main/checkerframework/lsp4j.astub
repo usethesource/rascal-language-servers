@@ -107,3 +107,347 @@ public class CallHierarchyItem {
   public void setDetail(@Nullable final String detail) { }
   public void setData(@Nullable final Object data) { }
 }
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class ClientCapabilities {
+  public @Nullable WorkspaceClientCapabilities getWorkspace() {}
+  public @Nullable TextDocumentClientCapabilities getTextDocument() {}
+  public @Nullable NotebookDocumentClientCapabilities getNotebookDocument() {}
+  public @Nullable WindowClientCapabilities getWindow() {}
+  public @Nullable GeneralClientCapabilities getGeneral() {}
+  public @Nullable Object getExperimental() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class WorkspaceClientCapabilities {
+  public @Nullable Boolean getApplyEdit() {}
+  public @Nullable WorkspaceEditCapabilities getWorkspaceEdit() {}
+  public @Nullable DidChangeConfigurationCapabilities getDidChangeConfiguration() {}
+  public @Nullable DidChangeWatchedFilesCapabilities getDidChangeWatchedFiles() {}
+  public @Nullable SymbolCapabilities getSymbol() {}
+  public @Nullable ExecuteCommandCapabilities getExecuteCommand() {}
+  public @Nullable Boolean getWorkspaceFolders() {}
+  public @Nullable Boolean getConfiguration() {}
+  public @Nullable SemanticTokensWorkspaceCapabilities getSemanticTokens() {}
+  public @Nullable CodeLensWorkspaceCapabilities getCodeLens() {}
+  public @Nullable FileOperationsWorkspaceCapabilities getFileOperations() {}
+  public @Nullable InlayHintWorkspaceCapabilities getInlayHint() {}
+  public @Nullable InlineValueWorkspaceCapabilities getInlineValue() {}
+  public @Nullable DiagnosticWorkspaceCapabilities getDiagnostics() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class TextDocumentClientCapabilities {
+  public @Nullable SynchronizationCapabilities getSynchronization() {}
+  public @Nullable CompletionCapabilities getCompletion() {}
+  public @Nullable HoverCapabilities getHover() {}
+  public @Nullable SignatureHelpCapabilities getSignatureHelp() {}
+  public @Nullable ReferencesCapabilities getReferences() {}
+  public @Nullable DocumentHighlightCapabilities getDocumentHighlight() {}
+  public @Nullable DocumentSymbolCapabilities getDocumentSymbol() {}
+  public @Nullable FormattingCapabilities getFormatting() {}
+  public @Nullable RangeFormattingCapabilities getRangeFormatting() {}
+  public @Nullable OnTypeFormattingCapabilities getOnTypeFormatting() {}
+  public @Nullable DeclarationCapabilities getDeclaration() {}
+  public @Nullable DefinitionCapabilities getDefinition() {}
+  public @Nullable TypeDefinitionCapabilities getTypeDefinition() {}
+  public @Nullable ImplementationCapabilities getImplementation() {}
+  public @Nullable CodeActionCapabilities getCodeAction() {}
+  public @Nullable CodeLensCapabilities getCodeLens() {}
+  public @Nullable DocumentLinkCapabilities getDocumentLink() {}
+  public @Nullable ColorProviderCapabilities getColorProvider() {}
+  public @Nullable RenameCapabilities getRename() {}
+  public @Nullable PublishDiagnosticsCapabilities getPublishDiagnostics() {}
+  public @Nullable FoldingRangeCapabilities getFoldingRange() {}
+  public @Nullable TypeHierarchyCapabilities getTypeHierarchy() {}
+  public @Nullable CallHierarchyCapabilities getCallHierarchy() {}
+  public @Nullable SelectionRangeCapabilities getSelectionRange() {}
+  public @Nullable SemanticTokensCapabilities getSemanticTokens() {}
+  public @Nullable MonikerCapabilities getMoniker() {}
+  public @Nullable LinkedEditingRangeCapabilities getLinkedEditingRange() {}
+  public @Nullable InlayHintCapabilities getInlayHint() {}
+  public @Nullable InlineValueCapabilities getInlineValue() {}
+  public @Nullable DiagnosticCapabilities getDiagnostic() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class WindowClientCapabilities {
+  public @Nullable Boolean getWorkDoneProgress() {}
+  public @Nullable WindowShowMessageRequestCapabilities getShowMessage() {}
+  public @Nullable ShowDocumentCapabilities getShowDocument() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class GeneralClientCapabilities {
+  public @Nullable RegularExpressionsCapabilities getRegularExpressions() {}
+  public @Nullable MarkdownCapabilities getMarkdown() {}
+  public @Nullable StaleRequestCapabilities getStaleRequestSupport() {}
+  public @Nullable List<String> getPositionEncodings() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class WorkspaceEditCapabilities {
+  public @Nullable Boolean getDocumentChanges() {}
+  public @Nullable List<String> getResourceOperations() {}
+  public @Nullable String getFailureHandling() {}
+  public @Nullable Boolean getNormalizesLineEndings() {}
+  public @Nullable WorkspaceEditChangeAnnotationSupportCapabilities getChangeAnnotationSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DynamicRegistrationCapabilities {
+  public @Nullable Boolean getDynamicRegistration() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DidChangeWatchedFilesCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getRelativePatternSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class SymbolCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable SymbolKindCapabilities getSymbolKind() {}
+  public @Nullable SymbolTagSupportCapabilities getTagSupport() {}
+  public @Nullable WorkspaceSymbolResolveSupportCapabilities getResolveSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class SemanticTokensWorkspaceCapabilities {
+  public @Nullable Boolean getRefreshSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class CodeLensWorkspaceCapabilities {
+  public @Nullable Boolean getRefreshSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class FileOperationsWorkspaceCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getDidCreate() {}
+  public @Nullable Boolean getWillCreate() {}
+  public @Nullable Boolean getDidRename() {}
+  public @Nullable Boolean getWillRename() {}
+  public @Nullable Boolean getDidDelete() {}
+  public @Nullable Boolean getWillDelete() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class InlayHintWorkspaceCapabilities {
+    public @Nullable Boolean getRefreshSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class InlineValueWorkspaceCapabilities {
+  public @Nullable Boolean getRefreshSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DiagnosticWorkspaceCapabilities {
+  public @Nullable Boolean getRefreshSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class WorkspaceEditChangeAnnotationSupportCapabilities {
+  public @Nullable Boolean getGroupsOnLabel() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class SynchronizationCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getWillSave() {}
+  public @Nullable Boolean getWillSaveWaitUntil() {}
+  public @Nullable Boolean getDidSave() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class CompletionCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable CompletionItemCapabilities getCompletionItem() {}
+  public @Nullable CompletionItemKindCapabilities getCompletionItemKind() {}
+  public @Nullable Boolean getContextSupport() {}
+  public @Nullable InsertTextMode getInsertTextMode() {}
+  public @Nullable CompletionListCapabilities getCompletionList() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class HoverCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable List<String> getContentFormat() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class SignatureHelpCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable SignatureInformationCapabilities getSignatureInformation() {}
+  public @Nullable Boolean getContextSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DocumentSymbolCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable SymbolKindCapabilities getSymbolKind() {}
+  public @Nullable Boolean getHierarchicalDocumentSymbolSupport() {}
+  public @Nullable SymbolTagSupportCapabilities getTagSupport() {}
+  public @Nullable Boolean getLabelSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DeclarationCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getLinkSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DefinitionCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getLinkSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class TypeDefinitionCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getLinkSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class ImplementationCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getLinkSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class CodeActionCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable CodeActionLiteralSupportCapabilities getCodeActionLiteralSupport() {}
+  public @Nullable Boolean getIsPreferredSupport() {}
+  public @Nullable Boolean getDisabledSupport() {}
+  public @Nullable Boolean getDataSupport() {}
+  public @Nullable CodeActionResolveSupportCapabilities getResolveSupport() {}
+  public @Nullable Boolean getHonorsChangeAnnotations() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DocumentLinkCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getTooltipSupport() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class RenameCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getPrepareSupport() {}
+  public @Nullable PrepareSupportDefaultBehavior getPrepareSupportDefaultBehavior() {}
+  public @Nullable Boolean getHonorsChangeAnnotations() {}
+}
+
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class SemanticTokensCapabilities extends DynamicRegistrationCapabilities {
+  public @Nullable Boolean getOverlappingTokenSupport() {}
+  public @Nullable Boolean getMultilineTokenSupport() {}
+  public @Nullable Boolean getServerCancelSupport() {}
+  public @Nullable Boolean getAugmentsSyntaxTokens() {}
+}

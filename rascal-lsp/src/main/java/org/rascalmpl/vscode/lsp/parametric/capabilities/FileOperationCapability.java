@@ -39,8 +39,11 @@ import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationPatternKind;
 import org.eclipse.lsp4j.FileOperationPatternOptions;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
+import org.eclipse.lsp4j.FileOperationsWorkspaceCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceServerCapabilities;
+import org.rascalmpl.vscode.lsp.util.Nullables;
 import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -58,7 +61,7 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
 
     @Override
     protected final boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities) {
-        return clientCapabilities.getWorkspace().getFileOperations().getDynamicRegistration();
+        return Nullables.has(clientCapabilities.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDynamicRegistration);
     }
 
     @Override
