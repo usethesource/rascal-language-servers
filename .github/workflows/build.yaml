@@ -190,6 +190,7 @@ jobs:
         with:
           path: rascal-vscode-extension/*.vsix
           retention-days: 20
+          archive: false
 
       - name: Publish release to Open VSX Registry
         if: startsWith(github.ref, 'refs/tags/v')
