@@ -4,7 +4,7 @@ We only list significant changes, for a full changelog please review the [commit
 
 ## v-next
 
-## Release 2.22.1 (VS Code: 0.13.1)
+## Release 0.13.1
 
 Works best with Rascal 0.42.0 (and rascal-maven-plugin 0.30.7). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
 
@@ -19,9 +19,8 @@ Works best with Rascal 0.42.0 (and rascal-maven-plugin 0.30.7). Due to changes i
 ### Improved features
 
 * There is now a setting to influence how much memory is allocated for the Rascal and Parametric LSP servers (`rascal.lSP.maxHeapSize`).
-* Automatic reference updates when moving files have been improved for escaped module references.
-* Automatic reference updates when moving files is now a lot faster in many cases.
-* In some cases, changes to the parent POM of multi-project workspaces were not immediately visible in the project path configuration. This has been fixed.
+* Automatic renaming of module names when moving files have been improved for escaped names.
+* Automatic renaming of module names when moving files is now a lot faster in many cases.
 * Various improvements for multi-project workspaces.
 * Various performance & reliability improvements.
 
