@@ -89,7 +89,7 @@ void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pc
     remove(backupLoc, recursive = true);
     copy(root, backupLoc, recursive = true);
 
-    executeDocumentEdits(sortEdits(groupEditsByFile(edits)));
+    executeFileSystemChanges(sortEdits(groupEditsByFile(edits)));
     remove(pcfg.bin, recursive = true);
 
     list[ModuleMessages] checkAfter = checkAll(root, ccfg);
@@ -158,7 +158,7 @@ bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], tuple[in
     testDir = |memory:///tests/move|;
     remove(testDir);
     pcfg = getTestPathConfig(testDir);
-    getPathConfig = PathConfig(loc l) {
+    getPathConfig = PathConfig(loc _) {
         return pcfg;
     };
 
@@ -174,7 +174,7 @@ bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], tuple[in
         writeFile(p, "module <name>\n<body>");
     }
 
-    renames = [<old, new> | <m, new> <- modsAndPaths, srcDir := relativize(pcfg.srcs, new), old := srcsFile(replaceAll(m.name, "\\", ""), pcfg, RASCAL_CONF, force=true)];
+    renames = [<old, new> | <m, new> <- modsAndPaths, old := srcsFile(replaceAll(m.name, "\\", ""), pcfg, RASCAL_CONF, force=true)];
 
     edits = rascalRenameModule(renames, toSet(pcfg.srcs), getPathConfig);
 
