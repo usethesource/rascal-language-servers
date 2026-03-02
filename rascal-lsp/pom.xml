@@ -64,7 +64,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.42.0-RC3</version>
+      <version>0.42.0</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -164,7 +164,7 @@
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.30.7</version>
+        <version>0.31.0</version>
         <configuration>
             <errorsAsWarnings>false</errorsAsWarnings>
             <bin>${project.build.outputDirectory}</bin>
