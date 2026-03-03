@@ -14,7 +14,7 @@
     "color": "#ffffff",
     "theme": "light"
   },
-  "version": "0.13.1",
+  "version": "0.13.2-head",
   "engines": {
     "vscode": "^1.90.0",
     "node": ">=20.9.0"
