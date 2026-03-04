@@ -123,8 +123,8 @@ public class RascalLanguageServices {
         var context = new LSPContext(exec, docService, workspaceService, client);
 
         shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates");
-        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
-        compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
+        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::Actions");
+        compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper", "lang::rascal::lsp::refactor::Rename");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
         rascalTextDocumentService = docService;
         this.workspaceService = workspaceService;
@@ -226,7 +226,7 @@ public class RascalLanguageServices {
 
 
     public InterruptibleFuture<ITuple> getRename(ISourceLocation cursorLoc, IList focus, Set<ISourceLocation> workspaceFolders, String newName) {
-        return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
+        return runEvaluator("Rascal rename", compilerEvaluator, eval -> {
             try {
                 return (ITuple) eval.call("rascalRenameSymbol", cursorLoc, focus, VF.string(newName), workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval));
             } catch (Throw e) {
@@ -256,7 +256,7 @@ public class RascalLanguageServices {
             return InterruptibleFuture.completedFuture(emptyResult, exec);
         }
 
-        return runEvaluator("Rascal module rename", semanticEvaluator, eval ->
+        return runEvaluator("Rascal module rename", compilerEvaluator, eval ->
             (ITuple) eval.call("rascalRenameModule", fileRenames, workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval))
         , emptyResult, exec, false, client);
     }
