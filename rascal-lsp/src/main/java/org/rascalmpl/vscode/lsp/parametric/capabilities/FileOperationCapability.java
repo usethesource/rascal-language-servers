@@ -76,9 +76,15 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
 
     @Override
     protected final CompletableFuture<@Nullable FileOperationOptions> options(ICapabilityParams params) {
-        return CompletableFutureUtils.completedFuture(new FileOperationOptions(params.fileExtensions().stream()
+        var patterns = params.fileExtensions().stream()
             .map(FileOperationCapability::extensionFilter)
-            .collect(Collectors.toList())), exec);
+            .collect(Collectors.toList());
+
+        var anyFolder = new FileOperationPattern("**/*");
+        anyFolder.setMatches(FileOperationPatternKind.Folder);
+        patterns.add(new FileOperationFilter(anyFolder));
+
+        return CompletableFutureUtils.completedFuture(new FileOperationOptions(patterns), exec);
     }
 
     /**
