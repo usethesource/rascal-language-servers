@@ -28,11 +28,14 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
+import org.eclipse.lsp4j.FileOperationPatternKind;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
 import org.eclipse.lsp4j.FileOperationsWorkspaceCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
@@ -43,8 +46,6 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Nullables;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
-
-    private static final List<FileOperationFilter> fileFilters = List.of(new FileOperationFilter(new FileOperationPattern("**/*.rsc")));
 
     RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
         super(exec, documentService);
@@ -59,7 +60,13 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             capabilities.getWorkspace().setFileOperations(new FileOperationsServerCapabilities());
         }
         var fileOperationCapabilities = capabilities.getWorkspace().getFileOperations();
-        var whichFiles = new FileOperationOptions(fileFilters);
+
+        var rascalFile = new FileOperationPattern("**/*.rsc");
+        rascalFile.setMatches(FileOperationPatternKind.File);
+        var projectFolder = new FileOperationPattern("**/*");
+        projectFolder.setMatches(FileOperationPatternKind.Folder);
+        var whichFiles = new FileOperationOptions(Stream.of(rascalFile, projectFolder).map(FileOperationFilter::new).collect(Collectors.toList()));
+
         if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidCreate)) {
             fileOperationCapabilities.setDidCreate(whichFiles);
         }
