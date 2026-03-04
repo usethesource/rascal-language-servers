@@ -84,7 +84,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
             this.workspaceFolders.addAll(currentWorkspaceFolders);
         }
 
-        var workspaceCapabilities = Nullables.initAndGet(capabilities, ServerCapabilities::getWorkspace, ServerCapabilities::setWorkspace, WorkspaceServerCapabilities::new);
+        var workspaceCapabilities = Nullables.ensureNonNullAndGet(capabilities, ServerCapabilities::getWorkspace, ServerCapabilities::setWorkspace, WorkspaceServerCapabilities::new);
         if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getWorkspaceFolders)) {
             var folderOptions = new WorkspaceFoldersOptions();
             folderOptions.setSupported(true);

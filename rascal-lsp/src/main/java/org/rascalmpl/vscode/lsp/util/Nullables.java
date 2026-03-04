@@ -102,7 +102,7 @@ public class Nullables {
     }
 
     /**
-     * Get a value from an object. If it was not set yet (i.e. `null`), initialize it before returning.
+     * Get a value from an object. If it was not set yet (i.e. `null`), initialize and set it before returning.
      * @param <C> The type of the containing object.
      * @param <T> The type of the value to get.
      * @param container The containing object.
@@ -111,11 +111,12 @@ public class Nullables {
      * @param initializer The value initializer (e.g. a constructor). Only called if the value is not initialized yet.
      * @return The gotten value, or the initialized value if was not initialized yet.
      */
-    public static <C, T> T initAndGet(C container, Function<C, @Nullable T> getter, BiConsumer<C, T> setter, Supplier<T> initializer) {
+    public static <C, T> T ensureNonNullAndGet(C container, Function<C, @Nullable T> getter, BiConsumer<C, T> setter, Supplier<T> initializer) {
         var t = getter.apply(container);
         if (t == null) {
             t = initializer.get();
             setter.accept(container, t);
+            assert getter.apply(container) != null : "Setter should set same value as getter gets";
         }
         return t;
     }

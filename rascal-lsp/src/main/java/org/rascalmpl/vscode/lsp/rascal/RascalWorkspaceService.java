@@ -57,8 +57,8 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             ServerCapabilities capabilities) {
         super.initialize(clientCap, currentWorkspaceFolders, capabilities);
 
-        var workspaceCap = Nullables.initAndGet(capabilities, ServerCapabilities::getWorkspace, ServerCapabilities::setWorkspace, WorkspaceServerCapabilities::new);
-        var fileOperationCapabilities = Nullables.initAndGet(workspaceCap, WorkspaceServerCapabilities::getFileOperations, WorkspaceServerCapabilities::setFileOperations, FileOperationsServerCapabilities::new);
+        var workspaceCap = Nullables.ensureNonNullAndGet(capabilities, ServerCapabilities::getWorkspace, ServerCapabilities::setWorkspace, WorkspaceServerCapabilities::new);
+        var fileOperationCapabilities = Nullables.ensureNonNullAndGet(workspaceCap, WorkspaceServerCapabilities::getFileOperations, WorkspaceServerCapabilities::setFileOperations, FileOperationsServerCapabilities::new);
 
         var rascalFile = new FileOperationPattern("**/*.rsc");
         rascalFile.setMatches(FileOperationPatternKind.File);
