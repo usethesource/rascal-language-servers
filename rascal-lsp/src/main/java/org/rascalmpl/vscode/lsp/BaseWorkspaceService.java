@@ -47,12 +47,14 @@ import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.WorkspaceFoldersOptions;
 import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.rascalmpl.vscode.lsp.util.Nullables;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -82,14 +84,8 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
             this.workspaceFolders.addAll(currentWorkspaceFolders);
         }
 
-        var clientWorkspaceCap = clientCap.getWorkspace();
-
-        if (capabilities.getWorkspace() == null) {
-            capabilities.setWorkspace(new WorkspaceServerCapabilities());
-        }
-
-        var workspaceCapabilities = capabilities.getWorkspace();
-        if (clientWorkspaceCap != null && clientWorkspaceCap.getWorkspaceFolders().booleanValue()) {
+        var workspaceCapabilities = Nullables.ensureNonNullAndGet(capabilities, ServerCapabilities::getWorkspace, ServerCapabilities::setWorkspace, WorkspaceServerCapabilities::new);
+        if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getWorkspaceFolders)) {
             var folderOptions = new WorkspaceFoldersOptions();
             folderOptions.setSupported(true);
             folderOptions.setChangeNotifications(true);

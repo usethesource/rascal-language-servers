@@ -39,8 +39,11 @@ import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationPatternKind;
 import org.eclipse.lsp4j.FileOperationPatternOptions;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
+import org.eclipse.lsp4j.FileOperationsWorkspaceCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceServerCapabilities;
+import org.rascalmpl.vscode.lsp.util.Nullables;
 import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -58,7 +61,7 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
 
     @Override
     protected final boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities) {
-        return clientCapabilities.getWorkspace().getFileOperations().getDynamicRegistration();
+        return Nullables.has(clientCapabilities.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDynamicRegistration);
     }
 
     @Override
@@ -73,9 +76,15 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
 
     @Override
     protected final CompletableFuture<@Nullable FileOperationOptions> options(ICapabilityParams params) {
-        return CompletableFutureUtils.completedFuture(new FileOperationOptions(params.fileExtensions().stream()
+        var patterns = params.fileExtensions().stream()
             .map(FileOperationCapability::extensionFilter)
-            .collect(Collectors.toList())), exec);
+            .collect(Collectors.toList());
+
+        var anyFolder = new FileOperationPattern("**/*");
+        anyFolder.setMatches(FileOperationPatternKind.Folder);
+        patterns.add(new FileOperationFilter(anyFolder));
+
+        return CompletableFutureUtils.completedFuture(new FileOperationOptions(patterns), exec);
     }
 
     /**
@@ -94,17 +103,8 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
     }
 
     private static FileOperationsServerCapabilities fileOperationCapabilities(ServerCapabilities caps) {
-        var workspace = caps.getWorkspace();
-        if (workspace == null) {
-            workspace = new WorkspaceServerCapabilities();
-            caps.setWorkspace(workspace);
-        }
-        var fileOps = workspace.getFileOperations();
-        if (fileOps == null) {
-            fileOps = new FileOperationsServerCapabilities();
-            workspace.setFileOperations(fileOps);
-        }
-        return fileOps;
+        var workspace = Nullables.ensureNonNullAndGet(caps, ServerCapabilities::getWorkspace, ServerCapabilities::setWorkspace, WorkspaceServerCapabilities::new);
+        return Nullables.ensureNonNullAndGet(workspace, WorkspaceServerCapabilities::getFileOperations, WorkspaceServerCapabilities::setFileOperations, FileOperationsServerCapabilities::new);
     }
 
     /**
