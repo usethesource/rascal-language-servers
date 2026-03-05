@@ -103,17 +103,8 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
     }
 
     private static FileOperationsServerCapabilities fileOperationCapabilities(ServerCapabilities caps) {
-        var workspace = caps.getWorkspace();
-        if (workspace == null) {
-            workspace = new WorkspaceServerCapabilities();
-            caps.setWorkspace(workspace);
-        }
-        var fileOps = workspace.getFileOperations();
-        if (fileOps == null) {
-            fileOps = new FileOperationsServerCapabilities();
-            workspace.setFileOperations(fileOps);
-        }
-        return fileOps;
+        var workspace = Nullables.ensureNonNullAndGet(caps, ServerCapabilities::getWorkspace, ServerCapabilities::setWorkspace, WorkspaceServerCapabilities::new);
+        return Nullables.ensureNonNullAndGet(workspace, WorkspaceServerCapabilities::getFileOperations, WorkspaceServerCapabilities::setFileOperations, FileOperationsServerCapabilities::new);
     }
 
     /**
