@@ -2,6 +2,14 @@
 
 We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
+## v-next
+
+### Improved features
+
+* Fixed an issue where language features would not work if certain arguments were not set.
+  * Parsing would not work for languages without `parsing::useSpecialCaseHighlighting`.
+  * Completion would not work for languages without `completion::additionalTriggerCharacters`.
+
 ## 0.13.1
 
 Works best with Rascal 0.42.0 (and rascal-maven-plugin 0.30.7). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
