@@ -90,7 +90,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     public CompletableFuture<ISourceLocation> resolveProjectLocation(ISourceLocation loc) {
         logger.trace("resolveProjectLocation({})", loc);
         try {
-            return CompletableFutureUtils.completedFuture(URIResolverRegistry.getInstance().logicalToPhysical(loc), exec);
+            return CompletableFutureUtils.completedFuture(Locations.toClientLocation(URIResolverRegistry.getInstance().logicalToPhysical(loc)), exec);
         } catch (IOException e) {
             return CompletableFutureUtils.completedFuture(loc, exec);
         }
