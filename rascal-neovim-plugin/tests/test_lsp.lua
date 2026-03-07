@@ -39,4 +39,53 @@ T["lsp"]["diagnostics"] = function()
   end)
 end
 
+T["lsp"]["hover"] = function()
+  expect.wait(5000, function()
+    eq(child.lua_get("vim.lsp.get_clients()[1].config.name"), "rascal_lsp")
+  end)
+
+  child.fn.search("pathConfig")
+  vim.uv.sleep(50)
+  child.lua("vim.lsp.buf.hover()")
+  expect.wait(90000, function()
+    expect.screenshot_match(child.get_screenshot(), vim.pesc("PathConfig::pathConfig"))
+  end)
+end
+
+T["lsp"]["go to definition"] = function()
+  expect.wait(5000, function()
+    eq(child.lua_get("vim.lsp.get_clients()[1].config.name"), "rascal_lsp")
+  end)
+
+  child.fn.search("uses", "b")
+  vim.uv.sleep(50)
+  local cursor = child.api.nvim_win_get_cursor(0)
+  expect.wait(90000, function()
+    child.lua("vim.lsp.buf.hover()")
+    vim.uv.sleep(50)
+    expect.no_equality(child.api.nvim_win_get_cursor(0), cursor)
+  end)
+end
+
+T["lsp"]["code actions"] = function()
+  expect.wait(5000, function()
+    eq(child.lua_get("vim.lsp.get_clients()[1].config.name"), "rascal_lsp")
+  end)
+
+  local imports = child.api.nvim_buf_get_lines(0, 2, 8, true)
+  child.fn.search("import")
+  child.lua_get([[
+    vim.lsp.buf.code_action({
+      filter = function(action)
+        return action.title == "Sort imports and extends"
+      end,
+      apply = true,
+    })
+  ]])
+
+  expect.wait(90000, function()
+    expect.no_equality(child.api.nvim_buf_get_lines(0, 2, 8, true), imports)
+  end)
+end
+
 return T
