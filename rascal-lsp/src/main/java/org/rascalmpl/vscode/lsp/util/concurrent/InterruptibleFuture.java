@@ -94,7 +94,7 @@ public class InterruptibleFuture<T> {
     }
 
     public static <T> InterruptibleFuture<T> completedFuture(T result, Executor exec) {
-        return new InterruptibleFuture<>(CompletableFutureUtils.completedFuture(result, exec), () -> {});
+        return new InterruptibleFuture<>(CompletableFutureUtils.<T>completedFuture(result, exec), () -> {});
     }
 
     /**

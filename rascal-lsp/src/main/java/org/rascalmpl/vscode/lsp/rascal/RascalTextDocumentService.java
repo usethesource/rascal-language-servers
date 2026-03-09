@@ -414,7 +414,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 return findQualifiedNameUnderCursor(focus);
             })
             .thenApply(cur -> Locations.toRange(TreeAdapter.getLocation(cur), columns))
-            .thenApply(Either3::forFirst), () -> null);
+            .thenApply(Either3::forFirst), () -> Either3.forSecond(new PrepareRenameResult()));
     }
 
     @Override
@@ -723,7 +723,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return availableRascalServices().executeCommand(command).get();
     }
 
-    private static <T, S extends T> CompletableFuture<@PolyNull T> recoverExceptions(CompletableFuture<@PolyNull T> future, Supplier<@PolyNull S> defaultValue) {
+    private static <T> CompletableFuture<@PolyNull T> recoverExceptions(CompletableFuture<@PolyNull T> future, Supplier<@PolyNull T> defaultValue) {
         return future
                 .exceptionally(e -> {
                     if (e instanceof ResponseErrorException) {

@@ -442,7 +442,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
                 .collect(Collectors.toList())
-            ), () -> null);
+            ), Collections::<CodeLens>emptyList);
     }
 
 
@@ -626,7 +626,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenApply(s -> s.stream()
                     .map(this::rowToInlayHint)
                     .collect(Collectors.toList())
-            ), () -> null);
+            ), Collections::emptyList);
     }
 
 
@@ -871,7 +871,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApply(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
-            ), Collections::emptyList);
+            ), Collections::<FoldingRange>emptyList);
     }
 
     @Override

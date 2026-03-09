@@ -42,7 +42,7 @@ public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
 
     public static <T> CompletableFuture<@PolyNull T> completedFuture(@PolyNull T value, Executor exec) {
-        return CompletableFuture.supplyAsync(() -> value, exec);
+        return CompletableFuture.<@PolyNull T>supplyAsync(() -> value, exec);
     }
 
     /**
