@@ -45,6 +45,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
 import org.eclipse.lsp4j.ClientCapabilities;
@@ -346,10 +347,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             return recoverExceptions(facts.getSummary(Locations.toLoc(params.getTextDocument()))
                 .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
                 .thenApply(Either::forLeft)
-            , () -> Either.forLeft(Collections.emptyList()));
+            , () -> Either.forLeft(Collections.<Location>emptyList()));
         }
         else {
-            return CompletableFutureUtils.completedFuture(Either.forLeft(Collections.emptyList()), exec);
+            return CompletableFutureUtils.completedFuture(Either.forLeft(Collections.<Location>emptyList()), exec);
         }
     }
 
@@ -670,9 +671,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return recoverExceptions(f.getLastTreeAsync(false)
             .thenApply(Versioned::get)
             .thenApplyAsync(availableRascalServices()::locateCodeLenses, exec)
-            .thenApply(List::stream)
-            .thenApply(res -> res.map(this::makeRunCodeLens))
-            .thenApply(s -> s.collect(Collectors.toList())), () -> null)
+            .thenApply(lenses -> lenses.stream().map(this::makeRunCodeLens).collect(Collectors.toList())), () -> null)
             ;
     }
 
@@ -724,7 +723,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         return availableRascalServices().executeCommand(command).get();
     }
 
-    private static <T, S extends T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<S> defaultValue) {
+    private static <T, S extends T> CompletableFuture<@PolyNull T> recoverExceptions(CompletableFuture<@PolyNull T> future, Supplier<@PolyNull S> defaultValue) {
         return future
                 .exceptionally(e -> {
                     if (e instanceof ResponseErrorException) {
@@ -735,7 +734,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
                 });
     }
 
-    private static <T> CompletableFuture<List<T>> recoverExceptions(CompletableFuture<List<T>> future) {
+    private static <T> CompletableFuture<List<@PolyNull T>> recoverExceptions(CompletableFuture<List<@PolyNull T>> future) {
         return recoverExceptions(future, Collections::emptyList);
     }
 

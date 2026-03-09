@@ -53,6 +53,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.CallHierarchyIncomingCall;
 import org.eclipse.lsp4j.CallHierarchyIncomingCallsParams;
@@ -629,7 +630,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
 
-    private static <T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<T> defaultValue) {
+    private static <T> CompletableFuture<@PolyNull T> recoverExceptions(CompletableFuture<@PolyNull T> future, Supplier<@PolyNull T> defaultValue) {
         return future
             .exceptionally(e -> {
                 logger.error("Operation failed with", e);
