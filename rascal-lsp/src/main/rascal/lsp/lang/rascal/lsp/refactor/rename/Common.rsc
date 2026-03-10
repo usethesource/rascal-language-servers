@@ -45,10 +45,10 @@ import Relation;
 import Set;
 import String;
 import util::FileSystem;
-import util::LanguageServer;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
+import util::TextEdits;
 import util::Util;
 
 data RenameConfig(

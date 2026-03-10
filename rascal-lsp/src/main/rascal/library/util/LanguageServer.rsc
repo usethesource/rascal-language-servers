@@ -40,7 +40,7 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
-import analysis::diff::edits::TextEdits;
+import util::TextEdits;
 import IO;
 import ParseTree;
 import Message;
@@ -726,36 +726,6 @@ the right ((DocumentEdit))s immediately.
 * don't forget to extend ((util::LanguageServer::Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
 }
 data Message(list[CodeAction] fixes = []);
-
-@synopsis{A ((analysis::diff::edits::TextEdits::TextEdit)) with additional context for LSP.}
-@description{
-In LSP, text edits can contain extra information w.r.t. ((analysis::diff::edits::TextEdits::TextEdit)).
-* label: Human-readable string that describes the change.
-* description: Human-readable string that additionally describes the change, rendered less prominently.
-* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::LanguageServer::TextEdit))s are applied without user confirmation.
-
-Typically, clients provide options to group edits by label/description when showing them to the user.
-See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation) for more details.
-
-Note: to easily annotate all text edits in a ((analysis::diff::edits::TextEdits::FileSystemChange)), use the convenience keywords on ((util::LanguageServer::FileSystemChange)).
-}
-@pitfalls{
-When `needsConfirmation = false` for all edits, the client will typically apply them without showing any information from the annotations to the user.
-}
-data TextEdit(str label = "", str description = label, bool needsConfirmation = false);
-
-@synopsis{A ((analysis::diff::edits::TextEdits::FileSystemChange)) with additional context for LSP.}
-@description{
-Provides extra context for all contained ((util::LanguageServer::TextEdit))s at once.
-}
-data FileSystemChange(str label = "", str description = "", bool needsConfirmation = false);
-
-@synopsis{Shorthand for file changes, with additional context for LSP.}
-@description{
-Provides extra context for all contained ((util::LanguageServer::TextEdit))s at once.
-}
-FileSystemChange changed(list[TextEdit] edits:[replace(loc l, str _), *_], str label = "", str description = "", bool needsConfirmation = false)
-    = changed(l.top, edits, label=label, description=description, needsConfirmation=needsConfirmation);
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
