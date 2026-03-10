@@ -78,27 +78,10 @@ tuple[set[loc], set[loc], set[loc]] findOccurrenceFilesUnchecked(set[Define] _:{
 
         bool markedNew = false;
         bool markedUse = false;
-<<<<<<< Updated upstream
         if(Module m := mtree.top){
             top-down-break visit (m.header.imports) {
                 case modNameTree: {
                     // Import of exact module name
-=======
-        if(Module md := m.top){
-            top-down-break visit (md.header.imports) {
-                case modNameTree: {
-                    // Import of exact module name
-                    useFiles += f;
-                    markedUse = true;
-                }
-            }
-        }
-        bottom-up-break visit(m) {
-            case QualifiedName qn: {
-                // Import of redundantly escaped module name
-                qnSize = size(asNames(qn));
-                if (qnSize == modNameNumberOfNames && modName == normalizeEscaping("<qn>")) {
->>>>>>> Stashed changes
                     useFiles += f;
                     markedUse = true;
                 }
