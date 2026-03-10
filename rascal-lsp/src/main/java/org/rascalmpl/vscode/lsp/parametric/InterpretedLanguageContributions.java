@@ -251,15 +251,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private static <T extends IValue> CompletableFuture<@PolyNull T> getContributionParameter(CompletableFuture<ISet> contributions, String name, String parameter, @PolyNull T defaultVal, Class<T> t) {
         return contributions.thenApply(c -> {
             var contrib = getContribution(c, name);
-            if (contrib == null) {
-                return defaultVal;
+            if (contrib != null) {
+                var val = contrib.asWithKeywordParameters().getParameter(parameter);
+                if (val != null) {
+                    try {
+                        return t.cast(val);
+                    } catch (ClassCastException e) {
+                        return defaultVal;
+                    }
+                }
             }
-
-            try {
-                return t.cast(contrib.asWithKeywordParameters().getParameter(parameter));
-            } catch (ClassCastException e) {
-                return defaultVal;
-            }
+            return defaultVal;
         });
     }
 
