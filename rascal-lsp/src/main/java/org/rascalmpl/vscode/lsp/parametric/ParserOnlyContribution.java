@@ -45,6 +45,7 @@ import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.ParserSpecification;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -113,6 +114,31 @@ public class ParserOnlyContribution extends NoContributions {
     @Override
     public CompletableFuture<Boolean> specialCaseHighlighting() {
         return specialCaseHighlighting;
+    }
+
+    @Override
+    public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input) {
+        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc), exec);
+    }
+
+    @Override
+    public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
+        return InterruptibleFuture.completedFuture(EmptySummary.newInstance(loc), exec);
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
+        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
+        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
+    }
+
+    @Override
+    public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
+        return CompletableFutureUtils.completedFuture(SummaryConfig.FALSY, exec);
     }
 
 }
