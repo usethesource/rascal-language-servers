@@ -26,7 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module analysis::diff::edits::AnnotatedTextEdits
 
-import analysis::diff::edits::TextEdits;
+extend analysis::diff::edits::TextEdits;
 
 @synopsis{A ((analysis::diff::edits::TextEdits::TextEdit)) with additional context for LSP.}
 @description{
