@@ -41,8 +41,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
 
-    public static <T> CompletableFuture<T> completedFuture(T value, Executor exec) {
-        return CompletableFuture.supplyAsync(() -> value, exec);
+    public static <T> CompletableFuture<@PolyNull T> completedFuture(@PolyNull T value, Executor exec) {
+        return CompletableFuture.<@PolyNull T>supplyAsync(() -> value, exec);
     }
 
     /**
@@ -133,7 +133,7 @@ public class CompletableFutureUtils {
      */
     public static <I, C> CompletableFuture<C> reduce(Iterable<CompletableFuture<I>> futures,
             CompletableFuture<C> identity, Function<I, C> map, BinaryOperator<C> concat) {
-        CompletableFuture<C> result = identity;
+        var result = identity;
         for (var fut : futures) {
             result = result.thenCombine(fut, (acc, t) -> concat.apply(acc, map.apply(t)));
         }
@@ -141,7 +141,7 @@ public class CompletableFutureUtils {
         return result;
     }
 
-    private static <T> List<@PolyNull T> concat(List<@PolyNull T> l, List<@PolyNull T> r) {
+    private static <T> List<T> concat(List<T> l, List<T> r) {
         if (r.isEmpty()) {
             return l;
         }
@@ -149,7 +149,7 @@ public class CompletableFutureUtils {
             return r;
         }
 
-        var ls = new LinkedList<@PolyNull T>(l);
+        var ls = new LinkedList<T>(l);
         ls.addAll(r);
         return ls;
     }

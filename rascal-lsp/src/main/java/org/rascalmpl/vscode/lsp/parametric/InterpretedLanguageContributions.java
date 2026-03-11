@@ -622,7 +622,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         ), exec);
     }
 
-    private <T extends @NonNull Object> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
+    private <T extends @NonNull IValue> InterruptibleFuture<T> execFunction(String name, CompletableFuture<@Nullable IFunction> target, T defaultResult, IValue... args) {
         if (target == null) {
             return InterruptibleFuture.completedFuture(defaultResult, exec);
         }

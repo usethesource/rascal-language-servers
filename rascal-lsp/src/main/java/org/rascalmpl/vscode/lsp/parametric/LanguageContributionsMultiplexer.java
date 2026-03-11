@@ -230,16 +230,9 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private <T> CompletableFuture<T> anyTrue(
             Function<ILanguageContributions, CompletableFuture<T>> predicate,
             T falsy, BinaryOperator<T> or) {
-
-        var result = CompletableFutureUtils.completedFuture(falsy, exec);
         // no short-circuiting, but it's not problem, it's only triggered at the beginning of a registry
         // pretty soon the future will be completed.
-        for (var c: contributions) {
-            var checkCurrent = predicate.apply(c.contrib)
-                .exceptionally(e -> falsy);
-            result = result.thenCombine(checkCurrent, or);
-        }
-        return result;
+        return CompletableFutureUtils.reduce(contributions.stream().map(c -> predicate.apply(c.contrib).exceptionally(_e -> falsy)), CompletableFutureUtils.completedFuture(falsy, exec), Function.identity(), or);
     }
 
     @Override

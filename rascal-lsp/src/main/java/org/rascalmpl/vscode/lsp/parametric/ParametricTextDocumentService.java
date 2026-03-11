@@ -53,6 +53,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.CallHierarchyIncomingCall;
 import org.eclipse.lsp4j.CallHierarchyIncomingCallsParams;
@@ -441,7 +442,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(s -> s.stream()
                 .map(e -> locCommandTupleToCodeLense(contrib.getName(), e))
                 .collect(Collectors.toList())
-            ), () -> null);
+            ), Collections::<CodeLens>emptyList);
     }
 
 
@@ -625,11 +626,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenApply(s -> s.stream()
                     .map(this::rowToInlayHint)
                     .collect(Collectors.toList())
-            ), () -> null);
+            ), Collections::emptyList);
     }
 
 
-    private static <T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<T> defaultValue) {
+    private static <T> CompletableFuture<@PolyNull T> recoverExceptions(CompletableFuture<@PolyNull T> future, Supplier<@PolyNull T> defaultValue) {
         return future
             .exceptionally(e -> {
                 logger.error("Operation failed with", e);
@@ -870,7 +871,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(file.getCurrentTreeAsync(true).thenApply(Versioned::get).thenApply(FoldingRanges::getFoldingRanges)
             .whenComplete((r, e) ->
                 logger.trace("Folding regions success, reporting {} regions back", r == null ? 0 : r.size())
-            ), Collections::emptyList);
+            ), Collections::<FoldingRange>emptyList);
     }
 
     @Override
