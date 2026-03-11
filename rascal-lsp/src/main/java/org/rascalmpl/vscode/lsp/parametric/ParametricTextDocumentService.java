@@ -317,16 +317,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void connect(LanguageClient client) {
         this.client = client;
         facts.values().forEach(v -> v.setClient(client));
-        if (dedicatedLanguage != null) {
-            // if there was one scheduled, we now start it up, since the connection has been made
-            this.registerLanguage(dedicatedLanguage);
-        }
     }
 
     @Override
     public void initialized() {
-        // reserved for future use
-        // e.g. dynamic registration of capabilities
+        if (dedicatedLanguage != null) {
+            // if there was one scheduled, we now start it up, since the connection has been made
+            this.registerLanguage(dedicatedLanguage);
+        }
     }
 
     // LSP interface methods
