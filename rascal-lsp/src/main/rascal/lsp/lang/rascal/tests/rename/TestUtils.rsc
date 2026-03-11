@@ -127,7 +127,7 @@ private list[Tree] computeFocusList(amb(set[Tree] alts), int line, int col) {
     return [];
 }
 
-private list[Tree] computeFocusList(tr:appl(Production p, _), int line, int col) = [tr] when isLexical(p.def) && inside(tr, line, col);
+private list[Tree] computeFocusList(tr:appl(Production p, _), int line, int col) = [tr] when isLexical(p.def) && isInside(tr, line, col);
 
 private bool isLexical(\lex(_)) = true;
 private bool isLexical(\parameterized-lex(_, _)) = true;
@@ -136,19 +136,17 @@ private default bool isLexical(_) = false;
 private list[Tree] computeFocusList(appl(prod, _), int _, int _) = [] when prod.def is \layouts;
 
 private list[Tree] computeFocusList(tr:appl(_, args), int line, int col) {
-    list[Tree] focus = inside(tr, line, col) ? [tr] : [];
-
-    if (a <- args, inside(a, line, col)) {
-        focus = computeFocusList(a, line, col) + focus;
+    list[Tree] focus = isInside(tr, line, col) ? [tr] : [];
+    for (a <- args, isInside(a, line, col)) {
+        return computeFocusList(a, line, col) + focus;
     }
-
     return focus;
 }
 
-private default list[Tree] computeFocusList(Tree _, int _, int _) = [] when true;
+private default list[Tree] computeFocusList(Tree _, int _, int _) = [];
 
-private bool inside(Tree tr, int line, int col) = tr.src? && inside(tr.src, line, col);
-private bool inside(loc l, int line, int col) {
+private bool isInside(Tree tr, int line, int col) = tr.src? && isInside(tr.src, line, col);
+private bool isInside(loc l, int line, int col) {
     if (!(l.begin? && l.end?)) return false;
     if (line < l.begin.line || line > l.end.line) return false;
 
