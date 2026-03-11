@@ -48,7 +48,7 @@ import util::FileSystem;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
-import util::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 import util::Util;
 
 data RenameConfig(

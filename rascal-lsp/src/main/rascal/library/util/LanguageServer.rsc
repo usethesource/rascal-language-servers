@@ -40,7 +40,7 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
-extend util::TextEdits;
+extend analysis::diff::edits::AnnotatedTextEdits;
 import IO;
 import ParseTree;
 import Message;

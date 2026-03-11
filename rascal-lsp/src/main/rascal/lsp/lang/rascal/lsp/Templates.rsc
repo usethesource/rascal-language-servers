@@ -32,7 +32,7 @@ import Location;
 import String;
 import util::PathConfig;
 import util::Reflective;
-import util::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 
 import analysis::diff::edits::TextEdits;
 
