@@ -164,7 +164,7 @@ private bool isReachable(PathConfig toProject, PathConfig fromProject) =
     toProject == fromProject           // Both configs belong to the same project
  || toProject.bin in fromProject.libs; // The using project can import the declaring project
 
-list[TextEdit] getChangesByContents(str contents, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
+list[TextEdit] getChangesByContents(loc f, str contents, PathConfig wsProject, lrel[str oldName, str newName, PathConfig pcfg] qualifiedNameChanges, void(Message) registerMessage) {
     changesInFile = [<oldName, newName>
         | <oldName, newName, projWithRenamedMod> <- qualifiedNameChanges
         , contains(contents, oldName) && isReachable(projWithRenamedMod, wsProject)
@@ -205,8 +205,8 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str new
         }
         return edits;
     }
-    catch Java("ParseError", str msg): return getChangesByContents(contents, wsProject, qualifiedNameChanges, registerMessage);
-    catch JavaException("ParseError", str msg): return getChangesByContents(contents, wsProject, qualifiedNameChanges, registerMessage);
+    catch Java("ParseError", str msg): return getChangesByContents(f, contents, wsProject, qualifiedNameChanges, registerMessage);
+    catch JavaException("ParseError", str msg): return getChangesByContents(f, contents, wsProject, qualifiedNameChanges, registerMessage);
     // Catch all
     catch e: registerMessage(error("<e>", f));
     return [];
