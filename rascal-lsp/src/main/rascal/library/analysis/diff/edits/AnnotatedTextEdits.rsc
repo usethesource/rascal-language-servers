@@ -33,12 +33,12 @@ extend analysis::diff::edits::TextEdits;
 In LSP, text edits can contain extra information w.r.t. ((analysis::diff::edits::TextEdits::TextEdit)).
 * label: Human-readable string that describes the change.
 * description: Human-readable string that additionally describes the change, rendered less prominently.
-* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::TextEdits::TextEdit))s are applied without user confirmation.
+* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((analysis::diff::edits::AnnotatedTextEdits::TextEdit))s are applied without user confirmation.
 
 Typically, clients provide options to group edits by label/description when showing them to the user.
 See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation) for more details.
 
-Note: to easily annotate all text edits in a ((analysis::diff::edits::TextEdits::FileSystemChange)), use the convenience keywords on ((util::TextEdits::FileSystemChange)).
+Note: to easily annotate all text edits in a ((analysis::diff::edits::TextEdits::FileSystemChange)), use the convenience keywords on ((analysis::diff::edits::AnnotatedTextEdits::FileSystemChange)).
 }
 @pitfalls{
 When `needsConfirmation = false` for all edits, the client will typically apply them without showing any information from the annotations to the user.
@@ -47,13 +47,13 @@ data TextEdit(str label = "", str description = label, bool needsConfirmation = 
 
 @synopsis{A ((analysis::diff::edits::TextEdits::FileSystemChange)) with additional context for LSP.}
 @description{
-Provides extra context for all contained ((util::TextEdits::TextEdit))s at once.
+Provides extra context for all contained ((analysis::diff::edits::AnnotatedTextEdits::TextEdit))s at once.
 }
 data FileSystemChange(str label = "", str description = "", bool needsConfirmation = false);
 
 @synopsis{Shorthand for file changes, with additional context for LSP.}
 @description{
-Provides extra context for all contained ((util::TextEdits::TextEdit))s at once.
+Provides extra context for all contained ((analysis::diff::edits::AnnotatedTextEdits::TextEdit))s at once.
 }
 FileSystemChange changed(list[TextEdit] edits:[replace(loc l, str _), *_], str label = "", str description = "", bool needsConfirmation = false)
     = changed(l.top, edits, label=label, description=description, needsConfirmation=needsConfirmation);
