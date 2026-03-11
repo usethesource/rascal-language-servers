@@ -40,7 +40,7 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
-import analysis::diff::edits::TextEdits;
+extend analysis::diff::edits::AnnotatedTextEdits;
 import IO;
 import ParseTree;
 import Message;
@@ -727,36 +727,6 @@ the right ((DocumentEdit))s immediately.
 }
 data Message(list[CodeAction] fixes = []);
 
-@synopsis{A ((analysis::diff::edits::TextEdits::TextEdit)) with additional context for LSP.}
-@description{
-In LSP, text edits can contain extra information w.r.t. ((analysis::diff::edits::TextEdits::TextEdit)).
-* label: Human-readable string that describes the change.
-* description: Human-readable string that additionally describes the change, rendered less prominently.
-* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::LanguageServer::TextEdit))s are applied without user confirmation.
-
-Typically, clients provide options to group edits by label/description when showing them to the user.
-See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation) for more details.
-
-Note: to easily annotate all text edits in a ((analysis::diff::edits::TextEdits::FileSystemChange)), use the convenience keywords on ((util::LanguageServer::FileSystemChange)).
-}
-@pitfalls{
-When `needsConfirmation = false` for all edits, the client will typically apply them without showing any information from the annotations to the user.
-}
-data TextEdit(str label = "", str description = label, bool needsConfirmation = false);
-
-@synopsis{A ((analysis::diff::edits::TextEdits::FileSystemChange)) with additional context for LSP.}
-@description{
-Provides extra context for all contained ((util::LanguageServer::TextEdit))s at once.
-}
-data FileSystemChange(str label = "", str description = "", bool needsConfirmation = false);
-
-@synopsis{Shorthand for file changes, with additional context for LSP.}
-@description{
-Provides extra context for all contained ((util::LanguageServer::TextEdit))s at once.
-}
-FileSystemChange changed(list[TextEdit] edits:[replace(loc l, str _), *_], str label = "", str description = "", bool needsConfirmation = false)
-    = changed(l.top, edits, label=label, description=description, needsConfirmation=needsConfirmation);
-
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
 Commands can be any closed term a() pure value without open variables or function/closure values embedded in it). Add any constructor you need to express the execution parameters
@@ -822,7 +792,7 @@ interactive content have to be cleaned or closed in their own respective fashion
 }
 @benefits{
 * CodeActions provide tight integration with the user experience in the IDE. Including sometimes previews, and always the undo stack.
-* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for
+* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits::HiFiTreeDiff)) and ((analysis::diff::edits::HiFiLayoutDiff)) for
 tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
 * `edits` are applied on the latest editor content for the current editor; live to the user.
 * ((util::IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.

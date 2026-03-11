@@ -48,7 +48,6 @@ import lang::rascalcore::compile::util::Names;
 import analysis::diff::edits::ExecuteTextEdits;
 
 import util::FileSystem;
-import util::LanguageServer;
 import util::Math;
 import util::Maybe;
 import util::Monitor;
@@ -116,6 +115,49 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
         iprintln(actual);
         println();
         return false;
+    }
+    return true;
+}
+
+// Rascal port of TreeSearch::computeFocusList
+private list[Tree] computeFocusList(amb(set[Tree] alts), int line, int col) {
+    if (a <- alts) {
+        return computeFocusList(a, line, col);
+    }
+    return [];
+}
+
+private list[Tree] computeFocusList(tr:appl(Production p, _), int line, int col) = [tr] when isLexical(p.def) && isInside(tr, line, col);
+
+private bool isLexical(\lex(_)) = true;
+private bool isLexical(\parameterized-lex(_, _)) = true;
+private default bool isLexical(_) = false;
+
+private list[Tree] computeFocusList(appl(prod, _), int _, int _) = [] when prod.def is \layouts;
+
+private list[Tree] computeFocusList(tr:appl(_, args), int line, int col) {
+    list[Tree] focus = isInside(tr, line, col) ? [tr] : [];
+    for (a <- args, isInside(a, line, col)) {
+        return computeFocusList(a, line, col) + focus;
+    }
+    return focus;
+}
+
+private default list[Tree] computeFocusList(Tree _, int _, int _) = [];
+
+private bool isInside(Tree tr, int line, int col) = tr.src? && isInside(tr.src, line, col);
+private bool isInside(loc l, int line, int col) {
+    if (!(l.begin? && l.end?)) return false;
+    if (line < l.begin.line || line > l.end.line) return false;
+
+    if (line == l.begin.line) {
+        if (line < l.end.line) {
+            return l.begin.column <= col;
+        }
+        return l.begin.column <= col && col <= l.end.column;
+    }
+    if (line == l.end.line) {
+        return col <= l.end.column;
     }
     return true;
 }

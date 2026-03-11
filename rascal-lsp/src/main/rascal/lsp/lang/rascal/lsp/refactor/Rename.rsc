@@ -66,7 +66,6 @@ extend analysis::typepal::refactor::Rename;
 import util::Util;
 
 import util::FileSystem;
-import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
