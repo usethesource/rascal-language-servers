@@ -94,7 +94,7 @@ alias Summarizer       = Summary (loc _origin, Tree _input);
 @synopsis{A focus provides the currently selected language constructs around the cursor.}
 @description{
 A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if
-the cursor is inside an identifer, and ends with the start non-terminal (the whole tree). Everything
+the cursor is inside an identifier, and ends with the start non-terminal (the whole tree). Everything
 in between is a spine of language constructs ((Library:ParseTree)) nodes between the top and the bottom node.
 
 The location of each element in the focus list is around (inclusive) the current cursor selection.
@@ -156,9 +156,9 @@ alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 @deprecated{Use ((implementation)) instead.}
 alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
-@synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
+@synopsis{Each kind of service contributes the implementation of one (or several) IDE features.}
 @description{
-Each LanguageService constructor provides one aspect of definining the language server protocol (LSP).
+Each LanguageService constructor provides one aspect of defining the language server protocol (LSP).
 Their names coincide with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
 
 * The ((parsing)) service that maps source code strings to a ((ParseTree::Tree)) is essential and non-optional.
@@ -210,11 +210,11 @@ hover documentation, definition with uses, references to declarations, implement
    * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * The ((documentSymbol)) service maps a source file to a pretty hierarchy for visualization in the "outline" view and "symbol search" features.
 * The ((codeLens)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
-* The ((inlayHint)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
+* The ((inlayHint)) service discovers places to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
 * The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 * The ((util::LanguageServer::rename)) service renames an identifier by collecting the edits required to rename all occurrences of that identifier. It might fail and report why in diagnostics.
-   * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renameing the location is not supported, it should throw an exception.
+   * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renaming the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
 * The ((selectionRange)) service discovers selections around a cursor, that a user might want to select. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
 * The ((callHierarchy)) service discovers callable definitions and call sites. It consists of two subservices.
@@ -314,7 +314,7 @@ Definition of completion service. Kept separate from the LanguageService for now
  The optional list of trigger characters can contain a list of extra characters that trigger completion.
  These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
 
-We have choosen to support all features of the LSP CompletionItem except:
+We have chosen to support all features of the LSP CompletionItem except:
 * To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
 * Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
 
@@ -858,7 +858,7 @@ data RefactorKind
 * `position` where the hint should be placed, by default at the beginning of this location, the `atEnd` can be set to true to change this
 * `label` text that should be printed in the ide, spaces in front and back of the text are trimmed and turned into subtle spacing to the content around it.
 * `kind` his either `type()` or `parameter()` which influences styling in the editor.
-* `toolTip` optionally show extra information when hovering over the inlayhint.
+* `toolTip` optionally show extra information when hovering over the inlay hint.
 * `atEnd` instead of appearing at the beginning of the position, appear at the end.
 }
 data InlayHint
@@ -879,7 +879,7 @@ data InlayKind
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
 @synopsis{Generates and instantiates a new language server for the given language}
 @description{
-We register languages by uploading the meta-data of the implementation to a "lanuage-parametric" language server.
+We register languages by uploading the meta-data of the implementation to a "language-parametric" language server.
 1. The meta-data is used to instantiate a fresh run-time to execute the main-module.
 2. The extension is registered with the IDE to link to this new runtime.
 3. Each specific extension is mapped to a specific part of the language server protocol.
@@ -916,7 +916,7 @@ void unregisterLanguage(str name, str extension, str mainModule = "", str mainFu
 @synopsis{Produce a ((Focus)) for a given tree and cursor position}
 @description{
 This function exists to be able to unit test ((LanguageService))s that
-accept a ((Focus)) parameter, indepently of using ((registerLanguage)).
+accept a ((Focus)) parameter, independently of using ((registerLanguage)).
 
 * `line` is a 1-based indication of what the current line is
 * `column` is a 0-based indication of what the current column is.

@@ -233,7 +233,7 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.6.1</version>
         <dependencies>
-          <dependency> <!-- correctly shade multiple log4j2 depencneis -->
+          <dependency> <!-- correctly shade multiple log4j2 dependencies -->
               <groupId>org.apache.logging.log4j</groupId>
               <artifactId>log4j-transform-maven-shade-plugin-extensions</artifactId>
               <version>0.2.0</version>
