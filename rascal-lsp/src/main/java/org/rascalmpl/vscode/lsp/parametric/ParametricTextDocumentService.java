@@ -323,6 +323,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void initialized() {
         if (dedicatedLanguage != null) {
             // if there was one scheduled, we now start it up, since the connection has been made
+            // and the client and capabilities are initialized
             this.registerLanguage(dedicatedLanguage);
         }
     }
