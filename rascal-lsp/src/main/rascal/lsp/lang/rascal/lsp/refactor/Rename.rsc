@@ -66,7 +66,6 @@ extend analysis::typepal::refactor::Rename;
 import util::Util;
 
 import util::FileSystem;
-import util::LanguageServer;
 import util::Maybe;
 import util::Reflective;
 
@@ -137,7 +136,7 @@ void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newNam
     }
 }
 
-void rascalCheckLegalNameByRole(Define _:<_, _, _, role, at, dt>, str name, Renamer r) {
+void rascalCheckLegalNameByRole(Define _:<_, _, _, IdRole role, loc at, DefInfo dt>, str name, Renamer r) {
     escName = normalizeEscaping(name);
     <t, desc> = asRoleType(role, dt);
     if (tryParseAs(t, escName) is nothing) {
