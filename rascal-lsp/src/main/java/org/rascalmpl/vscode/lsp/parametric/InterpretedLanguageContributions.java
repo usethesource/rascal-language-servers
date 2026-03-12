@@ -224,10 +224,10 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private static CompletableFuture<SummaryConfig> ondemandSummaryConfig(CompletableFuture<ISet> contributions) {
         return contributions.thenApply(c ->
             new SummaryConfig(
-                providesContribution(c, LanguageContributions.HOVER),
-                providesContribution(c, LanguageContributions.DEFINITION),
-                providesContribution(c, LanguageContributions.REFERENCES),
-                providesContribution(c, LanguageContributions.IMPLEMENTATION)));
+                hasContribution(c, LanguageContributions.HOVER),
+                hasContribution(c, LanguageContributions.DEFINITION),
+                hasContribution(c, LanguageContributions.REFERENCES),
+                hasContribution(c, LanguageContributions.IMPLEMENTATION)));
     }
 
     private static @Nullable IConstructor getContribution(ISet contributions, String name) {
@@ -239,7 +239,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             .orElse(null);
     }
 
-    private static boolean providesContribution(ISet contributions, String name) {
+    private static boolean hasContribution(ISet contributions, String name) {
         return getContribution(contributions, name) != null;
     }
 
