@@ -200,82 +200,82 @@ public class NoContributions implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalysis() {
+    public CompletableFuture<Boolean> providesAnalysis() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuild() {
+    public CompletableFuture<Boolean> providesBuild() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumentSymbol() {
+    public CompletableFuture<Boolean> providesDocumentSymbol() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLens() {
+    public CompletableFuture<Boolean> providesCodeLens() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
+    public CompletableFuture<Boolean> providesInlayHint() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasRename() {
+    public CompletableFuture<Boolean> providesRename() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecution() {
+    public CompletableFuture<Boolean> providesExecution() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasHover() {
+    public CompletableFuture<Boolean> providesHover() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefinition() {
+    public CompletableFuture<Boolean> providesDefinition() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferences() {
+    public CompletableFuture<Boolean> providesReferences() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementation() {
+    public CompletableFuture<Boolean> providesImplementation() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeAction() {
+    public CompletableFuture<Boolean> providesCodeAction() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDidRenameFiles() {
+    public CompletableFuture<Boolean> providesDidRenameFiles() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSelectionRange() {
+    public CompletableFuture<Boolean> providesSelectionRange() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCallHierarchy() {
+    public CompletableFuture<Boolean> providesCallHierarchy() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCompletion() {
+    public CompletableFuture<Boolean> providesCompletion() {
         return falsy;
     }
 

@@ -69,7 +69,7 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
 
     @Override
     protected CompletableFuture<Boolean> isProvidedBy(ICapabilityParams params) {
-        return params.contributions().hasCompletion();
+        return params.contributions().providesCompletion();
     }
 
     @Override

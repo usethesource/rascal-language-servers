@@ -878,7 +878,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contrib = contributions(loc);
         TextDocumentState file = getFile(loc);
 
-        CompletableFuture<Function<IList, CompletableFuture<IList>>> computeSelection = contrib.hasSelectionRange().thenApply(hasDef -> {
+        CompletableFuture<Function<IList, CompletableFuture<IList>>> computeSelection = contrib.providesSelectionRange().thenApply(hasDef -> {
             if (!hasDef.booleanValue()) {
                 logger.debug("Selection range not implemented; falling back to default implementation ({})", params.getTextDocument());
                 return focus -> CompletableFutureUtils.completedFuture(SelectionRanges.uniqueTreeLocations(focus), exec);
