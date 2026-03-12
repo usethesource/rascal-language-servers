@@ -342,7 +342,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     return contrib;
                 }
             }
-            logger.debug("No {} defined", cons);
             return null;
         });
     }

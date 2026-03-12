@@ -31,6 +31,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -47,6 +49,8 @@ import io.usethesource.vallang.IValue;
 
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
+
+    private static final Logger logger = LogManager.getLogger(LanguageContributionsMultiplexer.class);
 
     private final ExecutorService exec;
     private final String name;
@@ -152,22 +156,22 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         // future
         parsing = firstOrFail();
 
-        analysis = findFirstOrDefault(ILanguageContributions::hasAnalysis);
-        build = findFirstOrDefault(ILanguageContributions::hasBuild);
-        documentSymbol = findFirstOrDefault(ILanguageContributions::hasDocumentSymbol);
-        codeLens = findFirstOrDefault(ILanguageContributions::hasCodeLens);
-        inlayHint = findFirstOrDefault(ILanguageContributions::hasInlayHint);
-        execution = findFirstOrDefault(ILanguageContributions::hasExecution);
-        hover = findFirstOrDefault(ILanguageContributions::hasHover);
-        definition = findFirstOrDefault(ILanguageContributions::hasDefinition);
-        references = findFirstOrDefault(ILanguageContributions::hasReferences);
-        implementation = findFirstOrDefault(ILanguageContributions::hasImplementation);
-        codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction);
-        rename = findFirstOrDefault(ILanguageContributions::hasRename);
-        didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles);
-        selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange);
-        callHierarchy = findFirstOrDefault(ILanguageContributions::hasCallHierarchy);
-        completion = findFirstOrDefault(ILanguageContributions::hasCompletion);
+        analysis = findFirstOrDefault(ILanguageContributions::hasAnalysis, "analysis");
+        build = findFirstOrDefault(ILanguageContributions::hasBuild, "build");
+        documentSymbol = findFirstOrDefault(ILanguageContributions::hasDocumentSymbol, "documentSymbol");
+        codeLens = findFirstOrDefault(ILanguageContributions::hasCodeLens, "codeLens");
+        inlayHint = findFirstOrDefault(ILanguageContributions::hasInlayHint, "inlayHint");
+        execution = findFirstOrDefault(ILanguageContributions::hasExecution, "execution");
+        hover = findFirstOrDefault(ILanguageContributions::hasHover, "hover");
+        definition = findFirstOrDefault(ILanguageContributions::hasDefinition, "definition");
+        references = findFirstOrDefault(ILanguageContributions::hasReferences, "references");
+        implementation = findFirstOrDefault(ILanguageContributions::hasImplementation, "implementation");
+        codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction, "codeAction");
+        rename = findFirstOrDefault(ILanguageContributions::hasRename, "rename");
+        didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles, "didRenameFiles");
+        selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange, "selectionRange");
+        callHierarchy = findFirstOrDefault(ILanguageContributions::hasCallHierarchy, "callHierarchy");
+        completion = findFirstOrDefault(ILanguageContributions::hasCompletion, "completion");
 
         hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
         hasBuild = anyTrue(ILanguageContributions::hasBuild);
@@ -204,7 +208,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         return it.next().contrib;
     }
 
-    private CompletableFuture<ILanguageContributions> findFirstOrDefault(Function<ILanguageContributions, CompletableFuture<Boolean>> filter) {
+    private CompletableFuture<ILanguageContributions> findFirstOrDefault(Function<ILanguageContributions, CompletableFuture<Boolean>> filter, String contribName) {
         return CompletableFuture.supplyAsync(() -> {
             for (var c : contributions) {
                 try {
@@ -219,6 +223,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
                 }
             }
             // otherwise return the first one, that contains defaults on what to do if it's missing
+            logger.info("No contribution for {}; defaulting to empty implementation", contribName);
             return firstOrFail();
         }, exec);
     }
