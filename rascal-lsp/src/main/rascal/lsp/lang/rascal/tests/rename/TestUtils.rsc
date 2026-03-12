@@ -37,6 +37,7 @@ import Location;
 import ParseTree;
 import Set;
 import String;
+import ValueIO;
 
 import lang::rascal::\syntax::Rascal; // `Name`
 
@@ -53,6 +54,7 @@ import util::Maybe;
 import util::Monitor;
 import util::PathConfig;
 import util::Reflective;
+import util::SystemAPI;
 import util::Util;
 
 public LanguageFileConfig RASCAL_CONF = fileConfig();
@@ -322,19 +324,24 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
-public loc calculateRascalLib() {
-    result = resolveLocation(|std:///|);
-    if (/org.rascalmpl.library.?$/ := result.path) {
-        return result.parent.parent.parent;
+public list[loc] calculateRascalLibs() {
+    rascalLib = resolveLocation(|std:///|);
+    if (/org.rascalmpl.library.?$/ := rascalLib.path) {
+        rascalLib = rascalLib.parent.parent.parent;
     }
-    return result;
+    props = getSystemEnvironment();
+    if (props["ADDITIONAL_TPLS"]?) {
+        loc additionalTpls = readTextValueString(#loc, props["ADDITIONAL_TPLS"]);
+        return [rascalLib, additionalTpls];
+    }
+    return [rascalLib];
 }
 
 
 public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
-        libs=[calculateRascalLib()],
+        libs=calculateRascalLibs(),
         srcs=[testDir + "rascal"]
     );
 }
