@@ -34,20 +34,34 @@ import io.usethesource.vallang.ISourceLocation;
 public class WriteFileRequest extends ISourceLocationRequest {
 
     @NonNull
-    private String content;
+    private final String content;
 
-    private boolean append;
+    private final boolean append;
+    private final boolean create;
+    private final boolean overwrite; 
 
-    public WriteFileRequest(@NonNull String uri, @NonNull String content, @NonNull boolean append) {
+    public WriteFileRequest(@NonNull String uri, @NonNull String content, boolean append) {
         super(uri);
         this.content = content;
         this.append = append;
+        this.create = true;
+        this.overwrite = !append;
     }
 
     public WriteFileRequest(ISourceLocation loc, String content, boolean append) {
         super(loc);
         this.content = content;
         this.append = append;
+        this.create = true;
+        this.overwrite = !append;
+    }
+
+    public WriteFileRequest(@NonNull String uri, @NonNull String content, boolean append, boolean create, boolean overwite) {
+        super(uri);
+        this.content = content;
+        this.append = append;
+        this.create = create;
+        this.overwrite = overwite;
     }
 
     public String getContent() {
@@ -58,13 +72,23 @@ public class WriteFileRequest extends ISourceLocationRequest {
         return append;
     }
 
+    public boolean isCreate() {
+        return create;
+    }
+
+    public boolean isOverwrite() {
+        return overwrite;
+    }
+
     @Override
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof WriteFileRequest) {
             var other = (WriteFileRequest)obj;
             return super.equals(obj)
                 && content.equals(other.content)
-                && append == other.append;
+                && append == other.append
+                && create == other.create
+                && overwrite == other.overwrite;
         }
         return false;
     }

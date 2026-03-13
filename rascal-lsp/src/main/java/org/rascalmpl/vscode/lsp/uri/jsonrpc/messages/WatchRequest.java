@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
+import java.util.Arrays;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
@@ -38,16 +39,27 @@ public class WatchRequest extends ISourceLocationRequest {
 
     private boolean recursive;
 
+    private final String[] excludes;
+
     public WatchRequest(ISourceLocation loc, boolean recursive, String watcher) {
         super(loc);
         this.recursive = recursive;
         this.watcher = watcher;
+        this.excludes = new String[0];
     }
 
-    public WatchRequest(@NonNull String uri, @NonNull boolean recursive, @NonNull String watcher) {
+    public WatchRequest(@NonNull String uri, boolean recursive, @NonNull String watcher) {
         super(uri);
         this.recursive = recursive;
         this.watcher = watcher;
+        this.excludes = new String[0];
+    }
+
+    public WatchRequest(String uri, boolean recursive, String[] excludes) {
+        super(uri);
+        this.recursive = recursive;
+        this.watcher = "";
+        this.excludes = excludes;
     }
 
     public String getWatcher() {
@@ -58,20 +70,25 @@ public class WatchRequest extends ISourceLocationRequest {
         return recursive;
     }
 
+    public String[] getExcludes() {
+        return excludes;
+    }
+
     @Override
     public boolean equals(@Nullable Object obj) {
         if (obj instanceof WatchRequest) {
             var other = (WatchRequest)obj;
             return super.equals(other)
                 && other.recursive == recursive
-                && Objects.equals(watcher, other.watcher);
+                && Objects.equals(watcher, other.watcher)
+                && Arrays.equals(excludes, other.excludes);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), watcher, recursive);
+        return Objects.hash(super.hashCode(), watcher, recursive, excludes);
     }
 
 }

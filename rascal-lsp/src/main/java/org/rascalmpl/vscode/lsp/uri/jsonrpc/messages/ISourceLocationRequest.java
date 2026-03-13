@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
+import java.net.URISyntaxException;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -59,6 +61,10 @@ public class ISourceLocationRequest {
 
     public String getUri() {
         return uri;
+    }
+
+    public ISourceLocation getLocation() throws URISyntaxException {
+        return Locations.toCheckedLoc(uri);
     }
 
 }
