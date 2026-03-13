@@ -317,16 +317,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void connect(LanguageClient client) {
         this.client = client;
         facts.values().forEach(v -> v.setClient(client));
-        if (dedicatedLanguage != null) {
-            // if there was one scheduled, we now start it up, since the connection has been made
-            this.registerLanguage(dedicatedLanguage);
-        }
     }
 
     @Override
     public void initialized() {
-        // reserved for future use
-        // e.g. dynamic registration of capabilities
+        if (dedicatedLanguage != null) {
+            // if there was one scheduled, we now start it up, since the connection has been made
+            // and the client and capabilities are initialized
+            this.registerLanguage(dedicatedLanguage);
+        }
     }
 
     // LSP interface methods
@@ -880,7 +879,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ILanguageContributions contrib = contributions(loc);
         TextDocumentState file = getFile(loc);
 
-        CompletableFuture<Function<IList, CompletableFuture<IList>>> computeSelection = contrib.hasSelectionRange().thenApply(hasDef -> {
+        CompletableFuture<Function<IList, CompletableFuture<IList>>> computeSelection = contrib.providesSelectionRange().thenApply(hasDef -> {
             if (!hasDef.booleanValue()) {
                 logger.debug("Selection range not implemented; falling back to default implementation ({})", params.getTextDocument());
                 return focus -> CompletableFutureUtils.completedFuture(SelectionRanges.uniqueTreeLocations(focus), exec);
