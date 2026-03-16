@@ -4,14 +4,11 @@ We only list significant changes, for a full changelog please review the [commit
 
 ## 0.13.2
 
-### Improved features
-
 Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
 
 * upgraded to rascal 0.42.1 which contains a bugfix for missing overloads
 * fixed a bug where `readFile` inside of a repl would fail if the file was open in the IDE
-* fixed issues around language registrys with a small set of supported features and in deployment mode
-
+* fixed issues with language registry for languages that didn't register all supported services and issues specific to deployment mode
 * Fixed an issue where language features would not work if certain arguments were not set.
   * Parsing would not work for languages without `parsing::useSpecialCaseHighlighting`.
   * Completion would not work for languages without `completion::additionalTriggerCharacters`.
