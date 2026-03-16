@@ -2,6 +2,17 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.22.2 (VS Code: 0.13.2)
+
+Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
+
+* upgraded to rascal 0.42.1 which contains a bugfix for missing overloads
+* fixed a bug where `readFile` inside of a repl would fail if the file was open in the IDE
+* fixed issues with language registry for languages that didn't register all supported services and issues specific to deployment mode
+* Fixed an issue where language features would not work if certain arguments were not set.
+  * Parsing would not work for languages without `parsing::useSpecialCaseHighlighting`.
+  * Completion would not work for languages without `completion::additionalTriggerCharacters`.
+* various small fixes
 
 ## Release 2.22.1 (VS Code: 0.13.1)
 
