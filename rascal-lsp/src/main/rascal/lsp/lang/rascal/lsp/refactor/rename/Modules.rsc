@@ -31,7 +31,7 @@ extend analysis::typepal::refactor::Rename;
 import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::TModel;
-import analysis::diff::edits::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::lsp::refactor::rename::Common;
 

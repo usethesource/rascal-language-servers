@@ -42,7 +42,7 @@ import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::Collector;
 import analysis::typepal::TModel;
-import analysis::diff::edits::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 
 import Map;
 import util::Maybe;
