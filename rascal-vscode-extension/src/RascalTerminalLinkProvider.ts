@@ -74,7 +74,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
             return vscode.commands.executeCommand("vscode.open", sloc.uri) ;
         }
 
-        const rsloc:SourceLocation = await (await this.client).sendRequest("rascal/filesystem/resolveLocation", sloc);
+        const rsloc:SourceLocation = this.fromRascalLocationString(await (await this.client).sendRequest("rascal/vfs/logical/resolveLocation", this.toRascalLocationString(sloc)));
         const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(rsloc.uri));
         const te = await vscode.window.showTextDocument(td);
 
@@ -88,6 +88,27 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
                 targetRange.end.character,
             );
         }
+    }
+
+    toRascalLocationString(sloc: SourceLocation): string {
+        let ret = "|" + sloc.uri + "|";
+        if (sloc.offsetLength) {
+            ret += "(" + sloc.offsetLength[0] + "," + sloc.offsetLength[1];
+            if (sloc.beginLineColumn) {
+                ret += "<" + sloc.beginLineColumn[0] + "," + sloc.beginLineColumn[1] + ">";
+                ret += "<" + sloc.endLineColumn![0] + "," + sloc.endLineColumn![1] + ">";
+            }
+            ret += ")";
+        }
+        return ret;
+    }
+
+    fromRascalLocationString(loc: string): SourceLocation {
+        const match: RegExpExecArray | null = this.linkDetector().exec(loc);
+        if (match !== null) {
+            return buildLocation(match);
+        }
+        throw Error(`Invalid location ${loc}`);
     }
 }
 
@@ -112,9 +133,8 @@ function translateRange(sloc: SourceLocation, td: vscode.TextDocument): vscode.R
     return undefined;
 }
 
-function buildLink(match: RegExpExecArray): ExtendedLink {
+function buildLocation(match: RegExpExecArray): SourceLocation {
     const linkMatch = match[0];
-    const linkOffset = match.index + 1;
     const linkLength = linkMatch.indexOf('|', 2);
     const sloc = <SourceLocation>{ uri: linkMatch.substring(1, linkLength) };
     const numbers = linkMatch.substring(linkLength).match(/\d+/g,);
@@ -126,10 +146,14 @@ function buildLink(match: RegExpExecArray): ExtendedLink {
             sloc.endLineColumn = [Number(numbers[4]), Number(numbers[5])];
         }
     }
+    return sloc;
+}
 
+function buildLink(match: RegExpExecArray): ExtendedLink {
+    const sloc = buildLocation(match);
     return <ExtendedLink>{
-        startIndex: linkOffset - 1,
-        length: linkMatch.length,
+        startIndex: match.index,
+        length: match[0].length,
         loc: sloc
     };
 }
