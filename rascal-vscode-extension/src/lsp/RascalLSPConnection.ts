@@ -41,7 +41,7 @@ export async function activateLanguageClient(
     : Promise<LanguageClient> {
     const logger = new JsonParserOutputChannel(title);
     const serverOptions: ServerOptions = deployMode
-        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, logger)
+        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, await vfsServer.serverPort, logger)
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
@@ -152,7 +152,7 @@ function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
             </html>`;
 }
 
-async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
+async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, remoteResolverRegistryPort : number, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath);
     const commandArgs = [
         '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration'
@@ -160,6 +160,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
         , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
         , '-Drascal.lsp.deploy=true'
         , '-Drascal.compilerClasspath=' + classpath
+        , '-Drascal.remoteResolverRegistryPort=' + remoteResolverRegistryPort
     ];
     let mainClass: string;
     if (isParametricServer) {
