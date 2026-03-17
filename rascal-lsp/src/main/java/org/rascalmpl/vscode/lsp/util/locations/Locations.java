@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.util.locations;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -167,6 +168,10 @@ public class Locations {
             }
         }
         return uri;
+    }
+
+    public static boolean isWrappedOpaque(ISourceLocation loc) {
+        return OPAQUE_SCHEME.equals(loc.getURI().getScheme());
     }
 
     public static Location mapValueToLocation(IValue v, ColumnMaps cm) {
