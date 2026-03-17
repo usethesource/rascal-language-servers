@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 import * as vscode from 'vscode';
-import {BaseLanguageClient, ResponseError } from 'vscode-languageclient';
+import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
 
 export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     readonly client: BaseLanguageClient;
