@@ -157,7 +157,6 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
     const commandArgs = [
         '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration'
         , '-Dlog4j2.level=DEBUG'
-        , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
         , '-Drascal.lsp.deploy=true'
         , '-Drascal.compilerClasspath=' + classpath
         , '-Drascal.remoteResolverRegistryPort=' + remoteResolverRegistryPort

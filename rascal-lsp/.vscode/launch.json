@@ -11,7 +11,6 @@
       "vmArgs": [
         "-Dlog4j2.level=TRACE",
         "-Drascal.compilerClasspath=${workspaceFolder}/target/lib/rascal.jar",
-        "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver",
         "-Drascal.remoteResolverRegistryPort=8889"
       ]
     },
@@ -25,7 +24,6 @@
       "vmArgs": [
         "-Dlog4j2.level=TRACE",
         "-Drascal.compilerClasspath=${workspaceFolder}/target/lib/rascal.jar",
-        "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver",
         "-Drascal.remoteResolverRegistryPort=8889"
       ]
     }
