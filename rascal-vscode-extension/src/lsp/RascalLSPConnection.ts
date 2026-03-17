@@ -31,7 +31,7 @@ import * as vscode from 'vscode';
 
 import { integer, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import { getJavaExecutable } from '../auto-jvm/JavaLookup';
-import { RascalFileSystemProvider } from '../fs/RascalFileSystemProviders';
+import { RascalFileSystemInVSCode } from '../fs/RascalFileSystemInVSCode';
 import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 import { JsonParserOutputChannel } from './JsonOutputChannel';
 
@@ -70,7 +70,7 @@ export async function activateLanguageClient(
 
     schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
-        new RascalFileSystemProvider(client, logger).tryRegisterSchemes(schemes);
+        new RascalFileSystemInVSCode(client, logger).tryRegisterSchemes(schemes);
     });
 
     return client;
