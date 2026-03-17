@@ -291,7 +291,7 @@ public class Diagnostics {
         if (loc.getPath().endsWith("/pom.xml")) {
             return true;
         }
-        logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on: {}", m);
+        logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on ({}): {}", loc, m);
         return false;
     }
 }
