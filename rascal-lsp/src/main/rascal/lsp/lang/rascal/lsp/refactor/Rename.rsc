@@ -69,7 +69,7 @@ import util::FileSystem;
 import util::Maybe;
 import util::Reflective;
 
-import analysis::diff::edits::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 
 private bool isQualifiedUse(loc use, Define _:<_, str id, _, _, _, _>) = size(id) != use.length;
 

@@ -34,7 +34,7 @@ import util::PathConfig;
 import util::Reflective;
 import analysis::diff::edits::AnnotatedTextEdits;
 
-import analysis::diff::edits::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 
 import lang::rascal::\syntax::Rascal;
 
