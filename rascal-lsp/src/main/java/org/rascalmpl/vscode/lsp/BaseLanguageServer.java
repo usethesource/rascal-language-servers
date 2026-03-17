@@ -195,7 +195,7 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
+    private static class ActualLanguageServer implements IRascalFileSystemServices, IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
