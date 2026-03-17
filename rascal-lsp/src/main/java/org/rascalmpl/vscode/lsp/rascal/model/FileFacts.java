@@ -92,18 +92,14 @@ public class FileFacts {
             resolved = l;
         }
         var fact = files.get(resolved);
-        if (fact == null) {
-            if (URIResolverRegistry.getInstance().exists(resolved)) {
-                fact = new ActualFileFact(resolved, exec);
-                var existing = files.putIfAbsent(resolved, fact);
-                if (existing != null) {
-                    fact = existing;
-                }
-            } else {
-                fact = new NopFileFact();
-            }
+        if (fact != null) {
+            return fact;
         }
-        return fact;
+
+        return URIResolverRegistry.getInstance().exists(resolved)
+            // Someone might have raced past us, so we atomically check(again)-and-update
+            ? files.computeIfAbsent(resolved, loc -> new ActualFileFact(loc, exec))
+            : new NopFileFact();
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
