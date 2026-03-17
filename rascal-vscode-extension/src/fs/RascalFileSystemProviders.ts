@@ -148,12 +148,26 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
-        return this.sendRequest(uri, "rascal/vfs/output/writeFile", {
-            uri: uri.toString(),
-            append: false,
-            create:options.create,
-            overwrite:options.overwrite,
-            content: Buffer.from(content).toString("base64")
+        // The `create` and `overwrite` options are handled on this side
+        this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat").then(s => {
+            if (!s.exists && !options.create) {
+                throw vscode.FileSystemError.FileNotFound(`File ${uri} does not exist and \`create\` was not set`);
+            }
+            this.sendRequest<FileAttributes>(uri,"rascal/vfs/input/stat").then(p => {
+                if (!p.exists && options.create) {
+                    throw vscode.FileSystemError.FileNotFound(`Parent of ${uri} does not exist but \`create\` was set`);
+                }
+                if (s.exists && options.create && !options.overwrite) {
+                    throw vscode.FileSystemError.FileExists(`File ${uri} exists and \`create\` was set, but \`override\` was not set`);
+                }
+                return this.sendRequest(uri, "rascal/vfs/output/writeFile", {
+                    uri: this.toRascalUri(uri),
+                    append: false,
+                    create: options.create,
+                    overwrite: options.overwrite,
+                    content: Buffer.from(content).toString("base64")
+                });
+            });
         });
     }
 
