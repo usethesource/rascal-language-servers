@@ -413,6 +413,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async resolve(req: ISourceLocation): Promise<ISourceLocation> {
+        this.logger.trace("[VFS] resolve: ", req);
         return req;
     }
 

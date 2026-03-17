@@ -108,6 +108,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
+        this.logger.trace(`[RascalFileSystemProvider] watch: ${uri}`);
         this.sendRequest(uri, "rascal/vfs/watcher/watch", {
             loc: this.toRascalUri(uri),
             recursive: options.recursive
@@ -122,6 +123,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
+        this.logger.trace(`[RascalFileSystemProvider] stat: ${uri}`);
         return this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat").then(a =>
             <vscode.FileStat>{
                 type: a.isFile ? vscode.FileType.File : vscode.FileType.Directory,
@@ -134,21 +136,25 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
+        this.logger.trace(`[RascalFileSystemProvider] readDirectory: ${uri}`);
         return this.sendRequest<FileWithType[]>(uri, "rascal/vfs/input/list")
             .then(c => c.map(ft => [ft.name, ft.type]));
     }
 
     createDirectory(uri: vscode.Uri): void | Thenable<void> {
+        this.logger.trace(`[RascalFileSystemProvider] createDirectory: ${uri}`);
         return this.sendRequest(uri, "rascal/vfs/output/mkDirectory");
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
+        this.logger.trace(`[RascalFileSystemProvider] readFile: ${uri}`);
         return this.sendRequest<string>(uri, "rascal/vfs/input/readFile")
             .then(str => Buffer.from(str, "base64"));
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
         // The `create` and `overwrite` options are handled on this side
+        this.logger.trace(`[RascalFileSystemProvider] writeFile: ${uri}`);
         this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat").then(s => {
             if (!s.exists && !options.create) {
                 throw vscode.FileSystemError.FileNotFound(`File ${uri} does not exist and \`create\` was not set`);
@@ -172,10 +178,12 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {
+        this.logger.trace(`[RascalFileSystemProvider] delete: ${uri}`);
         return this.sendRequest(uri, "rascal/vfs/output/remove", {uri: this.toRascalUri(uri), recursive: options.recursive});
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
+        this.logger.trace(`[RascalFileSystemProvider] rename: ${oldUri} to ${newUri}`);
         return this.sendRequest(oldUri, "rascal/filesystem/rename", {oldUri: this.toRascalUri(oldUri), newUri: this.toRascalUri(newUri), overwrite: options.overwrite});
     }
 }

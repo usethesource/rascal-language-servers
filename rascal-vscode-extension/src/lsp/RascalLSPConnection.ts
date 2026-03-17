@@ -56,11 +56,13 @@ export async function activateLanguageClient(
     logger.setClient(client);
 
     client.onNotification("rascal/showContent", (uri: string, title: string, viewColumn: integer) => {
+        logger.trace(`[RascalLSPConnection] showContent: ${uri}`);
         showContentPanel(uri, title, viewColumn);
     });
 
 
     client.onNotification("rascal/editDocument", (uri: string, viewColumn: integer, range: vscode.Range) => {
+        logger.trace(`[RascalLSPConnection] editDocument: ${uri}`);
         openEditor(uri, range, viewColumn);
     });
 
