@@ -79,10 +79,10 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
 
 // Rascal's interface reduced to a subset we can support
 interface ISourceLocationOutput {
-    writeFile(req: WriteFileRequest ): Promise<void>;
-    mkDirectory(req: ISourceLocation): Promise<void>;
-    remove(req: ISourceLocation, recursive: boolean): Promise<void>;
-    rename(req: RenameRequest): Promise<void>;
+    writeFile(uri: ISourceLocation, content: string, append: boolean): Promise<void>;
+    mkDirectory(uri: ISourceLocation): Promise<void>;
+    remove(uri: ISourceLocation, recursive: boolean): Promise<void>;
+    rename(from: ISourceLocation, to: ISourceLocation, overwrite: boolean): Promise<void>;
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
@@ -96,10 +96,15 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
             new rpc.RequestType2<Arg0, Arg1, ReturnT, void>("rascal/vfs/output/" + method),
             h.bind(handler)));
     }
-    req1("writeFile", handler.writeFile);
+    function req3<Arg0, Arg1, Arg2, ReturnT> (method: string, h: rpc.RequestHandler3<Arg0, Arg1, Arg2, ReturnT, void>) {
+        toClear.push(connection.onRequest(
+            new rpc.RequestType3<Arg0, Arg1, Arg2, ReturnT, void>("rascal/vfs/output/" + method),
+            h.bind(handler)));
+    }
+    req3("writeFile", handler.writeFile);
     req1("mkDirectory", handler.mkDirectory);
     req2("remove", handler.remove);
-    req1("rename", handler.rename);
+    req3("rename", handler.rename);
 }
 
 // Rascal's interface reduced to a subset we can support
@@ -354,10 +359,14 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         });
     }
 
-    async writeFile(req: WriteFileRequest): Promise<void> {
-        this.logger.trace("[VFS] writeFile: ", req.uri);
+    async writeFile(uri: ISourceLocation, content: string, append: boolean): Promise<void> {
+        this.logger.trace("[VFS] writeFile: ", uri);
+        let prefix:Buffer<ArrayBuffer> = Buffer.of();
+        if (await this.exists(uri) && append) {
+            prefix = Buffer.from(await this.fs.readFile(this.toUri(uri)));
+        }
         return asyncVoidCatcher(
-            this.fs.writeFile(this.toUri(req.uri), Buffer.from(req.content, "base64"))
+            this.fs.writeFile(this.toUri(uri), Buffer.concat([prefix, Buffer.from(content, "base64")]))
         );
     }
     async mkDirectory(req: ISourceLocation): Promise<void> {
@@ -368,11 +377,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         this.logger.trace("[VFS] remove: ", req);
         return asyncVoidCatcher(this.fs.delete(this.toUri(req), {"recursive" : recursive}));
     }
-    async rename(req: RenameRequest): Promise<void> {
-        this.logger.trace("[VFS] rename: ", req.from, req.to);
-        const from = this.toUri(req.from);
-        const to = this.toUri(req.to);
-        return asyncVoidCatcher(this.fs.rename(from, to, { overwrite: req.overwrite }));
+    async rename(from: ISourceLocation, to: ISourceLocation, overwrite: boolean): Promise<void> {
+        this.logger.trace("[VFS] rename: ", from, to);
+        return asyncVoidCatcher(this.fs.rename(this.toUri(from), this.toUri(to), { overwrite: overwrite }));
     }
 
     private readonly activeWatches = new Map<string, WatcherCallbacks>();
