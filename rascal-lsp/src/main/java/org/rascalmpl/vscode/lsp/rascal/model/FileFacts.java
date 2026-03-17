@@ -87,10 +87,7 @@ public class FileFacts {
 
     private FileFact getFile(ISourceLocation l) {
         l = l.top();
-        ISourceLocation resolved = Locations.toClientLocation(l);
-        if (resolved == null) {
-            resolved = l;
-        }
+        var resolved = Locations.toClientLocation(l);
         var fact = files.get(resolved);
         if (fact != null) {
             return fact;
