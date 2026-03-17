@@ -62,7 +62,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     sendRequest<R, A>(uri : vscode.Uri, method: string, param: A): Promise<R>;
     sendRequest<R, A0, A1>(uri : vscode.Uri, method: string, param0: A0, param1: A1): Promise<R>;
     sendRequest<R, A>(uri : vscode.Uri, method: string, param?: A): Promise<R> {
-        return this.client.sendRequest<R>(method, param ?? { uri: uri.toString()} )
+        return this.client.sendRequest<R>(method, param ?? this.toRascalUri(uri) )
             .catch((r: ResponseError) => {
                 if (r !== undefined) {
                     this.logger.debug("Got response error from the file system: ", r);
@@ -109,13 +109,13 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
         this.sendRequest(uri, "rascal/vfs/watcher/watch", {
-            loc: uri.toString(),
+            loc: this.toRascalUri(uri),
             recursive: options.recursive
         });
 
         return new vscode.Disposable(() => {
             this.sendRequest(uri, "rascal/vfs/watcher/unwatch", {
-                loc: uri.toString(),
+                loc: this.toRascalUri(uri),
                 recursive: options.recursive
             });
         });
@@ -158,11 +158,11 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {
-        return this.sendRequest(uri, "rascal/vfs/output/remove", uri.toString(), options.recursive);
+        return this.sendRequest(uri, "rascal/vfs/output/remove", {uri: this.toRascalUri(uri), recursive: options.recursive});
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
-        return this.sendRequest(oldUri, "rascal/filesystem/rename", {oldUri: oldUri.toString(), newUri: newUri.toString(), overwrite: options.overwrite});
+        return this.sendRequest(oldUri, "rascal/filesystem/rename", {oldUri: this.toRascalUri(oldUri), newUri: this.toRascalUri(newUri), overwrite: options.overwrite});
     }
 }
 
