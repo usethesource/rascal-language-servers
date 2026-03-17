@@ -60,6 +60,7 @@ public class FileFacts {
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
     private final PathConfigs confs;
+    private final NopFileFact nopFact = new NopFileFact();
 
     public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
@@ -100,7 +101,7 @@ public class FileFacts {
         }
 
         // Return dummy facts without modifying the map.
-        return new NopFileFact();
+        return nopFact;
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
