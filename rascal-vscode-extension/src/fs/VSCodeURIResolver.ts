@@ -53,7 +53,7 @@ interface ISourceLocationInput {
     isFile(req: ISourceLocation): Promise<boolean>;
     list(req: ISourceLocation): Promise<[string, vscode.FileType][]>;
     size(req: ISourceLocation): Promise<number>;
-    fileStat(req: ISourceLocation): Promise<FileAttributesResult>;
+    fileStat(req: ISourceLocation): Promise<FileAttributes>;
     isReadable(req: ISourceLocation): Promise<boolean>;
     isWritable(req: ISourceLocation): Promise<boolean>;
 }
@@ -72,7 +72,7 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<boolean>("isFile", handler.isFile);
     req<[string, vscode.FileType][]>("list", handler.list);
     req<number>("size", handler.size);
-    req<FileAttributesResult>("stat", handler.fileStat);
+    req<FileAttributes>("stat", handler.fileStat);
     req<boolean>("isReadable", handler.isReadable);
     req<boolean>("isWritable", handler.isWritable);
 }
@@ -143,13 +143,14 @@ function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventRecei
 
 // Messages (requests and responses)
 
-export interface FileAttributesResult {
+export interface FileAttributes {
     exists : boolean;
-    type: vscode.FileType;
-    ctime: number;
-    mtime: number;
+    isFile: boolean;
+    created: number;
+    lastModified: number;
+    isReadable: boolean;
+    isWritable: boolean;
     size: number;
-    permissions: vscode.FilePermission;
 }
 
 export interface WriteFileRequest {
@@ -283,16 +284,18 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
     }
 
-    async fileStat(loc: ISourceLocation): Promise<FileAttributesResult> {
+    async fileStat(loc: ISourceLocation): Promise<FileAttributes> {
         return asyncCatcher(async () => {
             const fileInfo = await this.stat(loc);
             return {
                 exists: true,
-                type: fileInfo.type.valueOf(),
-                ctime: fileInfo.ctime,
-                mtime: fileInfo.mtime,
+                isFile: (fileInfo.type | vscode.FileType.File) > 0,
+                created: fileInfo.ctime,
+                lastModified: fileInfo.mtime,
+                isReadable: true,
+                isWritable: true,
+                permissions: fileInfo.permissions && (fileInfo.permissions | vscode.FilePermission.Readonly) > 0,
                 size: fileInfo.size,
-                permissions: fileInfo.permissions ? fileInfo.permissions.valueOf() : 0
             };
         });
     }
