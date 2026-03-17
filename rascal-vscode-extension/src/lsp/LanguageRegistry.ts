@@ -34,7 +34,7 @@ import { JsonRpcServer } from '../util/JsonRpcServer';
  */
 export class LanguageRegistry extends JsonRpcServer {
     constructor(dslLSP: ParameterizedLanguageServer, logger: LogOutputChannel) {
-        super("LanguageRegistry", connection => Disposable.from(
+        super("LanguageRegistry", false, connection => Disposable.from(
             connection.onRequest(new rpc.RequestType1<LanguageParameter, void, void>("rascal/receiveRegisterLanguage"), lang => {
                 logger.info("LanguageRegistry: registerLanguage", lang);
                 return dslLSP.registerLanguage(lang);

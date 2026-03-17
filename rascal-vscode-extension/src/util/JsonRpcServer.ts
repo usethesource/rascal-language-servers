@@ -36,7 +36,7 @@ export class JsonRpcServer implements Disposable {
     private readonly server: net.Server;
     private activeClients: net.Socket[] = [];
 
-    constructor(name: string, connectHandlers: (connection: rpc.MessageConnection) => Disposable, logger: LogOutputChannel) {
+    constructor(name: string, debug: boolean, connectHandlers: (connection: rpc.MessageConnection) => Disposable, logger: LogOutputChannel) {
         this.server = net.createServer({noDelay: true}, newClient => {
             logger.info(`${name}: new connection ${JSON.stringify(newClient.address())}`);
             newClient.setNoDelay(true);
@@ -64,12 +64,13 @@ export class JsonRpcServer implements Disposable {
         });
         this.server.on('error', e => logger.error(`${name} (server): ${e}`));
         this.serverPort = new Promise((r, e) => {
-            this.server.listen(0, "localhost", undefined, () => {
+            this.server.listen(debug ? 8889 : 0, "localhost", undefined, () => {
                 const address = this.server.address();
                 if (address && typeof(address) !== "string" && 'port' in address) {
                     logger.debug(`${name}: listening on ${JSON.stringify(address)}`);
                     r(address.port);
                 } else {
+                    logger.error(`${name}: failed to start listening on ${JSON.stringify(address)}`);
                     e(new Error(`${name}: server address not valid: ${JSON.stringify(address)}`));
                 }
             });
