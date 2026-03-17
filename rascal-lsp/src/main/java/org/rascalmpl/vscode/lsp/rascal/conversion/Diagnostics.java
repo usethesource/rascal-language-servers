@@ -277,7 +277,7 @@ public class Diagnostics {
         return isValidLocation(getMessageLocation(d), d);
     }
 
-    private static boolean isValidLocation( ISourceLocation loc, IValue m) {
+    private static boolean isValidLocation(ISourceLocation loc, IValue m) {
         if (loc == null || loc.getScheme().equals("unknown")) {
             logger.trace("Dropping diagnostic due to incorrect location on message: {}", m);
             return false;
