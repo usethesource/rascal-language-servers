@@ -87,16 +87,20 @@ public class FileFacts {
 
     private FileFact getFile(ISourceLocation l) {
         l = l.top();
-        var resolved = Locations.toClientLocation(l);
+        ISourceLocation resolved = Locations.toClientLocation(l);
         var fact = files.get(resolved);
         if (fact != null) {
             return fact;
         }
 
-        return URIResolverRegistry.getInstance().exists(resolved)
-            // Someone might have raced past us, so we atomically check(again)-and-update
-            ? files.computeIfAbsent(resolved, loc -> new ActualFileFact(loc, exec))
-            : new NopFileFact();
+        if (URIResolverRegistry.getInstance().exists(resolved)) {
+            // The file exists, so there should be facts.
+            // Someone might have raced past us, so we atomically check(again)-and-update and return the result.
+            return files.computeIfAbsent(resolved, loc -> new ActualFileFact(loc, exec));
+        }
+
+        // Return dummy facts without modifying the map.
+        return new NopFileFact();
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
