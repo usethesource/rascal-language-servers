@@ -42,7 +42,7 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     constructor (client:BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
         this.client = client;
 
-        client.onNotification("rascal/filesystem/onDidChangeFile", (event:vscode.FileChangeEvent) => {
+        client.onNotification("rascal/vfs/watcher/fileChanged", (event:vscode.FileChangeEvent) => {
             this._emitter.fire([event]);
         });
     }
@@ -120,11 +120,11 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     createDirectory(uri: vscode.Uri): void | Thenable<void> {
-        return this.sendRequest(uri, "rascal/filesystem/createDirectory", {uri: uri.toString()});
+        return this.sendRequest(uri, "rascal/vfs/output/mkDirectory");
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
-        return this.sendRequest<string>(uri, "rascal/vfs/output/mkDirectory")
+        return this.sendRequest<string>(uri, "rascal/vfs/input/readFile")
             .then(str => Buffer.from(str, "base64"));
     }
 
