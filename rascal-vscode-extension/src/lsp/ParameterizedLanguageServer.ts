@@ -29,7 +29,7 @@ import * as vscode from 'vscode';
 
 import { BaseLanguageClient } from 'vscode-languageclient';
 import { activateLanguageClient } from './RascalLSPConnection';
-import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
+import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 
 export class ParameterizedLanguageServer implements vscode.Disposable {
     private readonly registeredFileExtensions:Map<string, Set<string>> = new Map();
@@ -37,7 +37,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
 
     constructor(
         context: vscode.ExtensionContext,
-        private readonly vfsServer: VSCodeUriResolverServer,
+        private readonly vfsServer: VSCodeFileSystemInRascal,
         private readonly absoluteJarPath: string,
         private readonly deployMode = true,
         private readonly languageId = 'parametric-rascalmpl',

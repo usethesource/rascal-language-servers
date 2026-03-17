@@ -27,7 +27,7 @@
 import * as vscode from 'vscode';
 
 import { BaseLanguageClient } from 'vscode-languageclient';
-import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
+import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
@@ -41,7 +41,7 @@ export class RascalLanguageServer implements vscode.Disposable {
 
     constructor(
         _context: vscode.ExtensionContext,
-        vfsServer: VSCodeUriResolverServer,
+        vfsServer: VSCodeFileSystemInRascal,
         absoluteJarPath: string,
         dslLSP: ParameterizedLanguageServer,
         logger: vscode.LogOutputChannel,

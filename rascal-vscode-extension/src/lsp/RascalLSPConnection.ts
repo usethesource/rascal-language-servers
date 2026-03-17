@@ -32,12 +32,12 @@ import * as vscode from 'vscode';
 import { integer, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import { getJavaExecutable } from '../auto-jvm/JavaLookup';
 import { RascalFileSystemProvider } from '../fs/RascalFileSystemProviders';
-import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
+import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 import { JsonParserOutputChannel } from './JsonOutputChannel';
 
 export async function activateLanguageClient(
     { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false, lspArg = "" } :
-    {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
+    {language: string, title: string, jarPath: string, vfsServer: VSCodeFileSystemInRascal, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
     : Promise<LanguageClient> {
     const logger = new JsonParserOutputChannel(title);
     const serverOptions: ServerOptions = deployMode

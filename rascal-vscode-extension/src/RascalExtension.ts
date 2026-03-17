@@ -33,20 +33,20 @@ import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
-import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
 
 export class RascalExtension implements vscode.Disposable {
-    private readonly vfsServer: VSCodeUriResolverServer;
+    private readonly vfsServer: VSCodeFileSystemInRascal;
     private readonly dsls:ParameterizedLanguageServer;
     private readonly rascal: RascalLanguageServer;
 
     private readonly log: vscode.LogOutputChannel = vscode.window.createOutputChannel("Rascal Extension", {log: true});
 
     constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly icon: vscode.Uri, private readonly isDeploy = true) {
-        this.vfsServer = new VSCodeUriResolverServer(!isDeploy, this.log);
+        this.vfsServer = new VSCodeFileSystemInRascal(!isDeploy, this.log);
 
         this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, isDeploy);
         this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.dsls, this.log, isDeploy);

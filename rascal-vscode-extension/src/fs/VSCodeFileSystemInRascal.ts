@@ -186,7 +186,7 @@ enum ErrorCodes {
     nativeRascal = -3
 }
 
-export class VSCodeUriResolverServer extends JsonRpcServer {
+export class VSCodeFileSystemInRascal extends JsonRpcServer {
     private rascalNativeSchemes: Set<string> = new Set();
     constructor(debug: boolean, private readonly logger: vscode.LogOutputChannel) {
         super("VFS", debug, connection => new ResolverClient(connection, debug, this.rascalNativeSchemes, this.logger), logger);
