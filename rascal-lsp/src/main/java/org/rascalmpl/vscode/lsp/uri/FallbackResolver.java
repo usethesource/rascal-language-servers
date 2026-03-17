@@ -51,9 +51,7 @@ public class FallbackResolver implements ILogicalSourceLocationResolver {
         return instance;
     }
 
-    private FallbackResolver() {
-        instance = this;
-    }
+    private FallbackResolver() { }
 
     @Override
     public String scheme() {
