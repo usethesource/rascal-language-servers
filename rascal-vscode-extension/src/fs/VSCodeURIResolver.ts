@@ -153,18 +153,6 @@ export interface FileAttributes {
     size: number;
 }
 
-export interface WriteFileRequest {
-    uri: ISourceLocation;
-    content: string;
-    append: boolean;
-}
-
-export interface RenameRequest {
-    from: ISourceLocation;
-    to: ISourceLocation;
-    overwrite: boolean;
-}
-
 export interface WatchRequest {
     loc: ISourceLocation;
     /**
