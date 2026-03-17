@@ -111,7 +111,15 @@ export class RascalFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
-        return this.sendRequest(uri, "rascal/vfs/input/stat");
+        return this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat").then(a =>
+            <vscode.FileStat>{
+                type: a.isFile ? vscode.FileType.File : vscode.FileType.Directory,
+                ctime: a.created,
+                mtime: a.lastModified,
+                size: a.size,
+                permissions: a.isWritable ? undefined : vscode.FilePermission.Readonly
+            }
+        );
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
@@ -154,4 +162,14 @@ function isUnknownFileSystem(scheme : string) : boolean {
 interface FileWithType {
     name: string;
     type: vscode.FileType
+}
+
+interface FileAttributes {
+    exists: boolean;
+    isFile: boolean;
+    created: number;
+    lastModified: number;
+    isWritable: boolean;
+    isReadable: boolean;
+    size: number;
 }
