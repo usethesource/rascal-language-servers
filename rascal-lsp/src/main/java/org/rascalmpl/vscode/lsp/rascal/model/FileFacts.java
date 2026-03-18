@@ -60,7 +60,38 @@ public class FileFacts {
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
     private final PathConfigs confs;
-    private final NopFileFact nopFact = new NopFileFact();
+
+    private final FileFact NOP_FACT = new FileFact() {
+        @Override
+        public void reportParseErrors(List<Diagnostic> msgs) {
+            // NOP
+        }
+
+        @Override
+        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
+            // NOP
+        }
+
+        @Override
+        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+            return CompletableFutureUtils.completedFuture(null, exec);
+        }
+
+        @Override
+        public void invalidate() {
+            // NOP
+        }
+
+        @Override
+        public void close() {
+            // NOP
+        }
+
+        @Override
+        public void clearDiagnostics() {
+            // NOP
+        }
+    };
 
     public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
@@ -101,7 +132,7 @@ public class FileFacts {
         }
 
         // Return dummy facts without modifying the map.
-        return nopFact;
+        return NOP_FACT;
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
@@ -208,35 +239,4 @@ public class FileFacts {
         }
     }
 
-    class NopFileFact implements FileFact {
-        @Override
-        public void reportParseErrors(List<Diagnostic> msgs) {
-            // NOP
-        }
-
-        @Override
-        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
-            // NOP
-        }
-
-        @Override
-        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
-            return CompletableFutureUtils.completedFuture(null, exec);
-        }
-
-        @Override
-        public void invalidate() {
-            // NOP
-        }
-
-        @Override
-        public void close() {
-            // NOP
-        }
-
-        @Override
-        public void clearDiagnostics() {
-            // NOP
-        }
-    }
 }
