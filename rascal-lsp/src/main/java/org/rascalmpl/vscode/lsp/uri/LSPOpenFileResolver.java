@@ -123,7 +123,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
         }
         var current = getEditorState(uri).getCurrentContent();
         var modified = current.getTimestamp();
-        var isWritable = URIResolverRegistry.getInstance().externalRegistry.isWritable(stripLspPrefix(uri));
+        var isWritable = URIResolverRegistry.getInstance().isWritable(stripLspPrefix(uri));
         return new FileAttributes(
             true, true,
             modified, modified, //We fix the creation timestamp to be equal to the last modified time
