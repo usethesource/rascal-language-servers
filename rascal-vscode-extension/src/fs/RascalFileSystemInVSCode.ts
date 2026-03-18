@@ -201,7 +201,7 @@ interface FileWithType {
     type: vscode.FileType
 }
 
-interface FileAttributes {
+export interface FileAttributes {
     exists: boolean;
     isFile: boolean;
     created: number;

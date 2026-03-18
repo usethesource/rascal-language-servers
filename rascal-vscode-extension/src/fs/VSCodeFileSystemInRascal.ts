@@ -29,6 +29,7 @@ import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { URI } from "vscode-languageclient";
 import { JsonRpcServer } from "../util/JsonRpcServer";
+import { FileAttributes } from './RascalFileSystemInVSCode';
 
 declare type ISourceLocation = URI;
 
@@ -147,16 +148,6 @@ function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventRecei
 }
 
 // Messages (requests and responses)
-
-export interface FileAttributes {
-    exists : boolean;
-    isFile: boolean;
-    created: number;
-    lastModified: number;
-    isReadable: boolean;
-    isWritable: boolean;
-    size: number;
-}
 
 export interface WatchRequest {
     loc: ISourceLocation;
