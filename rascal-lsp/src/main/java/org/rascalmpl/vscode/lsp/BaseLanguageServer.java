@@ -64,9 +64,11 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.remote.IRascalFileSystemServices;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVsCode;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -121,6 +123,9 @@ public abstract class BaseLanguageServer {
             .setOutput(out)
             .configureGson(GsonUtils.complexAsBase64String())
             .setExecutorService(threadPool)
+            .setExceptionHandler(t -> {
+                return RascalFileSystemInVsCode.translate((Exception) t);
+            })
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
