@@ -60,6 +60,7 @@ public class FileFacts {
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
     private final PathConfigs confs;
+    private final FileFact nopFact;
 
     public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
@@ -67,6 +68,18 @@ public class FileFacts {
         this.client = client;
         this.cm = cm;
         this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
+        this.nopFact = new FileFact() {
+            @Override public void reportParseErrors(List<Diagnostic> msgs) { /* NOP */}
+            @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void invalidate() { /* NOP */ }
+            @Override public void close() { /* NOP */ }
+            @Override public void clearDiagnostics() { /* NOP */ }
+
+            @Override
+            public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+                return CompletableFutureUtils.completedFuture(null, exec);
+            }
+        };
     }
 
     public void projectRemoved(ISourceLocation projectLocation) {
@@ -88,22 +101,19 @@ public class FileFacts {
     private FileFact getFile(ISourceLocation l) {
         l = l.top();
         ISourceLocation resolved = Locations.toClientLocation(l);
-        if (resolved == null) {
-            resolved = l;
-        }
         var fact = files.get(resolved);
-        if (fact == null) {
-            if (URIResolverRegistry.getInstance().exists(resolved)) {
-                fact = new ActualFileFact(resolved, exec);
-                var existing = files.putIfAbsent(resolved, fact);
-                if (existing != null) {
-                    fact = existing;
-                }
-            } else {
-                fact = new NopFileFact();
-            }
+        if (fact != null) {
+            return fact;
         }
-        return fact;
+
+        if (URIResolverRegistry.getInstance().exists(resolved)) {
+            // The file exists, so there should be facts.
+            // Someone might have raced past us, so we atomically check(again)-and-update and return the result.
+            return files.computeIfAbsent(resolved, loc -> new ActualFileFact(loc, exec));
+        }
+
+        // Return dummy facts without modifying the map.
+        return nopFact;
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
@@ -210,35 +220,4 @@ public class FileFacts {
         }
     }
 
-    class NopFileFact implements FileFact {
-        @Override
-        public void reportParseErrors(List<Diagnostic> msgs) {
-            // NOP
-        }
-
-        @Override
-        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
-            // NOP
-        }
-
-        @Override
-        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
-            return CompletableFutureUtils.completedFuture(null, exec);
-        }
-
-        @Override
-        public void invalidate() {
-            // NOP
-        }
-
-        @Override
-        public void close() {
-            // NOP
-        }
-
-        @Override
-        public void clearDiagnostics() {
-            // NOP
-        }
-    }
 }
