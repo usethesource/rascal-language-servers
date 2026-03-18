@@ -60,19 +60,7 @@ public class FileFacts {
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
     private final PathConfigs confs;
-
-    private final FileFact NOP_FACT = new FileFact() {
-        @Override public void reportParseErrors(List<Diagnostic> msgs) { /* NOP */}
-        @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
-        @Override public void invalidate() { /* NOP */ }
-        @Override public void close() { /* NOP */ }
-        @Override public void clearDiagnostics() { /* NOP */ }
-
-        @Override
-        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
-            return CompletableFutureUtils.completedFuture(null, exec);
-        }
-    };
+    private final FileFact nopFact;
 
     public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
@@ -80,6 +68,18 @@ public class FileFacts {
         this.client = client;
         this.cm = cm;
         this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
+        this.nopFact = new FileFact() {
+            @Override public void reportParseErrors(List<Diagnostic> msgs) { /* NOP */}
+            @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void invalidate() { /* NOP */ }
+            @Override public void close() { /* NOP */ }
+            @Override public void clearDiagnostics() { /* NOP */ }
+
+            @Override
+            public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+                return CompletableFutureUtils.completedFuture(null, exec);
+            }
+        };
     }
 
     public void projectRemoved(ISourceLocation projectLocation) {
@@ -113,7 +113,7 @@ public class FileFacts {
         }
 
         // Return dummy facts without modifying the map.
-        return NOP_FACT;
+        return nopFact;
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
