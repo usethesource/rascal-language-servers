@@ -62,34 +62,15 @@ public class FileFacts {
     private final PathConfigs confs;
 
     private final FileFact NOP_FACT = new FileFact() {
-        @Override
-        public void reportParseErrors(List<Diagnostic> msgs) {
-            // NOP
-        }
-
-        @Override
-        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
-            // NOP
-        }
+        @Override public void reportParseErrors(List<Diagnostic> msgs) { /* NOP */}
+        @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
+        @Override public void invalidate() { /* NOP */ }
+        @Override public void close() { /* NOP */ }
+        @Override public void clearDiagnostics() { /* NOP */ }
 
         @Override
         public CompletableFuture<@Nullable SummaryBridge> getSummary() {
             return CompletableFutureUtils.completedFuture(null, exec);
-        }
-
-        @Override
-        public void invalidate() {
-            // NOP
-        }
-
-        @Override
-        public void close() {
-            // NOP
-        }
-
-        @Override
-        public void clearDiagnostics() {
-            // NOP
         }
     };
 
