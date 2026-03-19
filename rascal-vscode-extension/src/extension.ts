@@ -33,8 +33,7 @@ import { RascalMFValidator } from './ux/RascalMFValidator';
 import { RascalProjectValidator } from './ux/RascalProjectValidator';
 import { VsCodeSettingsFixer } from './ux/VsCodeSettingsFixer';
 
-// const testDeployMode = (process.env['RASCAL_LSP_DEV_DEPLOY'] || "false") === "true";
-const testDeployMode = true;
+const testDeployMode = (process.env['RASCAL_LSP_DEV_DEPLOY'] || "false") === "true";
 const deployMode = (process.env['RASCAL_LSP_DEV'] || "false") !== "true";
 
 export function activate(context: vscode.ExtensionContext) {
