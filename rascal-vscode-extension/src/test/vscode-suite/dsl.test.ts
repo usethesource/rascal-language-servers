@@ -338,7 +338,11 @@ end
         if (errorRecovery) { this.skip(); } // this does not depend on error recovery
         await bench.executeCommand("parametric-rascalmpl.test.jsonSerialization");
         const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
-        const actualJson = await (new TextEditor().getText());
+        const resultEditor = await driver.wait(async () => {
+            const editor = new TextEditor();
+            return (await editor.isDirty()) ? editor : undefined;
+        }, Delays.normal, "Dirty editor with JSON result should open");
+        const actualJson = await resultEditor!.getText();
         expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
     });
 });
