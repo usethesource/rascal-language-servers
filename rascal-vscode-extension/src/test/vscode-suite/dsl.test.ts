@@ -333,4 +333,9 @@ end
         await editor.typeText("  x :=");
         expectCompletions(editor, ["x", "n", "a", "b"]);
     });
+
+    it("serializes Rascal values as expected", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+        await bench.executeCommand("parametric-rascalmpl.test.jsonSerialization");
+    });
 });

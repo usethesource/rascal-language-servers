@@ -185,10 +185,11 @@ list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program
 
 default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 
-@synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
+@synsopsis{Defines example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
   = renameAtoB(start[Program] program)
   | removeDecl(start[Program] program, IdType toBeRemoved)
+  | testValueEncoding()
   ;
 
 @synopsis{Adds an example lense to the entire program.}
@@ -215,6 +216,8 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
     return ("result": true);
 }
+
+value picoExecutionService(testValueEncoding()) = ("result": [("a": 8), {true, false}, char(0)]);
 
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {

@@ -64,6 +64,10 @@
         "command": "rascalmpl.copySourceLocation",
         "title": "Copy Path as Rascal Location",
         "icon": "$(copy)"
+      },
+      {
+        "command": "parametric-rascalmpl.test.jsonSerialization",
+        "title": "(Test) Serialize IValue as JSON"
       }
     ],
     "menus": {
@@ -75,6 +79,10 @@
         {
           "command": "rascalmpl.copySourceLocation",
           "when": "false"
+        },
+        {
+          "command": "parametric-rascalmpl.test.jsonSerialization",
+          "when": "parametric-rascalmpl.testDeployMode"
         }
       ],
       "view/item/context": [
