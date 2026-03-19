@@ -39,7 +39,7 @@ const deployMode = (process.env['RASCAL_LSP_DEV'] || "false") !== "true";
 export function activate(context: vscode.ExtensionContext) {
     const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
     const icon = vscode.Uri.joinPath(context.extensionUri, "assets", "images", "rascal-logo-v2.1.svg");
-    const extension = new RascalExtension(context, jars, icon, deployMode, testDeployMode);
+    const extension = new RascalExtension(context, jars, icon, deployMode);
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
     context.subscriptions.push(new VsCodeSettingsFixer());
@@ -56,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function registerTestCommands(context: vscode.ExtensionContext) {
-    vscode.commands.executeCommand('setContext', 'parametric-rascalmpl.testDeployMode', true);
+    vscode.commands.executeCommand('setContext', 'rascalmpl.testDeployMode', true);
     context.subscriptions.push(vscode.commands.registerCommand("parametric-rascalmpl.test.jsonSerialization", async () => {
         const result = await vscode.commands.executeCommand<object>("rascal-meta-command", "Pico", "testValueEncoding()");
         const editor = await vscode.workspace.openTextDocument({language: "json", content: JSON.stringify(result, null, 2)});

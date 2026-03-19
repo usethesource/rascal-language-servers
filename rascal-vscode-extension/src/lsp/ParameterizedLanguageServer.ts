@@ -40,7 +40,6 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         private readonly vfsServer: VSCodeUriResolverServer,
         private readonly absoluteJarPath: string,
         private readonly deployMode = true,
-        private readonly isTestDeploy = false,
         private readonly languageId = 'parametric-rascalmpl',
         private readonly title = 'Language Parametric Rascal Language Server',
         private readonly dedicatedLanguage: LanguageParameter | undefined = undefined
@@ -89,9 +88,6 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
     getLanguageClient(): Promise<BaseLanguageClient> {
         if (!this.parametricClient) {
             this.parametricClient = this.activateParametricLanguageClient();
-            if (this.isTestDeploy) {
-                vscode.commands.executeCommand('setContext', 'parametric-rascalmpl.testDeployMode', true);
-            }
         }
         return this.parametricClient;
     }

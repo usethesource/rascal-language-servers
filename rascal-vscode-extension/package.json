@@ -82,7 +82,7 @@
         },
         {
           "command": "parametric-rascalmpl.test.jsonSerialization",
-          "when": "parametric-rascalmpl.testDeployMode"
+          "when": "rascalmpl.testDeployMode"
         }
       ],
       "view/item/context": [
