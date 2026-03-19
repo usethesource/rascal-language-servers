@@ -340,7 +340,7 @@ end
         const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
         const resultEditor = await driver.wait(async () => {
             const editor = new TextEditor();
-            return (await editor.isDirty()) ? editor : undefined;
+            return (await ignoreFails(editor.isDirty())) ? editor : undefined;
         }, Delays.normal, "Dirty editor with JSON result should open");
         const actualJson = await resultEditor!.getText();
         expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
