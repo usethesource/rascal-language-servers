@@ -2,6 +2,13 @@
 
 We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
+## 0.13.3
+
+Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
+
+* fixed a regession in JSON encoding of rascal action results & parameters
+* fixed the race that sometimes broke go-to definition and other type-checker derived operations
+
 ## 0.13.2
 
 Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
