@@ -337,5 +337,8 @@ end
     it("serializes Rascal values as expected", async function() {
         if (errorRecovery) { this.skip(); } // this does not depend on error recovery
         await bench.executeCommand("parametric-rascalmpl.test.jsonSerialization");
+        const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
+        const actualJson = await (new TextEditor().getText());
+        expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
     });
 });

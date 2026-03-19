@@ -217,7 +217,17 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
     return ("result": true);
 }
 
-value picoExecutionService(testValueEncoding()) = ("result": [("a": 8), {true, false}, char(0)]);
+value picoExecutionService(testValueEncoding()) = (
+    "result": [ // list
+        ("a": true), // map, str, bool
+        {8, 1r2, 3.14, 10e3}, // set, int, rat, real
+        char(0), // ADT constructor
+        reposition(parse(#IdType, "x: string"), file = |test:///expectation|), // Tree
+        |memory://authority/file.ext|, // loc
+        $2026-03-19T11:55:54.121+0100$, // datetime
+        <[1..3], #int> // tuple, range, reified type
+    ]
+);
 
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
