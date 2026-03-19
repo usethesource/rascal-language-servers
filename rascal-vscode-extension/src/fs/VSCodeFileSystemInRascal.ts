@@ -29,7 +29,7 @@ import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { URI } from "vscode-languageclient";
 import { JsonRpcServer } from "../util/JsonRpcServer";
-import { FileAttributes } from './RascalFileSystemInVSCode';
+import { FileAttributes, FileWithType } from './RascalFileSystemInVSCode';
 
 declare type ISourceLocation = URI;
 
@@ -52,7 +52,7 @@ interface ISourceLocationInput {
     created(req: ISourceLocation): Promise<number>;
     isDirectory(req: ISourceLocation): Promise<boolean>;
     isFile(req: ISourceLocation): Promise<boolean>;
-    list(req: ISourceLocation): Promise<[string, vscode.FileType][]>;
+    list(req: ISourceLocation): Promise<FileWithType[]>;
     size(req: ISourceLocation): Promise<number>;
     fileStat(req: ISourceLocation): Promise<FileAttributes>;
     isReadable(req: ISourceLocation): Promise<boolean>;
@@ -71,7 +71,7 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<number>("created", handler.created);
     req<boolean>("isDirectory", handler.isDirectory);
     req<boolean>("isFile", handler.isFile);
-    req<[string, vscode.FileType][]>("list", handler.list);
+    req<FileWithType[]>("list", handler.list);
     req<number>("size", handler.size);
     req<FileAttributes>("stat", handler.fileStat);
     req<boolean>("isReadable", handler.isReadable);
@@ -343,10 +343,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.boolResult(loc, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
     }
 
-    async list(loc: ISourceLocation): Promise<[string, vscode.FileType][]> {
+    async list(loc: ISourceLocation): Promise<FileWithType[]> {
         this.logger.trace("[VFS] list: ", loc);
         return asyncCatcher(async () => {
-            return await this.fs.readDirectory(this.toUri(loc));
+            return (await this.fs.readDirectory(this.toUri(loc))).map(entry => <FileWithType>{name: entry[0], type: entry[1]});
         });
     }
 

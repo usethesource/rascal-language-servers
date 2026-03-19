@@ -196,7 +196,7 @@ function isUnknownFileSystem(scheme : string) : boolean {
     return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
 }
 
-interface FileWithType {
+export interface FileWithType {
     name: string;
     type: vscode.FileType
 }
