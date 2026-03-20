@@ -123,7 +123,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
         parent.putEntry(uri, new DirEntry(uri));
     }
 
-    async readFile(uri: vscode.Uri): Promise<Uint8Array<ArrayBufferLike>> {
+    readFile(uri: vscode.Uri): Uint8Array | Promise<Uint8Array> {
         this.logger.debug("[TVFS] readFile: ", uri);
         const entry = this.locate(uri);
         if (!entry.isFile()) {
@@ -342,7 +342,7 @@ class FileEntry extends FSEntry {
         this.changed();
     }
 
-    async read(): Promise<Uint8Array<ArrayBufferLike>> {
+    read(): Uint8Array | Promise<Uint8Array> {
         return Uint8Array.from(this.content);
     }
 }
@@ -351,15 +351,15 @@ class FileEntry extends FSEntry {
  * Special read-only file entry that allows for on-demand contents.
  */
 class DynamicFileEntry extends FileEntry {
-    constructor(name: vscode.Uri, private readonly reader: () => Promise<Uint8Array<ArrayBufferLike>>) {
+    constructor(name: vscode.Uri, private readonly reader: () => Promise<Uint8Array>) {
         super(name);
     }
 
-    override async read(): Promise<Uint8Array<ArrayBufferLike>> {
+    override async read(): Promise<Uint8Array> {
         return this.reader();
     }
 
-    override write(_content: Uint8Array<ArrayBufferLike>) {
+    override write(_content: Uint8Array) {
         throw vscode.FileSystemError.NoPermissions(this.self);
     }
 
