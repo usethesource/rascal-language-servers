@@ -48,20 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(new TestVirtualFileSystem(extension.logger()));
     }
 
-    if (testDeployMode) {
-        registerTestCommands(context);
-    }
-
     return extension.externalLanguageRegistry();
-}
-
-async function registerTestCommands(context: vscode.ExtensionContext) {
-    vscode.commands.executeCommand('setContext', 'rascalmpl.testDeployMode', true);
-    context.subscriptions.push(vscode.commands.registerCommand("parametric-rascalmpl.test.jsonSerialization", async () => {
-        const result = await vscode.commands.executeCommand<object>("rascal-meta-command", "Pico", "testValueEncoding()");
-        const editor = await vscode.workspace.openTextDocument({language: "json", content: JSON.stringify(result, null, 2)});
-        await vscode.window.showTextDocument(editor); // focus
-    }));
 }
 
 export function deactivate() {

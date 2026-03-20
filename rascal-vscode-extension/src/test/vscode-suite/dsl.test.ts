@@ -336,12 +336,26 @@ end
 
     it("serializes Rascal values as expected", async function() {
         if (errorRecovery) { this.skip(); } // this does not depend on error recovery
-        await bench.executeCommand("parametric-rascalmpl.test.jsonSerialization");
-        const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
+        await bench.executeCommand("rascalmpl.registerTestVFS");
+        const actualJsonUri = "rascal-vscode-test:///test.json";
+
+        // Open an editor with a link to the virtual file, so we can use the `Open Link` command
+        await bench.executeCommand("workbench.action.files.newUntitledFile");
+        const linkEditor = await driver.wait(async () => {
+            const editor = new TextEditor();
+            return (await ignoreFails(editor.getTitle()))?.startsWith("Untitled") ? editor : undefined;
+        }, Delays.normal, "Untitled editor should open");
+        await linkEditor!.setText(actualJsonUri);
+
+        // Open the virtual file with the serialized JSON
+        await bench.executeCommand("editor.action.openLink");
         const resultEditor = await driver.wait(async () => {
             const editor = new TextEditor();
-            return (await ignoreFails(editor.isDirty())) ? editor : undefined;
-        }, Delays.normal, "Dirty editor with JSON result should open");
+            return (await ignoreFails(editor.getTitle()) === path.basename(actualJsonUri)) ? editor : undefined;
+        }, Delays.normal, "Editor with JSON result should open");
+
+        // Check JSON equivalence
+        const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
         const actualJson = await resultEditor!.getText();
         expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
     });

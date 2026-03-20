@@ -39,10 +39,21 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     constructor(private readonly logger: vscode.LogOutputChannel) {
         this.fs = vscode.workspace.registerFileSystemProvider(TestVirtualFileSystem.rootScheme.scheme, this, {isCaseSensitive: true});
         logger.info("Rascal Test VFS is registered under: ", TestVirtualFileSystem.rootScheme.scheme);
+        this.initializeTestFiles();
     }
+
     dispose() {
         this._emitter.dispose();
         this.fs.dispose();
+    }
+
+    private initializeTestFiles() {
+        // Write JSON file that is filled with Pico command contents/
+        // Reading the file requires registration of the Pico language first.
+        this.writeDynamicFile(vscode.Uri.from({scheme: TestVirtualFileSystem.rootScheme.scheme, path: "test.json"}), async () => {
+            const result = await vscode.commands.executeCommand<object>("rascal-meta-command", "Pico", "testValueEncoding()");
+            return Buffer.from(JSON.stringify(result, null, 2));
+        }, {create: true, overwrite: true});
     }
 
     private locate(uri: vscode.Uri) : FSEntry {
@@ -112,7 +123,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
         parent.putEntry(uri, new DirEntry(uri));
     }
 
-    readFile(uri: vscode.Uri): Uint8Array {
+    async readFile(uri: vscode.Uri): Promise<Uint8Array<ArrayBufferLike>> {
         this.logger.debug("[TVFS] readFile: ", uri);
         const entry = this.locate(uri);
         if (!entry.isFile()) {
@@ -140,6 +151,26 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             throw vscode.FileSystemError.FileIsADirectory(uri);
         }
         child.write(content);
+    }
+
+    private writeDynamicFile(uri: vscode.Uri, contentReader: () => Promise<Uint8Array>, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
+        this.logger.debug("[TVFS] writeVirtualFile: ", uri, options);
+        const [parent, childConst] = this.locateWithParent(uri);
+        let child = childConst;
+        if (!parent.isDir()) {
+            throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
+        }
+        if (!child && !options.create) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        }
+        if (child && !options.overwrite) {
+            throw vscode.FileSystemError.FileExists(uri);
+        }
+
+        child ??= parent.putEntry(uri, new DynamicFileEntry(uri, contentReader));
+        if (!child.isFile()) {
+            throw vscode.FileSystemError.FileIsADirectory(uri);
+        }
     }
 
     delete(uri: vscode.Uri, options: { readonly recursive: boolean; }) {
@@ -311,7 +342,28 @@ class FileEntry extends FSEntry {
         this.changed();
     }
 
-    read(): Uint8Array<ArrayBufferLike> {
+    async read(): Promise<Uint8Array<ArrayBufferLike>> {
         return Uint8Array.from(this.content);
+    }
+}
+
+/**
+ * Special read-only file entry that allows for on-demand contents.
+ */
+class DynamicFileEntry extends FileEntry {
+    constructor(name: vscode.Uri, private readonly reader: () => Promise<Uint8Array<ArrayBufferLike>>) {
+        super(name);
+    }
+
+    override async read(): Promise<Uint8Array<ArrayBufferLike>> {
+        return this.reader();
+    }
+
+    override write(_content: Uint8Array<ArrayBufferLike>) {
+        throw vscode.FileSystemError.NoPermissions(this.self);
+    }
+
+    override clone(newName: vscode.Uri): FSEntry {
+        return new DynamicFileEntry(newName, this.reader);
     }
 }
