@@ -137,14 +137,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     });
 
     it("has syntax highlighting in documents without extension", async function () {
+        const editor = await ide.newUntitledFile(bench, driver, 1);
+        expect(editor).to.not.be.undefined;
+
         await bench.executeCommand("workbench.action.editor.changeLanguageMode");
 
         const inputBox = new InputBox();
         await inputBox.setText("parametric-rascalmpl");
         await inputBox.confirm();
-
-        const editor = await ide.newUntitledFile(bench, driver, 1);
-        expect(editor).to.not.be.undefined;
 
         await editor.setText(`begin
   declare
