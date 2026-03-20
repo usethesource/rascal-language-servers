@@ -328,7 +328,6 @@ end
 
     it("serializes Rascal values as expected", async function() {
         if (errorRecovery) { this.skip(); } // this does not depend on error recovery
-        await bench.executeCommand("rascalmpl.registerTestVFS");
         const actualJsonUri = "rascal-vscode-test:///test.json";
 
         // Open an editor with a link to the virtual file, so we can use the `Open Link` command
