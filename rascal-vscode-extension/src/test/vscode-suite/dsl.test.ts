@@ -338,6 +338,7 @@ end
         await bench.executeCommand("editor.action.openLink");
         const resultEditor = await driver.wait(async () => {
             const editor = new TextEditor();
+            await ide.screenshot("after opening virtual JSON link");
             return (await ignoreFails(editor.getTitle()) === path.basename(actualJsonUri)) ? editor : undefined;
         }, Delays.normal, "Editor with JSON result should open");
 
