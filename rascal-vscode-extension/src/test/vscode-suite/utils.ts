@@ -453,7 +453,7 @@ export class IDEOperations {
         const untitledPref = "Untitled-";
         const titleCondition = (title: string) => expectedSuffix === undefined
             ? title.startsWith(untitledPref)
-            : title === `${untitledPref}-${expectedSuffix}`;
+            : title === `${untitledPref}${expectedSuffix}`;
 
         await bench.executeCommand("workbench.action.files.newUntitledFile");
         return await driver.wait(async () => {
@@ -463,7 +463,7 @@ export class IDEOperations {
                 return editor;
             }
             return undefined! as TextEditor;
-        }, Delays.normal, `Could not open untitled file${expectedSuffix !== undefined ? ` ${untitledPref}-${expectedSuffix}` : ""}`);
+        }, Delays.normal, `Could not open untitled file${expectedSuffix !== undefined ? ` ${untitledPref}${expectedSuffix}` : ""}`);
     }
 }
 
