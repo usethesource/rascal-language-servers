@@ -137,21 +137,13 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     });
 
     it("has syntax highlighting in documents without extension", async function () {
-        await bench.executeCommand("workbench.action.files.newUntitledFile");
         await bench.executeCommand("workbench.action.editor.changeLanguageMode");
 
         const inputBox = new InputBox();
         await inputBox.setText("parametric-rascalmpl");
         await inputBox.confirm();
 
-        const file = "Untitled-1";
-        const editor = await driver.wait(async () => {
-            const result = await ignoreFails(new Workbench().getEditorView().openEditor(file)) as TextEditor;
-            if (result && await ignoreFails(result.getTitle()) === file) {
-                return result;
-            }
-            return undefined! as TextEditor;
-        }, Delays.normal, "Could not open file");
+        const editor = await ide.newUntitledFile(bench, driver, 1);
         expect(editor).to.not.be.undefined;
 
         await editor.setText(`begin
@@ -340,12 +332,8 @@ end
         const actualJsonUri = "rascal-vscode-test:///test.json";
 
         // Open an editor with a link to the virtual file, so we can use the `Open Link` command
-        await bench.executeCommand("workbench.action.files.newUntitledFile");
-        const linkEditor = await driver.wait(async () => {
-            const editor = new TextEditor();
-            return (await ignoreFails(editor.getTitle()))?.startsWith("Untitled") ? editor : undefined;
-        }, Delays.normal, "Untitled editor should open");
-        await linkEditor!.setText(actualJsonUri);
+        const linkEditor = await ide.newUntitledFile(bench, driver);
+        await linkEditor.setText(actualJsonUri);
 
         // Open the virtual file with the serialized JSON
         await bench.executeCommand("editor.action.openLink");
