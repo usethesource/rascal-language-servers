@@ -271,6 +271,10 @@ export class IDEOperations {
         return this.hasElement(editor, By.css('[class*="dyn-rule"'), timeout, message);
     }
 
+    hasLink(editor: TextEditor, timeout = Delays.normal, message = "Missing link") {
+        return this.hasElement(editor, By.css('[class~="detected-link"]'), timeout, message);
+    }
+
     revertOpenChanges(): Promise<void> {
         let tryCount = 0;
         return this.driver.wait(async () => {

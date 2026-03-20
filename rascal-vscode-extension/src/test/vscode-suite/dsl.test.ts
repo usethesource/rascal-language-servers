@@ -333,6 +333,7 @@ end
         // Open an editor with a link to the virtual file, so we can use the `Open Link` command
         const linkEditor = await ide.newUntitledFile(bench, driver);
         await linkEditor.setText(actualJsonUri);
+        await ide.hasLink(linkEditor);
 
         // Open the virtual file with the serialized JSON
         await bench.executeCommand("editor.action.openLink");
