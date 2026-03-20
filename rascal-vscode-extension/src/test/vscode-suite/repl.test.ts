@@ -98,7 +98,6 @@ describe('REPL', function () {
     });
 
     it("VFS works", async() => {
-        await bench.executeCommand("rascalmpl.registerTestVFS");
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         const baseLoc = '|rascal-vscode-test:///';
