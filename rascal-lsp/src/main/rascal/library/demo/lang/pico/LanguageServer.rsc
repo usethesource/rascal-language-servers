@@ -217,6 +217,7 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
     return ("result": true);
 }
 
+@synopsis{Command handler to test JSON serialization of various Rascal value types.}
 value picoExecutionService(testValueEncoding()) = (
     "result": [ // list
         ("a": true), // map, str, bool
