@@ -64,7 +64,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.remote.IRascalFileSystemServices;
+import org.rascalmpl.uri.remote.RascalFileSystemServices;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
@@ -200,7 +200,7 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer implements IRascalFileSystemServices, IBaseLanguageServerExtensions, LanguageClientAware {
+    private static class ActualLanguageServer extends RascalFileSystemServices implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
@@ -314,6 +314,7 @@ public abstract class BaseLanguageServer {
             var actualClient = (IBaseLanguageClient) client;
             lspDocumentService.connect(actualClient);
             lspWorkspaceService.connect(actualClient);
+            provideClient(actualClient);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }

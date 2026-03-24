@@ -32,12 +32,13 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.rascalmpl.uri.vfs.IRemoteResolverRegistryClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IString;
 
-public interface IBaseLanguageClient extends LanguageClient {
+public interface IBaseLanguageClient extends LanguageClient, IRemoteResolverRegistryClient {
     @JsonNotification("rascal/showContent")
     void showContent(URI uri, IString title, IInteger viewColumn);
 

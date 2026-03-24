@@ -39,19 +39,21 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.rascalmpl.uri.FileAttributes;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
-import org.rascalmpl.uri.remote.IRascalFileSystemServices;
+import org.rascalmpl.uri.remote.RascalFileSystemServices;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
-public class RascalFileSystemInVsCode implements IRascalFileSystemServices {
-    static final Logger logger = LogManager.getLogger(IRascalFileSystemServices.class);
+public class RascalFileSystemInVsCode extends RascalFileSystemServices {
+    private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
+    private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     
     @Override
     public CompletableFuture<ISourceLocation> resolveLocation(ISourceLocation loc) {
         logger.trace("resolveLocation: {}", loc);
-        return IRascalFileSystemServices.super.resolveLocation(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+        return super.resolveLocation(Locations.toClientLocation(loc)).exceptionally(this::handleException);
     }
 
     @Override
@@ -60,31 +62,31 @@ public class RascalFileSystemInVsCode implements IRascalFileSystemServices {
         if (Locations.isWrappedOpaque(params.getLocation())) {
             throw new ResponseErrorException(translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal")));
         }
-        return IRascalFileSystemServices.super.watch(params);
+        return super.watch(params);
     }
 
     @Override
     public CompletableFuture<FileAttributes> stat(ISourceLocation loc) {
         logger.trace("stat: {}", loc);
-        return IRascalFileSystemServices.super.stat(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+        return super.stat(Locations.toClientLocation(loc)).exceptionally(this::handleException);
     }
 
     @Override
     public CompletableFuture<FileWithType[]> list(ISourceLocation loc) {
         logger.trace("list: {}", loc);
-        return IRascalFileSystemServices.super.list(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+        return super.list(Locations.toClientLocation(loc)).exceptionally(this::handleException);
     }
 
     @Override
     public CompletableFuture<Void> mkDirectory(ISourceLocation loc) {
         logger.trace("mkDirectory: {}", loc);
-        return IRascalFileSystemServices.super.mkDirectory(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+        return super.mkDirectory(Locations.toClientLocation(loc)).exceptionally(this::handleException);
     }
 
     @Override
     public CompletableFuture<String> readFile(ISourceLocation loc) {
         logger.trace("readFile: {}", loc);
-        return IRascalFileSystemServices.super.readFile(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+        return super.readFile(Locations.toClientLocation(loc)).exceptionally(this::handleException);
     }
 
     @Override
@@ -93,24 +95,19 @@ public class RascalFileSystemInVsCode implements IRascalFileSystemServices {
         if (reg.exists(loc) && reg.isDirectory(loc)) {
             return CompletableFuture.failedFuture(new ResponseErrorException(fileIsADirectory(loc)));
         }
-        return IRascalFileSystemServices.super.writeFile(Locations.toClientLocation(loc), content, append).exceptionally(this::handleException);
+        return super.writeFile(Locations.toClientLocation(loc), content, append).exceptionally(this::handleException);
     }
 
     @Override
     public CompletableFuture<Void> remove(ISourceLocation loc, boolean recursive) {
         logger.trace("remove: {}", loc);
-        return IRascalFileSystemServices.super.remove(Locations.toClientLocation(loc), recursive).exceptionally(this::handleException);
+        return super.remove(Locations.toClientLocation(loc), recursive).exceptionally(this::handleException);
     }
 
     @Override
     public CompletableFuture<Void> rename(ISourceLocation from, ISourceLocation to, boolean overwrite) {
         logger.trace("rename: {} to {}", from, to);
-        return IRascalFileSystemServices.super.rename(Locations.toClientLocation(from), Locations.toClientLocation(to), overwrite).exceptionally(this::handleException);
-    }
-
-    @Override
-    public void onDidChangeFile(ISourceLocation loc, int type, String watchId) {
-        logger.trace("onDidChangeFile: {}", loc);
+        return super.rename(Locations.toClientLocation(from), Locations.toClientLocation(to), overwrite).exceptionally(this::handleException);
     }
 
     private static ResponseError fileExists(Object data) {
