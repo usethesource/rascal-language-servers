@@ -69,6 +69,7 @@ import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVsCode;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeFileSystemInRascal;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -317,6 +318,11 @@ public abstract class BaseLanguageServer {
             provideClient(actualClient);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
+
+            var remoteResolverRegistryPort = URIResolverRegistry.getRemoteResolverRegistryPort();
+            if (remoteResolverRegistryPort != null) {
+                URIResolverRegistry.getInstance().registerRemoteResolverRegistry(new VSCodeFileSystemInRascal(remoteResolverRegistryPort));
+            }
         }
 
         @Override
