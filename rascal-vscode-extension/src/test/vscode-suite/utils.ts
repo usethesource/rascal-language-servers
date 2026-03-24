@@ -271,6 +271,10 @@ export class IDEOperations {
         return this.hasElement(editor, By.css('[class*="dyn-rule"'), timeout, message);
     }
 
+    hasLink(editor: TextEditor, timeout = Delays.normal, message = "Missing link") {
+        return this.hasElement(editor, By.css('[class~="detected-link"]'), timeout, message);
+    }
+
     revertOpenChanges(): Promise<void> {
         let tryCount = 0;
         return this.driver.wait(async () => {
@@ -447,6 +451,23 @@ export class IDEOperations {
         return this.browser.takeScreenshot(
             `${String(this.screenshotSeqNumber++).padStart(4, '0')}-` + // Make sorting screenshots chronologically in VS Code easier
             name.replace(/[/\\?%*:|"<>]/g, '-'));
+    }
+
+    async newUntitledFile(bench: Workbench, driver: WebDriver, expectedSuffix: number | undefined = undefined): Promise<TextEditor> {
+        const untitledPref = "Untitled-";
+        const titleCondition = (title: string) => expectedSuffix === undefined
+            ? title.startsWith(untitledPref)
+            : title === `${untitledPref}${expectedSuffix}`;
+
+        await bench.executeCommand("workbench.action.files.newUntitledFile");
+        return (await driver.wait(async () => {
+            const editor = new TextEditor();
+            const title = await ignoreFails(editor.getTitle());
+            if (title && titleCondition(title)) {
+                return editor;
+            }
+            return undefined;
+        }, Delays.normal, `Could not open untitled file${expectedSuffix !== undefined ? ` ${untitledPref}${expectedSuffix}` : ""}`))!;
     }
 }
 

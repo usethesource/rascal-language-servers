@@ -50,6 +50,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileFacts {
@@ -155,12 +156,11 @@ public class FileFacts {
                 InterruptibleFuture.completedFuture(new SummaryBridge(), exec),
                 r -> {
                     r.interrupt();
-                    var summaryCalc = rascal.getSummary(file, confs.lookupConfig(file))
-                        .<@Nullable SummaryBridge>thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
-                    // only run get summary after the typechecker for this file is done running
+                    // only run get summary after the typechecker for this file is done running, because it needs the TPL
                     // (we cannot now global running type checkers, that is a different subject)
-                    var mergedCalc = typeCheckResults.get().<@Nullable SummaryBridge>thenCompose(o -> summaryCalc.get());
-                    return new InterruptibleFuture<>(mergedCalc, summaryCalc::interrupt);
+                    return InterruptibleFuture.flatten(typeCheckResults.get()
+                        .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, confs.lookupConfig(file))), exec)
+                        .<@Nullable SummaryBridge>thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
                 });
         }
 

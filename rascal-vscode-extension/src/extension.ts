@@ -51,7 +51,6 @@ export function activate(context: vscode.ExtensionContext) {
     return extension.externalLanguageRegistry();
 }
 
-
 export function deactivate() {
     // no deactivation logic yet, since we push everything as a disposable
     // although maybe we should do something here with the closing of connections to the REPLs that are still running
