@@ -140,6 +140,9 @@ public class RascalFileSystemInVsCode extends RascalFileSystemServices {
     }
 
     public static ResponseError translate(Throwable original) {
+        if (original == null) {
+            return generic("Unknown error occurred", null);
+        }
         if (original instanceof CompletionException) {
             var cause = original.getCause();
             
