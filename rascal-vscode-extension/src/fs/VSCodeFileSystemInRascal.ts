@@ -142,7 +142,7 @@ export interface WatchEventReceiver {
 function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventReceiver {
     return {
         emitWatch : (e) => {
-            connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/emitWatch"), e);
+            connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/sourceLocationChanged"), e);
         }
     };
 }
