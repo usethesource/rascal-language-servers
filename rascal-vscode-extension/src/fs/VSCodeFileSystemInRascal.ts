@@ -166,9 +166,9 @@ export enum ISourceLocationChangeType {
 }
 
 export interface ISourceLocationChanged {
+    root: ISourceLocation;
+    type: ISourceLocationChangeType;
     watchId: string;
-    location: ISourceLocation;
-    changeType: ISourceLocationChangeType;
 }
 
 enum ErrorCodes {
@@ -438,9 +438,9 @@ class WatcherCallbacks implements Disposable {
 
     private async sendWatchEvent(uri: vscode.Uri, changeType: ISourceLocationChangeType) {
         this.watchListener.emitWatch({
-            watchId: this.watchId,
-            changeType: changeType,
-            location: uri.toString()
+            root: uri.toString(),
+            type: changeType,
+            watchId: this.watchId
         });
     }
 
