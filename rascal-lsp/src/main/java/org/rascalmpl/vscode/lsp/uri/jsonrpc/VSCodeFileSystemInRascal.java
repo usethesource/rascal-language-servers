@@ -26,12 +26,34 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.remote.RemoteExternalResolverRegistry;
+import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+
+import io.usethesource.vallang.ISourceLocation;
 
 public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
-
     public VSCodeFileSystemInRascal(int remoteResolverRegistryPort) {
         super(remoteResolverRegistryPort);
+    }
+
+    @Override
+    public ISourceLocation resolve(ISourceLocation input) throws IOException {
+        var resolved = super.resolve(input);
+        if (FallbackResolver.getInstance().isFileManaged(resolved)) {
+            try {
+                // The offset/length part of the source location is stripped off here.
+                // This is reinstated by `URIResolverRegistry::resolveAndFixOffsets`
+                // during logical resolution
+                return URIUtil.changeScheme(resolved.top(), "lsp+" + resolved.getScheme());
+            } catch (URISyntaxException e) {
+                // fall through
+            }
+        }
+        return resolved;
     }
     
 }
