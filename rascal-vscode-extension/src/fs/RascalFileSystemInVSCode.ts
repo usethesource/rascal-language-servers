@@ -109,14 +109,12 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
         this.logger.trace(`[RascalFileSystemInVSCode] watch: ${uri}`);
-        //TODO (Rodin): removed "excludes", is that ok?
         this.sendRequest(uri, "rascal/vfs/watcher/watch", {
             loc: this.toRascalUri(uri),
             recursive: options.recursive
         });
 
         return new vscode.Disposable(() => {
-            //TODO (Rodin): aanpassen, checken
             this.sendRequest(uri, "rascal/vfs/watcher/unwatch", {
                 loc: this.toRascalUri(uri),
                 recursive: options.recursive
@@ -139,7 +137,6 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
         this.logger.trace(`[RascalFileSystemInVSCode] readDirectory: ${uri}`);
-        //TODO (Rodin): return type is not yet consistent with the Java side
         return this.sendRequest<FileWithType[]>(uri, "rascal/vfs/input/list")
             .then(c => c.map(ft => [ft.name, ft.type]));
     }
