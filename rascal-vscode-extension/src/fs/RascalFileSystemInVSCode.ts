@@ -169,8 +169,6 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                 return this.sendRequest(uri, "rascal/vfs/output/writeFile", {
                     uri: this.toRascalUri(uri),
                     append: false,
-                    create: options.create,
-                    overwrite: options.overwrite,
                     content: Buffer.from(content).toString("base64")
                 });
             });
