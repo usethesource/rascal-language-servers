@@ -151,23 +151,24 @@ public class RascalFileSystemInVsCode extends RascalFileSystemServices {
 
     public static ResponseError translate(Throwable original) {
         if (original == null) {
-            return generic("Unknown error occurred", null);
+            return generic("Unknown error occurred", "Unknown error occurred");
         }
         if (original instanceof CompletionException) {
             var cause = original.getCause();
-            
-            if (cause instanceof FileNotFoundException || cause instanceof UnsupportedSchemeException || cause instanceof URISyntaxException) {
-                return fileNotFound(cause);
-            } else if (cause instanceof FileAlreadyExistsException) {
-                return fileExists(cause);
-            } else if (cause instanceof NotDirectoryException) {
-                return fileNotADirectory(cause);
-            } else if (cause instanceof SecurityException) {
-                return noPermissions(cause);
-            } else if (cause instanceof ResponseErrorException) {
-                return ((ResponseErrorException) cause).getResponseError();
-            } else {
-                return generic(cause.getMessage(), original);
+            if (cause != null) {
+                if (cause instanceof FileNotFoundException || cause instanceof UnsupportedSchemeException || cause instanceof URISyntaxException) {
+                    return fileNotFound(cause);
+                } else if (cause instanceof FileAlreadyExistsException) {
+                    return fileExists(cause);
+                } else if (cause instanceof NotDirectoryException) {
+                    return fileNotADirectory(cause);
+                } else if (cause instanceof SecurityException) {
+                    return noPermissions(cause);
+                } else if (cause instanceof ResponseErrorException) {
+                    return ((ResponseErrorException) cause).getResponseError();
+                } else {
+                    return generic(cause.getMessage(), original);
+                }
             }
         }
         return generic(original.getMessage(), original);
