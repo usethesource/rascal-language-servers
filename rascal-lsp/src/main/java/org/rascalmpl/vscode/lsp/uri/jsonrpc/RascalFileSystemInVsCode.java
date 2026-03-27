@@ -42,6 +42,11 @@ import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.remote.RascalFileSystemServices;
+import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
+import org.rascalmpl.uri.remote.jsonrpc.RemoveRequest;
+import org.rascalmpl.uri.remote.jsonrpc.RenameRequest;
+import org.rascalmpl.uri.remote.jsonrpc.WatchRequest;
+import org.rascalmpl.uri.remote.jsonrpc.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -51,9 +56,9 @@ public class RascalFileSystemInVsCode extends RascalFileSystemServices {
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     
     @Override
-    public CompletableFuture<ISourceLocation> resolveLocation(ISourceLocation loc) {
-        logger.trace("resolveLocation: {}", loc);
-        return super.resolveLocation(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+    public CompletableFuture<ISourceLocation> resolveLocation(ISourceLocationRequest req) {
+        logger.trace("resolveLocation: {}", req.getLocation());
+        return super.resolveLocation(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation()))).exceptionally(this::handleException);
     }
 
     @Override
@@ -66,48 +71,53 @@ public class RascalFileSystemInVsCode extends RascalFileSystemServices {
     }
 
     @Override
-    public CompletableFuture<FileAttributes> stat(ISourceLocation loc) {
+    public CompletableFuture<FileAttributes> stat(ISourceLocationRequest req) {
+        var loc = req.getLocation();
         logger.trace("stat: {}", loc);
-        return super.stat(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+        return super.stat(new ISourceLocationRequest(Locations.toClientLocation(loc))).exceptionally(this::handleException);
     }
 
     @Override
-    public CompletableFuture<FileWithType[]> list(ISourceLocation loc) {
-        logger.trace("list: {}", loc);
-        return super.list(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+    public CompletableFuture<FileWithType[]> list(ISourceLocationRequest req) {
+        logger.trace("list: {}", req.getLocation());
+        return super.list(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation()))).exceptionally(this::handleException);
     }
 
     @Override
-    public CompletableFuture<Void> mkDirectory(ISourceLocation loc) {
+    public CompletableFuture<Void> mkDirectory(ISourceLocationRequest req) {
+        var loc = req.getLocation();
         logger.trace("mkDirectory: {}", loc);
-        return super.mkDirectory(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+        return super.mkDirectory(new ISourceLocationRequest(Locations.toClientLocation(loc))).exceptionally(this::handleException);
     }
 
     @Override
-    public CompletableFuture<String> readFile(ISourceLocation loc) {
+    public CompletableFuture<String> readFile(ISourceLocationRequest req) {
+        var loc = req.getLocation();
         logger.trace("readFile: {}", loc);
-        return super.readFile(Locations.toClientLocation(loc)).exceptionally(this::handleException);
+        return super.readFile(new ISourceLocationRequest(Locations.toClientLocation(loc))).exceptionally(this::handleException);
     }
 
     @Override
-    public CompletableFuture<Void> writeFile(ISourceLocation loc, String content, boolean append) {
+    public CompletableFuture<Void> writeFile(WriteFileRequest req) {
+        var loc = req.getLocation();
         logger.info("writeFile: {}", loc);
         if (reg.exists(loc) && reg.isDirectory(loc)) {
             return CompletableFuture.failedFuture(new ResponseErrorException(fileIsADirectory(loc)));
         }
-        return super.writeFile(Locations.toClientLocation(loc), content, append).exceptionally(this::handleException);
+        return super.writeFile(new WriteFileRequest(Locations.toClientLocation(loc), req.getContent(), req.isAppend())).exceptionally(this::handleException);
     }
 
     @Override
-    public CompletableFuture<Void> remove(ISourceLocation loc, boolean recursive) {
+    public CompletableFuture<Void> remove(RemoveRequest req) {
+        var loc = req.getLocation();
         logger.trace("remove: {}", loc);
-        return super.remove(Locations.toClientLocation(loc), recursive).exceptionally(this::handleException);
+        return super.remove(new RemoveRequest(Locations.toClientLocation(loc), req.isRecursive())).exceptionally(this::handleException);
     }
 
     @Override
-    public CompletableFuture<Void> rename(ISourceLocation from, ISourceLocation to, boolean overwrite) {
-        logger.trace("rename: {} to {}", from, to);
-        return super.rename(Locations.toClientLocation(from), Locations.toClientLocation(to), overwrite).exceptionally(this::handleException);
+    public CompletableFuture<Void> rename(RenameRequest req) {
+        logger.trace("rename: {} to {}", req.getFrom(), req.getTo());
+        return super.rename(new RenameRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isOverwrite())).exceptionally(this::handleException);
     }
 
     private static ResponseError fileExists(Object data) {
