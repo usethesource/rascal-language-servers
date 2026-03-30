@@ -45,9 +45,7 @@ import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.functions.IFunction;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
@@ -127,7 +125,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final IBaseLanguageClient client;
     private final RascalLSPMonitor monitor;
 
-    public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
+    public InterpretedLanguageContributions(LanguageParameter lang, IBaseLanguageClient client, ExecutorService exec) {
         this.client = client;
         this.name = lang.getName();
         this.mainModule = lang.getMainModule();

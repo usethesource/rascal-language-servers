@@ -294,13 +294,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return BaseWorkspaceService.RASCAL_META_COMMAND;
     }
 
-    private BaseWorkspaceService availableWorkspaceService() {
-        if (workspaceService == null) {
-            throw new IllegalStateException("Workspace Service has not been paired");
-        }
-        return workspaceService;
-    }
-
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
         this.workspaceService = workspaceService;
@@ -998,7 +991,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         var clientCopy = availableClient();
         multiplexer.addContributor(buildContributionKey(lang),
-            new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
+            new InterpretedLanguageContributions(lang, (IBaseLanguageClient)clientCopy, exec));
 
         fact.reloadContributions();
         fact.setClient(clientCopy);
