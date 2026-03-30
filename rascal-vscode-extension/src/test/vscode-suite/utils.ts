@@ -308,16 +308,14 @@ export class IDEOperations {
     }
 
     async openModule(file: string): Promise<TextEditor> {
-        console.log(`Opening ${path.basename(file)} (${file})`);
         await this.browser.openResources(file);
         return this.driver.wait(async () => {
-            console.log(`Titles: ${await new Workbench().getEditorView().getOpenEditorTitles()}`);
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }
             return undefined;
-        }, Delays.normal, `Could not open file ${file}`) as Promise<TextEditor>;
+        }, Delays.normal, "Could not open file") as Promise<TextEditor>;
     }
 
     async appendSpace(editor: TextEditor, line = 1) {
