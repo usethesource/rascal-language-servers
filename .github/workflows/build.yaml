@@ -49,7 +49,7 @@ jobs:
   ui-test:
     strategy:
       matrix:
-        os: [ubicloud-standard-4, windows-latest, macos-latest]
+        os: [ubicloud-standard-4-ubuntu-2204, windows-latest, macos-latest]
       fail-fast: true
     env:
       CODE_VERSION: "1.90.2"
@@ -110,7 +110,7 @@ jobs:
 
       - name: "UI test (ubuntu)"
         shell: bash
-        if: matrix.os == 'ubicloud-standard-4'
+        if: startsWith(matrix.os, 'ubicloud-standard')
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 15
