@@ -29,13 +29,15 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 import java.io.IOException;
 import java.util.function.Consumer;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
+import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
 import io.usethesource.vallang.ISourceLocation;
 
+@JsonSegment("rascal/vfs/watcher")
 public interface VSCodeUriResolverClient {
 
-    @JsonNotification("rascal/vfs/watcher/emitWatch")
+    @JsonNotification
     void emitWatch(ISourceLocationChanged event);
 
     void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;

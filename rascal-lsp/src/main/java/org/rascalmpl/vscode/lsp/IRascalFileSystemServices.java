@@ -50,6 +50,7 @@ import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
+import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType;
@@ -63,12 +64,13 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValueFactory;
 
+@JsonSegment("rascal/filesystem")
 public interface IRascalFileSystemServices {
     static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     static final Logger IRascalFileSystemServices__logger = LogManager.getLogger(IRascalFileSystemServices.class);
     static final ExecutorService executor = NamedThreadPool.cachedDaemon("rascal-vfs");
 
-    @JsonRequest("rascal/filesystem/resolveLocation")
+    @JsonRequest
     default CompletableFuture<SourceLocation> resolveLocation(SourceLocation loc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -88,7 +90,7 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/watch")
+    @JsonRequest
     default CompletableFuture<Void> watch(WatchParameters params) {
         return CompletableFuture.runAsync(() -> {
             try {
@@ -139,7 +141,7 @@ public interface IRascalFileSystemServices {
         return true;
     }
 
-    @JsonRequest("rascal/filesystem/stat")
+    @JsonRequest
     default CompletableFuture<FileStat> stat(URIParameter uri) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -168,7 +170,7 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/readDirectory")
+    @JsonRequest
     default CompletableFuture<FileWithType[]> readDirectory(URIParameter uri) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -184,7 +186,7 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/createDirectory")
+    @JsonRequest
     default CompletableFuture<Void> createDirectory(URIParameter uri) {
         return CompletableFuture.runAsync(() -> {
             try {
@@ -195,7 +197,7 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/readFile")
+    @JsonRequest
     default CompletableFuture<LocationContent> readFile(URIParameter uri) {
         return CompletableFuture.supplyAsync(() -> {
             try (InputStream source = new Base64InputStream(reg.getInputStream(uri.getLocation()), true)) {
@@ -206,7 +208,7 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/writeFile")
+    @JsonRequest
     default CompletableFuture<Void> writeFile(WriteFileParameters params) {
         return CompletableFuture.runAsync(() -> {
             try {
@@ -237,7 +239,7 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/delete")
+    @JsonRequest
     default CompletableFuture<Void> delete(DeleteParameters params) {
         return CompletableFuture.runAsync(() -> {
             try {
@@ -249,7 +251,7 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/rename")
+    @JsonRequest
     default CompletableFuture<Void> rename(RenameParameters params) {
         return CompletableFuture.runAsync(() -> {
             try {
@@ -262,7 +264,7 @@ public interface IRascalFileSystemServices {
         }, executor);
     }
 
-    @JsonRequest("rascal/filesystem/schemes")
+    @JsonRequest("schemes")
     default CompletableFuture<String[]> fileSystemSchemes() {
         Set<String> inputs = reg.getRegisteredInputSchemes();
         Set<String> logicals = reg.getRegisteredLogicalSchemes();
@@ -271,7 +273,7 @@ public interface IRascalFileSystemServices {
                 .completedFuture(Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new));
     }
 
-    @JsonNotification("rascal/filesystem/onDidChangeFile")
+    @JsonNotification
     default void onDidChangeFile(FileChangeEvent event) { }
 
 
