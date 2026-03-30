@@ -53,7 +53,6 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
-import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IBool;
@@ -140,8 +139,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
             monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
 
-            this.eval = EvaluatorUtil.makeFutureEvaluator(new LSPContext(exec, docService, workspaceService, client),
-                "evaluator for " + lang.getName(), monitor, pcfg, lang.getMainModule());
+            this.eval = EvaluatorUtil.makeFutureEvaluator("evaluator for " + lang.getName(), monitor, pcfg, exec, lang.getMainModule());
             var contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),

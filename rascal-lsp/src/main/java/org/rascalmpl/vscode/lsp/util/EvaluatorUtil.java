@@ -356,52 +356,36 @@ public class EvaluatorUtil {
         }
     }
 
-    public static class LSPContext {
-        private final ExecutorService exec;
-        private final IBaseTextDocumentService docService;
-        private final BaseWorkspaceService workspaceService;
-        private final IBaseLanguageClient client;
-
-        public LSPContext(ExecutorService exec, IBaseTextDocumentService docService,
-            BaseWorkspaceService workspaceService, IBaseLanguageClient client) {
-            this.exec = exec;
-            this.docService = docService;
-            this.workspaceService = workspaceService;
-            this.client = client;
-        }
-    }
-
     /**
      * This function is used to construct evaluators used by LSP servers, not the terminal REPL
      */
-    public static CompletableFuture<Evaluator> makeFutureEvaluator(LSPContext context, String label, IRascalMonitor monitor, PathConfig pcfg, final String... imports) {
+    public static CompletableFuture<Evaluator> makeFutureEvaluator(String label, IRascalMonitor monitor, PathConfig pcfg, ExecutorService exec, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
-            IDEServices services = new LSPIDEServices(context.client, context.docService, context.workspaceService, monitor);
             boolean jobSuccess = false;
             String jobName = "Loading " + label;
             try {
-                services.jobStart(jobName, imports.length);
+                monitor.jobStart(jobName, imports.length);
                 var eval = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(
                     pcfg.getProjectRoot(),
                     pcfg,
                     Reader.nullReader(),
                     logWriter(customLog, Level.INFO),
                     logWriter(customLog, Level.ERROR),
-                    services
+                    monitor
                 );
 
                 eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
 
-                eval.doImport(services, imports);
+                eval.doImport(monitor, imports);
 
                 jobSuccess = true;
                 return eval;
             }
             finally {
-                services.jobEnd(jobName, jobSuccess);
+                monitor.jobEnd(jobName, jobSuccess);
             }
-        }, context.exec);
+        }, exec);
     }
 
     private static PrintWriter logWriter(Logger customLog, Level level) {
