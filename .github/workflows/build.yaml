@@ -110,7 +110,7 @@ jobs:
 
       - name: "UI test (ubuntu)"
         shell: bash
-        if: matrix.os == 'ubicloud-standard-2'
+        if: matrix.os == 'ubicloud-standard-4'
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 8
