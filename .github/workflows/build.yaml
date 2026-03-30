@@ -90,7 +90,7 @@ jobs:
           key: "vscode-${{matrix.os}}"
 
       - name: "UI test (windows)"
-        if: matrix.os == 'windows-latest'
+        if: contains(matrix.os, 'windows')
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 10
@@ -100,7 +100,7 @@ jobs:
 
       - name: "UI test (mac)"
         shell: bash
-        if: matrix.os == 'macos-latest'
+        if: contains(matrix.os, 'macos')
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 15
@@ -110,7 +110,7 @@ jobs:
 
       - name: "UI test (ubuntu)"
         shell: bash
-        if: startsWith(matrix.os, 'ubicloud-standard')
+        if: contains(matrix.os, 'ubuntu')
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 15
