@@ -31,7 +31,7 @@ import { URI } from "vscode-languageclient";
 import { JsonRpcServer } from "../util/JsonRpcServer";
 import { FileAttributes, FileWithType } from './RascalFileSystemInVSCode';
 
-declare type ISourceLocation = URI;
+export declare type ISourceLocation = URI;
 
 /**
  * VS Code implements this and offers it to the rascal-lsp server
@@ -140,22 +140,22 @@ function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventRecei
 
 // Messages (requests and responses)
 
-interface ISourceLocationRequest {
+export interface ISourceLocationRequest {
     loc: ISourceLocation;
 }
 
-interface WriteFileRequest extends ISourceLocationRequest {
+export interface WriteFileRequest extends ISourceLocationRequest {
     content: string;
     append: boolean;
 }
 
-interface RenameRequest {
+export interface RenameRequest {
     from: ISourceLocation;
     to: ISourceLocation;
     overwrite: boolean;
 }
 
-interface RemoveRequest extends ISourceLocationRequest {
+export interface RemoveRequest extends ISourceLocationRequest {
     recursive: boolean;
 }
 
