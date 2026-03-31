@@ -379,6 +379,7 @@ export class IDEOperations {
             }
             catch (e) {
                 console.log("Rename failed to succeed, lets try again");
+                console.error(e);
                 await this.screenshot(`DSL-failed-rename-round-${tries}`);
                 tries++;
             }

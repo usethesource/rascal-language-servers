@@ -248,8 +248,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(5, 6);
 
-        ide.renameSymbol(editor, bench, "z");
-
+        await ide.renameSymbol(editor, bench, "z");
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
         const editorText = await editor.getText();
