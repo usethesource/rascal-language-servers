@@ -111,7 +111,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     }
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
-        this.logger.trace(`[RascalFileSystemInVSCode] watch: ${uri}`);
+        this.logger.trace("[RascalFileSystemInVSCode] watch: ", uri);
         this.sendRequest(uri, "rascal/vfs/watcher/watch", <WatchRequest>{
             loc: this.toRascalUri(uri),
             recursive: options.recursive
@@ -126,7 +126,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     }
 
     stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
-        this.logger.trace(`[RascalFileSystemInVSCode] stat: ${uri}`);
+        this.logger.trace("[RascalFileSystemInVSCode] stat: ", uri);
         return this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat").then(a =>
             <vscode.FileStat>{
                 type: a.isFile ? vscode.FileType.File : vscode.FileType.Directory,
@@ -139,25 +139,25 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
-        this.logger.trace(`[RascalFileSystemInVSCode] readDirectory: ${uri}`);
+        this.logger.trace("[RascalFileSystemInVSCode] readDirectory: ", uri);
         return this.sendRequest<FileWithType[]>(uri, "rascal/vfs/input/list")
             .then(c => c.map(ft => [ft.name, ft.type]));
     }
 
     createDirectory(uri: vscode.Uri): void | Thenable<void> {
-        this.logger.trace(`[RascalFileSystemInVSCode] createDirectory: ${uri}`);
+        this.logger.trace("[RascalFileSystemInVSCode] createDirectory: ", uri);
         return this.sendRequest(uri, "rascal/vfs/output/mkDirectory");
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
-        this.logger.trace(`[RascalFileSystemInVSCode] readFile: ${uri}`);
+        this.logger.trace("[RascalFileSystemInVSCode] readFile: ", uri);
         return this.sendRequest<LocationContentResponse>(uri, "rascal/vfs/input/readFile")
             .then(r => Buffer.from(r.content, "base64"));
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
         // The `create` and `overwrite` options are handled on this side
-        this.logger.trace(`[RascalFileSystemInVSCode] writeFile: ${uri}`);
+        this.logger.trace("[RascalFileSystemInVSCode] writeFile: ", uri);
         //TODO (RA): refactoren: wat als `stat` een error gooit (x2)
         this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat").then(s => {
             if (!s.exists && !options.create) {
@@ -180,12 +180,12 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     }
 
     delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {
-        this.logger.trace(`[RascalFileSystemInVSCode] delete: ${uri}`);
+        this.logger.trace("[RascalFileSystemInVSCode] delete: ", uri);
         return this.sendRequest(uri, "rascal/vfs/output/remove", <RemoveRequest>{ loc: this.toRascalUri(uri), recursive: options.recursive });
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
-        this.logger.trace(`[RascalFileSystemInVSCode] rename: ${oldUri} to ${newUri}`);
+        this.logger.trace("[RascalFileSystemInVSCode] rename: , ${oldUri}, ${newUri}");
         return this.sendRequest(oldUri, "rascal/filesystem/rename", <RenameRequest>{ from: this.toRascalUri(oldUri), to: this.toRascalUri(newUri), overwrite: options.overwrite });
     }
 }
