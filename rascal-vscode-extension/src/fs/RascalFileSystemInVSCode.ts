@@ -26,6 +26,7 @@
  */
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
+import { LocationContentResponse } from './VSCodeFileSystemInRascal';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     readonly client: BaseLanguageClient;
@@ -147,8 +148,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
     readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
         this.logger.trace(`[RascalFileSystemInVSCode] readFile: ${uri}`);
-        return this.sendRequest<string>(uri, "rascal/vfs/input/readFile")
-            .then(str => Buffer.from(str, "base64"));
+        return this.sendRequest<LocationContentResponse>(uri, "rascal/vfs/input/readFile")
+            .then(r => Buffer.from(r.content, "base64"));
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {

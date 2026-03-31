@@ -43,8 +43,10 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.remote.RascalFileSystemServices;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
+import org.rascalmpl.uri.remote.jsonrpc.LocationContentResponse;
 import org.rascalmpl.uri.remote.jsonrpc.RemoveRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RenameRequest;
+import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.uri.remote.jsonrpc.WatchRequest;
 import org.rascalmpl.uri.remote.jsonrpc.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -56,7 +58,7 @@ public class RascalFileSystemInVsCode extends RascalFileSystemServices {
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     
     @Override
-    public CompletableFuture<ISourceLocation> resolveLocation(ISourceLocationRequest req) {
+    public CompletableFuture<SourceLocationResponse> resolveLocation(ISourceLocationRequest req) {
         logger.trace("resolveLocation: {}", req.getLocation());
         return super.resolveLocation(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation()))).exceptionally(this::handleException);
     }
@@ -91,7 +93,7 @@ public class RascalFileSystemInVsCode extends RascalFileSystemServices {
     }
 
     @Override
-    public CompletableFuture<String> readFile(ISourceLocationRequest req) {
+    public CompletableFuture<LocationContentResponse> readFile(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("readFile: {}", loc);
         return super.readFile(new ISourceLocationRequest(Locations.toClientLocation(loc))).exceptionally(this::handleException);
