@@ -97,6 +97,14 @@ describe('REPL', function () {
         await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.slow, "LanguageServer should be opened");
     });
 
+    it("edit call stdlib module via repl", async() => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute(":edit IO", true, Delays.extremelySlow);
+
+        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "IO.rsc", Delays.slow, "IO should be opened");
+    });
+
     it("VFS works", async() => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
