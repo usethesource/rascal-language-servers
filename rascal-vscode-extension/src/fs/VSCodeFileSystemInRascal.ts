@@ -287,7 +287,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     isRascalNative(loc: ISourceLocation | vscode.Uri) : boolean {
-        //this.rascalNativeSchemes.has(uri.scheme)
+        // Note that `ISourceLocation` === `URI` === `string` !== `vscode.Uri`
         const scheme = typeof(loc) === "string" ? loc.substring(0, loc.indexOf(":")) : loc.scheme;
         return this.rascalNativeSchemes.has(scheme);
     }
