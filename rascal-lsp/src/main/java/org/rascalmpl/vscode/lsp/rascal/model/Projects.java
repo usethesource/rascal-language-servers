@@ -31,18 +31,18 @@ import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.ISourceLocation;
 
-public class ProjectRoots {
+public class Projects {
 
     /**
      * Infers the shallowest possible root of the project that `origin` is in.
      */
-    public ISourceLocation inferProjectRoot(ISourceLocation origin) {
-        var innerRoot = inferDeepestProjectRoot(origin);
-        var outerRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(innerRoot));
+    public ISourceLocation inferRoot(ISourceLocation origin) {
+        var innerRoot = inferDeepestRoot(origin);
+        var outerRoot = inferDeepestRoot(URIUtil.getParentLocation(innerRoot));
 
         while (!innerRoot.equals(outerRoot) && isSameProject(innerRoot, outerRoot)) {
             innerRoot = outerRoot;
-            outerRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(innerRoot));
+            outerRoot = inferDeepestRoot(URIUtil.getParentLocation(innerRoot));
         }
 
         return isSameProject(innerRoot, outerRoot)
@@ -59,7 +59,7 @@ public class ProjectRoots {
     /**
      * Infers the longest project root-like path that `member` is in. Might return a sub-directory of `target/`.
      */
-    private ISourceLocation inferDeepestProjectRoot(ISourceLocation origin) {
+    private ISourceLocation inferDeepestRoot(ISourceLocation origin) {
         var manifest = new RascalManifest();
         var root = origin;
 

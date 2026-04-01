@@ -79,7 +79,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     openFileHeader = openFile.top.header.name;
     checkForImports = [openFile];
     checkedForImports = {};
-    initialProject = inferProjectRoot(l);
+    initialProject = inferRoot(l);
 
     rel[loc, loc] dependencies = {};
 
@@ -88,7 +88,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
         while (tree <- checkForImports) {
             step2("Calculating imports for <tree.top.header.name>", 1);
             currentSrc = tree.src.top;
-            currentProject = inferProjectRoot(currentSrc);
+            currentProject = inferRoot(currentSrc);
             if (currentProject in workspaceFolders && currentProject.file notin {"rascal", "rascal-lsp"}) {
                 for (i <- tree.top.header.imports, i has \module) {
                     modName = "<i.\module>";
@@ -102,7 +102,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
                             if (mlpt.src.top notin checkedForImports) {
                                 checkForImports += mlpt;
                                 jobTodo("Building dependency graph");
-                                dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+                                dependencies += <currentProject, inferRoot(mlpt.src.top)>;
                             }
                         }
                     }
@@ -123,7 +123,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     if (cyclicDependencies != {}) {
         return (l : {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)});
     }
-    modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
+    modulesPerProject = classify(checkedForImports, loc(loc l) {return inferRoot(l);});
     msgs = [];
 
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
@@ -196,7 +196,7 @@ set[loc] locateRascalModules(str fqn, PathConfig pcfg, PathConfig(loc file) getP
     // Check the source directories
     return {fileLoc | dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)}
     // And libraries available in the current workspace
-         + {fileLoc | lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)};
+         + {fileLoc | lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)};
 }
 
 loc targetToProject(loc l) {
@@ -207,8 +207,8 @@ loc targetToProject(loc l) {
 }
 
 @synopsis{Infers the root of the project that `member` is in.}
-@javaClass{org.rascalmpl.vscode.lsp.rascal.model.ProjectRoots}
-java loc inferProjectRoot(loc member);
+@javaClass{org.rascalmpl.vscode.lsp.rascal.model.Projects}
+java loc inferRoot(loc member);
 
 map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {
     set[Message] empty = {};

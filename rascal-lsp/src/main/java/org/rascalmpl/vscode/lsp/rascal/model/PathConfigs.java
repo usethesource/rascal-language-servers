@@ -68,11 +68,11 @@ public class PathConfigs {
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private final Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
-    private final ProjectRoots projectRoots = new ProjectRoots();
+    private final Projects projects = new Projects();
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
         Caffeine.newBuilder()
             .expireAfterAccess(Duration.ofMinutes(20))
-            .build(projectRoots::inferProjectRoot);
+            .build(projects::inferRoot);
 
     private final Executor executor;
     private final PathConfigDiagnostics diagnostics;
@@ -85,7 +85,7 @@ public class PathConfigs {
     }
 
     public void expungePathConfig(ISourceLocation project) {
-        var projectRoot = projectRoots.inferProjectRoot(project);
+        var projectRoot = projects.inferRoot(project);
         try {
             updater.unregisterProject(project);
         } catch (IOException e) {

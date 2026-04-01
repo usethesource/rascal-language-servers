@@ -43,11 +43,11 @@ public class PathConfigsTest {
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
-    private final ProjectRoots roots = new ProjectRoots();
+    private final Projects projects = new Projects();
 
     private void checkRoot(ISourceLocation project, String modulePath) throws URISyntaxException {
         var m = VF.sourceLocation(project.getScheme(), project.getAuthority(), project.getPath() + "/" + modulePath);
-        var root = roots.inferProjectRoot(m);
+        var root = projects.inferRoot(m);
         assertEquals(project, root);
     }
 
