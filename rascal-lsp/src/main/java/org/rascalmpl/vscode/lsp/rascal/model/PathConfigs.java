@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.io.IOException;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -41,20 +43,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -66,6 +66,7 @@ import io.usethesource.vallang.ISourceLocation;
 public class PathConfigs {
     private static final Logger logger = LogManager.getLogger(PathConfigs.class);
     private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
+    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private final Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs = new ConcurrentHashMap<>();
@@ -263,41 +264,41 @@ public class PathConfigs {
     }
 
     /**
-     * Infers the root of the project that `member` is in.
+     * Infers the root of the project that `origin` is in.
+     *
+     * Prefer deepest nested project, but ignore manifest in target folders.
      */
-    /*package*/ static ISourceLocation inferProjectRoot(ISourceLocation member) {
-        ISourceLocation lastRoot = member;
-        ISourceLocation root;
-        do {
-            root = lastRoot;
-            lastRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(root));
-        } while (!lastRoot.equals(URIUtil.getParentLocation(root)));
-        return root;
+    /*package*/ static ISourceLocation inferProjectRoot(ISourceLocation origin) {
+        System.out.println("Computing root for " + origin);
+        var innerRoot = inferDeepestProjectRoot(origin);
+        var outerRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(innerRoot));
+
+        while (!innerRoot.equals(outerRoot) && isSameProject(innerRoot, outerRoot)) {
+            innerRoot = outerRoot;
+            outerRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(innerRoot));
+        }
+
+        return isSameProject(innerRoot, outerRoot)
+            ? outerRoot // Inner root is for the same project, but inside the target folder
+            : innerRoot // Inner root is for a nested project
+            ;
+    }
+
+    private static boolean isSameProject(ISourceLocation root1, ISourceLocation root2) {
+        var mf = new RascalManifest();
+        return mf.hasManifest(root1) && mf.getProjectName(root1).equals(mf.getProjectName(root2));
     }
 
     /**
      * Infers the longest project root-like path that `member` is in. Might return a sub-directory of `target/`.
      */
-    private static ISourceLocation inferDeepestProjectRoot(ISourceLocation member) {
-        ISourceLocation current = member;
-        URIResolverRegistry reg = URIResolverRegistry.getInstance();
-        if (!reg.isDirectory(current)) {
-            current = URIUtil.getParentLocation(current);
+    private static ISourceLocation inferDeepestProjectRoot(ISourceLocation origin) {
+        var manifest = new RascalManifest();
+        var root = origin;
+
+        while (!(manifest.hasManifest(root) || URIUtil.getParentLocation(root).equals(root))) {
+            root = URIUtil.getParentLocation(root);
         }
-
-        while (current != null && reg.exists(current) && reg.isDirectory(current)) {
-            if (reg.exists(URIUtil.getChildLocation(current, "META-INF/RASCAL.MF"))) {
-                return current;
-            }
-            var parent = URIUtil.getParentLocation(current);
-            if (parent.equals(current)) {
-                // we went all the way up to the root
-                return reg.isDirectory(member) ? member : URIUtil.getParentLocation(member);
-            }
-
-            current = parent;
-        }
-
-        return current;
+        return root;
     }
 }
