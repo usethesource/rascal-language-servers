@@ -176,7 +176,7 @@ public class RascalFileSystemInVsCode extends RascalFileSystemServices {
         return generic(original.getMessage(), original);
     }
 
-    private <T, U extends T> T handleException(Throwable t) throws ResponseErrorException {
+    private <T> T handleException(Throwable t) throws ResponseErrorException {
         throw new ResponseErrorException(translate(t));
     }
 }
