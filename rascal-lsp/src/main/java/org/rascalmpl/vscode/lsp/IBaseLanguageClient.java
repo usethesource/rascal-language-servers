@@ -31,6 +31,7 @@ import java.net.URI;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
+import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.uri.vfs.IRemoteResolverRegistryClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
@@ -38,29 +39,30 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IString;
 
+@JsonSegment("rascal")
 public interface IBaseLanguageClient extends LanguageClient, IRemoteResolverRegistryClient {
-    @JsonNotification("rascal/showContent")
+    @JsonNotification
     void showContent(URI uri, IString title, IInteger viewColumn);
 
-    @JsonNotification("rascal/receiveRegisterLanguage")
+    @JsonNotification
     void receiveRegisterLanguage(LanguageParameter lang);
 
-    @JsonNotification("rascal/receiveUnregisterLanguage")
+    @JsonNotification
     void receiveUnregisterLanguage(LanguageParameter lang);
 
-    @JsonNotification("rascal/editDocument")
+    @JsonNotification
     void editDocument(URI uri, @Nullable Range range, int viewColumn);
 
     /**
      * Notification sent to the vscode client to start a debugging session on the given debug adapter port
      */
-    @JsonNotification("rascal/startDebuggingSession")
+    @JsonNotification
     void startDebuggingSession(int serverPort);
 
     /**
      * Notification sent to the vscode client to register the port on which the debug adapter server is listening
      * It is then used to make the link between a terminal process ID and the corresponding debug server port
      */
-    @JsonNotification("rascal/registerDebugServerPort")
+    @JsonNotification
     void registerDebugServerPort(int processID, int serverPort);
 }
