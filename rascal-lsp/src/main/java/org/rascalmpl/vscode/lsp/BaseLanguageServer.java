@@ -68,7 +68,7 @@ import org.rascalmpl.uri.remote.RascalFileSystemServices;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVsCode;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVSCode;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeFileSystemInRascal;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.util.Sets;
@@ -126,7 +126,7 @@ public abstract class BaseLanguageServer {
             .configureGson(GsonUtils.complexAsJsonObject())
             .setExecutorService(threadPool)
             .setExceptionHandler(t -> {
-                return RascalFileSystemInVsCode.translate((Exception) t);
+                return RascalFileSystemInVSCode.translate((Exception) t);
             })
             .create();
 
