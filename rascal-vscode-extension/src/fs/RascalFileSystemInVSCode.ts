@@ -48,7 +48,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         });
     }
 
-    // VS Code omits the leading two slashes from URIs if the autority is empty *and* the scheme is not equals to "file"
+    // VS Code omits the leading two slashes from URIs if the autority is empty *and* the scheme is not equal to "file"
     // Rascal does not support this style of URIs, so we add the slashes before sending the URI over
     toRascalUri(uri: vscode.Uri | string) : string {
         if (typeof(uri) === "string") {
