@@ -51,8 +51,6 @@ import org.rascalmpl.uri.remote.jsonrpc.WatchRequest;
 import org.rascalmpl.uri.remote.jsonrpc.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.ISourceLocation;
-
 public class RascalFileSystemInVsCode extends RascalFileSystemServices {
     private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
