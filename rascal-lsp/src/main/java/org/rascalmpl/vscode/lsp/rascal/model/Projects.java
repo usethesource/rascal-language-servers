@@ -40,7 +40,7 @@ public class Projects {
         var innerRoot = inferDeepestRoot(origin);
         var outerRoot = inferDeepestRoot(URIUtil.getParentLocation(innerRoot));
 
-        while (!innerRoot.equals(outerRoot) && isSameProject(innerRoot, outerRoot)) {
+        if (!innerRoot.equals(outerRoot) && isSameProject(innerRoot, outerRoot)) {
             innerRoot = outerRoot;
             outerRoot = inferDeepestRoot(URIUtil.getParentLocation(innerRoot));
         }
