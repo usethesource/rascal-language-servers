@@ -265,7 +265,7 @@ public class PathConfigs {
     /**
      * Infers the root of the project that `member` is in.
      */
-    private static ISourceLocation inferProjectRoot(ISourceLocation member) {
+    /*package*/ static ISourceLocation inferProjectRoot(ISourceLocation member) {
         ISourceLocation lastRoot = member;
         ISourceLocation root;
         do {
