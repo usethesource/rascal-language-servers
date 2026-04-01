@@ -45,10 +45,13 @@ public class Projects {
             outerRoot = inferDeepestRoot(URIUtil.getParentLocation(innerRoot));
         }
 
-        return isSameProject(innerRoot, outerRoot)
-            ? outerRoot // Inner root is for the same project, but might be inside the target folder
-            : innerRoot // Inner root is for a nested project
-            ;
+        if (isSameProject(innerRoot, outerRoot)) {
+            // Inner root is for the same project, but might be inside the target folder
+            return outerRoot;
+        }
+
+        // Inner root is for a nested project
+        return innerRoot;
     }
 
     private boolean isSameProject(ISourceLocation root1, ISourceLocation root2) {
