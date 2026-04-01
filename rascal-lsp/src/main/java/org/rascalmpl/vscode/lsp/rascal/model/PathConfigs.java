@@ -47,14 +47,12 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -66,15 +64,15 @@ import io.usethesource.vallang.ISourceLocation;
 public class PathConfigs {
     private static final Logger logger = LogManager.getLogger(PathConfigs.class);
     private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
-    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private final Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
+    private final ProjectRoots projectRoots = new ProjectRoots();
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
         Caffeine.newBuilder()
             .expireAfterAccess(Duration.ofMinutes(20))
-            .build(PathConfigs::inferProjectRoot);
+            .build(projectRoots::inferProjectRoot);
 
     private final Executor executor;
     private final PathConfigDiagnostics diagnostics;
@@ -87,7 +85,7 @@ public class PathConfigs {
     }
 
     public void expungePathConfig(ISourceLocation project) {
-        var projectRoot = inferProjectRoot(project);
+        var projectRoot = projectRoots.inferProjectRoot(project);
         try {
             updater.unregisterProject(project);
         } catch (IOException e) {
@@ -263,42 +261,4 @@ public class PathConfigs {
         }
     }
 
-    /**
-     * Infers the root of the project that `origin` is in.
-     *
-     * Prefer deepest nested project, but ignore manifest in target folders.
-     */
-    /*package*/ static ISourceLocation inferProjectRoot(ISourceLocation origin) {
-        System.out.println("Computing root for " + origin);
-        var innerRoot = inferDeepestProjectRoot(origin);
-        var outerRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(innerRoot));
-
-        while (!innerRoot.equals(outerRoot) && isSameProject(innerRoot, outerRoot)) {
-            innerRoot = outerRoot;
-            outerRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(innerRoot));
-        }
-
-        return isSameProject(innerRoot, outerRoot)
-            ? outerRoot // Inner root is for the same project, but inside the target folder
-            : innerRoot // Inner root is for a nested project
-            ;
-    }
-
-    private static boolean isSameProject(ISourceLocation root1, ISourceLocation root2) {
-        var mf = new RascalManifest();
-        return mf.hasManifest(root1) && mf.getProjectName(root1).equals(mf.getProjectName(root2));
-    }
-
-    /**
-     * Infers the longest project root-like path that `member` is in. Might return a sub-directory of `target/`.
-     */
-    private static ISourceLocation inferDeepestProjectRoot(ISourceLocation origin) {
-        var manifest = new RascalManifest();
-        var root = origin;
-
-        while (!(manifest.hasManifest(root) || URIUtil.getParentLocation(root).equals(root))) {
-            root = URIUtil.getParentLocation(root);
-        }
-        return root;
-    }
 }
