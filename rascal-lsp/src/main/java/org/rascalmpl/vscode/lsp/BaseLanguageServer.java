@@ -71,6 +71,7 @@ import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVsCode;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeFileSystemInRascal;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
+import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -339,10 +340,10 @@ public abstract class BaseLanguageServer {
         @Override
         public CompletableFuture<String[]> fileSystemSchemes() {
             var reg = URIResolverRegistry.getInstance();
-            Set<String> inputs = reg.getRegisteredInputSchemes();
-            Set<String> logicals = reg.getRegisteredLogicalSchemes();
+            var inputs = reg.getRegisteredInputSchemes();
+            var logicals = reg.getRegisteredLogicalSchemes();
 
-            return CompletableFuture.completedFuture(Stream.concat(inputs.stream(), logicals.stream()).toArray(String[]::new));
+            return CompletableFuture.completedFuture(Sets.union(inputs, logicals).toArray(String[]::new));
         }
     }
 }
