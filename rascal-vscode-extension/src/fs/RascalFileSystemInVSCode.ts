@@ -27,6 +27,7 @@
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
 import { ISourceLocationRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './VSCodeFileSystemInRascal';
+import path from 'path';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     readonly client: BaseLanguageClient;
@@ -158,23 +159,26 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
         // The `create` and `overwrite` options are handled on this side
         this.logger.trace("[RascalFileSystemInVSCode] writeFile: ", uri);
-        //TODO (RA): refactoren: wat als `stat` een error gooit (x2)
-        this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat").then(s => {
-            if (!s.exists && !options.create) {
+        const parentUri = uri.with({path : path.dirname(uri.path)});
+        Promise.all([
+            this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat"),
+            this.sendRequest<FileAttributes>(parentUri, "rascal/vfs/input/stat")]
+        ).then(r => {
+            const fileStat = r[0];
+            const parentStat = r[1];
+            if (!fileStat.exists && !options.create) {
                 throw vscode.FileSystemError.FileNotFound(`File ${uri} does not exist and \`create\` was not set`);
             }
-            this.sendRequest<FileAttributes>(uri,"rascal/vfs/input/stat").then(p => {
-                if (!p.exists && options.create) {
-                    throw vscode.FileSystemError.FileNotFound(`Parent of ${uri} does not exist but \`create\` was set`);
-                }
-                if (s.exists && options.create && !options.overwrite) {
-                    throw vscode.FileSystemError.FileExists(`File ${uri} exists and \`create\` was set, but \`override\` was not set`);
-                }
-                return this.sendRequest(uri, "rascal/vfs/output/writeFile", <WriteFileRequest>{
-                    loc: this.toRascalUri(uri),
-                    content: Buffer.from(content).toString("base64"),
-                    append: false
-                });
+            if (!parentStat.exists && options.create) {
+                throw vscode.FileSystemError.FileNotFound(`Parent of ${uri} does not exist but \`create\` was set`);
+            }
+            if (fileStat.exists && options.create && !options.overwrite) {
+                throw vscode.FileSystemError.FileExists(`File ${uri} exists and \`create\` was set, but \`override\` was not set`);
+            }
+            return this.sendRequest(uri, "rascal/vfs/output/writeFile", <WriteFileRequest>{
+                loc: this.toRascalUri(uri),
+                content: Buffer.from(content).toString("base64"),
+                append: false
             });
         });
     }
