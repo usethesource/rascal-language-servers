@@ -31,26 +31,26 @@ import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.ISourceLocation;
 
+/**
+ * Tools for projects, like path computations. Non-static functions so they can be used in Rascal via `@javaClass` as well.
+ */
 public class Projects {
 
     /**
      * Infers the shallowest possible root of the project that `origin` is in.
      */
     public ISourceLocation inferRoot(ISourceLocation origin) {
+        origin = origin.top();
         var innerRoot = inferDeepestRoot(origin);
         var outerRoot = inferDeepestRoot(URIUtil.getParentLocation(innerRoot));
 
         if (!innerRoot.equals(outerRoot) && isSameProject(innerRoot, outerRoot)) {
-            innerRoot = outerRoot;
-            outerRoot = inferDeepestRoot(URIUtil.getParentLocation(innerRoot));
+            // The roots are not equal, but refer to the same project: the inner root is somewhere inside the target folder.
+            // In that case, find a root one level up.
+            return inferDeepestRoot(URIUtil.getParentLocation(outerRoot));
         }
 
-        if (isSameProject(innerRoot, outerRoot)) {
-            // Inner root is for the same project, but might be inside the target folder
-            return outerRoot;
-        }
-
-        // Inner root is for a nested project
+        // Inner root is a nested project within outer root
         return innerRoot;
     }
 
@@ -66,7 +66,11 @@ public class Projects {
         var manifest = new RascalManifest();
         var root = origin;
 
-        while (!(manifest.hasManifest(root) || URIUtil.getParentLocation(root).equals(root))) {
+        while (!manifest.hasManifest(root)) {
+            if (root.getPath().equals(URIUtil.URI_PATH_SEPARATOR)) {
+                // File system root; cannot recurse further
+                break;
+            }
             root = URIUtil.getParentLocation(root);
         }
         return root;

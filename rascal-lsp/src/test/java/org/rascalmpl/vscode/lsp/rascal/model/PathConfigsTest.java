@@ -35,6 +35,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -46,7 +47,7 @@ public class PathConfigsTest {
     private final Projects projects = new Projects();
 
     private void checkRoot(ISourceLocation project, String modulePath) throws URISyntaxException {
-        var m = VF.sourceLocation(project.getScheme(), project.getAuthority(), project.getPath() + "/" + modulePath);
+        var m = URIUtil.getChildLocation(project, modulePath);
         var root = projects.inferRoot(m);
         assertEquals(project, root);
     }
