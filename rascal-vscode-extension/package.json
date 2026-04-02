@@ -328,7 +328,7 @@
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
     "mocha": "11.x",
-    "typescript": "5.x",
+    "typescript": "6.x",
     "vscode-extension-tester": "8.x"
   }
 }
