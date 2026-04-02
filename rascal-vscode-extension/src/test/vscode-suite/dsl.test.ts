@@ -295,7 +295,7 @@ end
             const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
             const items = await ignoreFails(outgoing!.getVisibleItems());
             return items?.length === 2;
-        }, Delays.slow, "Call hierarchy should show `multiply` and its recursive call.");
+        }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
 
         await editor.selectText("multiply");
         await bench.executeCommand("view.showOutgoingCalls");
@@ -303,7 +303,7 @@ end
             const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
             const items = await ignoreFails(incoming!.getVisibleItems());
             return items?.length === 3;
-        }, Delays.slow, "Call hierarchy should show `multiply` and its two outgoing calls.");
+        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 
     it("completion works", async function() {
