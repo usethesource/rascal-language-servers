@@ -35,6 +35,10 @@ import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
 
 import io.usethesource.vallang.ISourceLocation;
 
+/**
+ * Wrapper for RemoteExternalResolverRegistry handling LSP-specifics.
+ * In particular, locations from LSP are mapped to Rascal-friendly locations.
+ */
 public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
     public VSCodeFileSystemInRascal(int remoteResolverRegistryPort) {
         super(remoteResolverRegistryPort);

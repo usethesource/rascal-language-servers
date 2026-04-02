@@ -51,6 +51,10 @@ import org.rascalmpl.uri.remote.jsonrpc.WatchRequest;
 import org.rascalmpl.uri.remote.jsonrpc.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+/**
+ * Wrapper for RascalFileSystemServices handling LSP-specifics.
+ * In particular, locations from LSP are mapped to Rascal-friendly locations, and Rascal exceptions are mapped to exceptions LSP expects.
+ */
 public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
