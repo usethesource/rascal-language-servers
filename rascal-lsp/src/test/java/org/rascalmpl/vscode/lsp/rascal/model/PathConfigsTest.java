@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.concurrent.Executors;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -54,6 +55,12 @@ public class PathConfigsTest {
 
     @Mock PathConfigDiagnostics diagnostics;
     private PathConfigs configs;
+    private static ISourceLocation absoluteProjectDir;
+
+    @BeforeClass
+    public static void initTests() throws URISyntaxException, IOException {
+        absoluteProjectDir = reg.logicalToPhysical(URIUtil.rootLocation("cwd"));
+    }
 
     @Before
     public void setUp() {
@@ -72,17 +79,17 @@ public class PathConfigsTest {
 
     @Test
     public void lspRoot() throws URISyntaxException {
-        checkRoot(VF.sourceLocation("cwd", "", ""), "src/main/rascal/library/util/LanguageServer.src");
+        checkRoot(absoluteProjectDir, "src/main/rascal/library/util/LanguageServer.src");
     }
 
     @Test
     public void lspTargetRoot() throws URISyntaxException {
-        checkRoot(VF.sourceLocation("cwd", "", ""), "target/classes/library/util/LanguageServer.rsc");
+        checkRoot(absoluteProjectDir, "target/classes/library/util/LanguageServer.rsc");
     }
 
     @Test
     public void nestedProjectRoot() throws URISyntaxException {
-        checkRoot(VF.sourceLocation("cwd", "", "src/test/resources/project-a"), "src/Module.rsc");
+        checkRoot(URIUtil.getChildLocation(absoluteProjectDir, "src/test/resources/project-a"), "src/Module.rsc");
     }
 
     @Test
@@ -93,13 +100,13 @@ public class PathConfigsTest {
 
     @Test
     public void pathConfigForLsp() throws URISyntaxException, IOException {
-        var pcfg = configs.lookupConfig(VF.sourceLocation("project", "rascal-lsp", ""));
-        assertEquals(reg.logicalToPhysical(VF.sourceLocation("project", "rascal-lsp", "")), pcfg.getProjectRoot());
+        var pcfg = configs.lookupConfig(absoluteProjectDir);
+        assertEquals(absoluteProjectDir, pcfg.getProjectRoot());
     }
 
     @Test
     public void pathConfigForLspModule() throws URISyntaxException, IOException {
-        var pcfg = configs.lookupConfig(VF.sourceLocation("project", "rascal-lsp", "src/main/rascal/library/util/LanguageServer.src"));
-        assertEquals(reg.logicalToPhysical(VF.sourceLocation("project", "rascal-lsp", "")), pcfg.getProjectRoot());
+        var pcfg = configs.lookupConfig(URIUtil.getChildLocation(absoluteProjectDir, "src/main/rascal/library/util/LanguageServer.src"));
+        assertEquals(absoluteProjectDir, pcfg.getProjectRoot());
     }
 }
