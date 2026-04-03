@@ -46,11 +46,12 @@ public class Projects {
 
         if (!innerRoot.equals(outerRoot) && isSameProject(innerRoot, outerRoot)) {
             // The roots are not equal, but refer to the same project: the inner root is somewhere inside the target folder.
-            // In that case, find a root one level up.
-            return inferDeepestRoot(URIUtil.getParentLocation(outerRoot));
+            // In that case, we need the outer root
+            return outerRoot;
         }
 
-        // Inner root is a nested project within outer root
+        // (innerRoot.equals(outerRoot) || !isSameProject(innerRoot, outerRoot))
+        // Inner is a nested project within outer; we want the root of the nested project.
         return innerRoot;
     }
 
