@@ -26,11 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
-import static org.junit.Assert.assertEquals;
-
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.concurrent.Executors;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -65,6 +64,10 @@ public class PathConfigsTest {
     @Before
     public void setUp() {
         configs = new PathConfigs(Executors.newCachedThreadPool(), diagnostics);
+    }
+
+    private static void assertEquals(ISourceLocation expected, ISourceLocation actual) {
+        Assert.assertEquals(URIUtil.getChildLocation(expected, ""), URIUtil.getChildLocation(actual, ""));
     }
 
     @Test
