@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.rascal.model;
 
 import org.rascalmpl.interpreter.utils.RascalManifest;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -35,6 +36,8 @@ import io.usethesource.vallang.ISourceLocation;
  * Tools for projects, like path computations. Non-static functions so they can be used in Rascal via `@javaClass` as well.
  */
 public class Projects {
+
+    private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
     /**
      * Infers the shallowest possible root of the project that `origin` is in.
@@ -64,10 +67,8 @@ public class Projects {
      * Infers the longest project root-like path that `member` is in. Might return a sub-directory of `target/`.
      */
     private ISourceLocation inferDeepestRoot(ISourceLocation origin) {
-        var manifest = new RascalManifest();
         var root = origin;
-
-        while (!manifest.hasManifest(root)) {
+        while (!isProjectRoot(root)) {
             if (root.getPath().equals(URIUtil.URI_PATH_SEPARATOR)) {
                 // File system root; cannot recurse further
                 break;
@@ -75,6 +76,20 @@ public class Projects {
             root = URIUtil.getParentLocation(root);
         }
         return root;
+    }
+
+    /**
+     * Determines whether a location is a project root.
+     *
+     * Note: this considers any Maven project as a possible project root. This might not give the desired result for a
+     * non-Rascal Maven project nested within a Rascal project. We could parse and resolve the POM here to check for
+     * a Rascal dependency, but that has the following drawbacks:
+     * 1. It is expensive.
+     * 2. It will not work for Rascal projects that depend on pure Java Maven projects -- like bird-nescio-tests.
+     */
+    private boolean isProjectRoot(ISourceLocation l) {
+        return new RascalManifest().hasManifest(l)
+            || reg.exists(URIUtil.getChildLocation(l, "pom.xml"));
     }
 
 }
