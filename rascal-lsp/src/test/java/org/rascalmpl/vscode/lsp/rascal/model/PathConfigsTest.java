@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -55,11 +56,12 @@ public class PathConfigsTest {
      * @param projectExists Whether the project actually exists. WARNING: If it does not exist, root inference probably returns the root of the file system of the project.
      */
     private void checkRoot(ISourceLocation project, String modulePath, boolean projectExists, boolean moduleExists) {
-        assertTrue(!projectExists || reg.exists(project));
+        assertFalse("Cannot check for existing module in non-existent project", !projectExists && moduleExists);
+        assertTrue("Project should exist", !projectExists || reg.exists(project));
         var m = URIUtil.getChildLocation(project, modulePath);
-        assertTrue(!(projectExists && moduleExists) || reg.exists(m));
+        assertTrue("Module should exist", !moduleExists || reg.exists(m));
         var root = projects.inferRoot(m);
-        assertEquals(project, root);
+        assertEquals("Inferred root should equal project URI", project, root);
     }
 
     private void checkRoot(ISourceLocation project, String modulePath) {
@@ -80,8 +82,8 @@ public class PathConfigsTest {
         configs = new PathConfigs(Executors.newCachedThreadPool(), diagnostics);
     }
 
-    private static void assertEquals(ISourceLocation expected, ISourceLocation actual) {
-        Assert.assertEquals(URIUtil.getChildLocation(expected, ""), URIUtil.getChildLocation(actual, ""));
+    private static void assertEquals(String message, ISourceLocation expected, ISourceLocation actual) {
+        Assert.assertEquals(message, URIUtil.getChildLocation(expected, ""), URIUtil.getChildLocation(actual, ""));
     }
 
     @Test
@@ -117,18 +119,18 @@ public class PathConfigsTest {
     @Test
     public void pathConfigForStandardModule() throws IOException, URISyntaxException {
         var pcfg = configs.lookupConfig(VF.sourceLocation("std", "", "IO.rsc"));
-        assertEquals(reg.logicalToPhysical(VF.sourceLocation("std", "", "")), pcfg.getProjectRoot());
+        assertEquals("Path config root should equal project URI", reg.logicalToPhysical(VF.sourceLocation("std", "", "")), pcfg.getProjectRoot());
     }
 
     @Test
     public void pathConfigForLsp() {
         var pcfg = configs.lookupConfig(absoluteProjectDir);
-        assertEquals(absoluteProjectDir, pcfg.getProjectRoot());
+        assertEquals("Path config root should equal project URI", absoluteProjectDir, pcfg.getProjectRoot());
     }
 
     @Test
     public void pathConfigForLspModule() {
         var pcfg = configs.lookupConfig(URIUtil.getChildLocation(absoluteProjectDir, "src/main/rascal/library/util/LanguageServer.rsc"));
-        assertEquals(absoluteProjectDir, pcfg.getProjectRoot());
+        assertEquals("Path config root should equal project URI", absoluteProjectDir, pcfg.getProjectRoot());
     }
 }
