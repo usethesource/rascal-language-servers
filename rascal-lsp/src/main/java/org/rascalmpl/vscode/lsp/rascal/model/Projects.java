@@ -68,7 +68,7 @@ public class Projects {
      */
     private ISourceLocation inferDeepestRoot(ISourceLocation origin) {
         var root = origin;
-        while (!isProjectRoot(root)) {
+        while (!new RascalManifest().hasManifest(root)) {
             if (root.getPath().equals(URIUtil.URI_PATH_SEPARATOR)) {
                 // File system root; cannot recurse further
                 break;
@@ -76,20 +76,6 @@ public class Projects {
             root = URIUtil.getParentLocation(root);
         }
         return root;
-    }
-
-    /**
-     * Determines whether a location is a project root.
-     *
-     * Note: this considers any Maven project as a possible project root. This might not give the desired result for a
-     * non-Rascal Maven project nested within a Rascal project. We could parse and resolve the POM here to check for
-     * a Rascal dependency, but that has the following drawbacks:
-     * 1. It is expensive.
-     * 2. It will not work for Rascal projects that depend on pure Java Maven projects -- like bird-nescio-tests.
-     */
-    private boolean isProjectRoot(ISourceLocation l) {
-        return new RascalManifest().hasManifest(l)
-            || reg.exists(URIUtil.getChildLocation(l, "pom.xml"));
     }
 
 }
