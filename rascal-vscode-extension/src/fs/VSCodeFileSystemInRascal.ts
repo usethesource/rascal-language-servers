@@ -56,7 +56,6 @@ interface ISourceLocationInput {
     size(req: ISourceLocationRequest): Promise<NumberResponse>;
     fileStat(req: ISourceLocationRequest): Promise<FileAttributes>;
     isReadable(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    isWritable(req: ISourceLocationRequest): Promise<BooleanResponse>;
 }
 
 function connectInputHandler(connection: rpc.MessageConnection, handler: ISourceLocationInput, toClear: Disposable[]) {
@@ -75,7 +74,6 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<NumberResponse>("size", handler.size);
     req<FileAttributes>("stat", handler.fileStat);
     req<BooleanResponse>("isReadable", handler.isReadable);
-    req<BooleanResponse>("isWritable", handler.isWritable);
 }
 
 // Rascal's interface reduced to a subset we can support
@@ -85,6 +83,7 @@ interface ISourceLocationOutput {
     remove(req: RemoveRequest): Promise<void>;
     rename(req: RenameRequest): Promise<void>;
     copy(req: CopyRequest): Promise<void>;
+    isWritable(req: ISourceLocationRequest): Promise<BooleanResponse>;
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
@@ -98,6 +97,7 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req("mkDirectory", handler.mkDirectory);
     req("remove", handler.remove);
     req("rename", handler.rename);
+    req("isWritable", handler.isWritable);
 }
 
 // Rascal's interface reduced to a subset we can support
