@@ -173,7 +173,7 @@ export interface WatchRequest {
      * subscription id, this helps the calling in linking up to the original request
      * as the watches are recursive
      */
-    watcher: string;
+    watchId: string;
     recursive: boolean;
 }
 
@@ -431,7 +431,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         this.logger.trace("[VSCodeFileSystemInRascal] watch: ", newWatch.loc);
         const watchKey = newWatch.loc + newWatch.recursive;
         if (!this.activeWatches.has(watchKey)) {
-            const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watcher);
+            const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watchId);
             this.activeWatches.set(watchKey, watcher);
             this.toClear.push(watcher);
             return;
