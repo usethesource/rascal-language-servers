@@ -59,5 +59,4 @@ public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
         }
         return resolved;
     }
-    
 }
