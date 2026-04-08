@@ -36,13 +36,12 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.checkerframework.checker.nullness.qual.PolyNull;
 
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
 
-    public static <T> CompletableFuture<@PolyNull T> completedFuture(@PolyNull T value, Executor exec) {
-        return CompletableFuture.<@PolyNull T>supplyAsync(() -> value, exec);
+    public static <T> CompletableFuture<T> completedFuture(T value, Executor exec) {
+        return CompletableFuture.supplyAsync(() -> value, exec);
     }
 
     /**
