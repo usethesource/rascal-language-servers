@@ -96,17 +96,21 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     });
 
     beforeEach(async function () {
+        console.log(`[begin] beforeEach(${this.test?.title})`);
         if (this.test?.title) {
             await ide.screenshot(`DSL-${errorRecovery}-` + this.test?.title);
         }
+        console.log(`[end] beforeEach(${this.test?.title})`);
     });
 
     afterEach(async function () {
+        console.log(`[begin] afterEach(${this.test?.title})`);
         if (this.test?.title) {
             await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
         }
         await ide.cleanup();
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
+        console.log(`[end] afterEach(${this.test?.title})`);
     });
 
     it("has highlighting and parse errors", async function () {
