@@ -24,10 +24,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+import path from 'path';
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
-import { ISourceLocationRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './VSCodeFileSystemInRascal';
-import path from 'path';
+import { CopyRequest, ISourceLocationRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './VSCodeFileSystemInRascal';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     readonly client: BaseLanguageClient;
@@ -189,8 +189,13 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
-        this.logger.trace("[RascalFileSystemInVSCode] rename: , ${oldUri}, ${newUri}");
-        return this.sendRequest(oldUri, "rascal/filesystem/rename", <RenameRequest>{ from: this.toRascalUri(oldUri), to: this.toRascalUri(newUri), overwrite: options.overwrite });
+        this.logger.trace("[RascalFileSystemInVSCode] rename: ", oldUri, newUri);
+        return this.sendRequest(oldUri, "rascal/vfs/output/rename", <RenameRequest>{ from: this.toRascalUri(oldUri), to: this.toRascalUri(newUri), overwrite: options.overwrite });
+    }
+
+    copy(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean; }) : Thenable<void> {
+        this.logger.trace("[RascalFileSystemInVSCode] copy: ", source, target);
+        return this.sendRequest(source, "rascal/vfs/output/copy", <CopyRequest>{ from: this.toRascalUri(source), to: this.toRascalUri(target), recursive: true, overwrite: options ? options.overwrite ? true : false : false });
     }
 }
 

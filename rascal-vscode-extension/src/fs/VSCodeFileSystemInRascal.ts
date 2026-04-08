@@ -84,6 +84,7 @@ interface ISourceLocationOutput {
     mkDirectory(req: ISourceLocationRequest): Promise<void>;
     remove(req: RemoveRequest): Promise<void>;
     rename(req: RenameRequest): Promise<void>;
+    copy(req: CopyRequest): Promise<void>;
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
@@ -152,6 +153,13 @@ export interface WriteFileRequest extends ISourceLocationRequest {
 export interface RenameRequest {
     from: ISourceLocation;
     to: ISourceLocation;
+    overwrite: boolean;
+}
+
+export interface CopyRequest {
+    from: ISourceLocation;
+    to: ISourceLocation;
+    recursive: boolean;
     overwrite: boolean;
 }
 
@@ -407,6 +415,14 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     async rename(req: RenameRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] rename: ", req.from, req.to);
         return asyncVoidCatcher(this.fs.rename(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
+    }
+
+    async copy(req: CopyRequest): Promise<void> {
+        this.logger.trace("[VSCodeFileSystemInRascal] copy: ", req.from, req.to);
+        if (req.recursive && await this.isDirectory({ loc: req.from })) {
+            throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Non-recursive watch requested on a directory', req);
+        }
+        return asyncVoidCatcher(this.fs.copy(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
     }
 
     private readonly activeWatches = new Map<string, WatcherCallbacks>();
