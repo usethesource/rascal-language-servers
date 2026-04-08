@@ -317,11 +317,6 @@ public abstract class BaseLanguageServer {
             provideClient(actualClient);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
-
-            var remoteResolverRegistryPort = URIResolverRegistry.getRemoteResolverRegistryPort();
-            if (remoteResolverRegistryPort != null) {
-                URIResolverRegistry.getInstance().registerRemoteResolverRegistry(new VSCodeFileSystemInRascal(remoteResolverRegistryPort));
-            }
         }
 
         @Override
