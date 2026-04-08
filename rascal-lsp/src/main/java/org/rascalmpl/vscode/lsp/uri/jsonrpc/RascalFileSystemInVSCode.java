@@ -42,6 +42,7 @@ import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.remote.RascalFileSystemServices;
+import org.rascalmpl.uri.remote.jsonrpc.CopyRequest;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.LocationContentResponse;
 import org.rascalmpl.uri.remote.jsonrpc.RemoveRequest;
@@ -122,6 +123,12 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     public CompletableFuture<Void> rename(RenameRequest req) {
         logger.trace("rename: {} to {}", req.getFrom(), req.getTo());
         return super.rename(new RenameRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isOverwrite())).exceptionally(this::handleException);
+    }
+
+    @Override
+    public CompletableFuture<Void> copy(CopyRequest req) {
+        logger.trace("copy: {} to {}", req.getFrom(), req.getTo());
+        return super.copy(new CopyRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isRecursive(), req.isOverwrite())).exceptionally(this::handleException);
     }
 
     private static ResponseError fileExists(Object data) {
