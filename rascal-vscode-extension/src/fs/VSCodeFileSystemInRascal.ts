@@ -457,7 +457,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     async resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
         this.logger.trace("[VSCodeFileSystemInRascal] resolve: ", req.loc);
-        return { loc: req.loc };
+        return <SourceLocationResponse>{ loc: req.loc };
     }
 
     dispose() {
