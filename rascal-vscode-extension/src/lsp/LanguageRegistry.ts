@@ -30,7 +30,7 @@ import { Disposable, LogOutputChannel } from 'vscode';
 import { JsonRpcServer } from '../util/JsonRpcServer';
 
 /**
- * Json-rpc server that handles registration and unregistration of languages
+ * JSON-RPC server that handles registration and unregistration of languages
  */
 export class LanguageRegistry extends JsonRpcServer {
     constructor(dslLSP: ParameterizedLanguageServer, logger: LogOutputChannel) {

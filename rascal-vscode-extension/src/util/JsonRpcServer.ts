@@ -29,7 +29,7 @@ import * as net from 'net';
 import { Disposable, LogOutputChannel } from 'vscode';
 
 /**
- * Json-rpc server that starts a server on a dynamic port
+ * JSON-RPC server that starts a server on a dynamic port
  */
 export class JsonRpcServer implements Disposable {
     readonly serverPort: Promise<number>;
