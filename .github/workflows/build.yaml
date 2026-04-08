@@ -49,8 +49,7 @@ jobs:
   ui-test:
     strategy:
       matrix:
-        os: [ubicloud-standard-4, ubicloud-standard-4-2204, ubuntu-latest]
-        run: [1, 2, 3, 4]
+        os: [ubicloud-standard-4, ubicloud-standard-4-ubuntu-2204, ubuntu-latest]
         delay_factor: [8, 16, 32, 64]
       fail-fast: false
     env:
