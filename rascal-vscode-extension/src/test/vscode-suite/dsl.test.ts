@@ -120,11 +120,17 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const isPicoLoading = ide.statusContains("Pico");
         // we might miss this event, but we wait for it to show up
-        console.log("Awaiting Pico parser generator start");
-        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
+        await ignoreFails(driver.wait(async () => {
+            console.log("Awaiting Pico parser generator start");
+            await ide.screenshot("is-pico-loading");
+            return await isPicoLoading();
+        }, Delays.normal, "Pico parser generator should have started"));
         // now wait for the Pico parser generator to disappear
-        console.log("Awaiting Pico parser generator finish");
-        await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
+        await driver.wait(async () => {
+            console.log("Awaiting Pico parser generator finish");
+            await ide.screenshot("is-pico-loading-finished");
+            return !(await isPicoLoading());
+        }, Delays.verySlow, "Pico parser generator should have finished", 100);
         console.log("hHas syntax highilighting?");
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
         console.log("We got syntax highlighting");
