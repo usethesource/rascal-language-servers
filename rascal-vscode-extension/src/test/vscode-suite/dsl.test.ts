@@ -249,7 +249,10 @@ end
         await editor.moveCursor(5, 6);
 
         await ide.renameSymbol(editor, bench, "z");
-        await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
+        await driver.wait(async () => {
+            await ide.screenshot("rename-dirty-check");
+            return editor.isDirty();
+        }, Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
         const editorText = await editor.getText();
         expect(editorText).to.contain("z : natural");
