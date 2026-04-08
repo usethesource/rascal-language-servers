@@ -114,13 +114,18 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     });
 
     it("has highlighting and parse errors", async function () {
+        console.log("Closing all editors");
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
+        console.log(`Opening Pico file ${TestWorkspace.picoFile}`);
         const editor = await ide.openModule(TestWorkspace.picoFile);
         const isPicoLoading = ide.statusContains("Pico");
         // we might miss this event, but we wait for it to show up
+        console.log("Awaiting Pico parser generator start");
         await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
         // now wait for the Pico parser generator to disappear
+        console.log("Awaiting Pico parser generator finish");
         await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
+        console.log("hHas syntax highilighting?");
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
         console.log("We got syntax highlighting");
         try {
