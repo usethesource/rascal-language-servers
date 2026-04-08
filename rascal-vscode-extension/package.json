@@ -329,6 +329,6 @@
     "license-check-and-add": "4.x",
     "mocha": "11.x",
     "typescript": "5.x",
-    "vscode-extension-tester": "8.x"
+    "vscode-extension-tester": "8.22.1"
   }
 }
