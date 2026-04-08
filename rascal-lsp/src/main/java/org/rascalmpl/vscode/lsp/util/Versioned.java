@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.concurrent.atomic.AtomicReference;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 
 public class Versioned<T> {
     private final int version;
@@ -64,7 +65,7 @@ public class Versioned<T> {
         return new AtomicReference<>(new Versioned<>(version, object));
     }
 
-    public static <T> boolean replaceIfNewer(AtomicReference<Versioned<T>> current, Versioned<T> maybeNewer) {
+    public static <T> boolean replaceIfNewer(AtomicReference<@PolyNull Versioned<T>> current, Versioned<T> maybeNewer) {
         while (true) {
             var old = current.get();
             if (old == null || old.version() < maybeNewer.version()) {

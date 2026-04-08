@@ -26,15 +26,12 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
-import java.util.List;
 import java.util.concurrent.ExecutorService;
-
-import org.eclipse.lsp4j.FileOperationPattern;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
 public class ParametricWorkspaceService extends BaseWorkspaceService {
     ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
-        super(exec, docService, List.of(new FileOperationPattern("**/*")));
+        super(exec, docService);
     }
 }

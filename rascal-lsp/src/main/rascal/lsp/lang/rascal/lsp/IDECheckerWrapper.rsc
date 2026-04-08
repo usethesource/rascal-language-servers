@@ -24,6 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
+@bootstrapParser
 module lang::rascal::lsp::IDECheckerWrapper
 
 import IO;
@@ -31,11 +32,12 @@ import List;
 import Relation;
 import Set;
 import String;
+import ValueIO;
 import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
 import util::Monitor;
-import util::Reflective;
+import util::ParseErrorRecovery;
 
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::Checker;
@@ -52,7 +54,30 @@ import lang::rascalcore::check::ModuleLocations;
 }
 map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
     = job("Rascal check", map[loc, set[Message]](void(str, int) step) {
-    checkForImports = [getParseTree(l)];
+
+    tuple[start[Module], set[Message]] getParseTreeOrErrors(loc l, str name, loc errorLocation) {
+        try {
+            t = getParseTree(l);
+            errors = hasParseErrors(t)
+                ? {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation,
+                        causes=[error("Parse error around this position.", e.src) | e <- findBestParseErrors(t)])}
+                : {};
+            return <t, errors>;
+        } catch ParseError(loc err): {
+            return <(start[Module]) `module ModuleHadParseError`, {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation, causes=[error("Parse error(s).", err)])}>;
+        }
+    }
+
+    // Note: check further down parses again, possibly leading to a different tree if the contents changed in the meantime.
+    // We cannot fix that here, unless we pass `getParseTree` to `check`.
+    <openFile, parseErrors> = getParseTreeOrErrors(l, "unknown", l);
+    if ({} != parseErrors) {
+        // No need to return the errors, since the language server will take care of parse errors in open modules
+        return ();
+    }
+
+    openFileHeader = openFile.top.header.name;
+    checkForImports = [openFile];
     checkedForImports = {};
     initialProject = inferProjectRoot(l);
 
@@ -66,15 +91,20 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
             currentProject = inferProjectRoot(currentSrc);
             if (currentProject in workspaceFolders && currentProject.file notin {"rascal", "rascal-lsp"}) {
                 for (i <- tree.top.header.imports, i has \module) {
-                    try {
-                        ml = locateRascalModule("<i.\module>", getPathConfig(currentProject), getPathConfig, workspaceFolders);
-                        if (ml.extension == "rsc", mlpt := getParseTree(ml), mlpt.src.top notin checkedForImports) {
-                            checkForImports += mlpt;
-                            jobTodo("Building dependency graph");
-                            dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+                    modName = "<i.\module>";
+                    for (ml <- locateRascalModules(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders)) {
+                        if (<mlpt, importErrors> := getParseTreeOrErrors(ml, modName, openFileHeader.src)) {
+                            if ({} !:= importErrors) {
+                                parseErrors += importErrors;
+                                checkedForImports += currentSrc; // do not check this module again
+                                continue; // since there is an error in this module, we do not recurse into its imports
+                            }
+                            if (mlpt.src.top notin checkedForImports) {
+                                checkForImports += mlpt;
+                                jobTodo("Building dependency graph");
+                                dependencies += <currentProject, inferProjectRoot(mlpt.src.top)>;
+                            }
                         }
-                    } catch _: {
-                        ;// Continue
                     }
                 }
             }
@@ -83,6 +113,11 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
         }
         return true;
     }, totalWork=1);
+
+    if ({} != parseErrors) {
+        // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
+        return (l: parseErrors);
+    }
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
@@ -97,13 +132,20 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     job("Checking upstream dependencies", bool (void (str, int) step3) {
         for (project <- upstreamDependencies) {
             step3("Checked module in `<project.file>`", 1);
-            msgs += check([*modulesPerProject[project]], rascalCompilerConfig(getPathConfig(project)));
+            pcfg = getPathConfig(project);
+            checkOutdatedPathConfig(pcfg);
+            modulesToCheck = calculateOutdated(modulesPerProject[project], pcfg);
+            if (modulesToCheck != []) {
+                msgs += check(modulesToCheck, rascalCompilerConfig(pcfg));
+            }
         }
         return true;
     }, totalWork=size(upstreamDependencies));
 
     step("Checking module <l>", 1);
-    msgs += check([l], rascalCompilerConfig(getPathConfig(initialProject)));
+    pcfg = getPathConfig(initialProject);
+    checkOutdatedPathConfig(pcfg);
+    msgs += check(calculateOutdated(modulesPerProject[initialProject], pcfg) + [l], rascalCompilerConfig(pcfg));
     return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
@@ -116,19 +158,45 @@ private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
     }
 }
 
-loc locateRascalModule(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
+private list[loc] calculateOutdated(set[loc] modules, PathConfig pcfg) = [ m | m <- modules, tplExpired(m, pcfg)];
+
+private LanguageFileConfig rascalLFC = fileConfig();
+
+private bool tplExpired(loc m, PathConfig pcfg) {
+    tpl = binFile(srcsModule(m, pcfg, rascalLFC), pcfg, rascalLFC);
+    return !exists(tpl) || lastModified(m) >= lastModified(tpl);
+}
+
+loc pathConfigFile(PathConfig pcfg) = pcfg.bin + "rascal.pathconfig";
+
+void checkOutdatedPathConfig(PathConfig pcfg) {
+    pcfgFile = pathConfigFile(pcfg);
+    try {
+        if (!exists(pcfgFile) || tplInputsChanged(pcfg, readBinaryValueFile(#PathConfig, pcfgFile))) {
+            // We do not know the previous path config, or it changed
+            // Be safe and remove TPLs
+            for (loc f <- find(pcfg.bin, "tpl")) {
+                try {
+                    remove(f);
+                } catch IO(_): {
+                    jobWarning("Cannot remove TPL", f);
+                }
+            }
+            writeBinaryValueFile(pcfgFile, pcfg);
+        }
+    } catch IO(str msg): {
+        jobWarning(msg, pcfg.bin);
+    }
+}
+
+bool tplInputsChanged(PathConfig old, PathConfig new) = old[messages=[]] != new[messages=[]];
+
+set[loc] locateRascalModules(str fqn, PathConfig pcfg, PathConfig(loc file) getPathConfig, set[loc] workspaceFolders) {
     fileName = makeFileName(fqn);
     // Check the source directories
-    for (dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)) {
-        return fileLoc;
-    }
-
+    return {fileLoc | dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)}
     // And libraries available in the current workspace
-    if (lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)) {
-        return fileLoc;
-    }
-
-    throw "Module `<fqn>` not found!";
+         + {fileLoc | lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)};
 }
 
 loc targetToProject(loc l) {
@@ -139,7 +207,21 @@ loc targetToProject(loc l) {
 }
 
 @memo
+@synopsis{Infers the root of the project that `member` is in.}
 loc inferProjectRoot(loc member) {
+    parentRoot = member;
+    root = parentRoot;
+
+    do {
+        root = parentRoot;
+        parentRoot = inferDeepestProjectRoot(root.parent);
+    } while (root.parent? && parentRoot != root.parent);
+    return root;
+}
+
+@synopsis{Infers the longest project root-like path that `member` is in.}
+@pitfalls{Might return a sub-directory of `target/`.}
+loc inferDeepestProjectRoot(loc member) {
     current = targetToProject(member);
     if (!isDirectory(current)) {
         current = current.parent;

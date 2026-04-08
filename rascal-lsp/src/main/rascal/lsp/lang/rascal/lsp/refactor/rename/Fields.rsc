@@ -42,7 +42,7 @@ import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::Collector;
 import analysis::typepal::TModel;
-import analysis::diff::edits::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 
 import Map;
 import util::Maybe;
@@ -143,10 +143,10 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
 }
 
 // Positional fields
-tuple[type[Tree] as, str desc] asType(fieldId(), _) = <#NonterminalLabel, "field name">;
+tuple[type[Tree] as, str desc] asRoleType(fieldId(), _) = <#NonterminalLabel, "field name">;
 
 // Keyword fields
-tuple[type[Tree] as, str desc] asType(keywordFieldId(), _) = <#Name, "keyword field name">;
+tuple[type[Tree] as, str desc] asRoleType(keywordFieldId(), _) = <#Name, "keyword field name">;
 
 bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression _> has <Name n2>`, *_], Renamer _) = (n1 := n2);
 
@@ -174,7 +174,11 @@ void renameAdditionalUses(set[Define] fieldDefs, str newName, TModel tm, Renamer
             if (size(fieldDefs & eFieldDefs) > 0) {
                 fieldName = "<n>";
                 if (fieldName in fieldDefs.id) {
-                    r.textEdit(replace(n.src, newName, annotation = changeAnnotation("Use of `has <fieldName>` on value of <describeFact(getFact(tm, e.src))>", "Due to the dynamic nature of these names, please review these suggested changes.", needsConfirmation = true)));
+                    r.textEdit(replace(n.src, newName,
+                        label = "Use of `has <fieldName>` on value of <describeFact(getFact(tm, e.src))>",
+                        description = "Due to the dynamic nature of these names, please review these suggested changes.",
+                        needsConfirmation = true
+                    ));
                 }
             }
         }

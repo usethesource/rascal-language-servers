@@ -16,5 +16,12 @@
     },
     "message": {
         "$resolver": "message"
+    },
+    "exception": {
+        "$resolver": "exception",
+        "field": "stackTrace",
+        "stackTrace": {
+          "stringified": true
+        }
     }
 }

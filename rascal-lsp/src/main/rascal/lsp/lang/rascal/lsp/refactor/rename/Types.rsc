@@ -32,6 +32,8 @@ import lang::rascal::lsp::refactor::rename::Common;
 
 import lang::rascal::\syntax::Rascal;
 import analysis::typepal::TModel;
+
+import lang::rascalcore::check::ATypeBase;
 import lang::rascalcore::check::BasicRascalConfig;
 import lang::rascalcore::check::Import;
 
@@ -86,10 +88,10 @@ public set[Define] findAdditionalDataLikeDefinitions(set[Define] defs, TModel tm
     };
 }
 
-tuple[type[Tree] as, str desc] asType(aliasId(), _) = <#Name, "type name">;
-tuple[type[Tree] as, str desc] asType(annoId(), _) = <#Name, "annotation name">;
-tuple[type[Tree] as, str desc] asType(dataId(), _) = <#Name, "ADT name">;
-tuple[type[Tree] as, str desc] asType(typeVarId(), _) = <#Name, "type variable name">;
+tuple[type[Tree] as, str desc] asRoleType(aliasId(), _) = <#Name, "type name">;
+tuple[type[Tree] as, str desc] asRoleType(annoId(), _) = <#Name, "annotation name">;
+tuple[type[Tree] as, str desc] asRoleType(dataId(), _) = <#Name, "ADT name">;
+tuple[type[Tree] as, str desc] asRoleType(typeVarId(), _) = <#Name, "type variable name">;
 
 alias Environment = tuple[TModel tm, map[str, loc] defs];
 

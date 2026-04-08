@@ -41,15 +41,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
@@ -60,40 +58,27 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.eclipse.lsp4j.services.NotebookDocumentService;
-import org.rascalmpl.interpreter.NullRascalMonitor;
-import org.rascalmpl.interpreter.utils.RascalManifest;
-import org.rascalmpl.library.lang.json.internal.JsonValueReader;
-import org.rascalmpl.library.lang.json.internal.JsonValueWriter;
+import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
-import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
-import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
-import org.rascalmpl.vscode.lsp.terminal.ITerminalIDEServer.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
-
-import com.google.gson.GsonBuilder;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.type.TypeFactory;
-import io.usethesource.vallang.type.TypeStore;
 
 /**
 * The main language server class for Rascal is build on top of the Eclipse lsp4j library
 */
 @SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public abstract class BaseLanguageServer {
-    private static final @Nullable PrintStream capturedOut;
-    private static final @Nullable InputStream capturedIn;
+    private static final PrintStream capturedOut;
+    private static final InputStream capturedIn;
     private static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
 
@@ -107,8 +92,8 @@ public abstract class BaseLanguageServer {
             System.setOut(new PrintStream(System.err, false)); // wrap stderr with a non flushing stream as that is how std.out normally works
         }
         else {
-            capturedIn = null;
-            capturedOut = null;
+            capturedIn = InputStream.nullInputStream();
+            capturedOut = new PrintStream(OutputStream.nullOutputStream());
         }
         System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
         // Do not overwrite existing settings (e.g. passed by the extension)
@@ -132,7 +117,7 @@ public abstract class BaseLanguageServer {
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
-            .configureGson(BaseLanguageServer::configureGson)
+            .configureGson(GsonUtils.complexAsJsonObject())
             .setExecutorService(threadPool)
             .create();
 
@@ -141,64 +126,52 @@ public abstract class BaseLanguageServer {
         return clientLauncher;
     }
 
-    private static void configureGson(GsonBuilder builder) {
-        JsonValueWriter writer = new JsonValueWriter();
-        JsonValueReader reader = new JsonValueReader(IRascalValueFactory.getInstance(), new TypeStore(), new NullRascalMonitor(), null);
-        writer.setDatesAsInt(true);
-
-        builder.registerTypeHierarchyAdapter(IValue.class, new TypeAdapter<IValue>() {
-            @Override
-            public IValue read(JsonReader source) throws IOException {
-                return reader.read(source, TypeFactory.getInstance().valueType());
-            }
-
-            @Override
-            public void write(JsonWriter target, IValue value) throws IOException {
-                writer.write(target, value);
-            }
-        });
-    }
-
     private static void printClassPath() {
         logger.trace("Started with classpath: {}", () -> System.getProperty("java.class.path"));
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(ExecutorService threadPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
         if (DEPLOY_MODE) {
-            var docService = docServiceProvider.apply(threadPool);
-            var wsService = workspaceServiceProvider.apply(threadPool, docService);
+            var docService = docServiceProvider.apply(workerPool);
+            var wsService = workspaceServiceProvider.apply(workerPool, docService);
             docService.pair(wsService);
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), threadPool, docService, wsService), threadPool));
+            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
-                    var docService = docServiceProvider.apply(threadPool);
-                    var wsService = workspaceServiceProvider.apply(threadPool, docService);
+                    var docService = docServiceProvider.apply(workerPool);
+                    var wsService = workspaceServiceProvider.apply(workerPool, docService);
                     docService.pair(wsService);
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, threadPool, docService, wsService), threadPool));
+                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
                 }
             } catch (IOException e) {
-                logger.fatal("Failure to start TCP server", e);
+                logger.fatal("Failure to start TCP server on port {}", portNumber, e);
             }
         }
     }
 
+    private static final String DEFAULT_VERSION = "unknown";
+
     private static String getVersion() {
-        try (InputStream prop = ActualLanguageServer.class.getClassLoader().getResourceAsStream("project.properties")) {
+        try (InputStream prop =  ActualLanguageServer.class.getClassLoader().getResourceAsStream("project.properties")) {
+            if (prop == null) {
+                logger.error("Could not find project.properties file");
+                return DEFAULT_VERSION;
+            }
             Properties properties = new Properties();
             properties.load(prop);
-            return properties.getProperty("rascal.lsp.version", "unknown") + " at "
-                + properties.getProperty("rascal.lsp.build.timestamp", "unknown");
+            return properties.getProperty("rascal.lsp.version", DEFAULT_VERSION) + " at "
+                + properties.getProperty("rascal.lsp.build.timestamp",DEFAULT_VERSION);
         }
         catch (IOException e) {
             logger.debug("Cannot find lsp version", e);
-            return "unknown";
+            return DEFAULT_VERSION;
         }
     }
 
@@ -220,14 +193,13 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer  implements IBaseLanguageServerExtensions, LanguageClientAware {
+    private static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
-        private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
         private final ExecutorService executor;
-        private IDEServicesConfiguration ideServicesConfiguration;
+        private @MonotonicNonNull IDEServicesConfiguration remoteIDEServicesConfiguration;
 
         private ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
@@ -237,60 +209,17 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<IDEServicesConfiguration> supplyIDEServicesConfiguration() {
-            if (ideServicesConfiguration != null) {
-                return CompletableFuture.completedFuture(ideServicesConfiguration);
+        public CompletableFuture<IDEServicesConfiguration> supplyRemoteIDEServicesConfiguration() {
+            if (remoteIDEServicesConfiguration == null) {
+                return CompletableFuture.failedFuture(new IllegalStateException("No RemoteIDEServices configuration is set"));
             }
-
-            throw new RuntimeException("no IDEServicesConfiguration is set?");
-        }
-
-        private static String[] classLoaderFiles(IList source) {
-            return source.stream()
-                .map(ISourceLocation.class::cast)
-                .filter(e -> e.getScheme().equals("file"))
-                .map(e -> e.getPath())
-                .toArray(String[]::new);
-        }
-
-        @Override
-        public CompletableFuture<String[]> supplyProjectCompilationClasspath(URIParameter projectFolder) {
-            return CompletableFuture.supplyAsync(() -> {
-                try {
-                    if (projectFolder.getUri() == null) {
-                        return classLoaderFiles(IRascalValueFactory.getInstance().list(PathConfig.resolveCurrentRascalRuntimeJar()));
-                    }
-
-                    var isRascal = new AtomicBoolean();
-                    PathConfig pcfg = findPathConfig(projectFolder.getLocation(), RascalConfigMode.INTERPRETER, isRascal);
-                    return classLoaderFiles(isRascal.get() ? pcfg.getLibs() : pcfg.getLibsAndTarget());
-                }
-                catch (IOException | URISyntaxException e) {
-                    logger.catching(e);
-                    throw new CompletionException(e);
-                }
-            }, executor);
-        }
-
-        private static PathConfig findPathConfig(ISourceLocation path, RascalConfigMode mode, AtomicBoolean isRascal) throws IOException {
-            if (!reg.isDirectory(path)) {
-                path = URIUtil.getParentLocation(path);
-            }
-
-            isRascal.set(false);
-
-            ISourceLocation projectDir = PathConfig.inferProjectRoot(path);
-            if (projectDir == null) {
-                throw new IOException("Project of file |" + path.toString() + "| is missing a `META-INF/RASCAL.MF` file!");
-            }
-            isRascal.set(new RascalManifest().getProjectName(projectDir).equals("rascal"));
-            return PathConfig.fromSourceProjectRascalManifest(projectDir, mode, true);
+            return CompletableFutureUtils.completedFuture(remoteIDEServicesConfiguration, executor);
         }
 
         private static URI[] toURIArray(IList src) {
             return src.stream()
                 .map(ISourceLocation.class::cast)
-                .map(ISourceLocation::getURI)
+                .map(Locations::toUri)
                 .toArray(URI[]::new);
         }
 
@@ -327,7 +256,7 @@ public abstract class BaseLanguageServer {
                 logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
                 logger.debug("LSP client capabilities: {}", params.getCapabilities());
                 final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
-                lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
+                lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
                 lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
                 logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
                 return initializeResult;
@@ -348,7 +277,7 @@ public abstract class BaseLanguageServer {
         public CompletableFuture<Object> shutdown() {
             return CompletableFuture.supplyAsync(() -> {
                 lspDocumentService.shutdown();
-                return null;
+                return true;
             }, executor);
         }
 
@@ -368,11 +297,6 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public NotebookDocumentService getNotebookDocumentService() {
-            return null; // can be removed after lsp4j v0.16.0 is released (https://github.com/eclipse/lsp4j/issues/658)
-        }
-
-        @Override
         public void setTrace(SetTraceParams params) {
             logger.trace("Got trace request: {}", params);
             // TODO: handle this trace level
@@ -381,9 +305,10 @@ public abstract class BaseLanguageServer {
         @Override
         public void connect(LanguageClient client) {
             var actualClient = (IBaseLanguageClient) client;
-            this.ideServicesConfiguration = IDEServicesThread.startIDEServices(actualClient, lspDocumentService, lspWorkspaceService);
             lspDocumentService.connect(actualClient);
             lspWorkspaceService.connect(actualClient);
+            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
+            logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
 
         @Override

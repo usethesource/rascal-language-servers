@@ -25,13 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { assert } from "chai";
+import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
-import path = require("path");
-import { env } from "process";
-import { BottomBarPanel, By, CodeLens, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 import * as os from 'os';
-import { expect } from 'chai';
+import { env } from "process";
+import { BottomBarPanel, By, CodeLens, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import path = require("path");
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -62,12 +61,14 @@ export class TestWorkspace {
     public static readonly libCallFileTpl = path.join(target(this.testProject),'$LibCall.tpl');
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
     public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
+    public static readonly manifest = path.join(this.testProject, "META-INF", "RASCAL.MF");
 
     public static readonly importerFile = path.join(src(this.testProject), 'Importer.rsc');
     public static readonly importeeFile = path.join(src(this.testProject), 'Importee.rsc');
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
     public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
+    public static readonly picoCallsFile = path.join(src(this.testProject, 'pico'), 'calls.pico');
 }
 
 
@@ -270,6 +271,10 @@ export class IDEOperations {
         return this.hasElement(editor, By.css('[class*="dyn-rule"'), timeout, message);
     }
 
+    hasLink(editor: TextEditor, timeout = Delays.normal, message = "Missing link") {
+        return this.hasElement(editor, By.css('[class~="detected-link"]'), timeout, message);
+    }
+
     revertOpenChanges(): Promise<void> {
         let tryCount = 0;
         return this.driver.wait(async () => {
@@ -277,8 +282,9 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                this.screenshot("revert failed " + tryCount);
-                console.log("Revert failed, but we ignore it", ex);
+                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                this.screenshot(`revert of ${title} failed ` + tryCount);
+                console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
             try {
                 let anyEditor = true;
@@ -294,7 +300,7 @@ export class IDEOperations {
             }
             catch (ignored) {
                 this.screenshot("open editor check failed " + tryCount);
-                console.log("Open editor dirtry check failed: ", ignored);
+                console.log("Open editor dirty check failed: ", ignored);
                 return false;
 
             }
@@ -312,12 +318,18 @@ export class IDEOperations {
         }, Delays.normal, "Could not open file") as Promise<TextEditor>;
     }
 
+    async appendSpace(editor: TextEditor, line = 1) {
+        const prompt = await new Workbench().openCommandPrompt();
+        await prompt.setText(`:${line},10000`);
+        await prompt.confirm();
+        await editor.typeText(' ');
+    }
+
     async triggerTypeChecker(editor: TextEditor, { checkName = "Rascal check", waitForFinish = false, timeout = Delays.verySlow, tplFile = "" } = {}) {
-        const lastLine = await editor.getNumberOfLines();
         if (tplFile) {
             await ignoreFails(unlink(tplFile));
         }
-        await editor.setTextAtLine(lastLine, await editor.getTextAtLine(lastLine) + " ");
+        await this.appendSpace(editor);
         await sleep(50);
         await editor.save();
         if (waitForFinish) {
@@ -440,6 +452,23 @@ export class IDEOperations {
             `${String(this.screenshotSeqNumber++).padStart(4, '0')}-` + // Make sorting screenshots chronologically in VS Code easier
             name.replace(/[/\\?%*:|"<>]/g, '-'));
     }
+
+    async newUntitledFile(bench: Workbench, driver: WebDriver, expectedSuffix: number | undefined = undefined): Promise<TextEditor> {
+        const untitledPref = "Untitled-";
+        const titleCondition = (title: string) => expectedSuffix === undefined
+            ? title.startsWith(untitledPref)
+            : title === `${untitledPref}${expectedSuffix}`;
+
+        await bench.executeCommand("workbench.action.files.newUntitledFile");
+        return (await driver.wait(async () => {
+            const editor = new TextEditor();
+            const title = await ignoreFails(editor.getTitle());
+            if (title && titleCondition(title)) {
+                return editor;
+            }
+            return undefined;
+        }, Delays.normal, `Could not open untitled file${expectedSuffix !== undefined ? ` ${untitledPref}${expectedSuffix}` : ""}`))!;
+    }
 }
 
 
@@ -501,4 +530,12 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             }
         }
     });
+}
+
+export async function expectCompletions(editor: TextEditor, expectedLabels: string[]) {
+    const completionMenu = new ContentAssist(editor);
+    const completions = await completionMenu.getItems();
+    expect(completions).to.have.length(expectedLabels.length);
+    const labels: string[] = await Promise.all(completions.map(c => c.getLabel()));
+    expect(labels).to.deep.equal(expectedLabels);
 }

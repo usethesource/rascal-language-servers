@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @description{
 The core functionality of this module is built upon these concepts:
 * ((registerLanguage)) for enabling your language services for a given file extension _in the current IDE_.
-* ((Language)) is the data-type for defining a language, with meta-data for starting a new LSP server.
+* ((LanguageServer-Language)) is the data-type for defining a language, with meta-data for starting a new LSP server.
 * A ((LanguageService)) is a specific feature for an IDE. Each service comes with one Rascal function that implements it.
 }
 module demo::lang::pico::LanguageServer
@@ -39,7 +39,7 @@ import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
-import lang::pico::\syntax::Main;
+extend lang::pico::\syntax::Main;
 import lang::pico::format::Formatting;
 import DateTime;
 import IO;
@@ -51,6 +51,16 @@ extend lang::box::util::Tree2Box;
 import lang::box::util::Box2Text;
 import analysis::diff::edits::HiFiLayoutDiff;
 
+// We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
+// For most use-cases, one should not extend the grammar in the language server implementation
+syntax IdType
+    = function: Id id "(" {IdType ","}* args ")" ":" Type retType ":=" Expression body
+    ;
+
+syntax Expression
+    = call: Id id "(" {Expression ","}* args ")"
+    ;
+
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
 }
@@ -59,7 +69,7 @@ private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
 @description{
 Each ((LanguageService)) for pico is implemented as a function.
 Here we group all services such that the LSP server can link them
-with the ((Language)) definition later.
+with the ((LanguageServer-Language)) definition later.
 }
 set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
@@ -72,6 +82,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
+    callHierarchy(picoPrepareCallHierarchy, picoCallsService),
+    completion(picoCompletionService, additionalTriggerCharacters = ["="]),
     formatting(picoFormattingService)
 };
 
@@ -136,7 +148,7 @@ symbol search in the editor.
 }
 list[DocumentSymbol] picoDocumentSymbolService(start[Program] input)
   = [symbol("<input.src>", DocumentSymbolKind::\file(), input.src, children=[
-      *[symbol("<var.id>", \variable(), var.src) | /IdType var := input, var.id?]
+      *[symbol("<var.id>", var is function ? \function() : \variable(), var.src) | /IdType var := input, var.id?]
   ])];
 
 @synopsis{The analyzer maps pico syntax trees to error messages and references}
@@ -151,15 +163,30 @@ data PicoSummarizerMode
     | build()
     ;
 
+rel[DocumentSymbolKind, loc, Id, str] findDefinitions(Tree input, bool funcScope = false) {
+    rel[DocumentSymbolKind, loc, Id, str] defs = {};
+    top-down-break visit (input) {
+        case var:(IdType) `<Id id>: <Type _>`: defs += <funcScope ? constant() : variable(), var.src, id, typeOf(var)>;
+        case func:(IdType) `<Id id>(<{IdType ","}* args>): <Type _> := <Expression _>`: {
+            defs += <function(), func.src, id, typeOf(func)>;
+            defs += findDefinitions(args, funcScope = true);
+        }
+    }
+    return defs;
+}
+
+data Summary(rel[DocumentSymbolKind, loc, Id, str] definitionsByKind = {});
+
 @synopsis{Translates a pico syntax tree to a model (Summary) of everything we need to know about the program in the IDE.}
 Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode) {
     Summary s = summary(l);
 
     // definitions of variables
-    rel[str, loc] defs = {<"<var.id>", var.src> | /IdType var := input, var.id?};
+    s.definitionsByKind = findDefinitions(input);
+    rel[str, loc] defs = {<"<id>", d> | <d, id> <- s.definitionsByKind<1, 2>};
 
     // uses of identifiers
-    rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input};
+    rel[loc, str] uses = {<id.src, "<id>"> | /Id id := input, id notin s.definitionsByKind<2>};
 
     // documentation strings for identifier uses
     rel[loc, str] docs = {<var.src, "*variable* <var>"> | /IdType var := input};
@@ -180,7 +207,7 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     // Provide warnings (expensive to compute) only in build mode
     if (build() := mode) {
         rel[loc, str] asgn = {<id.src, "<id>"> | /Statement stmt := input, (Statement) `<Id id> := <Expression _>` := stmt};
-        s.messages += {<src, warning("<id> is not assigned", src)> | <id, src> <- defs, id notin asgn<1>};
+        s.messages += {<src, warning("<id> is not assigned", src)> | <src, id, _> <- s.definitionsByKind[variable()], "<id>" notin asgn<1>};
     }
 
     return s;
@@ -194,18 +221,19 @@ set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.s
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
-    = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
+    = [CodeAction::action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
 list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program])
-    = [action(command=removeDecl(program, x, title="remove <x>"))];
+    = [CodeAction::action(command=removeDecl(program, x, title="remove <x>"))];
 
 default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 
-@synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
+@synsopsis{Defines example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
   = renameAtoB(start[Program] program)
   | removeDecl(start[Program] program, IdType toBeRemoved)
+  | testValueEncoding()
   ;
 
 @synopsis{Adds an example lense to the entire program.}
@@ -232,6 +260,19 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
     return ("result": true);
 }
+
+@synopsis{Command handler to test JSON serialization of various Rascal value types.}
+value picoExecutionService(testValueEncoding()) = (
+    "result": [ // list
+        ("a": true), // map, str, bool
+        {8, 1r2, 3.14, 10e3}, // set, int, rat, real
+        char(0), // ADT constructor
+        reposition(parse(#IdType, "x: string"), file = |test:///expectation|), // Tree
+        |memory://authority/file.ext|, // loc
+        $2026-03-19T11:55:54.121+0100$, // datetime
+        <[1..3], #int> // tuple, range, reified type
+    ]
+);
 
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
@@ -274,6 +315,77 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 list[loc] picoSelectionRangeService(Focus focus)
     = dup([t@\loc | t <- focus]);
 
+list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression) `<Id callId>(<{Expression ","}* _>)`, *_, start[Program] prog]) {
+    s = picoSummaryService(prog.src.top, prog, analyze());
+    return [ callHierarchyItem(prog, id, d, tp)
+        | d <- s.definitions[callId.src]
+        , <id, tp> <- s.definitionsByKind[function(), d]
+    ];
+}
+
+list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _: [*_, d:(IdType) `<Id _>(<{IdType ","}* _>): <Type _> := <Expression _>`, *_, start[Program] prog])
+    = [callHierarchyItem(prog, d)];
+
+default list[CallHierarchyItem] picoPrepareCallHierarchy(Focus _) = [];
+
+CallHierarchyItem callHierarchyItem(start[Program] prog, Id id, loc decl, str tp)
+    = callHierarchyItem("<id>", function(), decl, id.src, detail = tp, \data = \data(prog));
+
+CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* _>): <Type _> := <Expression _>`)
+    = callHierarchyItem("<id>", function(), d.src, id.src, detail = typeOf(d), \data = \data(prog));
+
+data CallHierarchyData = \data(start[Program] prog);
+
+str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
+str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
+    = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
+
+lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirection dir) {
+    s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
+    calls = [];
+    for (<d, id, t> <- s.definitionsByKind[function()]) {
+        newItem = callHierarchyItem(ci.\data.prog, id, d, t);
+        <caller, callee> = dir is incoming
+            ? <newItem, ci>
+            : <ci, newItem>
+            ;
+        for (use <- s.references[callee.src], isContainedIn(use, caller.src)) {
+            calls += <newItem, use>;
+        }
+    };
+
+    return calls;
+}
+
+list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, CompletionTrigger trigger) {
+    t = focus[0];
+    str prefix = "<t>"[..cursorOffset];
+    cc = t.src.begin.column + cursorOffset;
+    items = [];
+
+    isTypingId = false;
+    try {
+        if (prefix != "" && trim(prefix) == prefix) {
+            parse(#Id, prefix);
+            isTypingId = true;
+        }
+    } catch ParseError(_): {;}
+
+    top-down-break visit (focus[-1]) {
+        case IdType def: {
+            name = "<def.id>";
+            if (!isTypingId || startsWith(name, prefix)) {
+                e = isTypingId && !trigger is character
+                    ? completionEdit(t.src.begin.column, cc, t.src.end.column, name)
+                    : completionEdit(cc, cc, cc, name);
+                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeOf(def)>");
+            }
+        }
+    }
+
+    return items;
+}
+
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
 Register the Pico language and the contributions that supply the IDE with features.
@@ -281,6 +393,11 @@ Register the Pico language and the contributions that supply the IDE with featur
 ((registerLanguage)) is called twice here:
 1. first for fast and cheap contributions
 2. asynchronously for the full monty that loads slower
+
+The `errorRecovery` parameter can be set to `true` to enable error recovery in the parser.
+When enabled, all the contributions in this file will mostly work when parse errors are
+present in the input because the contributions are written to be robust
+in the presence of error trees. See ((util::LanguageServer)) for more details.
 }
 @benefits{
 * You can run each contribution on an example in the terminal to test it first.

@@ -27,50 +27,64 @@
 package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lists;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
-import org.rascalmpl.vscode.lsp.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileFacts {
     private static final Logger logger = LogManager.getLogger(FileFacts.class);
     private final Executor exec;
     private final RascalLanguageServices rascal;
-    private volatile @MonotonicNonNull LanguageClient client;
+    private final LanguageClient client;
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
     private final PathConfigs confs;
+    private final FileFact nopFact;
 
-    public FileFacts(Executor exec, RascalLanguageServices rascal, ColumnMaps cm) {
+    public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
         this.rascal = rascal;
+        this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs();
+        this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
+        this.nopFact = new FileFact() {
+            @Override public void reportParseErrors(List<Diagnostic> msgs) { /* NOP */}
+            @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void invalidate() { /* NOP */ }
+            @Override public void close() { /* NOP */ }
+            @Override public void clearDiagnostics() { /* NOP */ }
+
+            @Override
+            public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+                return CompletableFutureUtils.completedFuture(null, exec);
+            }
+        };
     }
 
-    public void setClient(LanguageClient client) {
-        this.client = client;
+    public void projectRemoved(ISourceLocation projectLocation) {
+        confs.expungePathConfig(projectLocation);
     }
 
     public void invalidate(ISourceLocation file) {
@@ -88,45 +102,76 @@ public class FileFacts {
     private FileFact getFile(ISourceLocation l) {
         l = l.top();
         ISourceLocation resolved = Locations.toClientLocation(l);
-        if (resolved == null) {
-            resolved = l;
+        var fact = files.get(resolved);
+        if (fact != null) {
+            return fact;
         }
-        return files.computeIfAbsent(resolved, l1 -> new FileFact(l1, exec));
+
+        if (URIResolverRegistry.getInstance().exists(resolved)) {
+            // The file exists, so there should be facts.
+            // Someone might have raced past us, so we atomically check(again)-and-update and return the result.
+            return files.computeIfAbsent(resolved, loc -> new ActualFileFact(loc, exec));
+        }
+
+        // Return dummy facts without modifying the map.
+        return nopFact;
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
         return confs.lookupConfig(file);
     }
 
-    private class FileFact {
+    public void close(ISourceLocation file) {
+        getFile(file).close();
+    }
+
+    private @Nullable FileFact remove(ISourceLocation file) {
+        var removed = files.remove(file.top());
+        if (removed != null) {
+            removed.clearDiagnostics();
+        }
+        return removed;
+    }
+
+    private interface FileFact {
+        void reportParseErrors(List<Diagnostic> msgs);
+        void reportTypeCheckerErrors(List<Diagnostic> msgs);
+        CompletableFuture<@Nullable SummaryBridge> getSummary();
+        void invalidate();
+        void close();
+        void clearDiagnostics();
+    }
+
+    private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
         private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
         private volatile List<Diagnostic> parseMessages = Collections.emptyList();
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
-        public FileFact(ISourceLocation file, Executor exec) {
+        public ActualFileFact(ISourceLocation file, Executor exec) {
             this.file = file;
-            this.typeCheckResults = new ReplaceableFuture<>(CompletableFuture.completedFuture(Collections.emptyMap()));
+            this.typeCheckResults = ReplaceableFuture.completedFuture(Collections.emptyMap(), exec);
             this.summary = new LazyUpdateableReference<>(
-                new InterruptibleFuture<>(CompletableFuture.completedFuture(new SummaryBridge()), () -> {
-                }),
+                InterruptibleFuture.completedFuture(new SummaryBridge(), exec),
                 r -> {
                     r.interrupt();
-                    InterruptibleFuture<@Nullable SummaryBridge> summaryCalc = rascal.getSummary(file, confs.lookupConfig(file))
-                        .thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
-                    // only run get summary after the typechecker for this file is done running
+                    // only run get summary after the typechecker for this file is done running, because it needs the TPL
                     // (we cannot now global running type checkers, that is a different subject)
-                    CompletableFuture<@Nullable SummaryBridge> mergedCalc = typeCheckResults.get().thenCompose(o -> summaryCalc.get());
-                    return new InterruptibleFuture<>(mergedCalc, summaryCalc::interrupt);
+                    return InterruptibleFuture.flatten(typeCheckResults.get()
+                        .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, confs.lookupConfig(file))), exec)
+                        .<@Nullable SummaryBridge>thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
                 });
         }
 
+        @Override
         public void reportParseErrors(List<Diagnostic> msgs) {
             parseMessages = msgs;
             sendDiagnostics();
         }
-        private void reportTypeCheckerErrors(List<Diagnostic> msgs) {
+
+        @Override
+        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
             typeCheckerMessages = msgs;
             sendDiagnostics();
         }
@@ -138,15 +183,16 @@ public class FileFacts {
             }
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
-                file.getURI().toString(),
+                Locations.toUri(file).toString(),
                 Lists.union(typeCheckerMessages, parseMessages)));
         }
 
-
+        @Override
         public CompletableFuture<@Nullable SummaryBridge> getSummary() {
             return summary.get().get();
         }
 
+        @Override
         public void invalidate() {
             summary.invalidate();
             typeCheckerMessages.clear();
@@ -156,5 +202,22 @@ public class FileFacts {
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
         }
 
+        @Override
+        public void close() {
+            if ((parseMessages.isEmpty() && typeCheckerMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
+                // If there are no messages for this file or the file has been deleted, can we remove it
+                // else VS Code comes back and we've dropped the messages in our internal data
+                files.remove(file);
+            }
+        }
+
+        @Override
+        public void clearDiagnostics() {
+            summary.invalidate();
+            typeCheckerMessages.clear();
+            typeCheckResults.replace(CompletableFutureUtils.completedFuture(Map.of(), exec));
+            client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), List.of()));
+        }
     }
+
 }

@@ -1,40 +1,102 @@
 # Release Notes
 
-We only list significant changes, for a full changelog [please review the commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
+We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
+
+## 0.13.3
+
+Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
+
+* fixed a regession in JSON encoding of rascal action results & parameters
+* fixed the race that sometimes broke go-to definition and other type-checker derived operations
+
+## 0.13.2
+
+Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
+
+* upgraded to rascal 0.42.1 which contains a bugfix for missing overloads
+* fixed a bug where `readFile` inside of a repl would fail if the file was open in the IDE
+* fixed issues with language registry for languages that didn't register all supported services and issues specific to deployment mode
+* Fixed an issue where language features would not work if certain arguments were not set.
+  * Parsing would not work for languages without `parsing::useSpecialCaseHighlighting`.
+  * Completion would not work for languages without `completion::additionalTriggerCharacters`.
+* various small fixes
+
+## 0.13.1
+
+Works best with Rascal 0.42.0 (and rascal-maven-plugin 0.31.0). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
+
+### New Features for Rascal Developers
+
+* Project `target` folders, containing binaries, are now excluded from search results by default to prevent duplicate results. The IDE provides a quick-fix to help configuring existing projects.
+
+### New features for DSL developers
+
+* DSLs can contribute their own code completion using the `LanguageService::completion` contribution.
+
+### Improved features
+
+* There is now a setting to influence how much memory is allocated for the Rascal and Parametric LSP servers (`rascal.lSP.maxHeapSize`).
+* Automatic renaming of module names when moving files have been improved for escaped names.
+* Automatic renaming of module names when moving files is now a lot faster in many cases.
+* Various improvements for multi-project workspaces.
+* Various performance & reliability improvements.
+
+### Rascal 0.42.0 highlights
+
+Below is a summary of the [full release-notes for rascal 0.42.x](https://www.rascal-mpl.org/release-notes/rascal-0-42-x-release-notes/).
+
+* Many improvements to the type-checker and the messages it produces.
+* The interpreter is more robust when importing/extending complex module structures.
+* The REPL betters supports (re)loading of modules.
+* The debugger has gained many new features, improving the debugging experience.
 
 ## 0.13.0
+
+Works best with Rascal 0.41.2 (and rascal-maven-plugin 0.30.3). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
 
 ### New Features for Rascal Developers
 
 * Rascal parsers now support error recovery. This is the first release that enables it: you get more syntax highlighting and other features even in the presence of syntax errors.
 * Rascal code that reads or writes to files open in the editor is now redirected to the editor contents instead of the state on disk (this aligns with the LSP specification).
-* Type checker now works correctly with multi-project workspaces. Users do not have to trigger the type checker in "higher-up" projects by hand anymore.
+* The type checker now works correctly with multi-project workspaces. Users do not have to trigger the type checker in "higher-up" projects by hand anymore.
+* The type checker now aborts early when required modules have parse errors.
 * Long-running jobs (such as the type checker) can now be interrupted.
 * Rascal has better selection ranges support such that you can grow/shrink your selection based on the Rascal syntax.
 * We have migrated to [LogOutputChannels](https://code.visualstudio.com/updates/v1_72#_log-output-channel) such that users can combine, filter, and configure Rascal's output channels.
+* Copy file path as Rascal location from the explorer context menu.
 
 ### New Features for DSL Developers
 
-* Error recovery support for DSLs is opt-in (the parse function should be constructed with `allowRecovery=true`); your code might have to be updated to deal with these trees with skipped/ambiguous parts.
+* Error recovery support for DSLs is opt-in (the parse function should be constructed with `allowRecovery=true`); your code might have to be updated to deal with error trees with skipped/ambiguous parts.
 * DSLs can contribute their own rename refactoring using the `LanguageService::rename` contribution.
 * DSLs can contribute their own selection ranges using the `LanguageService::selectionRange` contribution.
+* DSLs can contribute their own call hierarchies using the `LanguageServer::callHierachy` contribution.
+* DSLs can extend text edits with labels and descriptions, and mark them as requiring user confirmation, using keyword parameters (`str label`, `str description`, `bool needsConfirmation`). See `util::LanguageServer::TextEdit`.
 
+For more details, please refer to the documentation in the source code of `util::LanguageServer`, or the [rendered documentation page](https://www.rascal-mpl.org/docs/Packages/org.rascalmpl.rascal-lsp/Library/util/LanguageServer/).
 
 ### Improved features
 
 * Reimplemented rename using a new framework (available in TypePal). It is faster, has better error messages, now also tracks file renames, and supports many more edge cases.
-* The Rascal type checker has better messages, is more accurate, and in some cases is a bit faster.
-* Document symbols are more robust (used in Outline and when quickly navigating between symbols in the editor).
+* The Rascal type checker has better messages, is more accurate, and in some cases is a bit faster. Note that while the typechecker has become stricter the interpreter will still run your code as before.
+* Document symbols (used in the outline and when quickly navigating between symbols in the editor) are more robust.
+* Hover hints now belong to the smallest expression under the cursor.
 * UX tweaks: better error messages, many debug/internal messages have been removed, and improved progress reporting.
 * Hover and Go to Definition are more accurate due to bugfixes in internal data structures.
-* Improved documentation of `LanguageService`.
+* Improved documentation of `util::LanguageServer`.
+* Git diff viewers, untitled files and other virtual documents are better supported for DSLs.
+* Files without an extension are now associated with a DSL when there is only one registered.
+* Various performance & reliability improvements.
 
-### Rascal 0.41.0 highlights
+### Rascal 0.41.2 highlights
+
+Below is a summary of the [full release-notes for rascal 0.41.x](https://www.rascal-mpl.org/release-notes/rascal-0-41-x-release-notes/).
 
 * A completely new REPL implementation with:
   * multi-line editing
   * better completion support
   * parse error highlighting
+  * better module reloading behavior & feedback
   * much more
 * `Require-Libraries` from `RASCAL.MF` is not used anymore. Instead, `pom.xml` is the only place where you define dependencies.
 * We no longer call Maven, but have our own implementation to extract information from `pom.xml`. This has resulted in faster REPL starts and better error messages.
@@ -42,12 +104,13 @@ We only list significant changes, for a full changelog [please review the commit
 * `IO` has new features, such as `isReadable` and `isWritable`, and the `watch` feature has better support for macOS.
 * Various performance improvements.
 * `Message` has an optional `causes` field that can be used to report extra locations to VS Code.
+* The debugger has gained many new features, improving the debugging experience.
 
 ### Extension developers
 
 * We've moved to Node 20. VS Code has switched since 1.90, and the Node 18 support of some of our dependencies has been deprecated for a while. This will mean having to upgrade your own extension as well.
 
-### 0.12.2
+## 0.12.2
 
 * Debug and Debug side bar got a new view that lists active REPLs and allows the user to start a debugging session for it
 * Bugfixes:
@@ -55,13 +118,14 @@ We only list significant changes, for a full changelog [please review the commit
   * Improved the performance of rename on large Rascal files
 
 ## 0.12.1
-* The type-checker got a lot faster, especially if you're editing a single file in a larger project.
+
+* The type checker got a lot faster, especially if you're editing a single file in a larger project.
 * Various bugfixes in:
     * The rename functionality
     * The code actions
-    * The type-checker
+    * The type checker
 
-### 0.12.0
+## 0.12.0
 
 * New feature: The "Rename Symbol" command (default: `F2`) is now supported for all identifiers in Rascal modules. Renaming is safe, so the semantics of Rascal code before/after renaming is the same.
 * New feature: Code Actions (default: `CTRL+.`) are now supported in Rascal modules to analyze and transform code (e.g.: visualization of import graphs; simplification of functions). Code Actions can also be defined for DSLs.
@@ -97,17 +161,17 @@ We only list significant changes, for a full changelog [please review the commit
   * New feature: Project setups are now checked for common errors.
   * Fixed "Start Rascal Terminal and Import this module" command
 
-### 0.11.2
+## 0.11.2
 
 * bumping to rascal 0.34.2:
   * improved heuristic of json mapping for an empty map
   * fixed bugs related to grammar fusing for modules with extends & imports
 
-### 0.11.1
+## 0.11.1
 
 * bugfix for syntax highlighting categories
 
-### 0.11.0
+## 0.11.0
 
 * there is a new "Rascal Configuration" view that shows the resolved dependencies per project xml, and allows you to browse the rascal sources inside of those.
 * the `summarizer` contribution for DSLs has been replaced by `analyzer` and `builder`. Please review your language setup and migrate to builders (only on save), and analyzer (every change in the IDE). We have tried to keep the behavior as close to the original summarizer, but it will not be triggered on-demand anymore.
@@ -118,16 +182,16 @@ We only list significant changes, for a full changelog [please review the commit
   * We have a new and improved version of the rascal logo
   * downstream dependencies were updated to the latest version
 
-### 0.10.2
+## 0.10.2
 
 * upgrading to rascal 0.34.1 to fix a regression in concrete syntax
 * the REPL is marked as non-transient, until we can properly reconnect it after a reload of the window
 
-### 0.10.1
+## 0.10.1
 
 * bugfix for preloaded parsers
 
-### 0.10.0
+## 0.10.0
 
 * the automatic JVM downloader will now prompt you for updates if they are available
 * Every REPL now gets named after the project they are connected to
@@ -141,11 +205,11 @@ We only list significant changes, for a full changelog [please review the commit
   * fixed a bug where changes in a pom.xml would only be visible after a VS Code restart. Now it only takes a restart of the REPL. (or re-trigger the type checker)
   * fixed a bug where we would register schema's that were already registered (zip error message in the debug console)
 
-### 0.9.1
+## 0.9.1
 
 * Bugfix for working directory of REPLs
 
-### 0.9.0
+## 0.9.0
 
 * Webviews opened from Rascal can now have a title and view column
 * There is now a setting to influence how much memory a REPL gets allocated (`rascal.interpreter.maxHeapSize` & `rascal.interpreter.stackSize`).
@@ -156,23 +220,23 @@ We only list significant changes, for a full changelog [please review the commit
   * Various bugfixes
 * This release includes an "easter egg"; an experimental debugger for Rascal which is currently under test.
 
-### 0.8.3
+## 0.8.3
 
 * upgraded to rascal 0.33.5:
   * Fixed a second bug aroung ModuleParserStorage
   * Preparing for debugger API
-### 0.8.2
+## 0.8.2
 
 * Upgraded to rascal 0.33.3:
   * Fixed a bug around ModuleParserStorage (see `lang::rascal::grammar::storage::ModuleParserStorage`)
   * Bugfixes with the lib resolver
   * New feature: `IO::findResources` that replaces some functionality that people used the `lib://` scheme for.
 
-### 0.8.1
+## 0.8.1
 
 * Bugfix release for regression in typechecker introduced in v0.8.0
 
-### 0.8.0
+## 0.8.0
 
 * This release comes with rascal 0.32.0 which features:
    * In ParseTree, `storeParsers` and `loadParsers` offer a way to skip loading and executing a parser generator after deployment. Parsers can be stored in an opaque binary format that is very quickly loaded again and wrapped as a Rascal function with the same interface as what the `parsers` function generates.
@@ -198,7 +262,7 @@ We only list significant changes, for a full changelog [please review the commit
    * Checks in RASCAL.MF files have been extended and improved.
    * Loading of classes from dependent projects has improved in the VScode terminal and the language-parametrized LSP; there was a bug which caused arbitrary jar files to be loaded instead of the ones declared in the `pom.xml`. Usually the last dependency in the pom file "won". This also means that `lib://myDependency` would sometimes implicitly resolve to `lib://myLaterDependency` and throw IO exceptions and `exists` tests set to `false`.
 
-### 0.7.0
+## 0.7.0
 
 * Fixes issues with IDEServices::registerDiagnostics where only the first error would be registered.
 * Fixes issue with Rascal library loading where Rascal source files where loaded in a different order from the path than their accompanied .class files.
@@ -210,15 +274,15 @@ We only list significant changes, for a full changelog [please review the commit
 * Several minor issues.
 * Added more validation features for RASCAL.MF files.
 
-### 0.6.3
+## 0.6.3
 
 * bugfix for writes to VS Code virtual file systems initiated from rascal (only first 8KB of the write was correctly transferred)
 
-### 0.6.2
+## 0.6.2
 
 * Bugfix for RASCAL.MF validator ([#225](https://github.com/usethesource/rascal/issues/225))
 
-### 0.6.1
+## 0.6.1
 
 * bumped rascal to 0.28.3 for performance fixes around maven and various bugfixes
 * typechecking with latest 0.14.6 version of rascal-maven-plugin (and using linked rascal-library) to avoid outdated typepal files
@@ -226,19 +290,19 @@ We only list significant changes, for a full changelog [please review the commit
 * Bugfix for automatic jdk downloader on aarch64 osx (Apple M1 for example)
 * RASCAL.MF files are now checked for common errors and incorrect configurations
 
-### 0.6.0
+## 0.6.0
 
 * bumped rascal to 0.28.0 for the addition of vis::Graphs and fixes in util::Sampling and vis::Charts.
 * fixed issues with the IDEServices::edit function, in the VScode terminal context and VScode parameterized DSL LSP server context, with logical locations and locations with line/column information (both previously unsupported), for use in interactive visualizations (for example).
 * allow vscode extensions to use rascal-vscode independently of installed rascal; this means DSL implementations can run their own native extension when they are finished being developed.
 * as a result, rascal-vscode is now also an independent npm package.
 
-### 0.5.6
+## 0.5.6
 
 * fixes [issue](https://github.com/usethesource/rascal/issues/203) which was caused by an issue in the rascal project.
 * bumped rascal to 0.27.3 for the above fix.
 
-### 0.5.5
+## 0.5.5
 
 This release is about including a new version of the rascal project, 0.27.2:
 
@@ -247,19 +311,19 @@ This release is about including a new version of the rascal project, 0.27.2:
 * added vis::Charts for eight basic chart types
 * redesign of lang::json::IO with more natural mapping to JSON objects, but more precarious constraints for mapping back. See util::Validator for bridging the new gap if you have a complex ADT with lots of overloading and many constructors per type. The default mapping only supports simple enums and single constructors per ADT.
 
-### 0.5.4
+## 0.5.4
 
 * fixes an issue with [unsetRec issue](https://github.com/usethesource/rascal/issues/1705).
-### 0.5.2
+## 0.5.2
 
 * fixed efficiency issue in use of the `project:///` scheme for browsing file hierarchies, like for example in getASTs function for Java.
 * new logo
 
-### 0.5.1
+## 0.5.1
 
 * upgraded to latest version of rascal (0.26.2) to fix an issue that become more present with the multiple evaluators feature
 
-### 0.5.0
+## 0.5.0
 
 * Now using rascal 0.24.7
 * Rascal DSLs can now use multiple evaluators if they want (see discussion in [#181](https://github.com/usethesource/rascal-language-servers/issues/181))
@@ -267,7 +331,7 @@ This release is about including a new version of the rascal project, 0.27.2:
 * `unregisterLanguage` was added to clear all or parts of a language
 * Rascal REPLs get a progressbar while starting. This provides more feedback that something is happening, especially until the  [performance regression on windows](https://github.com/usethesource/rascal-language-servers/issues/187) is fixed.
 
-### 0.4.0
+## 0.4.0
 
 * Now using rascal 0.24.6
 * Better support pom.xml dependency resolution
@@ -278,56 +342,56 @@ This release is about including a new version of the rascal project, 0.27.2:
 * Improved performance of DSL init (specifically the time spent on generating parsers)
 
 
-### 0.3.0
+## 0.3.0
 
 * Rascal DSLs get more flexibility (and performance) in how they contribute the information back to VS Code. Summaries work as base, but developers can defined custom functions for specific requests from VS Code.
 * Rascal DSLs can parse without waiting for other request to finish
 * Now using Rascal 0.24.2
-### 0.2.4
+## 0.2.4
 
 * reduced frequency of summary calls for DSLs
 
-### 0.2.3
+## 0.2.3
 
 * updated typepal dependency to reduce debug prints
 
-### 0.2.2
+## 0.2.2
 
 * Virtual file systems of VSCode are now available in rascal
 * Bumped dependencies of java and nodejs
 * rascal version bumped to 0.23.2
 * Improved REPL integration for browsing and editing files from the command line
 
-### 0.2.1
+## 0.2.1
 
 * Version bump of rascal dependency from 0.23.0 to 0.23.1, which makes browsing the standard libraries possible due to fixing an incompatible type file format.
 * Version bump of rascal dependencies from 0.22.1 to 0.23.0; this includes bugfixes around prefix matching with concrete syntax trees and the use of the `private` modifier (if one alternative is private, they are now all private).
 * Version bumps for typepal and rascal-core with improved typechecking efficiency.
 * Better error reporting for the Rascal LSP server and the parameterized LSP server.
 * Fixes around status progress bars.
-* Fix for packaging of rascal-lsp jar (which helped remove spurious type-checking errors in clients of the LanguageServer library modules)
+* Fix for packaging of rascal-lsp jar (which helped remove spurious type checking errors in clients of the LanguageServer library modules)
 
-### 0.2.0
+## 0.2.0
 
 * Moved to Java 11
-* Upgrade to newer Rascal type-checker
-* Early support for cross-project rascal dependencies for both REPL & type-checker
+* Upgrade to newer Rascal type checker
+* Early support for cross-project rascal dependencies for both REPL & type checker
 * Rascal features work even without a project open (opening a single rascal file for example)
 * Improved status bar messages for DSLs and making sure to always clear finished tasked
 * Increases performance of project source location operations
 * Automatic java detection ignores JREs
 * Fixed bug that prevented detection of new projects added to the workspace
 
-### 0.1.7
+## 0.1.7
 
 * Security release, bumping log4j dependency
 
-### 0.1.6
+## 0.1.6
 
 * Rascal is now properly reporting progress
 * Parametric DSLs can defined inlayHints to annotate a source tree
 
-### 0.1.5
+## 0.1.5
 
 * Rascal LSP server now starts lazily to reduce memory overhead.
 * Parametric LSP server now starts lazily to reduce memory overhead.
@@ -336,42 +400,42 @@ This release is about including a new version of the rascal project, 0.27.2:
 * Added automatic JDK download if none is available.
 * Added `registerLanguage` to public extension API.
 
-### 0.1.4
+## 0.1.4
 
 * Improved semantic tokenization and highlighting for Rascal and DSLs. Tokenization has been refined to allow differential coloring of nested nonterminals.
 * Added folding regions for Rascal based on its grammar.
 * Added folding regions for DSLs based on the grammar.
 * Fixed REPL autoreloading for changed files.
 
-### 0.1.3
+## 0.1.3
 
 * Bugfixes for the features below.
 
-### 0.1.2
+## 0.1.2
 
 * Bugfixes for the features below
 
-### 0.1.1
+## 0.1.1
 
 * Added feature to publish diagnostics while scripting code analyses in the terminal (uses util::IDEServices)
 * Added feature of clickable logical URI's, like "|java+class://java/util/List|" in the terminal such that they resolve to the code location of the declared entity.
 
-### 0.1.0
+## 0.1.0
 
 * Added features for progress reporting from both the R-LSP and the P-LSP
 * Added applyEdits functionality from the terminal and the P-LSP
 * Added code lenses for the P-LSP
 * Fixed a number of synchronization issues
 
-### 0.0.3
+## 0.0.3
 
 * Fixed bug that disabled the IDE generator functionality.
 
-### 0.0.2
+## 0.0.2
 
 * Updated this Readme
 
-### 0.0.1
+## 0.0.1
 
 * Initial release of rudimentary support for the Rascal language
 * A terminal REPL for Rascal

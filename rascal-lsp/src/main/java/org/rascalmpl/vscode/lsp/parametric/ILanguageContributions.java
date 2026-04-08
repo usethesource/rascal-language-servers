@@ -29,13 +29,12 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -53,37 +52,44 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input);
     public InterruptibleFuture<IList> documentSymbol(ITree input);
     public InterruptibleFuture<IList> codeLens(ITree input);
-    public InterruptibleFuture<IList> inlayHint(@Nullable ITree input);
-    public InterruptibleFuture<@Nullable IValue> execution(String command);
+    public InterruptibleFuture<IList> inlayHint(ITree input);
+    public InterruptibleFuture<IValue> execution(String command);
     public InterruptibleFuture<ISet> hover(IList focus);
     public InterruptibleFuture<ISet> definition(IList focus);
     public InterruptibleFuture<ISet> references(IList focus);
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
     public InterruptibleFuture<IList> selectionRange(IList focus);
+    public InterruptibleFuture<IList> prepareCallHierarchy(IList focus);
+    public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction);
     public InterruptibleFuture<IList> formatting(IList input, IConstructor formattingOptions);
 
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
     public InterruptibleFuture<ITuple> rename(IList focus, String name);
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames);
+    public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger);
 
+    public CompletableFuture<IList> completionTriggerCharacters();
     public CompletableFuture<IList> parseCodeActions(String command);
+    public CompletableFuture<IConstructor> parseCallHierarchyData(String data);
 
-    public CompletableFuture<Boolean> hasAnalysis();
-    public CompletableFuture<Boolean> hasBuild();
-    public CompletableFuture<Boolean> hasDocumentSymbol();
-    public CompletableFuture<Boolean> hasCodeLens();
-    public CompletableFuture<Boolean> hasInlayHint();
-    public CompletableFuture<Boolean> hasRename();
-    public CompletableFuture<Boolean> hasExecution();
-    public CompletableFuture<Boolean> hasHover();
-    public CompletableFuture<Boolean> hasDefinition();
-    public CompletableFuture<Boolean> hasReferences();
-    public CompletableFuture<Boolean> hasImplementation();
-    public CompletableFuture<Boolean> hasCodeAction();
-    public CompletableFuture<Boolean> hasDidRenameFiles();
-    public CompletableFuture<Boolean> hasSelectionRange();
-    public CompletableFuture<Boolean> hasFormatting();
+    public CompletableFuture<Boolean> providesAnalysis();
+    public CompletableFuture<Boolean> providesBuild();
+    public CompletableFuture<Boolean> providesDocumentSymbol();
+    public CompletableFuture<Boolean> providesCodeLens();
+    public CompletableFuture<Boolean> providesInlayHint();
+    public CompletableFuture<Boolean> providesRename();
+    public CompletableFuture<Boolean> providesExecution();
+    public CompletableFuture<Boolean> providesHover();
+    public CompletableFuture<Boolean> providesDefinition();
+    public CompletableFuture<Boolean> providesReferences();
+    public CompletableFuture<Boolean> providesImplementation();
+    public CompletableFuture<Boolean> providesCodeAction();
+    public CompletableFuture<Boolean> providesDidRenameFiles();
+    public CompletableFuture<Boolean> providesSelectionRange();
+    public CompletableFuture<Boolean> providesCallHierarchy();
+    public CompletableFuture<Boolean> providesCompletion();
+    public CompletableFuture<Boolean> providesFormatting();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 

@@ -17,13 +17,9 @@ assignees: ''
 
 First a "pre-release" of the supporting compiler/typechecker tools must be done, so we know we are releasing a consistently compiled standard library.
 
-- [ ] typepal and rascal-core compile in the continuous integration environment and no tests fail
-- [ ] release typepal
-- [ ] release rascal-core
-- [ ] bump typepal and rascal-core versions in rascal-maven-plugin to latest releases
-- [ ] release rascal-maven-plugin
-- [ ] bump rascal-maven-plugin dependency in rascal and rascal-lsp projects
-- [ ] bump typepal and rascal-core versions in rascal-lsp project
+- [ ] rascal compiles in the continuous integration environment and no tests fail
+- [ ] release rascal
+- [ ] bump rascal version in rascal-lsp project
 - [ ] fix new errors and warnings in rascal and rascal-lsp project
 
 # Manual version checks

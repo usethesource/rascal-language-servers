@@ -94,15 +94,17 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
 
 
     async registerLanguage(lang:LanguageParameter) {
-        const client = this.getLanguageClient();
+        const client = await this.getLanguageClient();
         // first we load the new language into the parametric server
-        await (await client).sendRequest("rascal/sendRegisterLanguage", lang);
+        await client.sendRequest("rascal/sendRegisterLanguage", lang);
 
         if (this.dedicatedLanguage === undefined) {
-            for (const editor of vscode.window.visibleTextEditors) {
-                const ext = path.extname(editor.document.uri.path);
+            for (const doc of vscode.workspace.textDocuments) {
+                const ext = path.extname(doc.uri.path);
                 if (ext !== "" && lang.extensions.includes(ext.substring(1))) {
-                    vscode.languages.setTextDocumentLanguage(editor.document, this.languageId);
+                    // (Re)set the language ID to re-trigger contribution requests
+                    await vscode.languages.setTextDocumentLanguage(doc, "plaintext");
+                    await vscode.languages.setTextDocumentLanguage(doc, this.languageId);
                 }
             }
 

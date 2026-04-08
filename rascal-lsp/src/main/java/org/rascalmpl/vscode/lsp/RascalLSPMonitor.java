@@ -32,6 +32,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.WorkDoneProgressBegin;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
@@ -69,13 +72,14 @@ public class RascalLSPMonitor implements IRascalMonitor {
         this.progressPrefix = progressPrefix;
     }
 
-    private class LSPProgressBar {
+    private final class LSPProgressBar {
         private final String rootName;
         private final String progressId;
         private final CompletableFuture<Void> created;
         /** Sometimes we get multiple starts for the same job, so we count them to responds to the right end */
         private int nested = 0;
 
+        @SuppressWarnings("initialization")
         public LSPProgressBar(String rootName, String progressId) {
             this.rootName = rootName;
             this.progressId = progressId;
@@ -103,18 +107,18 @@ public class RascalLSPMonitor implements IRascalMonitor {
             notifyProgress(new WorkDoneProgressEnd());
         }
 
-        private CompletableFuture<Void> createProgressBar(String id) {
+        private CompletableFuture<Void> createProgressBar(@UnderInitialization LSPProgressBar this, String id) {
             return tryRegisterProgress(id)
                 .thenApply(CompletableFuture::completedFuture)
                 .exceptionally(t -> retry(t, 0, id))
                 .thenCompose(Function.identity());
         }
 
-        private CompletableFuture<Void> tryRegisterProgress(String id) {
+        private CompletableFuture<Void> tryRegisterProgress(@UnderInitialization LSPProgressBar this, String id) {
             return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
         }
 
-        private CompletableFuture<Void> retry(Throwable first, int retry, String id) {
+        private CompletableFuture<Void> retry(@UnderInitialization LSPProgressBar this, Throwable first, int retry, String id) {
             if(retry >= 100) {
                 return CompletableFuture.failedFuture(first);
             }
@@ -130,8 +134,8 @@ public class RascalLSPMonitor implements IRascalMonitor {
 
     }
 
-    private final ThreadLocal<LSPProgressBar> activeProgress = new ThreadLocal<>();
-    private final Map<String, InterruptibleFuture<? extends Object>> activeFutures = new ConcurrentHashMap<>();
+    private final ThreadLocal<@Nullable LSPProgressBar> activeProgress = new ThreadLocal<>();
+    private final Map<String, InterruptibleFuture<?>> activeFutures = new ConcurrentHashMap<>();
 
     /**
      * Register a running {@link InterruptibleFuture}, so it can be interrupted later.
@@ -139,7 +143,7 @@ public class RascalLSPMonitor implements IRascalMonitor {
      * @param name The task name, equal to the one used for {@link jobStarted}.
      * @param future The future doing the work.
      */
-    public void registerActiveFuture(String name, InterruptibleFuture<?> future) {
+    public void registerActiveFuture(String name, InterruptibleFuture<? extends @PolyNull Object> future) {
         activeFutures.put(generateProgressId(name), future);
     }
 

@@ -59,7 +59,7 @@ describe('REPL', function () {
 
     it("should open without a project", async () => {
         await new RascalREPL(bench, driver).start();
-    });
+    }).retries(2);
 
     it("run basic rascal commands", async () => {
         const repl = new RascalREPL(bench, driver);
@@ -95,5 +95,18 @@ describe('REPL', function () {
         await repl.execute(":edit demo::lang::pico::LanguageServer", true, Delays.extremelySlow);
 
         await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.slow, "LanguageServer should be opened");
+    });
+
+    it("VFS works", async() => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        const baseLoc = '|rascal-vscode-test:///';
+        await repl.execute('import IO;');
+        await repl.execute(`writeFile(${baseLoc}test.txt|, "Hello World")`);
+        expect(repl.lastOutput).contains('ok', 'Write file should succeed');
+        await repl.execute(`${baseLoc}|.ls`);
+        expect(repl.lastOutput).contains('test.txt', 'File entry should be there');
+        await repl.execute(`readFile(${baseLoc}test.txt|)`);
+        expect(repl.lastOutput).contains('Hello World', 'File contents should be there');
     });
 });

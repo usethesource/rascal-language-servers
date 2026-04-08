@@ -25,13 +25,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, RascalREPL, TestWorkspace, ignoreFails, printRascalOutputOnFailure, sleep } from './utils';
+import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { Suite } from 'mocha';
 import { expect } from 'chai';
+import * as fs from 'fs/promises';
+import { Suite } from 'mocha';
+import * as path from 'path';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -75,7 +75,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.terminate();
     }
 
-
     before(async () => {
         browser = VSBrowser.instance;
         driver = browser.driver;
@@ -103,9 +102,16 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
     });
 
-    it("have highlighting and parse errors", async function () {
+    it("has highlighting and parse errors", async function () {
+        await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const editor = await ide.openModule(TestWorkspace.picoFile);
+        const isPicoLoading = ide.statusContains("Pico");
+        // we might miss this event, but we wait for it to show up
+        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
+        // now wait for the Pico parser generator to disappear
+        await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
+        console.log("We got syntax highlighting");
         try {
             await editor.setTextAtLine(10, "b := ;");
             await ide.hasErrorSquiggly(editor, Delays.slow);
@@ -117,9 +123,9 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         } finally {
             await ide.revertOpenChanges();
         }
-    });
+    }).retries(2);
 
-    it("have highlighting and parse errors for second extension", async function () {
+    it("has highlighting and parse errors for second extension", async function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
         await ide.hasSyntaxHighlighting(editor);
         try {
@@ -129,6 +135,32 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             await ide.revertOpenChanges();
         }
     });
+
+    it("has syntax highlighting in documents without extension", async function () {
+        const editor = await ide.newUntitledFile(bench, driver, 1);
+        expect(editor).to.not.be.undefined;
+
+        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
+
+        const inputBox = new InputBox();
+        await inputBox.setText("parametric-rascalmpl");
+        await inputBox.confirm();
+
+        await editor.setText(`begin
+  declare
+     a : natural;
+  a := 2
+end
+`);
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
+
+        try {
+            await editor.setTextAtLine(4, "  a := ");
+            await ide.hasErrorSquiggly(editor, Delays.slow);
+        } finally {
+            await ide.revertOpenChanges();
+        }
+    }).retries(2);
 
     it("error recovery works", async function () {
         if (!errorRecovery) { this.skip(); }
@@ -250,5 +282,69 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
         await fs.rm(newDir, {recursive: true, force: true});
+    });
+
+    it("call hierarchy works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoCallsFile);
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showCallHierarchy");
+        await driver.wait(async () => (await new SideBarView().getTitlePart().getTitle()).toLowerCase().startsWith("references"), Delays.normal, "References panel should open.");
+
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showIncomingCalls");
+        await driver.wait(async () => {
+            const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
+            const items = await ignoreFails(outgoing!.getVisibleItems());
+            return items?.length === 2;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
+
+        await editor.selectText("multiply");
+        await bench.executeCommand("view.showOutgoingCalls");
+        await driver.wait(async () => {
+            const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
+            const items = await ignoreFails(incoming!.getVisibleItems());
+            return items?.length === 3;
+        }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
+    });
+
+    it("completion works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.setTextAtLine(6, "     aa : natural;");
+
+        await editor.moveCursor(9, 4);
+        await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
+        expectCompletions(editor, ["a", "aa"]);
+    });
+
+    it("completion by trigger character works", async function() {
+        // We will be typing and introducing parse errors, so this only works with error recovery
+        if (!errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.moveCursor(10, 10);
+        await editor.typeText("  x :=");
+        expectCompletions(editor, ["x", "n", "a", "b"]);
+    });
+
+    it("serializes Rascal values as expected", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+        const actualJsonUri = "rascal-vscode-test:///test.json";
+
+        // Open an editor with a link to the virtual file, so we can use the `Open Link` command
+        const linkEditor = await ide.newUntitledFile(bench, driver);
+        await linkEditor.setText(actualJsonUri);
+        await ide.hasLink(linkEditor);
+
+        // Open the virtual file with the serialized JSON
+        await bench.executeCommand("editor.action.openLink");
+        const resultEditor = await driver.wait(async () => {
+            const editor = new TextEditor();
+            return (await ignoreFails(editor.getTitle()) === path.basename(actualJsonUri)) ? editor : undefined;
+        }, Delays.normal, "Editor with JSON result should open");
+
+        // Check JSON equivalence
+        const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
+        const actualJson = await resultEditor!.getText();
+        expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
     });
 });

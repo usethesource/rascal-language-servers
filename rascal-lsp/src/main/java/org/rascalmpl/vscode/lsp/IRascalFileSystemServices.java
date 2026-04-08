@@ -31,24 +31,26 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NotDirectoryException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Set;
-import java.util.Base64.Encoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.Nullable;
-
+import org.apache.commons.codec.binary.Base64InputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
+import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChangeType;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
@@ -63,7 +65,7 @@ import io.usethesource.vallang.IValueFactory;
 
 public interface IRascalFileSystemServices {
     static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
-    static final Logger IRascalFileSystemServices__logger = LogManager.getLogger(IDEServicesThread.class);
+    static final Logger IRascalFileSystemServices__logger = LogManager.getLogger(IRascalFileSystemServices.class);
     static final ExecutorService executor = NamedThreadPool.cachedDaemon("rascal-vfs");
 
     @JsonRequest("rascal/filesystem/resolveLocation")
@@ -107,7 +109,7 @@ public interface IRascalFileSystemServices {
 
     static FileChangeEvent convertChangeEvent(ISourceLocationChanged changed) throws IOException {
         return new FileChangeEvent(convertFileChangeType(changed.getChangeType()),
-                changed.getLocation().getURI().toASCIIString());
+                Locations.toUri(changed.getLocation()).toASCIIString());
     }
 
     static FileChangeType convertFileChangeType(ISourceLocationChangeType changeType) throws IOException {
@@ -195,28 +197,9 @@ public interface IRascalFileSystemServices {
 
     @JsonRequest("rascal/filesystem/readFile")
     default CompletableFuture<LocationContent> readFile(URIParameter uri) {
-        final int BUFFER_SIZE = 3 * 1024; // has to be divisibly by 3
-
         return CompletableFuture.supplyAsync(() -> {
-            try (InputStream source = reg.getInputStream(uri.getLocation())) {
-                // there is no streaming base64 encoder, but we also do not want to have the
-                // whole file in memory
-                // just to base64 encode it. So we stream it in chunks that will not cause
-                // padding characters in
-                // base 64
-                Encoder encoder = Base64.getEncoder();
-                StringBuilder result = new StringBuilder();
-                byte[] buffer = new byte[BUFFER_SIZE];
-                int read;
-                while ((read = source.read(buffer, 0, BUFFER_SIZE)) == BUFFER_SIZE) {
-                    result.append(encoder.encodeToString(buffer));
-                }
-                if (read > 0) {
-                    // last part needs to be a truncated part of the buffer
-                    buffer = Arrays.copyOf(buffer, read);
-                    result.append(encoder.encodeToString(buffer));
-                }
-                return new LocationContent(result.toString());
+            try (InputStream source = new Base64InputStream(reg.getInputStream(uri.getLocation()), true)) {
+                return new LocationContent(new String(source.readAllBytes(), StandardCharsets.US_ASCII));
             } catch (IOException | URISyntaxException | RuntimeException e) {
                 throw new VSCodeFSError(e);
             }
@@ -359,28 +342,28 @@ public interface IRascalFileSystemServices {
     }
 
     public static class SourceLocation {
-        private final String uri;
-        private final int[] offsetLength;
-        private final int[] beginLineColumn;
-        private final int[] endLineColumn;
+        @NonNull private final String uri;
+        private final int @Nullable[] offsetLength;
+        private final int @Nullable[] beginLineColumn;
+        private final int @Nullable[] endLineColumn;
 
         public static SourceLocation fromRascalLocation(ISourceLocation loc) {
             if (loc.hasOffsetLength()) {
                 if (loc.hasLineColumn()) {
-                    return new SourceLocation(loc.getURI().toString(), loc.getOffset(), loc.getLength(), loc.getBeginLine(), loc.getBeginColumn(), loc.getEndLine(), loc.getEndColumn());
+                    return new SourceLocation(Locations.toUri(loc).toString(), loc.getOffset(), loc.getLength(), loc.getBeginLine(), loc.getBeginColumn(), loc.getEndLine(), loc.getEndColumn());
                 }
                 else {
-                    return new SourceLocation(loc.getURI().toString(), loc.getOffset(), loc.getLength());
+                    return new SourceLocation(Locations.toUri(loc).toString(), loc.getOffset(), loc.getLength());
                 }
             }
             else {
-                return new SourceLocation(loc.getURI().toString());
+                return new SourceLocation(Locations.toUri(loc).toString());
             }
         }
 
         public ISourceLocation toRascalLocation() throws URISyntaxException {
             final IValueFactory VF = IRascalValueFactory.getInstance();
-            ISourceLocation tmp = URIUtil.createFromURI(uri);
+            ISourceLocation tmp = Locations.toCheckedLoc(uri);
 
             if (hasOffsetLength()) {
                 if (hasLineColumn()) {
@@ -419,44 +402,65 @@ public interface IRascalFileSystemServices {
             return uri;
         }
 
+        @EnsuresNonNullIf(expression = "this.offsetLength", result = true)
         public boolean hasOffsetLength() {
             return offsetLength != null;
         }
 
+        @EnsuresNonNullIf(expression = "this.endLineColumn", result = true)
+        @EnsuresNonNullIf(expression = "this.beginLineColumn", result = true)
         public boolean hasLineColumn() {
             return beginLineColumn != null && endLineColumn != null;
         }
 
         public int getOffset() {
+            if (!hasOffsetLength()) {
+                throw new IllegalStateException("This location has no offset");
+            }
             return offsetLength[0];
         }
 
         public int getLength() {
+            if (!hasOffsetLength()) {
+                throw new IllegalStateException("This location has no length");
+            }
             return offsetLength[1];
         }
 
         public int getBeginLine() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return beginLineColumn[0];
         }
 
         public int getBeginColumn() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return beginLineColumn[1];
         }
 
         public int getEndLine() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return endLineColumn[0];
         }
 
         public int getEndColumn() {
+            if (!hasLineColumn()) {
+                throw new IllegalStateException("This location has no line and columns");
+            }
             return endLineColumn[1];
         }
     }
 
     public static class FileChangeEvent {
-        private final FileChangeType type;
-        private final String uri;
+        @NonNull private final FileChangeType type;
+        @NonNull private final String uri;
 
-        public FileChangeEvent(FileChangeType type, String uri) {
+        public FileChangeEvent(FileChangeType type, @NonNull String uri) {
             this.type = type;
             this.uri = uri;
         }
@@ -485,13 +489,15 @@ public interface IRascalFileSystemServices {
         }
     }
 
+    // The fields of are only used on the TS side
+    @SuppressWarnings("unused")
     public static class FileStat {
-        FileType type;
-        long ctime;
-        long mtime;
-        long size;
+        private final FileType type;
+        private final long ctime;
+        private final long mtime;
+        private final long size;
 
-        @Nullable FilePermission permissions;
+        private @Nullable FilePermission permissions;
 
         public FileStat(FileType type, long ctime, long mtime, long size, @Nullable FilePermission permissions) {
             this.type = type;
@@ -534,10 +540,10 @@ public interface IRascalFileSystemServices {
     }
 
     public static class FileWithType {
-        private final String name;
-        private final FileType type;
+        @NonNull private final String name;
+        @NonNull private final FileType type;
 
-        public FileWithType(String name, FileType type) {
+        public FileWithType(@NonNull String name, @NonNull FileType type) {
             this.name = name;
             this.type = type;
         }
@@ -552,9 +558,9 @@ public interface IRascalFileSystemServices {
     }
 
     public static class LocationContent {
-        private String content;
+        @NonNull private final String content;
 
-        public LocationContent(String content) {
+        public LocationContent(@NonNull String content) {
             this.content = content;
         }
 
@@ -564,9 +570,9 @@ public interface IRascalFileSystemServices {
     }
 
     public static class URIParameter {
-        private String uri;
+        @NonNull private final String uri;
 
-        public URIParameter(String uri) {
+        public URIParameter(@NonNull String uri) {
             this.uri = uri;
         }
 
@@ -575,17 +581,17 @@ public interface IRascalFileSystemServices {
         }
 
         public ISourceLocation getLocation() throws URISyntaxException {
-            return URIUtil.createFromURI(uri);
+            return Locations.toCheckedLoc(uri);
         }
     }
 
     public static class WriteFileParameters {
-        private final String uri;
-        private final String content;
+        @NonNull private final String uri;
+        @NonNull private final String content;
         private final boolean create;
         private final boolean overwrite;
 
-        public WriteFileParameters(String uri, String content, boolean create, boolean overwrite) {
+        public WriteFileParameters(@NonNull String uri, @NonNull String content, boolean create, boolean overwrite) {
             this.uri = uri;
             this.content = content;
             this.create = create;
@@ -639,8 +645,8 @@ public interface IRascalFileSystemServices {
             return new ResponseError(-6, "Unavailable", data);
         }
 
-        private static ResponseError generic(String message, Object data) {
-            return new ResponseError(-99, message, data);
+        private static ResponseError generic(@Nullable String message, Object data) {
+            return new ResponseError(-99, message == null ? "no error message was provided" : message, data);
         }
 
         public static ResponseErrorException notADirectory(Object data) {

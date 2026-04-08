@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 import org.rascalmpl.uri.ISourceLocationWatcher;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -39,10 +40,6 @@ public class ISourceLocationChanged {
     private String location;
     @NonNull
     private ISourceLocationChangeType changeType;
-
-
-    public ISourceLocationChanged() {
-    }
 
     public ISourceLocationChanged(@NonNull String watchId, @NonNull String location, @NonNull ISourceLocationChangeType changeType) {
         this.watchId = watchId;
@@ -65,7 +62,7 @@ public class ISourceLocationChanged {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof ISourceLocationChanged) {
             var other = (ISourceLocationChanged)obj;
             return Objects.equals(watchId, other.watchId)

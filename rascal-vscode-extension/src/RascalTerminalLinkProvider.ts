@@ -92,7 +92,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
 }
 
 function translateRange(sloc: SourceLocation, td: vscode.TextDocument): vscode.Range | undefined {
-    if (sloc.beginLineColumn && sloc.endLineColumn) {
+    if (sloc.beginLineColumn !== undefined && sloc.endLineColumn !== undefined) {
         const beginLine = sloc.beginLineColumn[0] - 1;
         const endLine = sloc.endLineColumn[0] - 1;
         return new vscode.Range(
@@ -102,7 +102,7 @@ function translateRange(sloc: SourceLocation, td: vscode.TextDocument): vscode.R
             fixedColumn(td, endLine, sloc.endLineColumn[1]),
         );
     }
-    else if (sloc.offsetLength) {
+    else if (sloc.offsetLength !== undefined) {
         const rangePositions = fixedOffsetLengthPositions(td, sloc.offsetLength[0], sloc.offsetLength[1]);
         return new vscode.Range(
             td.positionAt(rangePositions[0]),

@@ -27,7 +27,18 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::tests::rename::Modules
 
+import IO;
+import List;
+import Location;
+import Set;
+import String;
+
+import util::PathConfig;
+
+import lang::rascal::lsp::refactor::Rename;
 import lang::rascal::tests::rename::TestUtils;
+import lang::rascalcore::check::Checker;
+import analysis::diff::edits::TextEdits;
 
 test bool deepModule() = testRenameOccurrences({
     byText("some::path::to::Foo", "
@@ -124,7 +135,7 @@ test bool stdlibImport() = testRenameOccurrences({
 }, oldName = "IO", newName = "InOut");
 
 test bool simpleEscapedModule() = testRenameOccurrences({
-    byText("Foo", "int foo = 8;", {0}, newName = "Bar"),
+    byText("Foo", "public int foo = 8;", {0}, newName = "Bar"),
     byText("Main", "import \\Foo;
                    'int bar = \\Foo::foo;", {0, 1}, skipCursors = {1})
 }, oldName = "Foo", newName = "Bar");
@@ -157,3 +168,67 @@ test bool moduleExists() = testRenameOccurrences({
     byText("Foo", "", {0}),
     byText("foo::Foo", "", {})
 }, oldName = "Foo", newName = "foo::Foo");
+
+//// File moves
+
+@expected{illegalRename}
+test bool moduleRenameWithoutExtension()
+    = testProject({byText("Foo", "", {})},
+        "moduleRenameWithoutExtension",
+        bool({TestModule foo}, loc _testDir, PathConfig pcfg) {
+            loc oldLoc = foo.file;
+            loc newLoc = |<oldLoc.scheme>:///<oldLoc.path[..-4]>|; // remove .rsc extension
+
+            // VS Code moves first, and informs us afterwards
+            move(foo.file, newLoc);
+
+            <edits, msgs> = rascalRenameModule([<foo.file, newLoc>], toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+            throwMessagesIfError(msgs);
+            return [] := edits;
+        }
+    );
+
+@expected{illegalRename}
+test bool moduleRenameOutsideSources()
+    = testProject({byText("Foo", "", {})},
+        "moduleRenameOutsideSources",
+        bool({TestModule foo}, loc _testDir, PathConfig pcfg) {
+            loc oldLoc = foo.file;
+            loc newLoc = |<oldLoc.scheme>:///<oldLoc.parent.parent.path>/<oldLoc.file>|;
+
+            // VS Code moves first, and informs us afterwards
+            move(foo.file, newLoc);
+
+            <edits, msgs> = rascalRenameModule([<foo.file, newLoc>], toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
+            throwMessagesIfError(msgs);
+            return false;
+        }
+    );
+
+test bool moveWithinFolder() = moveRenameTest({byText("A", "", {}, newName = "B")});
+test bool moveDeepWithinFolder() = moveRenameTest({byText("foo::bar::A", "", {}, newName = "foo::bar::B")});
+test bool moveFolder() = moveRenameTest({
+    byText("foo::bar::A", "", {}, newName = "foo::baz::A"),
+    byText("foo::bar::B", "", {}, newName = "foo::baz::B")
+});
+
+test bool moveReferenced() = moveRenameTest({
+    byText("A", "
+        'import B;
+        'int a = B::b;", {}),
+    byText("B", "int b = 0;", {}, newName = "BB")
+});
+
+test bool moveEscaped1() = moveRenameTest({byText("\\A", "", {}, newName = "B")});
+
+@ignore{Maintaining escapes is unsupported} test bool moveEscaped2() = moveRenameTest({
+    byText("foo::bar::\\A", "", {}, newName = "foo::baz::\\A"),
+    byText("foo::bar::\\B", "", {}, newName = "foo::baz::\\B")
+});
+
+test bool moveEscaped3() = moveRenameTest({
+    byText("A", "
+        import B;
+        int a = \\B::b;", {}),
+    byText("B", "int b = 0;", {}, newName = "BB")
+});

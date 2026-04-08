@@ -5,6 +5,10 @@
 		},
 		{
 			"path": "rascal-vscode-extension"
+		},
+		{
+			"name": "root",
+			"path": "."
 		}
 	],
 	"extensions": {

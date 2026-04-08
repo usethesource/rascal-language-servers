@@ -26,41 +26,37 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
-public class BooleanResult extends IOResult {
-    private @Nullable Boolean result;
+public class BooleanResult {
+    private boolean result;
 
-    public BooleanResult(@NonNull int errorCode, @Nullable String errorMessage, @Nullable Boolean result) {
-        super(errorCode, errorMessage);
+    public BooleanResult(boolean result) {
         this.result = result;
     }
 
     public BooleanResult() {}
 
-    public @Nullable Boolean getResult() {
+    public boolean getResult() {
         return result;
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof BooleanResult) {
-            return super.equals(obj)
-                && Objects.equals(result, ((BooleanResult)obj).result);
+            return result == ((BooleanResult)obj).result;
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return super.hashCode() + 11 * (Objects.hashCode(result) + 1);
+        return result ? 11 : 3;
     }
 
     @Override
     public String toString() {
-        return "BooleanResult [result=" + result + " io=" + super.toString() + "]";
+        return "BooleanResult [result=" + result + "]";
     }
 
 }

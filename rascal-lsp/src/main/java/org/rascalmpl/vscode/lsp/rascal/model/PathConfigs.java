@@ -26,24 +26,37 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
-import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -52,32 +65,82 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public class PathConfigs {
     private static final Logger logger = LogManager.getLogger(PathConfigs.class);
-    private final Map<ISourceLocation, PathConfig> currentPathConfigs = new ConcurrentHashMap<>();
+    private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
+
+    private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
+    private final Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
         Caffeine.newBuilder()
             .expireAfterAccess(Duration.ofMinutes(20))
             .build(PathConfigs::inferProjectRoot);
 
+    private final Executor executor;
+    private final PathConfigDiagnostics diagnostics;
 
-    public PathConfig lookupConfig(ISourceLocation forFile) {
-        ISourceLocation projectRoot = translatedRoots.get(forFile);
-        return currentPathConfigs.computeIfAbsent(projectRoot, this::buildPathConfig);
 
+    public PathConfigs(Executor executor, PathConfigDiagnostics diagnostics) {
+        this.diagnostics = diagnostics;
+        this.executor = executor;
+        updater.start();
     }
 
-    private PathConfig buildPathConfig(ISourceLocation projectRoot) {
+    public void expungePathConfig(ISourceLocation project) {
+        var projectRoot = inferProjectRoot(project);
         try {
-            logger.debug("Building pcfg from: {}", projectRoot);
-            URIResolverRegistry reg = URIResolverRegistry.getInstance();
+            updater.unregisterProject(project);
+        } catch (IOException e) {
+            logger.warn("Unregistration of meta files for project {} failed.", project, e);
+        }
+        currentPathConfigs.remove(projectRoot);
+    }
+
+    public PathConfig lookupConfig(ISourceLocation forFile) {
+        forFile = forFile.top();
+        ISourceLocation projectRoot = translatedRoots.get(forFile);
+        var entry = currentPathConfigs.compute(projectRoot, (project, current) -> shouldBeRecomputed(current) ? buildPathConfig(project) : current);
+        if (entry == null) {
+            // This can only happen when the `compute` function throws an exception
+            throw new RuntimeException(String.format("Path config computation for %s failed", projectRoot));
+        }
+        return entry.getKey();
+    }
+
+    private static boolean shouldBeRecomputed(@Nullable Pair<PathConfig, Instant> entry) {
+        if (entry == null) {
+            // No previously computed config
+            return true;
+        }
+        if (entry.getRight().plusSeconds(1).isAfter(Instant.now())) {
+            // Previous config is less than a second old
+            return false;
+        }
+        // Previous config had errors
+        return entry.getLeft().getMessages().stream()
+            .filter(IConstructor.class::isInstance)
+            .map(IConstructor.class::cast)
+            .anyMatch(e -> "error".equals(e.getName()));
+    }
+
+    private static long safeLastModified(ISourceLocation uri) {
+        try {
+            return reg.lastModified(uri);
+        } catch (IOException e) {
+            logger.debug("Cannot get last modified time of {}", uri, e);
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private Pair<PathConfig, Instant> buildPathConfig(ISourceLocation projectRoot) {
+        try {
+            logger.debug("Building path config for: {}", projectRoot);
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);
             }
             registerMavenWatches(reg, projectRoot);
 
-            var result = actualBuild(projectRoot);
-            logger.debug("new pcfg: {}", result);
+            var result = updater.actualBuild(projectRoot);
             return result;
         }
         catch (IOException e) {
@@ -85,41 +148,65 @@ public class PathConfigs {
         }
     }
 
-    private static class PathConfigUpdater extends Thread {
-        private final Map<ISourceLocation, PathConfig> currentPathConfigs;
+    private static class WatchRegistration {
+        final ISourceLocation file;
+        final Consumer<ISourceLocationChanged> callback;
 
-        public PathConfigUpdater(Map<ISourceLocation, PathConfig> currentPathConfigs) {
-            super("Path Config updater");
-            setDaemon(true);
+        WatchRegistration(ISourceLocation file, Consumer<ISourceLocationChanged> callback) {
+            this.file = file;
+            this.callback = callback;
+        }
+    }
+
+    private class PathConfigUpdater {
+        private final Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs;
+        private final Map<ISourceLocation, List<WatchRegistration>> projectWatches;
+
+        public PathConfigUpdater(Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs) {
             this.currentPathConfigs = currentPathConfigs;
+            this.projectWatches = new ConcurrentHashMap<>();
+        }
+
+        public void start() {
+            scheduleRun();
         }
 
         // we detect changes to roots, and keep track of the last changed time
         // the thread will clear them if the time is longer than the timeout
         private final Map<ISourceLocation, Long> changedRoots = new ConcurrentHashMap<>();
+
+        /**
+         *  Watch a single file. We keep track of the watch registrations so we can unwatch
+         * these files when the project is closed.
+         */
         public void watchFile(ISourceLocation projectRoot, ISourceLocation sourceFile) throws IOException {
-            if (!isAlive() && !isInterrupted()) {
-                start();
-            }
-            URIResolverRegistry.getInstance().watch(sourceFile, false, ignored ->
-                changedRoots.put(projectRoot, System.nanoTime())
-            );
+            Consumer<ISourceLocationChanged> callback = ignored ->
+                changedRoots.put(projectRoot, safeLastModified(sourceFile));
+            reg.watch(sourceFile, false, callback);
+
+            var watchList = projectWatches.computeIfAbsent(projectRoot, root -> new CopyOnWriteArrayList<>());
+            watchList.add(new WatchRegistration(sourceFile, callback));
         }
 
-        private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
-
-        @Override
-        public void run() {
-            while (true) {
-                try {
-                    Thread.sleep(TimeUnit.SECONDS.toMillis(1));
-                } catch (InterruptedException e) {
-                    // inside of a thread run, we have to stop in case of an interrupt.
-                    return;
+        public void unregisterProject(ISourceLocation projectRoot) throws IOException {
+            List<WatchRegistration> registrations = projectWatches.remove(projectRoot);
+            if (registrations != null) {
+                for (WatchRegistration registration : registrations) {
+                    reg.unwatch(registration.file, false, registration.callback);
                 }
+            }
+            diagnostics.clearDiagnostics(projectRoot);
+        }
 
+        private void scheduleRun() {
+            CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS, executor)
+                .execute(this::run);
+        }
+
+        private void run() {
+            try {
                 List<ISourceLocation> stabilizedRoots = changedRoots.entrySet().stream()
-                    .filter(e -> System.nanoTime() - e.getValue() >= UPDATE_DELAY)
+                    .filter(e -> FileTime.from(Instant.now()).to(TimeUnit.NANOSECONDS) - e.getValue() >= UPDATE_DELAY)
                     .map(Entry::getKey)
                     .collect(Collectors.toList());
 
@@ -134,7 +221,19 @@ public class PathConfigs {
                 } catch (Exception e) {
                     logger.error("Unexpected error while building PathConfigs", e) ;
                 }
+
+            } finally {
+                scheduleRun();
             }
+        }
+
+        private Pair<PathConfig, Instant> actualBuild(ISourceLocation projectRoot) {
+            var time = Instant.now();
+            var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+            logger.debug("Path config for {}: {}", projectRoot, pathConfig);
+            // Publish diagnostics in a background thread
+            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages()));
+            return Pair.of(pathConfig, time);
         }
 
     }
@@ -155,28 +254,31 @@ public class PathConfigs {
     private static final Pattern detectParent = Pattern.compile("<\\s*parent\\s*>");
 
     private static boolean hasParentSection(URIResolverRegistry reg, ISourceLocation mainPom) {
-        try (var pom = new BufferedReader(reg.getCharacterReader(mainPom))) {
-            String line;
-            while ((line = pom.readLine()) != null) {
-                if (detectParent.matcher(line).matches()) {
-                    return true;
-                }
-            }
-            return false;
+        try (var pom = reg.getCharacterReader(mainPom)) {
+            return detectParent.matcher(Prelude.consumeInputStream(pom)).find();
         }
         catch (IOException ignored) {
             return false;
         }
     }
 
-    private static PathConfig actualBuild(ISourceLocation projectRoot) {
-        return PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+    /**
+     * Infers the root of the project that `member` is in.
+     */
+    private static ISourceLocation inferProjectRoot(ISourceLocation member) {
+        ISourceLocation lastRoot = member;
+        ISourceLocation root;
+        do {
+            root = lastRoot;
+            lastRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(root));
+        } while (!lastRoot.equals(URIUtil.getParentLocation(root)));
+        return root;
     }
 
-
-
-
-    private static ISourceLocation inferProjectRoot(ISourceLocation member) {
+    /**
+     * Infers the longest project root-like path that `member` is in. Might return a sub-directory of `target/`.
+     */
+    private static ISourceLocation inferDeepestProjectRoot(ISourceLocation member) {
         ISourceLocation current = member;
         URIResolverRegistry reg = URIResolverRegistry.getInstance();
         if (!reg.isDirectory(current)) {
@@ -187,18 +289,15 @@ public class PathConfigs {
             if (reg.exists(URIUtil.getChildLocation(current, "META-INF/RASCAL.MF"))) {
                 return current;
             }
-
-            if (URIUtil.getParentLocation(current).equals(current)) {
+            var parent = URIUtil.getParentLocation(current);
+            if (parent.equals(current)) {
                 // we went all the way up to the root
                 return reg.isDirectory(member) ? member : URIUtil.getParentLocation(member);
             }
 
-            current = URIUtil.getParentLocation(current);
+            current = parent;
         }
 
         return current;
     }
-
-
-
 }

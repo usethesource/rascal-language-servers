@@ -28,11 +28,10 @@
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench, until } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
 
-
-const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile];
+const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile, TestWorkspace.manifest];
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -59,7 +58,10 @@ describe('IDE', function () {
         await makeSureRascalModulesAreLoaded();
     });
 
-    beforeEach(async () => {
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("IDE-" + this.test?.title);
+        }
     });
 
     afterEach(async function () {
@@ -113,7 +115,7 @@ describe('IDE', function () {
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
         await editor.setTextAtLine(1, "this should not parse");
         await ide.hasErrorSquiggly(editor);
-    });
+    }).retries(2);
 
     it("error recovery works", async function() {
         const editor = await ide.openModule(TestWorkspace.mainFile);
@@ -140,29 +142,32 @@ describe('IDE', function () {
     });
 
     it("go to definition works", async () => {
+        const selectId = "fileName";
+
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
         await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
 
-        await editor.selectText("&T", 0);
+        // Warning: changes to `IO` might break the lookups/locations from here on.
+        // Update the test expectations when this is the case.
+        await editor.selectText(selectId, 6);
         const defLoc = await editor.getCoordinates();
 
-        await editor.selectText("&T", 1);
+        await editor.selectText(selectId, 7);
+        const useLoc = await editor.getCoordinates();
+
+        expect(useLoc).not.to.deep.equal(defLoc, "Expected cursor to be elsewhere - def and use location are equal");
         await bench.executeCommand("Go to Definition");
         await driver.wait(async () => {
             const jumpLoc = await editor.getCoordinates();
-            return defLoc[0] === jumpLoc[0] && defLoc[1] === jumpLoc[1];
-        }, Delays.slow, "We should jump to the right position");
+            return jumpLoc[0] === defLoc[0]                    // Jump to def line
+                && jumpLoc[1] === defLoc[1] - selectId.length; // Jump to left side of def
+        }, Delays.normal, "Expected cursor to jump to the definition");
     });
 
     it("go to definition works across projects", async () => {
-        // due to a current bug, we have to make sure that the lib in the other project is correctly resolved
-        const libEditor = await ide.openModule(TestWorkspace.libFile);
-        await triggerTypeChecker(libEditor, "", true);
-        await bench.getEditorView().closeAllEditors();
-
         const editor = await ide.openModule(TestWorkspace.libCallFile);
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
@@ -251,5 +256,15 @@ describe('IDE', function () {
 
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
+    });
+
+    it("errors in manifest detected", async() => {
+        const editor = await ide.openModule(TestWorkspace.manifest);
+        await editor.setTextAtLine(2, "Project-Name: foobar");
+        await editor.save();
+        const element = await ide.hasErrorSquiggly(editor);
+        await editor.setTextAtLine(2, "Project-Name: test-project");
+        await editor.save();
+        await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disapear");
     });
 });
