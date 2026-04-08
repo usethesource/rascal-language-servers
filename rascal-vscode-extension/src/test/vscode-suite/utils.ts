@@ -211,6 +211,7 @@ export class IDEOperations {
     }
 
     async load() {
+        console.log("Loading IDE...");
         await ignoreFails(this.browser.waitForWorkbench(Delays.slow));
         for (let t = 0; t < 5; t++) {
             try {
@@ -218,16 +219,23 @@ export class IDEOperations {
                 if (isWorkSpaceOpen !== undefined && isWorkSpaceOpen.length > 0) {
                     break;
                 }
+                console.log(`Opening workspace ${TestWorkspace.workspaceFile}`);
                 await this.browser.openResources(TestWorkspace.workspaceFile);
             } catch (ex) {
-                console.debug("Error opening workspace, retrying.", ex);
+                console.error("Error opening workspace, retrying.", ex);
             }
         }
+        console.log("Waiting for workbench");
         await ignoreFails(this.browser.waitForWorkbench(Delays.normal));
+        console.log("Waiting for workbench again");
         await ignoreFails(this.browser.waitForWorkbench(Delays.normal));
+        console.log("Opening notifications center");
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
+        console.log("Clearing all notifications");
         await ignoreFails(center?.clearAllNotifications());
+        console.log("Closing notifications center");
         await ignoreFails(center?.close());
+        console.log("Assuring debug level logging is enabled");
         await assureDebugLevelLoggingIsEnabled();
     }
 

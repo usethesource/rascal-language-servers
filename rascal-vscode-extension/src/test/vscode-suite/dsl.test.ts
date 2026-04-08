@@ -76,15 +76,22 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     }
 
     before(async () => {
+        console.log("Initializing browser");
         browser = VSBrowser.instance;
+        console.log("Initializing driver");
         driver = browser.driver;
+        console.log("Initializing workbench");
         bench = new Workbench();
+        console.log("Waiting for worbench");
         await ignoreFails(browser.waitForWorkbench());
+        console.log("Initializing IDE operations");
         ide = new IDEOperations(browser);
+        console.log("Loading IDE");
         await ide.load();
+        console.log("Loading Pico");
         await loadPico();
+        console.log("Reading backup file");
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
-        ide = new IDEOperations(browser);
         await ide.load();
     });
 
