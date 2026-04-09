@@ -92,7 +92,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await loadPico();
         console.log("Reading backup file");
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
-        await ide.load();
+        await ide.screenshot("after [before] init");
     });
 
     beforeEach(async function () {
@@ -121,11 +121,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ide.screenshot("after-opening-pico-file");
         const isPicoLoading = ide.statusContains("Pico");
         // we might miss this event, but we wait for it to show up
-        await ignoreFails(driver.wait(async () => {
-            console.log("Awaiting Pico parser generator start");
-            await ide.screenshot("is-pico-loading");
-            return await isPicoLoading();
-        }, Delays.normal, "Pico parser generator should have started"));
+        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
         // now wait for the Pico parser generator to disappear
         await driver.wait(async () => {
             console.log("Awaiting Pico parser generator finish");
