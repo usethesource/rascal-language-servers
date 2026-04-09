@@ -118,6 +118,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         console.log(`Opening Pico file ${TestWorkspace.picoFile}`);
         const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.screenshot("after-opening-pico-file");
         const isPicoLoading = ide.statusContains("Pico");
         // we might miss this event, but we wait for it to show up
         await ignoreFails(driver.wait(async () => {
