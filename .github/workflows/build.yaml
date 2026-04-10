@@ -49,7 +49,7 @@ jobs:
   ui-test:
     strategy:
       matrix:
-        os: [ubicloud-standard-4, ubicloud-standard-4-ubuntu-2204]
+        os: [ubicloud-standard-4]
         run: [1, 2, 3, 4, 5, 6, 7, 8]
       fail-fast: false
     env:
