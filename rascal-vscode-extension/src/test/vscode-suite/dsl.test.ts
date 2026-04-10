@@ -323,6 +323,7 @@ end
         await driver.wait(async () => {
             const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
             const items = await ignoreFails(outgoing!.getVisibleItems());
+            await ide.screenshot("call-hierarchy-incoming");
             return items?.length === 2;
         }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
 
@@ -331,6 +332,7 @@ end
         await driver.wait(async () => {
             const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
             const items = await ignoreFails(incoming!.getVisibleItems());
+            await ide.screenshot("call-hierarchy-outgoing");
             return items?.length === 3;
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
