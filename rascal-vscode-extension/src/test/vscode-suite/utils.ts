@@ -384,6 +384,7 @@ export class IDEOperations {
                 const renameBox = await this.hasElement(editor, By.className("rename-input"), Delays.normal, "Rename box should appear");
                 await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, newName, Key.ENTER);
                 renameSuccess = true;
+                console.log("Entering rename name succeeded");
             }
             catch (e) {
                 console.log("Rename failed to succeed, lets try again");
