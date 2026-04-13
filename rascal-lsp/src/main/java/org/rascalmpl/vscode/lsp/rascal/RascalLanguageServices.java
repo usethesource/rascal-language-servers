@@ -43,7 +43,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -133,42 +132,42 @@ public class RascalLanguageServices {
         this.workspaceService = workspaceService;
     }
 
-    private String pathToModuleName(String p) {
+    private String pathToModuleName(ISourceLocation l) {
+        var p = l.getPath();
         return p.substring(1, p.lastIndexOf('.')).replaceAll("/", "::");
     }
 
-    private @Nullable Pair<ISourceLocation, String> resolveLibraryModule(ISourceLocation l) {
+    private @Nullable ISourceLocation libTplLoc(ISourceLocation modPath) {
         try {
-            switch (l.getScheme()) {
+            var tplFileName = "$" + URIUtil.getLocationName(URIUtil.changeExtension(modPath, "tpl"));
+            var modPrefix = URIUtil.getParentLocation(modPath).getPath();
+            switch (modPath.getScheme()) {
+                case "jar+file": // intentional fall-through
                 case "mvn": {
-                    return Pair.of(URIUtil.changePath(l, ""), pathToModuleName(l.getPath()));
+                    var modTplDir = URIUtil.getChildLocation(URIUtil.changePath(modPath, "rascal"), modPrefix);
+                    return URIUtil.getChildLocation(modTplDir, tplFileName);
                 }
                 case "std": {
-                    var stdJarSources = Locations.toPhysicalIfPossible(l);
-                    if (stdJarSources.getScheme() != "jar+file") {
-                        return null;
+                    var stdResolved = Locations.toPhysicalIfPossible(modPath);
+                    if ("jar+file".equals(stdResolved.getScheme())) {
+                        var stdJarRoot = URIUtil.changePath(stdResolved, stdResolved.getPath().substring(0, stdResolved.getPath().lastIndexOf('!') + 1));
+                        var modTplDir = URIUtil.getChildLocation(URIUtil.getChildLocation(stdJarRoot, "rascal"), modPrefix);
+                        return URIUtil.getChildLocation(modTplDir, tplFileName);
                     }
-                    var tplFolder = VF.sourceLocation(stdJarSources.getScheme(), stdJarSources.getAuthority(), stdJarSources.getPath().substring(0, stdJarSources.getPath().lastIndexOf('!') + 1));
-                    return Pair.of(tplFolder, pathToModuleName(l.getPath()));
                 }
                 default: return null;
             }
         } catch (URISyntaxException e) {
-            logger.error("Error while finding TPL folder for {}", l, e);
+            logger.error("Error while finding TPL folder for {}", modPath, e);
             return null;
         }
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, Function<ISourceLocation, PathConfig> computePathConfig) {
         Function<Evaluator, IConstructor> computeSummary;
-        var lib = resolveLibraryModule(occ);
-        if (lib != null) {
-            computeSummary = eval -> {
-                eval.doImport(eval, "util::PathConfig");
-                var fcfg = (IConstructor) eval.call("fileConfig");
-                var tplLoc = (ISourceLocation) eval.call("binFile", VF.string(lib.getRight()), lib.getLeft(), fcfg);
-                return (IConstructor) eval.call("makeSummary", VF.string(""), tplLoc);
-            };
+        var tplLoc = libTplLoc(occ);
+        if (tplLoc != null) {
+            computeSummary = eval -> (IConstructor) eval.call("makeSummary", VF.string(pathToModuleName(occ)), tplLoc);
         } else {
             try {
                 var pcfg = computePathConfig.apply(occ);
