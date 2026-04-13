@@ -421,7 +421,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .map(diagnostic -> diagnostic.instantiate(columns))
                 .collect(Collectors.toList());
 
-            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
+            logger.info("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
             facts(file.getLocation()).reportParseErrors(file.getLocation(), diagnostics.version(), parseErrors);
         });
     }
@@ -694,7 +694,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .map(contributions::get)
             .map(ILanguageContributions.class::cast)
             .flatMap(Optional::ofNullable)
-            .orElseGet(() -> new NoContributions(extension(doc), exec));
+            .orElseGet(() -> {
+                logger.error("No contributions for {}", doc);
+                return new NoContributions(extension(doc), exec);
+            });
     }
 
     private static String extension(ISourceLocation doc) {
@@ -1042,7 +1045,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private void updateFileState(LanguageParameter lang, ISourceLocation f) {
         f = f.top();
-        logger.trace("File of language {} - updating state: {}", lang.getName(), f);
+        logger.info("File of language {} - updating state: {}", lang.getName(), f);
         // Since we cannot know what happened to this file before we were called, we need to be careful about races.
         // It might have been closed in the meantime, so we compute the new value if the key still exists, based on the current value.
         var state = files.computeIfPresent(f, (loc, currentState) -> currentState.changeParser(contributions(loc)::parsing));
