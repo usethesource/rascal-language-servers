@@ -137,7 +137,7 @@ public class RascalLanguageServices {
         return p.substring(1, p.lastIndexOf('.')).replaceAll("/", "::");
     }
 
-    private @Nullable Pair<ISourceLocation, String> libraryModule(ISourceLocation l) {
+    private @Nullable Pair<ISourceLocation, String> resolveLibraryModule(ISourceLocation l) {
         try {
             switch (l.getScheme()) {
                 case "mvn": {
@@ -161,7 +161,7 @@ public class RascalLanguageServices {
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, Function<ISourceLocation, PathConfig> computePathConfig) {
         Function<Evaluator, IConstructor> computeSummary;
-        var lib = libraryModule(occ);
+        var lib = resolveLibraryModule(occ);
         if (lib != null) {
             computeSummary = eval -> {
                 eval.doImport(eval, "util::PathConfig");
