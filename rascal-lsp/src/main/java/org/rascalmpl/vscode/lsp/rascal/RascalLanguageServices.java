@@ -133,15 +133,23 @@ public class RascalLanguageServices {
         this.workspaceService = workspaceService;
     }
 
+    private String pathToModuleName(String p) {
+        return p.substring(1, p.lastIndexOf('.')).replaceAll("/", "::");
+    }
+
     private @Nullable Pair<ISourceLocation, String> libraryModule(ISourceLocation l) {
         try {
             switch (l.getScheme()) {
+                case "mvn": {
+                    return Pair.of(URIUtil.changePath(l, ""), pathToModuleName(l.getPath()));
+                }
                 case "std": {
                     var stdJarSources = Locations.toPhysicalIfPossible(l);
+                    if (stdJarSources.getScheme() != "jar+file") {
+                        return null;
+                    }
                     var tplFolder = VF.sourceLocation(stdJarSources.getScheme(), stdJarSources.getAuthority(), stdJarSources.getPath().substring(0, stdJarSources.getPath().lastIndexOf('!') + 1));
-                    var modPath = l.getPath();
-                    var modName = modPath.substring(1, modPath.lastIndexOf('.')).replaceAll("/", "::");
-                    return Pair.of(tplFolder, modName);
+                    return Pair.of(tplFolder, pathToModuleName(l.getPath()));
                 }
                 default: return null;
             }
