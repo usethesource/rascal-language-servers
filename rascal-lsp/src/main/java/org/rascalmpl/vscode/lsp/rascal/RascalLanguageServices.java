@@ -154,7 +154,7 @@ public class RascalLanguageServices {
                 default: return null;
             }
         } catch (URISyntaxException e) {
-            logger.error("Error while finding TPL folder for {}, l, e");
+            logger.error("Error while finding TPL folder for {}", l, e);
             return null;
         }
     }
