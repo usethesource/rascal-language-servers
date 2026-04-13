@@ -113,7 +113,7 @@ jobs:
         if: contains(matrix.os, 'ubuntu') || startsWith(matrix.os, 'ubicloud-standard')
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 8
+          DELAY_FACTOR: 15
           RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
         run: |
