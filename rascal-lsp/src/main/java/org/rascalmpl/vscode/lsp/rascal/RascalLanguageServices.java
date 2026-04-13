@@ -31,6 +31,7 @@ import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -40,7 +41,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -130,17 +133,50 @@ public class RascalLanguageServices {
         this.workspaceService = workspaceService;
     }
 
-    public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
+    private @Nullable Pair<ISourceLocation, String> libraryModule(ISourceLocation l) {
         try {
-            IString moduleName = VF.string(pcfg.getModuleName(occ));
-            return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
-                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
-                return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
-            }, null, exec, false, client);
-        } catch (IOException e) {
-            logger.error("Error looking up module name from source location {}", occ, e);
-            return InterruptibleFuture.completedFuture(null, exec);
+            switch (l.getScheme()) {
+                case "std": {
+                    var stdJarSources = Locations.toPhysicalIfPossible(l);
+                    var tplFolder = VF.sourceLocation(stdJarSources.getScheme(), stdJarSources.getAuthority(), stdJarSources.getPath().substring(0, stdJarSources.getPath().lastIndexOf('!') + 1));
+                    var modPath = l.getPath();
+                    var modName = modPath.substring(1, modPath.lastIndexOf('.')).replaceAll("/", "::");
+                    return Pair.of(tplFolder, modName);
+                }
+                default: return null;
+            }
+        } catch (URISyntaxException e) {
+            logger.error("Error while finding TPL folder for {}, l, e");
+            return null;
         }
+    }
+
+    public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, Function<ISourceLocation, PathConfig> computePathConfig) {
+        Function<Evaluator, IConstructor> computeSummary;
+        var lib = libraryModule(occ);
+        if (lib != null) {
+            computeSummary = eval -> {
+                eval.doImport(eval, "util::PathConfig");
+                var fcfg = (IConstructor) eval.call("fileConfig");
+                var tplLoc = (ISourceLocation) eval.call("binFile", VF.string(lib.getRight()), lib.getLeft(), fcfg);
+                return (IConstructor) eval.call("makeSummary", VF.string(""), tplLoc);
+            };
+        } else {
+            try {
+                var pcfg = computePathConfig.apply(occ);
+                var moduleName = VF.string(pcfg.getModuleName(occ));
+                computeSummary = eval ->
+                    (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
+            } catch (IOException e) {
+                logger.error("Error looking up module name for source location {}", occ, e);
+                return InterruptibleFuture.completedFuture(null, exec);
+            }
+        }
+
+        return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
+            var result = computeSummary.apply(eval);
+            return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
+        }, null, exec, false, client);
     }
 
     private static Map<ISourceLocation, ISet> translateCheckResults(IMap messages) {
