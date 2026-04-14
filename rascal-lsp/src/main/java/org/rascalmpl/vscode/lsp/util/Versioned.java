@@ -27,9 +27,14 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 public class Versioned<T> {
+
+    private static final Logger logger = LogManager.getLogger(Versioned.class);
+
     private final int version;
     private final T object;
     private final long timestamp;
@@ -66,13 +71,23 @@ public class Versioned<T> {
     }
 
     public static <T> boolean replaceIfNewer(AtomicReference<@PolyNull Versioned<T>> current, Versioned<T> maybeNewer) {
+        logger.debug("Versioned.replaceIfNewer({}, {})", current, maybeNewer);
         while (true) {
             var old = current.get();
-            if (old == null || old.version() < maybeNewer.version()) {
+            if (old == null) {
+                logger.debug("old == null");
                 if (current.compareAndSet(old, maybeNewer)) {
                     return true;
                 }
+            } else if (old.version() < maybeNewer.version()) {
+                logger.debug("old version ({}) < new version ({})", old.version, maybeNewer.version);
+                if (current.compareAndSet(old, maybeNewer)) {
+                    return true;
+                } else {
+                    logger.debug("compareAndSet failed: {}, {}", current, old);
+                }
             } else {
+                logger.debug("old version ({}) >= new version ({})", old.version, maybeNewer.version);
                 return false;
             }
         }
