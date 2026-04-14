@@ -291,7 +291,7 @@ export class IDEOperations {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
                 const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
-                this.screenshot(`revert of ${title} failed ` + tryCount);
+                await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
             try {
@@ -307,7 +307,7 @@ export class IDEOperations {
                 return !(await new TextEditor().isDirty());
             }
             catch (ignored) {
-                this.screenshot("open editor check failed " + tryCount);
+                await this.screenshot("open editor check failed " + tryCount);
                 console.log("Open editor dirty check failed: ", ignored);
                 return false;
 
