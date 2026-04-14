@@ -43,6 +43,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -132,52 +133,91 @@ public class RascalLanguageServices {
         this.workspaceService = workspaceService;
     }
 
-    private String pathToModuleName(ISourceLocation l) {
+    static String pathToModuleName(ISourceLocation l) throws URISyntaxException {
         var p = l.getPath();
-        return p.substring(1, p.lastIndexOf('.')).replaceAll("/", "::");
+        if ("jar+file".equals(l.getScheme())) {
+            p = jarFileParts(l).getRight();
+        }
+        return p.substring(1, p.lastIndexOf('.')).replace("/", "::");
     }
 
-    private @Nullable ISourceLocation libTplLoc(ISourceLocation modPath) {
+    static @Nullable ISourceLocation libraryTplLocation(ISourceLocation modPath) {
         try {
-            var tplFileName = "$" + URIUtil.getLocationName(URIUtil.changeExtension(modPath, "tpl"));
-            var modPrefix = URIUtil.getParentLocation(modPath).getPath();
-            switch (modPath.getScheme()) {
-                case "jar+file": // intentional fall-through
-                case "mvn": {
-                    var modTplDir = URIUtil.getChildLocation(URIUtil.changePath(modPath, "rascal"), modPrefix);
-                    return URIUtil.getChildLocation(modTplDir, tplFileName);
-                }
-                case "std": {
-                    var stdResolved = Locations.toPhysicalIfPossible(modPath);
-                    if ("jar+file".equals(stdResolved.getScheme())) {
-                        var stdJarRoot = URIUtil.changePath(stdResolved, stdResolved.getPath().substring(0, stdResolved.getPath().lastIndexOf('!') + 1));
-                        var modTplDir = URIUtil.getChildLocation(URIUtil.getChildLocation(stdJarRoot, "rascal"), modPrefix);
-                        return URIUtil.getChildLocation(modTplDir, tplFileName);
-                    }
-                }
-                default: return null;
-            }
+            var tplFolder = libraryTplRoot(modPath);
+            var modPrefix = libraryModulePrefix(modPath);
+            var tplFileName = tplFileName(modPath);
+            return tplFolder == null
+                ? null
+                : URIUtil.getChildLocation(URIUtil.getChildLocation(tplFolder, modPrefix), tplFileName);
         } catch (URISyntaxException e) {
-            logger.error("Error while finding TPL folder for {}", modPath, e);
+            logger.error("Error while finding TPL for {}", modPath, e);
             return null;
         }
     }
 
+    private static @Nullable ISourceLocation libraryTplRoot(ISourceLocation modPath) throws URISyntaxException {
+        modPath = Locations.toPhysicalIfPossible(modPath); // resolve logical paths like `std:///`
+        switch (modPath.getScheme()) {
+            case "jar+file": {
+                return URIUtil.getChildLocation(jarFileParts(modPath).getLeft(), "rascal");
+            }
+            case "mvn": {
+                return URIUtil.changePath(modPath, "rascal");
+            }
+            default: return null;
+        }
+    }
+
+    private static String libraryModulePrefix(ISourceLocation modPath) throws URISyntaxException {
+        modPath = URIUtil.getParentLocation(modPath);
+        if ("jar+file".equals(modPath.getScheme())) {
+            // For a file within a JAR, return the sub-path within the JAR
+            return jarFileParts(modPath).getRight();
+        }
+        // Otherwise, return just the sub-path
+        return modPath.getPath();
+    }
+
+    private static String tplFileName(ISourceLocation modPath) throws URISyntaxException {
+        return "$" + URIUtil.getLocationName(URIUtil.changeExtension(modPath, "tpl"));
+    }
+
+    private static Pair<ISourceLocation, String> jarFileParts(ISourceLocation l) throws URISyntaxException {
+        if (!"jar+file".equals(l.getScheme())) {
+            throw new IllegalArgumentException("Location should have scheme jar+file: " + l);
+        }
+
+        var path = l.getPath();
+        int splitIndex = path.lastIndexOf('!');
+        return Pair.of(
+            URIUtil.changePath(l, path.substring(0, splitIndex + 1)),
+            path.substring(splitIndex + 1)
+        );
+    }
+
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, Function<ISourceLocation, PathConfig> computePathConfig) {
         Function<Evaluator, IConstructor> computeSummary;
-        var tplLoc = libTplLoc(occ);
+        var tplLoc = libraryTplLocation(occ);
         if (tplLoc != null) {
-            computeSummary = eval -> (IConstructor) eval.call("makeSummary", VF.string(pathToModuleName(occ)), tplLoc);
+            computeSummary = eval -> {
+                try {
+                    return (IConstructor) eval.call("makeSummary", VF.string(pathToModuleName(occ)), tplLoc);
+                } catch (URISyntaxException e) {
+                    logger.error("Error looking up module name for source location {}", occ, e);
+                    return null;
+                }
+            };
         } else {
-            try {
-                var pcfg = computePathConfig.apply(occ);
-                var moduleName = VF.string(pcfg.getModuleName(occ));
-                computeSummary = eval ->
-                    (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
-            } catch (IOException e) {
-                logger.error("Error looking up module name for source location {}", occ, e);
-                return InterruptibleFuture.completedFuture(null, exec);
-            }
+            computeSummary = eval -> {
+                try {
+                    var pcfg = computePathConfig.apply(occ);
+                    var moduleName = VF.string(pcfg.getModuleName(occ));
+                    return (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
+                } catch (IOException e) {
+                    logger.error("Error looking up module name for source location {}", occ, e);
+                    return null;
+                }
+            };
         }
 
         return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
