@@ -43,7 +43,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -136,7 +135,7 @@ public class RascalLanguageServices {
     static String pathToModuleName(ISourceLocation l) throws URISyntaxException {
         var p = l.getPath();
         if ("jar+file".equals(l.getScheme())) {
-            p = jarFileParts(l).getRight();
+            p = jarFilePath(l);
         }
         return p.substring(1, p.lastIndexOf('.')).replace("/", "::");
     }
@@ -144,22 +143,22 @@ public class RascalLanguageServices {
     static @Nullable ISourceLocation libraryTplLocation(ISourceLocation modPath) {
         try {
             var tplFolder = libraryTplRoot(modPath);
-            var modPrefix = libraryModulePrefix(modPath);
-            var tplFileName = tplFileName(modPath);
-            return tplFolder == null
-                ? null
-                : URIUtil.getChildLocation(URIUtil.getChildLocation(tplFolder, modPrefix), tplFileName);
+            if (tplFolder != null) {
+                var modPrefix = libraryModulePrefix(modPath);
+                var tplFileName = "$" + URIUtil.getLocationName(URIUtil.changeExtension(modPath, "tpl"));
+                return URIUtil.getChildLocation(URIUtil.getChildLocation(tplFolder, modPrefix), tplFileName);
+            }
         } catch (URISyntaxException e) {
             logger.error("Error while finding TPL for {}", modPath, e);
-            return null;
         }
+        return null;
     }
 
     private static @Nullable ISourceLocation libraryTplRoot(ISourceLocation modPath) throws URISyntaxException {
         modPath = Locations.toPhysicalIfPossible(modPath); // resolve logical paths like `std:///`
         switch (modPath.getScheme()) {
             case "jar+file": {
-                return URIUtil.getChildLocation(jarFileParts(modPath).getLeft(), "rascal");
+                return URIUtil.getChildLocation(jarBasePath(modPath), "rascal");
             }
             case "mvn": {
                 return URIUtil.changePath(modPath, "rascal");
@@ -172,27 +171,28 @@ public class RascalLanguageServices {
         modPath = URIUtil.getParentLocation(modPath);
         if ("jar+file".equals(modPath.getScheme())) {
             // For a file within a JAR, return the sub-path within the JAR
-            return jarFileParts(modPath).getRight();
+            return jarFilePath(modPath);
         }
         // Otherwise, return just the sub-path
         return modPath.getPath();
     }
 
-    private static String tplFileName(ISourceLocation modPath) throws URISyntaxException {
-        return "$" + URIUtil.getLocationName(URIUtil.changeExtension(modPath, "tpl"));
-    }
-
-    private static Pair<ISourceLocation, String> jarFileParts(ISourceLocation l) throws URISyntaxException {
+    private static ISourceLocation jarBasePath(ISourceLocation l) throws URISyntaxException {
         if (!"jar+file".equals(l.getScheme())) {
             throw new IllegalArgumentException("Location should have scheme jar+file: " + l);
         }
 
         var path = l.getPath();
-        int splitIndex = path.lastIndexOf('!');
-        return Pair.of(
-            URIUtil.changePath(l, path.substring(0, splitIndex + 1)),
-            path.substring(splitIndex + 1)
-        );
+        return URIUtil.changePath(l, path.substring(0, path.lastIndexOf('!') + 1));
+    }
+
+    private static String jarFilePath(ISourceLocation l) {
+        if (!"jar+file".equals(l.getScheme())) {
+            throw new IllegalArgumentException("Location should have scheme jar+file: " + l);
+        }
+
+        var path = l.getPath();
+        return path.substring(path.lastIndexOf('!') + 1);
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, Function<ISourceLocation, PathConfig> computePathConfig) {
