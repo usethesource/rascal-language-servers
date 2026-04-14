@@ -134,10 +134,14 @@ public class RascalLanguageServices {
 
     static String pathToModuleName(ISourceLocation l) {
         var p = l.getPath();
-        if ("jar+file".equals(l.getScheme())) {
+        if (isInsideJar(l)) {
             p = jarFilePath(l);
         }
         return p.substring(1, p.lastIndexOf('.')).replace("/", "::");
+    }
+
+    private static boolean isInsideJar(ISourceLocation l) {
+        return l.getScheme().startsWith("jar+");
     }
 
     static @Nullable ISourceLocation libraryTplLocation(ISourceLocation modPath) {
@@ -156,20 +160,17 @@ public class RascalLanguageServices {
 
     private static @Nullable ISourceLocation libraryTplRoot(ISourceLocation modPath) throws URISyntaxException {
         modPath = Locations.toPhysicalIfPossible(modPath); // resolve logical paths like `std:///`
-        switch (modPath.getScheme()) {
-            case "jar+file": {
-                return URIUtil.getChildLocation(jarBasePath(modPath), "rascal");
-            }
-            case "mvn": {
-                return URIUtil.changePath(modPath, "rascal");
-            }
-            default: return null;
+        if (isInsideJar(modPath)) {
+            return URIUtil.getChildLocation(jarBasePath(modPath), "rascal");
+        } else if ("mvn".equals(modPath.getScheme())) {
+            return URIUtil.changePath(modPath, "rascal");
         }
+        return null;
     }
 
     private static String libraryModulePrefix(ISourceLocation modPath) {
         modPath = URIUtil.getParentLocation(modPath);
-        if ("jar+file".equals(modPath.getScheme())) {
+        if (isInsideJar(modPath)) {
             // For a file within a JAR, return the sub-path within the JAR
             return jarFilePath(modPath);
         }
@@ -178,8 +179,8 @@ public class RascalLanguageServices {
     }
 
     private static ISourceLocation jarBasePath(ISourceLocation l) throws URISyntaxException {
-        if (!"jar+file".equals(l.getScheme())) {
-            throw new IllegalArgumentException("Location should have scheme jar+file: " + l);
+        if (!isInsideJar(l)) {
+            throw new IllegalArgumentException("Location should have scheme jar+...: " + l);
         }
 
         var path = l.getPath();
@@ -187,8 +188,8 @@ public class RascalLanguageServices {
     }
 
     private static String jarFilePath(ISourceLocation l) {
-        if (!"jar+file".equals(l.getScheme())) {
-            throw new IllegalArgumentException("Location should have scheme jar+file: " + l);
+        if (!isInsideJar(l)) {
+            throw new IllegalArgumentException("Location should have scheme jar+...: " + l);
         }
 
         var path = l.getPath();
