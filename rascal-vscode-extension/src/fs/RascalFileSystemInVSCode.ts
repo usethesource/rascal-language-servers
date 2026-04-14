@@ -27,7 +27,7 @@
 import path from 'path';
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
-import { CopyRequest, ISourceLocationRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './VSCodeFileSystemInRascal';
+import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocationRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './VSCodeFileSystemInRascal';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     readonly client: BaseLanguageClient;
@@ -141,8 +141,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
         this.logger.trace("[RascalFileSystemInVSCode] readDirectory: ", uri);
-        return this.sendRequest<FileWithType[]>(uri, "rascal/vfs/input/list")
-            .then(c => c.map(ft => [ft.name, ft.type]));
+        return this.sendRequest<DirectoryListingResponse>(uri, "rascal/vfs/input/list")
+            .then(c => c.entries.map(ft => [ft.name, ft.types.reduce((a, i) => a | i)]));
     }
 
     createDirectory(uri: vscode.Uri): void | Thenable<void> {
@@ -201,19 +201,4 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
 function isUnknownFileSystem(scheme : string) : boolean {
     return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
-}
-
-export interface FileWithType {
-    name: string;
-    type: vscode.FileType
-}
-
-export interface FileAttributes {
-    exists: boolean;
-    isFile: boolean;
-    created: number;
-    lastModified: number;
-    isWritable: boolean;
-    isReadable: boolean;
-    size: number;
 }

@@ -29,7 +29,6 @@ import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { URI } from "vscode-languageclient";
 import { JsonRpcServer } from "../util/JsonRpcServer";
-import { FileAttributes, FileWithType } from './RascalFileSystemInVSCode';
 
 export declare type ISourceLocation = URI;
 
@@ -52,7 +51,7 @@ interface ISourceLocationInput {
     created(req: ISourceLocationRequest): Promise<TimestampResponse>;
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResponse>;
     isFile(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    list(req: ISourceLocationRequest): Promise<FileWithType[]>;
+    list(req: ISourceLocationRequest): Promise<DirectoryListingResponse>;
     size(req: ISourceLocationRequest): Promise<NumberResponse>;
     fileStat(req: ISourceLocationRequest): Promise<FileAttributes>;
     isReadable(req: ISourceLocationRequest): Promise<BooleanResponse>;
@@ -70,7 +69,7 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<TimestampResponse>("created", handler.created);
     req<BooleanResponse>("isDirectory", handler.isDirectory);
     req<BooleanResponse>("isFile", handler.isFile);
-    req<FileWithType[]>("list", handler.list);
+    req<DirectoryListingResponse>("list", handler.list);
     req<NumberResponse>("size", handler.size);
     req<FileAttributes>("stat", handler.fileStat);
     req<BooleanResponse>("isReadable", handler.isReadable);
@@ -177,6 +176,16 @@ export interface WatchRequest {
     recursive: boolean;
 }
 
+export interface FileAttributes {
+    exists: boolean;
+    isFile: boolean;
+    created: number;
+    lastModified: number;
+    isWritable: boolean;
+    isReadable: boolean;
+    size: number;
+}
+
 export enum ISourceLocationChangeType {
     created = 1,
     deleted = 2,
@@ -210,6 +219,15 @@ interface TimestampResponse {
 
 interface SourceLocationResponse {
     loc: ISourceLocation
+}
+
+export interface DirectoryListingResponse {
+    entries: DirectoryEntry[]
+}
+
+export interface DirectoryEntry {
+    name: string;
+    types: vscode.FileType[]
 }
 
 enum ErrorCodes {
@@ -357,13 +375,13 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResponse> {
         this.logger.trace("[VSCodeFileSystemInRascal] isDirectory: ", req.loc);
-        return this.boolResult(req.loc, f => f.type === vscode.FileType.Directory);
+        return this.boolResult(req.loc, f => (f.type & vscode.FileType.Directory) !== 0);
     }
 
     isFile(req: ISourceLocationRequest): Promise<BooleanResponse> {
         this.logger.trace("[VSCodeFileSystemInRascal] isFile: ", req.loc);
         // TODO: figure out how to handle vscode.FileType.Symlink
-        return this.boolResult(req.loc, f => f.type === vscode.FileType.File);
+        return this.boolResult(req.loc, f => (f.type & vscode.FileType.File) !== 0);
     }
 
     isReadable(req: ISourceLocationRequest): Promise<BooleanResponse> {
@@ -386,11 +404,15 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.boolResult(req.loc, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
     }
 
-    async list(req: ISourceLocationRequest): Promise<FileWithType[]> {
+    async list(req: ISourceLocationRequest): Promise<DirectoryListingResponse> {
         this.logger.trace("[VSCodeFileSystemInRascal] list: ", req.loc);
-        return asyncCatcher(async () => {
-            return (await this.fs.readDirectory(this.toUri(req.loc))).map(entry => <FileWithType>{name: entry[0], type: entry[1]});
+        return asyncCatcher(async () => <DirectoryListingResponse>{ entries:
+            (await this.fs.readDirectory(this.toUri(req.loc))).map(entry => <DirectoryEntry>{name: entry[0], types: this.decodeFileTypeBitmask(entry[1])})
         });
+    }
+
+    decodeFileTypeBitmask(input: number) : vscode.FileType[] {
+        return input === 0 ? [vscode.FileType.Unknown] : [vscode.FileType.File, vscode.FileType.Directory, vscode.FileType.SymbolicLink].filter(t => t === (t & input));
     }
 
     async writeFile(req: WriteFileRequest): Promise<void> {
