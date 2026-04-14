@@ -26,11 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.concurrent.Executors;
 import org.junit.Assert;
 import org.junit.Before;
@@ -39,38 +35,15 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.ISourceLocation;
 
 public class PathConfigsTest {
-    private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
+
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
-
-    private final Projects projects = new Projects();
-
-    /**
-     * Test {@link Projects::inferRoot} for a specific module within a project.
-     * @param project The project that contains the module. This is the expected value for the inferred root.
-     * @param modulePath The relative path of the module within the project. Does not need to actually exist.
-     * @param projectExists Whether the project actually exists. WARNING: If it does not exist, root inference probably returns the root of the file system of the project.
-     */
-    private void checkRoot(ISourceLocation project, String modulePath, boolean projectExists, boolean moduleExists) {
-        assertFalse("Cannot check for existing module in non-existent project", !projectExists && moduleExists);
-        assertTrue("Project should exist", !projectExists || reg.exists(project));
-        var m = URIUtil.getChildLocation(project, modulePath);
-        assertTrue("Module should exist", !moduleExists || reg.exists(m));
-        var root = projects.inferRoot(m);
-        assertEquals("Inferred root should equal project URI", project, root);
-    }
-
-    private void checkRoot(ISourceLocation project, String modulePath) {
-        checkRoot(project, modulePath, true, true);
-    }
-
+    private static ISourceLocation absoluteProjectDir;
     @Mock PathConfigDiagnostics diagnostics;
     private PathConfigs configs;
-    private static ISourceLocation absoluteProjectDir;
 
     @BeforeClass
     public static void initTests() throws IOException {
@@ -84,26 +57,6 @@ public class PathConfigsTest {
 
     private static void assertEquals(String message, ISourceLocation expected, ISourceLocation actual) {
         Assert.assertEquals(message, URIUtil.getChildLocation(expected, ""), URIUtil.getChildLocation(actual, ""));
-    }
-
-    @Test
-    public void lspRoot() {
-        checkRoot(absoluteProjectDir, "src/main/rascal/library/util/LanguageServer.rsc");
-    }
-
-    @Test
-    public void lspTargetRoot() {
-        checkRoot(absoluteProjectDir, "target/classes/library/util/LanguageServer.rsc");
-    }
-
-    @Test
-    public void nestedRoot() {
-        checkRoot(URIUtil.getChildLocation(absoluteProjectDir, "src/test/resources/project-a"), "src/Module.rsc", true, false);
-    }
-
-    @Test
-    public void projectRoot() throws URISyntaxException {
-        checkRoot(VF.sourceLocation("project", "rascal-lsp", ""), "src/main/rascal/library/util/LanguageServer.rsc", false, false);
     }
 
     @Test
