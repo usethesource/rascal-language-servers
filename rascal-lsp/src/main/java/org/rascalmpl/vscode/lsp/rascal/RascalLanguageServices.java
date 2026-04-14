@@ -132,7 +132,7 @@ public class RascalLanguageServices {
         this.workspaceService = workspaceService;
     }
 
-    static String pathToModuleName(ISourceLocation l) throws URISyntaxException {
+    static String pathToModuleName(ISourceLocation l) {
         var p = l.getPath();
         if ("jar+file".equals(l.getScheme())) {
             p = jarFilePath(l);
@@ -167,7 +167,7 @@ public class RascalLanguageServices {
         }
     }
 
-    private static String libraryModulePrefix(ISourceLocation modPath) throws URISyntaxException {
+    private static String libraryModulePrefix(ISourceLocation modPath) {
         modPath = URIUtil.getParentLocation(modPath);
         if ("jar+file".equals(modPath.getScheme())) {
             // For a file within a JAR, return the sub-path within the JAR
@@ -199,14 +199,7 @@ public class RascalLanguageServices {
         Function<Evaluator, @Nullable IConstructor> computeSummary;
         var tplLoc = libraryTplLocation(occ);
         if (tplLoc != null) {
-            computeSummary = eval -> {
-                try {
-                    return (IConstructor) eval.call("makeSummary", VF.string(pathToModuleName(occ)), tplLoc);
-                } catch (URISyntaxException e) {
-                    logger.error("Error looking up module name for source location {}", occ, e);
-                    return null;
-                }
-            };
+            computeSummary = eval -> (IConstructor) eval.call("makeSummary", VF.string(pathToModuleName(occ)), tplLoc);
         } else {
             computeSummary = eval -> {
                 try {
