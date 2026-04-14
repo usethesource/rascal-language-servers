@@ -29,6 +29,7 @@ import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { URI } from "vscode-languageclient";
 import { JsonRpcServer } from "../util/JsonRpcServer";
+import { RemoteIOError } from './RemoteIOError';
 
 export declare type ISourceLocation = URI;
 
@@ -247,32 +248,6 @@ export class VSCodeFileSystemInRascal extends JsonRpcServer {
     }
 }
 
-async function asyncCatcher<T>(build: () => Thenable<T>): Promise<T> {
-    try {
-        return await build();
-    }
-    catch (e: unknown) {
-        if (e instanceof vscode.FileSystemError) {
-            throw new rpc.ResponseError(ErrorCodes.fileSystem, e.message, e.code);
-        }
-        if (e instanceof rpc.ResponseError) {
-            throw e;
-        }
-        throw new rpc.ResponseError(ErrorCodes.generic, "" + e);
-    }
-}
-
-async function asyncVoidCatcher(run: (() => Promise<void>) | Thenable<void>): Promise<void> {
-    return asyncCatcher<void>(() => {
-        if (typeof run === "function") {
-            return run();
-        }
-        else {
-            return run;
-        }
-    });
-}
-
 class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly connection: rpc.MessageConnection;
     private readonly watchListener: WatchEventReceiver;
@@ -295,6 +270,26 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         connectOutputHandler(connection, this, this.toClear);
         connectWatchHandler(connection, this, this.toClear);
         connectLogicalResolver(connection, this, this.toClear);
+    }
+
+    async asyncCatcher<T>(build: () => Thenable<T>): Promise<T> {
+        try {
+            return await build();
+        }
+        catch (e: unknown) {
+            throw RemoteIOError.translateFileSystemError(e, this.logger);
+        }
+    }
+
+    async asyncVoidCatcher(run: (() => Promise<void>) | Thenable<void>): Promise<void> {
+        return this.asyncCatcher<void>(() => {
+            if (typeof run === "function") {
+                return run();
+            }
+            else {
+                return run;
+            }
+        });
     }
 
     toUri(loc: ISourceLocation): vscode.Uri {
@@ -330,7 +325,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async fileStat(req: ISourceLocationRequest): Promise<FileAttributes> {
-        return asyncCatcher(async () => {
+        return this.asyncCatcher(async () => {
             const fileInfo = await this.stat(req.loc);
             return {
                 exists: true,
@@ -351,7 +346,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     private async numberResult(loc: ISourceLocation, mapper: (s: vscode.FileStat) => number): Promise<NumberResponse> {
-        return asyncCatcher(async () => <NumberResponse>{ value: mapper((await this.stat(loc))) });
+        return this.asyncCatcher(async () => <NumberResponse>{ value: mapper((await this.stat(loc))) });
     }
 
     lastModified(req: ISourceLocationRequest): Promise<TimestampResponse> {
@@ -370,7 +365,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     private async boolResult(loc: ISourceLocation, mapper: (s :vscode.FileStat) => boolean): Promise<BooleanResponse> {
-        return asyncCatcher(async () => <BooleanResponse>{ value: mapper((await this.stat(loc))) });
+        return this.asyncCatcher(async () => <BooleanResponse>{ value: mapper((await this.stat(loc))) });
     }
 
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResponse> {
@@ -406,7 +401,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResponse> {
         this.logger.trace("[VSCodeFileSystemInRascal] list: ", req.loc);
-        return asyncCatcher(async () => <DirectoryListingResponse>{ entries:
+        return this.asyncCatcher(async () => <DirectoryListingResponse>{ entries:
             (await this.fs.readDirectory(this.toUri(req.loc))).map(entry => <DirectoryEntry>{name: entry[0], types: this.decodeFileTypeBitmask(entry[1])})
         });
     }
@@ -422,21 +417,21 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (await this.exists(req) && req.append) {
             prefix = Buffer.from(await this.fs.readFile(loc));
         }
-        return asyncVoidCatcher(
+        return this.asyncVoidCatcher(
             this.fs.writeFile(loc, Buffer.concat([prefix, Buffer.from(req.content, "base64")]))
         );
     }
     async mkDirectory(req: ISourceLocationRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] mkDirectory: ", req.loc);
-        return asyncVoidCatcher(this.fs.createDirectory(this.toUri(req.loc)));
+        return this.asyncVoidCatcher(this.fs.createDirectory(this.toUri(req.loc)));
     }
     async remove(req: RemoveRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] remove: ", req.loc);
-        return asyncVoidCatcher(this.fs.delete(this.toUri(req.loc), {"recursive" : req.recursive}));
+        return this.asyncVoidCatcher(this.fs.delete(this.toUri(req.loc), {"recursive" : req.recursive}));
     }
     async rename(req: RenameRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] rename: ", req.from, req.to);
-        return asyncVoidCatcher(this.fs.rename(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
+        return this.asyncVoidCatcher(this.fs.rename(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
     }
 
     async copy(req: CopyRequest): Promise<void> {
@@ -444,7 +439,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (req.recursive && await this.isDirectory({ loc: req.from })) {
             throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Non-recursive watch requested on a directory', req);
         }
-        return asyncVoidCatcher(this.fs.copy(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
+        return this.asyncVoidCatcher(this.fs.copy(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
     }
 
     private readonly activeWatches = new Map<string, WatcherCallbacks>();
