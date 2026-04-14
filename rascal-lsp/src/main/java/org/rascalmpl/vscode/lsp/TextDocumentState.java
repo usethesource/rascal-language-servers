@@ -132,7 +132,7 @@ public class TextDocumentState {
     }
 
     /**
-     * Wait for current tree to parse. Then return the last tree that matches the allowRecoveredErrors conditation.
+     * Wait for current tree to parse. Then return the last tree that matches the allowRecoveredErrors condition.
      * @param allowRecoveredErrors if false, the result will not contain a tree with recovered errors.
      * @return the last parse tree, or an exception if non existed.
      */
