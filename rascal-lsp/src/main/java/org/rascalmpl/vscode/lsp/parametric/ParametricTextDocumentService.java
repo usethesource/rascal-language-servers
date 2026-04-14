@@ -360,6 +360,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
         if (files.remove(loc) == null) {
+            logger.error("Received `didClose` for unknown file: {}", loc);
             throw new ResponseErrorException(unknownFileError(loc, params));
         }
         facts(loc).close(loc);
@@ -372,9 +373,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
+        logger.debug("textDocument/didDeleteFiles({})", params);
         exec.submit(() -> {
             // if a file is deleted, and we were tracking it, we remove our diagnostics
             for (var f : params.getFiles()) {
+                logger.debug("Received `didDelete` for {}", f);
                 availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
             }
         });
