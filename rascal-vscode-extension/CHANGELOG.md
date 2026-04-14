@@ -2,16 +2,28 @@
 
 We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
+## 0.13.4
+
+Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0)
+
+* avoid errors when navigating in rascal files stored in jars, such as libraries or the standard library
+* upgraded to rascal 0.42.2 that fixed a few bugs:
+  * rascal code executing during import are now not hiding overloads anymore
+  * fixed bugs in stored module parsers
+  * fixed a few edge cases in the mvn/jar+file/zip resolvers
+  * fixed a bug where typechecker would sometimes flip between errors and no error on the same file on every save
+  * other typechecker improvements
+
 ## 0.13.3
 
-Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
+Works best with rascal 0.42.1 (and rascal-maven-plugin 0.31.0).
 
 * fixed a regession in JSON encoding of rascal action results & parameters
 * fixed the race that sometimes broke go-to definition and other type-checker derived operations
 
 ## 0.13.2
 
-Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
+Works best with rascal 0.42.1 (and rascal-maven-plugin 0.31.0).
 
 * upgraded to rascal 0.42.1 which contains a bugfix for missing overloads
 * fixed a bug where `readFile` inside of a repl would fail if the file was open in the IDE
