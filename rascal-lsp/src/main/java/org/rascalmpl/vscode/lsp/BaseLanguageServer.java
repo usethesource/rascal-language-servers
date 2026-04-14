@@ -76,7 +76,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
-* The main language server class for Rascal is build on top of the Eclipse lsp4j library
+* The main language server class for Rascal is built on top of the Eclipse lsp4j library
 */
 @SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public abstract class BaseLanguageServer {
