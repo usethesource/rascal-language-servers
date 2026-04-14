@@ -198,6 +198,7 @@ public class TextDocumentState {
         }
 
         private void parse() {
+            logger.debug("Triggering parse for {}", location);
             try {
                 parser.apply(location, content)
                     .whenComplete((ITree t, Throwable e) -> {
@@ -208,13 +209,17 @@ public class TextDocumentState {
 
                         // Complete future to get the tree
                         if (t == null) {
+                            logger.error("Parse completed exceptionally: {}", location);
                             treeAsync.completeExceptionally(e);
                         } else {
                             var tree = new Versioned<>(version, t, timestamp);
+                            logger.error("Parse completed: {}", location);
                             Versioned.replaceIfNewer(last, tree);
                             if (diagnosticsList.isEmpty()) {
+                                logger.error("Parse completed without errors: {}", location);
                                 Versioned.replaceIfNewer(lastWithoutErrors, tree);
                             }
+                            logger.error("TreeAsync completed: {}", location);
                             treeAsync.complete(tree);
                         }
 
