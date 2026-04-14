@@ -26,16 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
-import java.io.FileNotFoundException;
-import java.net.URISyntaxException;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.NotDirectoryException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.rascalmpl.uri.FileAttributes;
@@ -43,8 +37,10 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.remote.RascalFileSystemServices;
 import org.rascalmpl.uri.remote.jsonrpc.CopyRequest;
+import org.rascalmpl.uri.remote.jsonrpc.DirectoryListingResponse;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.LocationContentResponse;
+import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.uri.remote.jsonrpc.RemoveRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RenameRequest;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
@@ -63,43 +59,44 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     @Override
     public CompletableFuture<SourceLocationResponse> resolveLocation(ISourceLocationRequest req) {
         logger.trace("resolveLocation: {}", req.getLocation());
-        return super.resolveLocation(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation()))).exceptionally(this::handleException);
+        return super.resolveLocation(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation())));
     }
 
     @Override
-    public CompletableFuture<Void> watch(WatchRequest params) {
-        logger.trace("watch: {}", params.getLocation());
-        if (Locations.isWrappedOpaque(params.getLocation())) {
-            throw new ResponseErrorException(translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal")));
+    public CompletableFuture<Void> watch(WatchRequest req) {
+        var loc = req.getLocation();
+        logger.trace("watch: {}", loc);
+        if (Locations.isWrappedOpaque(loc)) {
+            throw RemoteIOError.translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal: " + loc.getScheme()));
         }
-        return super.watch(params);
+        return super.watch(req);
     }
 
     @Override
     public CompletableFuture<FileAttributes> stat(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("stat: {}", loc);
-        return super.stat(new ISourceLocationRequest(Locations.toClientLocation(loc))).exceptionally(this::handleException);
+        return super.stat(new ISourceLocationRequest(Locations.toClientLocation(loc)));
     }
 
     @Override
-    public CompletableFuture<FileWithType[]> list(ISourceLocationRequest req) {
+    public CompletableFuture<DirectoryListingResponse> list(ISourceLocationRequest req) {
         logger.trace("list: {}", req.getLocation());
-        return super.list(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation()))).exceptionally(this::handleException);
+        return super.list(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation())));
     }
 
     @Override
     public CompletableFuture<Void> mkDirectory(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("mkDirectory: {}", loc);
-        return super.mkDirectory(new ISourceLocationRequest(Locations.toClientLocation(loc))).exceptionally(this::handleException);
+        return super.mkDirectory(new ISourceLocationRequest(Locations.toClientLocation(loc)));
     }
 
     @Override
     public CompletableFuture<LocationContentResponse> readFile(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("readFile: {}", loc);
-        return super.readFile(new ISourceLocationRequest(Locations.toClientLocation(loc))).exceptionally(this::handleException);
+        return super.readFile(new ISourceLocationRequest(Locations.toClientLocation(loc)));
     }
 
     @Override
@@ -107,85 +104,27 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
         var loc = req.getLocation();
         logger.info("writeFile: {}", loc);
         if (reg.exists(loc) && reg.isDirectory(loc)) {
-            return CompletableFuture.failedFuture(new ResponseErrorException(fileIsADirectory(loc)));
+            throw new ResponseErrorException(new ResponseError(RemoteIOError.IsADirectory.code, "Is a directory: " + loc, null));
         }
-        return super.writeFile(new WriteFileRequest(Locations.toClientLocation(loc), req.getContent(), req.isAppend())).exceptionally(this::handleException);
+        return super.writeFile(new WriteFileRequest(Locations.toClientLocation(loc), req.getContent(), req.isAppend()));
     }
 
     @Override
     public CompletableFuture<Void> remove(RemoveRequest req) {
         var loc = req.getLocation();
         logger.trace("remove: {}", loc);
-        return super.remove(new RemoveRequest(Locations.toClientLocation(loc), req.isRecursive())).exceptionally(this::handleException);
+        return super.remove(new RemoveRequest(Locations.toClientLocation(loc), req.isRecursive()));
     }
 
     @Override
     public CompletableFuture<Void> rename(RenameRequest req) {
         logger.trace("rename: {} to {}", req.getFrom(), req.getTo());
-        return super.rename(new RenameRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isOverwrite())).exceptionally(this::handleException);
+        return super.rename(new RenameRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isOverwrite()));
     }
 
     @Override
     public CompletableFuture<Void> copy(CopyRequest req) {
         logger.trace("copy: {} to {}", req.getFrom(), req.getTo());
-        return super.copy(new CopyRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isRecursive(), req.isOverwrite())).exceptionally(this::handleException);
-    }
-
-    private static ResponseError fileExists(Object data) {
-        return new ResponseError(-1, "File exists", data);
-    }
-
-    private static ResponseError fileIsADirectory(Object data) {
-        return new ResponseError(-2, "File is a directory", data);
-    }
-
-    private static ResponseError fileNotADirectory(Object data) {
-        return new ResponseError(-3, "File is not a directory", data);
-    }
-    
-    private static ResponseError fileNotFound(Object data) {
-        return new ResponseError(-4, "File is not found", data);
-    }
-    
-    private static ResponseError noPermissions(Object data) {
-        return new ResponseError(-5, "No permissions", data);
-    }
-
-    @SuppressWarnings("unused")
-    private static ResponseError unavailable(Object data) {
-        return new ResponseError(-6, "Unavailable", data);
-    }
-
-    private static ResponseError generic(@Nullable String message, Object data) {
-        return new ResponseError(-99, message == null ? "no error message was provided" : message, data);
-    }
-
-    public static ResponseError translate(Throwable original) {
-        if (original == null) {
-            return generic("Unknown error occurred", "Unknown error occurred");
-        }
-        if (original instanceof CompletionException) {
-            var cause = original.getCause();
-            if (cause != null) {
-                if (cause instanceof FileNotFoundException || cause instanceof UnsupportedSchemeException || cause instanceof URISyntaxException) {
-                    return fileNotFound(cause);
-                } else if (cause instanceof FileAlreadyExistsException) {
-                    return fileExists(cause);
-                } else if (cause instanceof NotDirectoryException) {
-                    return fileNotADirectory(cause);
-                } else if (cause instanceof SecurityException) {
-                    return noPermissions(cause);
-                } else if (cause instanceof ResponseErrorException) {
-                    return ((ResponseErrorException) cause).getResponseError();
-                } else {
-                    return generic(cause.getMessage(), original);
-                }
-            }
-        }
-        return generic(original.getMessage(), original);
-    }
-
-    private <T> T handleException(Throwable t) throws ResponseErrorException {
-        throw new ResponseErrorException(translate(t));
+        return super.copy(new CopyRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isRecursive(), req.isOverwrite()));
     }
 }
