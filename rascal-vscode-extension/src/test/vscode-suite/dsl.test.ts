@@ -106,6 +106,8 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     afterEach(async function () {
         console.log(`[begin] afterEach(${this.test?.title})`);
         if (this.test?.title) {
+            const bb = await new Workbench().getBottomBar();
+            await bb.openProblemsView();
             await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
         }
         await ide.cleanup();
