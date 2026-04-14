@@ -196,7 +196,7 @@ public class RascalLanguageServices {
     }
 
     public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, Function<ISourceLocation, PathConfig> computePathConfig) {
-        Function<Evaluator, IConstructor> computeSummary;
+        Function<Evaluator, @Nullable IConstructor> computeSummary;
         var tplLoc = libraryTplLocation(occ);
         if (tplLoc != null) {
             computeSummary = eval -> {
