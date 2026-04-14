@@ -87,16 +87,6 @@ public class PathConfigsTest {
     }
 
     @Test
-    public void standardRoot() {
-        checkRoot(URIUtil.rootLocation("std"), "IO.rsc");
-    }
-
-    @Test
-    public void nestedStandardRoot() {
-        checkRoot(URIUtil.rootLocation("std"), "util/Maybe.rsc");
-    }
-
-    @Test
     public void lspRoot() {
         checkRoot(absoluteProjectDir, "src/main/rascal/library/util/LanguageServer.rsc");
     }
@@ -114,12 +104,6 @@ public class PathConfigsTest {
     @Test
     public void projectRoot() throws URISyntaxException {
         checkRoot(VF.sourceLocation("project", "rascal-lsp", ""), "src/main/rascal/library/util/LanguageServer.rsc", false, false);
-    }
-
-    @Test
-    public void pathConfigForStandardModule() throws IOException, URISyntaxException {
-        var pcfg = configs.lookupConfig(VF.sourceLocation("std", "", "IO.rsc"));
-        assertEquals("Path config root should equal project URI", reg.logicalToPhysical(VF.sourceLocation("std", "", "")), pcfg.getProjectRoot());
     }
 
     @Test

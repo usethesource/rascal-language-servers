@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.rascal.model;
 
 import org.rascalmpl.interpreter.utils.RascalManifest;
-import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -36,8 +35,6 @@ import io.usethesource.vallang.ISourceLocation;
  * Tools for projects, like path computations. Non-static functions so they can be used in Rascal via `@javaClass` as well.
  */
 public class Projects {
-
-    private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
     /**
      * Infers the shallowest possible root of the project that `origin` is in.
