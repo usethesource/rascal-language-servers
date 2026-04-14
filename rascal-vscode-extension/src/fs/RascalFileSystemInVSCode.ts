@@ -28,6 +28,7 @@ import path from 'path';
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
 import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocationRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './VSCodeFileSystemInRascal';
+import { RemoteIOError } from './RemoteIOError';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     readonly client: BaseLanguageClient;
@@ -68,19 +69,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     sendRequest<R, A>(uri : vscode.Uri | string, method: string, param?: A): Promise<R> {
         return this.client.sendRequest<R>(method, param ?? <ISourceLocationRequest>{ loc: this.toRascalUri(uri) } )
             .catch((r: ResponseError) => {
-                if (r !== undefined) {
-                    this.logger.debug("Got response error from the file system: ", r);
-                    switch (r.code) {
-                        case -1: throw vscode.FileSystemError.FileExists(uri);
-                        case -2: throw vscode.FileSystemError.FileIsADirectory(uri);
-                        case -3: throw vscode.FileSystemError.FileNotADirectory(uri);
-                        case -4: throw vscode.FileSystemError.FileNotFound(uri);
-                        case -5: throw vscode.FileSystemError.NoPermissions(uri);
-                        case -6: throw vscode.FileSystemError.Unavailable(uri);
-                        default: throw new vscode.FileSystemError(uri);
-                    }
-                }
-                throw r;
+                throw RemoteIOError.translateResponseError(r, uri, this.logger);
             });
     }
 

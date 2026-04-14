@@ -231,12 +231,6 @@ export interface DirectoryEntry {
     types: vscode.FileType[]
 }
 
-enum ErrorCodes {
-    generic = -1,
-    fileSystem = -2,
-    nativeRascal = -3
-}
-
 export class VSCodeFileSystemInRascal extends JsonRpcServer {
     private rascalNativeSchemes: Set<string> = new Set();
     constructor(debug: boolean, private readonly logger: vscode.LogOutputChannel) {
@@ -295,14 +289,14 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     toUri(loc: ISourceLocation): vscode.Uri {
         const uri = vscode.Uri.parse(loc);
         if (this.isRascalNative(uri)) {
-            throw new rpc.ResponseError(ErrorCodes.nativeRascal, "Cannot request VFS jobs on native rascal URIs: " + loc);
+            throw new rpc.ResponseError(RemoteIOError.isRascalNative, `Cannot request VS jobs on native Rascal locations: ${loc}`);
         }
         return uri;
     }
 
     async readFile(req: ISourceLocationRequest): Promise<LocationContentResponse> {
         this.logger.trace("[VSCodeFileSystemInRascal] readFile: ", req.loc);
-        return asyncCatcher(async () => <LocationContentResponse>{
+        return this.asyncCatcher(async () => <LocationContentResponse>{
             content: Buffer.from(await this.fs.readFile(this.toUri(req.loc))).toString("base64")
         });
     }
@@ -390,7 +384,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         const scheme = this.toUri(req.loc).scheme;
         const writable = this.fs.isWritableFileSystem(scheme);
         if (writable === undefined) {
-            throw new rpc.ResponseError(ErrorCodes.fileSystem, "Unsupported scheme: " + scheme, "Unsupported file system");
+            throw new rpc.ResponseError(RemoteIOError.unsupportedScheme, `Unsupported scheme: ${scheme}`);
         }
         if (!writable) {
             // not a writable file system, so no need to check the uri
@@ -437,7 +431,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     async copy(req: CopyRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] copy: ", req.from, req.to);
         if (req.recursive && await this.isDirectory({ loc: req.from })) {
-            throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Non-recursive watch requested on a directory', req);
+            throw new rpc.ResponseError(RemoteIOError.isADirectory, 'Non-recursive copy requested on a directory', req);
         }
         return this.asyncVoidCatcher(this.fs.copy(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
     }
@@ -453,7 +447,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             this.toClear.push(watcher);
             return;
         }
-        throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch already defined for: ' + newWatch.loc, 'AlreadyDefined');
+        throw new rpc.ResponseError(RemoteIOError.watchAlreadyDefined, `Watch already defined: ${newWatch.loc}`);
     }
 
     async unwatch(removeWatch: WatchRequest): Promise<void> {
@@ -469,7 +463,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             }
             return;
         }
-        throw new rpc.ResponseError(ErrorCodes.fileSystem, 'Watch not defined for: ' + removeWatch.loc, 'NotDefined');
+        throw new rpc.ResponseError(RemoteIOError.watchNotDefined, `Watch not defined: ${removeWatch.loc}`);
     }
 
     async resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
