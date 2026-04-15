@@ -37,6 +37,7 @@ import Location;
 import ParseTree;
 import Set;
 import String;
+import ValueIO;
 
 import lang::rascal::\syntax::Rascal; // `Name`
 
@@ -48,12 +49,12 @@ import lang::rascalcore::compile::util::Names;
 import analysis::diff::edits::ExecuteTextEdits;
 
 import util::FileSystem;
-import util::LanguageServer;
 import util::Math;
 import util::Maybe;
 import util::Monitor;
 import util::PathConfig;
 import util::Reflective;
+import util::SystemAPI;
 import util::Util;
 
 public LanguageFileConfig RASCAL_CONF = fileConfig();
@@ -116,6 +117,49 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
         iprintln(actual);
         println();
         return false;
+    }
+    return true;
+}
+
+// Rascal port of TreeSearch::computeFocusList
+private list[Tree] computeFocusList(amb(set[Tree] alts), int line, int col) {
+    if (a <- alts) {
+        return computeFocusList(a, line, col);
+    }
+    return [];
+}
+
+private list[Tree] computeFocusList(tr:appl(Production p, _), int line, int col) = [tr] when isLexical(p.def) && isInside(tr, line, col);
+
+private bool isLexical(\lex(_)) = true;
+private bool isLexical(\parameterized-lex(_, _)) = true;
+private default bool isLexical(_) = false;
+
+private list[Tree] computeFocusList(appl(prod, _), int _, int _) = [] when prod.def is \layouts;
+
+private list[Tree] computeFocusList(tr:appl(_, args), int line, int col) {
+    list[Tree] focus = isInside(tr, line, col) ? [tr] : [];
+    for (a <- args, isInside(a, line, col)) {
+        return computeFocusList(a, line, col) + focus;
+    }
+    return focus;
+}
+
+private default list[Tree] computeFocusList(Tree _, int _, int _) = [];
+
+private bool isInside(Tree tr, int line, int col) = tr.src? && isInside(tr.src, line, col);
+private bool isInside(loc l, int line, int col) {
+    if (!(l.begin? && l.end?)) return false;
+    if (line < l.begin.line || line > l.end.line) return false;
+
+    if (line == l.begin.line) {
+        if (line < l.end.line) {
+            return l.begin.column <= col;
+        }
+        return l.begin.column <= col && col <= l.end.column;
+    }
+    if (line == l.end.line) {
+        return col <= l.end.column;
     }
     return true;
 }
@@ -280,19 +324,24 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
-public loc calculateRascalLib() {
-    result = resolveLocation(|std:///|);
-    if (/org.rascalmpl.library.?$/ := result.path) {
-        return result.parent.parent.parent;
+public list[loc] calculateRascalLibs() {
+    rascalLib = resolveLocation(|std:///|);
+    if (/org.rascalmpl.library.?$/ := rascalLib.path) {
+        rascalLib = rascalLib.parent.parent.parent;
     }
-    return result;
+    props = getSystemEnvironment();
+    if (props["ADDITIONAL_TPLS"]?) {
+        loc additionalTpls = readTextValueString(#loc, props["ADDITIONAL_TPLS"]);
+        return [rascalLib, additionalTpls];
+    }
+    return [rascalLib];
 }
 
 
 public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
-        libs=[calculateRascalLib()],
+        libs=calculateRascalLibs(),
         srcs=[testDir + "rascal"]
     );
 }

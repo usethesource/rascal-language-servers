@@ -36,7 +36,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.rascalmpl.interpreter.NullRascalMonitor;
+import org.rascalmpl.debug.NullRascalMonitor;
 import org.rascalmpl.shell.ShellEvaluatorFactory;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.RascalFunctionValueFactory;

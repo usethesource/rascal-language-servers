@@ -30,11 +30,11 @@ module lang::rascal::lsp::Templates
 import IO;
 import Location;
 import String;
-import util::LanguageServer;
 import util::PathConfig;
 import util::Reflective;
+import analysis::diff::edits::AnnotatedTextEdits;
 
-import analysis::diff::edits::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 
 import lang::rascal::\syntax::Rascal;
 

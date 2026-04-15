@@ -50,6 +50,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
 import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileFacts {
@@ -60,6 +61,7 @@ public class FileFacts {
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
     private final ColumnMaps cm;
     private final PathConfigs confs;
+    private final FileFact nopFact;
 
     public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
@@ -67,6 +69,18 @@ public class FileFacts {
         this.client = client;
         this.cm = cm;
         this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
+        this.nopFact = new FileFact() {
+            @Override public void reportParseErrors(List<Diagnostic> msgs) { /* NOP */}
+            @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void invalidate() { /* NOP */ }
+            @Override public void close() { /* NOP */ }
+            @Override public void clearDiagnostics() { /* NOP */ }
+
+            @Override
+            public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+                return CompletableFutureUtils.completedFuture(null, exec);
+            }
+        };
     }
 
     public void projectRemoved(ISourceLocation projectLocation) {
@@ -88,22 +102,19 @@ public class FileFacts {
     private FileFact getFile(ISourceLocation l) {
         l = l.top();
         ISourceLocation resolved = Locations.toClientLocation(l);
-        if (resolved == null) {
-            resolved = l;
-        }
         var fact = files.get(resolved);
-        if (fact == null) {
-            if (URIResolverRegistry.getInstance().exists(resolved)) {
-                fact = new ActualFileFact(resolved, exec);
-                var existing = files.putIfAbsent(resolved, fact);
-                if (existing != null) {
-                    fact = existing;
-                }
-            } else {
-                fact = new NopFileFact();
-            }
+        if (fact != null) {
+            return fact;
         }
-        return fact;
+
+        if (URIResolverRegistry.getInstance().exists(resolved)) {
+            // The file exists, so there should be facts.
+            // Someone might have raced past us, so we atomically check(again)-and-update and return the result.
+            return files.computeIfAbsent(resolved, loc -> new ActualFileFact(loc, exec));
+        }
+
+        // Return dummy facts without modifying the map.
+        return nopFact;
     }
 
     public PathConfig getPathConfig(ISourceLocation file) {
@@ -145,12 +156,11 @@ public class FileFacts {
                 InterruptibleFuture.completedFuture(new SummaryBridge(), exec),
                 r -> {
                     r.interrupt();
-                    var summaryCalc = rascal.getSummary(file, confs.lookupConfig(file))
-                        .<@Nullable SummaryBridge>thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
-                    // only run get summary after the typechecker for this file is done running
+                    // only run get summary after the typechecker for this file is done running, because it needs the TPL
                     // (we cannot now global running type checkers, that is a different subject)
-                    var mergedCalc = typeCheckResults.get().<@Nullable SummaryBridge>thenCompose(o -> summaryCalc.get());
-                    return new InterruptibleFuture<>(mergedCalc, summaryCalc::interrupt);
+                    return InterruptibleFuture.flatten(typeCheckResults.get()
+                        .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, confs::lookupConfig)), exec)
+                        .<@Nullable SummaryBridge>thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
                 });
         }
 
@@ -210,35 +220,4 @@ public class FileFacts {
         }
     }
 
-    class NopFileFact implements FileFact {
-        @Override
-        public void reportParseErrors(List<Diagnostic> msgs) {
-            // NOP
-        }
-
-        @Override
-        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
-            // NOP
-        }
-
-        @Override
-        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
-            return CompletableFutureUtils.completedFuture(null, exec);
-        }
-
-        @Override
-        public void invalidate() {
-            // NOP
-        }
-
-        @Override
-        public void close() {
-            // NOP
-        }
-
-        @Override
-        public void clearDiagnostics() {
-            // NOP
-        }
-    }
 }

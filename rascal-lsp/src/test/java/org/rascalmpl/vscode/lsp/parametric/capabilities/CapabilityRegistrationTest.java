@@ -150,7 +150,7 @@ public class CapabilityRegistrationTest {
         }
 
         @Override
-        public CompletableFuture<Boolean> hasCompletion() {
+        public CompletableFuture<Boolean> providesCompletion() {
             return CompletableFutureUtils.completedFuture(true, exec);
         }
 

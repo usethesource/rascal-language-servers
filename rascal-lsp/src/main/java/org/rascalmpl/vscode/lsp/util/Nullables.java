@@ -26,7 +26,9 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
@@ -97,6 +99,26 @@ public class Nullables {
      */
     public static <A, B, C> @PolyNull C get(@Nullable A a, Function<A, @Nullable B> getFunc1, Function<B, @Nullable C> getFunc2, @PolyNull C defaultVal) {
         return get(get(a, getFunc1, null), getFunc2, defaultVal);
+    }
+
+    /**
+     * Get a value from an object. If it was not set yet (i.e. `null`), initialize and set it before returning.
+     * @param <C> The type of the containing object.
+     * @param <T> The type of the value to get.
+     * @param container The containing object.
+     * @param getter The value getter.
+     * @param setter The value setter. Only called if the value is not initialized yet.
+     * @param initializer The value initializer (e.g. a constructor). Only called if the value is not initialized yet.
+     * @return The gotten value, or the initialized value if was not initialized yet.
+     */
+    public static <C, T> T ensureNonNullAndGet(C container, Function<C, @Nullable T> getter, BiConsumer<C, T> setter, Supplier<T> initializer) {
+        var t = getter.apply(container);
+        if (t == null) {
+            t = initializer.get();
+            setter.accept(container, t);
+            assert getter.apply(container) != null : "Setter should set same value as getter gets";
+        }
+        return t;
     }
 
 }

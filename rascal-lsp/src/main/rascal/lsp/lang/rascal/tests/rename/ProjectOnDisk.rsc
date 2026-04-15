@@ -51,7 +51,7 @@ Edits renameOnDisk(loc projectDir, str file, str oldName, int occurrence = 0, st
         pcfg = pathConfig(
             srcs = [projectDir + dir | dir <- srcDirs],
             bin = projectDir + "target/classes",
-            libs = [calculateRascalLib(), *libs]
+            libs = [*calculateRascalLibs(), *libs]
         );
     }
     // extension for Rascal compiler

@@ -37,6 +37,7 @@ import util::Util;
 
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::BasicRascalConfig;
+
 import lang::rascalcore::check::AType;
 
 import Location;

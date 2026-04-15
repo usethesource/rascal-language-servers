@@ -30,6 +30,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -41,16 +43,21 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.IValueFactory;
 
 /**
  * An implementation of {@link ILanguageContributions} that has no contributions.
- * It is intended to be used as a placeholder for files which do not have any contributions registered.
+ * It is intended to be used as a placeholder for files which do not have any contributions registered,
+ * or as a super-class for very selective contributions.
+ * The default values that these contributions return should mirror the ones in `InterpretedLanguageContributions`.
  */
 public class NoContributions implements ILanguageContributions {
 
     private static final Logger logger = LogManager.getLogger(NoContributions.class);
+    private static final IValueFactory VF = IRascalValueFactory.getInstance();
 
-    private String name;
+    private final String name;
+    private final Executor exec;
     private final CompletableFuture<Boolean> falsy;
 
     public class NoContributionException extends RuntimeException {
@@ -61,7 +68,16 @@ public class NoContributions implements ILanguageContributions {
 
     public NoContributions(String name, Executor exec) {
         this.name = name;
+        this.exec = exec;
         this.falsy = CompletableFutureUtils.completedFuture(false, exec);
+    }
+
+    private final <T> InterruptibleFuture<T> interruptible(T t) {
+        return InterruptibleFuture.completedFuture(t, exec);
+    }
+
+    private final <T> CompletableFuture<T> completable(T t) {
+        return CompletableFutureUtils.completedFuture(t, exec);
     }
 
     @Override
@@ -71,191 +87,195 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        throw new NoContributionException("parsing");
+        return CompletableFuture.failedFuture(new NoContributionException("parsing"));
     }
 
     @Override
     public InterruptibleFuture<IConstructor> analysis(ISourceLocation loc, ITree input) {
-        throw new NoContributionException("analysis");
+        return interruptible(EmptySummary.newInstance(loc));
     }
 
     @Override
     public InterruptibleFuture<IConstructor> build(ISourceLocation loc, ITree input) {
-        throw new NoContributionException("build");
+        return interruptible(EmptySummary.newInstance(loc));
     }
 
     @Override
     public InterruptibleFuture<IList> documentSymbol(ITree input) {
-        throw new NoContributionException("documentSymbol");
+        return interruptible(VF.list());
     }
 
     @Override
     public InterruptibleFuture<IList> codeLens(ITree input) {
-        throw new NoContributionException("codeLens");
+        return interruptible(VF.list());
     }
 
     @Override
     public InterruptibleFuture<IList> inlayHint(ITree input) {
-        throw new NoContributionException("inlayHint");
+        return interruptible(VF.list());
     }
 
     @Override
     public InterruptibleFuture<IValue> execution(String command) {
-        throw new NoContributionException("execution");
+        // Similar to default in ParametricTextDocumentService::executeCommand
+        return interruptible(VF.string("Execution not configured"));
     }
 
     @Override
     public InterruptibleFuture<ISet> hover(IList focus) {
-        throw new NoContributionException("hover");
+        return interruptible(VF.set());
     }
 
     @Override
     public InterruptibleFuture<ISet> definition(IList focus) {
-        throw new NoContributionException("definition");
+        return interruptible(VF.set());
     }
 
     @Override
     public InterruptibleFuture<ISet> references(IList focus) {
-        throw new NoContributionException("references");
+        return interruptible(VF.set());
     }
 
     @Override
     public InterruptibleFuture<ISet> implementation(IList focus) {
-        throw new NoContributionException("implementation");
+        return interruptible(VF.set());
     }
 
     @Override
     public InterruptibleFuture<IList> codeAction(IList focus) {
-        throw new NoContributionException("codeLens");
+        return interruptible(VF.list());
     }
 
     @Override
     public InterruptibleFuture<IList> selectionRange(IList focus) {
-        throw new NoContributionException("selectionRange");
+        return interruptible(VF.list());
     }
 
     @Override
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus) {
-        throw new NoContributionException("prepareRename");
+        return interruptible(URIUtil.unknownLocation());
     }
 
     @Override
     public InterruptibleFuture<ITuple> rename(IList focus, String name) {
-        throw new NoContributionException("rename");
+        return interruptible(VF.tuple(VF.list(), VF.set()));
     }
 
     @Override
     public InterruptibleFuture<ITuple> didRenameFiles(IList fileRenames) {
-        throw new NoContributionException("didRenameFiles");
+        return interruptible(VF.tuple(VF.list(), VF.set()));
     }
 
     @Override
     public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
-        throw new NoContributionException("prepareCallHierarchy");
+        return interruptible(VF.list());
     }
 
     @Override
     public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction) {
-        throw new NoContributionException("incomingOutgoingCalls");
+        return interruptible(VF.list());
     }
 
     @Override
     public CompletableFuture<IList> parseCodeActions(String command) {
-        throw new NoContributionException("parseCodeActions");
+        return completable(VF.list());
     }
 
     @Override
     public CompletableFuture<IConstructor> parseCallHierarchyData(String data) {
-        throw new NoContributionException("parseCallHierarchyData");
+        // This should only be called on the same contributions on which `callHierarchy` was called. It parses some data from the call hierarchy.
+        // Since our `callHierarchy` return nothing, this should really never be called. There is also no sensible default.
+        // Hence, we throw an exception here.
+        return CompletableFuture.failedFuture(new NoContributionException("parseCallHierarchyData"));
     }
 
     @Override
     public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
-        throw new NoContributionException("completion");
+        return interruptible(VF.list());
     }
 
     @Override
     public CompletableFuture<IList> completionTriggerCharacters() {
-        throw new NoContributionException("completionTriggerCharacters");
+        return completable(VF.list());
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalysis() {
+    public CompletableFuture<Boolean> providesAnalysis() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuild() {
+    public CompletableFuture<Boolean> providesBuild() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumentSymbol() {
+    public CompletableFuture<Boolean> providesDocumentSymbol() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLens() {
+    public CompletableFuture<Boolean> providesCodeLens() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
+    public CompletableFuture<Boolean> providesInlayHint() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasRename() {
+    public CompletableFuture<Boolean> providesRename() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecution() {
+    public CompletableFuture<Boolean> providesExecution() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasHover() {
+    public CompletableFuture<Boolean> providesHover() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefinition() {
+    public CompletableFuture<Boolean> providesDefinition() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferences() {
+    public CompletableFuture<Boolean> providesReferences() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementation() {
+    public CompletableFuture<Boolean> providesImplementation() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeAction() {
+    public CompletableFuture<Boolean> providesCodeAction() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDidRenameFiles() {
+    public CompletableFuture<Boolean> providesDidRenameFiles() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSelectionRange() {
+    public CompletableFuture<Boolean> providesSelectionRange() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCallHierarchy() {
+    public CompletableFuture<Boolean> providesCallHierarchy() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCompletion() {
+    public CompletableFuture<Boolean> providesCompletion() {
         return falsy;
     }
 
@@ -266,17 +286,17 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<SummaryConfig> getAnalyzerSummaryConfig() {
-        throw new NoContributionException("getAnalyzerSummaryConfig");
+        return completable(SummaryConfig.FALSY);
     }
 
     @Override
     public CompletableFuture<SummaryConfig> getBuilderSummaryConfig() {
-        throw new NoContributionException("getBuilderSummaryConfig");
+        return completable(SummaryConfig.FALSY);
     }
 
     @Override
     public CompletableFuture<SummaryConfig> getOndemandSummaryConfig() {
-        throw new NoContributionException("getOndemandSummaryConfig");
+        return completable(SummaryConfig.FALSY);
     }
 
     @Override

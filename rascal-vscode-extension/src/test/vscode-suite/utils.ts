@@ -29,7 +29,7 @@ import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
 import * as os from 'os';
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 import path = require("path");
 
 export async function sleep(ms: number) {
@@ -271,6 +271,10 @@ export class IDEOperations {
         return this.hasElement(editor, By.css('[class*="dyn-rule"'), timeout, message);
     }
 
+    hasLink(editor: TextEditor, timeout = Delays.normal, message = "Missing link") {
+        return this.hasElement(editor, By.css('[class~="detected-link"]'), timeout, message);
+    }
+
     revertOpenChanges(): Promise<void> {
         let tryCount = 0;
         return this.driver.wait(async () => {
@@ -424,10 +428,16 @@ export class IDEOperations {
         }
     }
 
-
-    findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
-        return this.driver.wait(() => ignoreFails(editor.getCodeLens(name)), timeout, message);
-
+    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
+        await this.driver.wait(async () => {
+            try {
+                const lens = await editor.getCodeLens(name);
+                await lens!.click();
+                return true;
+            } catch (_e) {
+                return false;
+            }
+        }, timeout, message);
     }
 
     statusContains(needle: string): () => Promise<boolean> {
@@ -447,6 +457,23 @@ export class IDEOperations {
         return this.browser.takeScreenshot(
             `${String(this.screenshotSeqNumber++).padStart(4, '0')}-` + // Make sorting screenshots chronologically in VS Code easier
             name.replace(/[/\\?%*:|"<>]/g, '-'));
+    }
+
+    async newUntitledFile(bench: Workbench, driver: WebDriver, expectedSuffix: number | undefined = undefined): Promise<TextEditor> {
+        const untitledPref = "Untitled-";
+        const titleCondition = (title: string) => expectedSuffix === undefined
+            ? title.startsWith(untitledPref)
+            : title === `${untitledPref}${expectedSuffix}`;
+
+        await bench.executeCommand("workbench.action.files.newUntitledFile");
+        return (await driver.wait(async () => {
+            const editor = new TextEditor();
+            const title = await ignoreFails(editor.getTitle());
+            if (title && titleCondition(title)) {
+                return editor;
+            }
+            return undefined;
+        }, Delays.normal, `Could not open untitled file${expectedSuffix !== undefined ? ` ${untitledPref}${expectedSuffix}` : ""}`))!;
     }
 }
 

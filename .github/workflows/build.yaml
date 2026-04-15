@@ -16,7 +16,7 @@ permissions:
   
 jobs:
   normal-tests:
-    runs-on: buildjet-2vcpu-ubuntu-2204
+    runs-on: ubicloud-standard-2
     steps:
       - uses: actions/checkout@v6
       - name: Assure different pom cache hit
@@ -37,7 +37,7 @@ jobs:
 
       - name: Run java tests
         working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx4G"
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' test -DargLine="-Xmx8G"
 
       - name: VS Code tests
         working-directory: ./rascal-vscode-extension
@@ -49,7 +49,7 @@ jobs:
   ui-test:
     strategy:
       matrix:
-        os: [buildjet-4vcpu-ubuntu-2204, windows-latest, macos-latest]
+        os: [ubicloud-standard-4, windows-latest, macos-latest]
       fail-fast: true
     env:
       CODE_VERSION: "1.90.2"
@@ -90,7 +90,7 @@ jobs:
           key: "vscode-${{matrix.os}}"
 
       - name: "UI test (windows)"
-        if: matrix.os == 'windows-latest'
+        if: contains(matrix.os, 'windows')
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 10
@@ -100,7 +100,7 @@ jobs:
 
       - name: "UI test (mac)"
         shell: bash
-        if: matrix.os == 'macos-latest'
+        if: contains(matrix.os, 'macos')
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 15
@@ -110,13 +110,15 @@ jobs:
 
       - name: "UI test (ubuntu)"
         shell: bash
-        if: matrix.os == 'buildjet-4vcpu-ubuntu-2204'
+        if: contains(matrix.os, 'ubuntu') || startsWith(matrix.os, 'ubicloud-standard')
         working-directory: ./rascal-vscode-extension
         env:
           DELAY_FACTOR: 8
           RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
-        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 # workaround for issue with Ubuntu 24.04 https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#openresources-not-working-with-apparmor-2404
+          xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v7
@@ -140,7 +142,7 @@ jobs:
       id-token: write # only used for npm publishing
       actions: read # we need to copy this sadly
       contents: write
-    runs-on: ${{ startsWith(github.ref, 'refs/tags/v') && 'ubuntu-latest' || 'buildjet-2vcpu-ubuntu-2204' }}
+    runs-on: ${{ startsWith(github.ref, 'refs/tags/v') && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5

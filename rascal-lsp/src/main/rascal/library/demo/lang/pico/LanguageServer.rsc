@@ -185,10 +185,11 @@ list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program
 
 default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 
-@synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
+@synsopsis{Defines example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
   = renameAtoB(start[Program] program)
   | removeDecl(start[Program] program, IdType toBeRemoved)
+  | testValueEncoding()
   ;
 
 @synopsis{Adds an example lense to the entire program.}
@@ -215,6 +216,19 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
     return ("result": true);
 }
+
+@synopsis{Command handler to test JSON serialization of various Rascal value types.}
+value picoExecutionService(testValueEncoding()) = (
+    "result": [ // list
+        ("a": true), // map, str, bool
+        {8, 1r2, 3.14, 10e3}, // set, int, rat, real
+        char(0), // ADT constructor
+        reposition(parse(#IdType, "x: string"), file = |test:///expectation|), // Tree
+        |memory://authority/file.ext|, // loc
+        $2026-03-19T11:55:54.121+0100$, // datetime
+        <[1..3], #int> // tuple, range, reified type
+    ]
+);
 
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
