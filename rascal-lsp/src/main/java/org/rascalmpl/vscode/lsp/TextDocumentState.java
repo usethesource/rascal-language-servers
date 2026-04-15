@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -63,7 +62,6 @@ public class TextDocumentState {
 
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
-    private final ExecutorService exec;
 
     private final AtomicReference<Versioned<Update>> current;
     private final AtomicReference<@Nullable Versioned<ITree>> lastWithoutErrors;
@@ -72,12 +70,10 @@ public class TextDocumentState {
     public TextDocumentState(
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
             ISourceLocation location,
-            int initialVersion, String initialContent, long initialTimestamp,
-            ExecutorService exec) {
+            int initialVersion, String initialContent, long initialTimestamp) {
 
         this.parser = parser;
         this.location = location;
-        this.exec = exec;
 
         var u = new Update(initialVersion, initialContent, initialTimestamp);
         this.current = new AtomicReference<>(new Versioned<>(initialVersion, u));
@@ -205,7 +201,7 @@ public class TextDocumentState {
             logger.debug("Triggering parse for {}", location);
             try {
                 parser.apply(location, content)
-                    .whenCompleteAsync((ITree t, Throwable e) -> {
+                    .whenComplete((ITree t, Throwable e) -> {
                         if (e instanceof CompletionException && e.getCause() != null) {
                             e = e.getCause();
                         }
@@ -230,7 +226,7 @@ public class TextDocumentState {
                         // Complete future to get diagnostics
                         var diagnostics = new Versioned<>(version, diagnosticsList);
                         diagnosticsAsync.complete(diagnostics);
-                    }, exec);
+                    });
             } catch (NoContributionException e) {
                 logger.debug("Ignoring missing parser for {}", location, e);
                 treeAsync.completeOnTimeout(new Versioned<>(version, IRascalValueFactory.getInstance().character(0), timestamp), 60, TimeUnit.SECONDS);
@@ -264,6 +260,6 @@ public class TextDocumentState {
 
     public TextDocumentState changeParser(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parsing) {
         var c = getCurrentContent();
-        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified(), exec);
+        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified());
     }
 }
