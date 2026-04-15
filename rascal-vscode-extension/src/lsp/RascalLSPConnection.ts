@@ -63,7 +63,7 @@ export async function activateLanguageClient(
     });
 
 
-    client.onNotification("rascal/editDocument", (uri: string, range: vscode.Range, viewColumn: integer) => {
+    client.onNotification("rascal/editDocument", (uri: string, range: vscode.Range | undefined, viewColumn: integer) => {
         openEditor(uri, range, viewColumn);
     });
 
