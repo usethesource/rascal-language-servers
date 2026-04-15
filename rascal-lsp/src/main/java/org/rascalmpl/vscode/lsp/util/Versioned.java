@@ -72,8 +72,12 @@ public class Versioned<T> {
 
     public static <T> boolean replaceIfNewer(AtomicReference<@PolyNull Versioned<T>> current, Versioned<T> maybeNewer) {
         logger.debug("Versioned.replaceIfNewer({}, {})", current, maybeNewer);
+        logger.debug("maybeNewer.version: {}", maybeNewer.version());
+        int i = 1;
         while (true) {
+            logger.debug("Iteration {}: Getting `old`...", i++);
             var old = current.get();
+            logger.debug("Iteration {}: `old` = `{}`", i++, old);
             if (old == null) {
                 logger.debug("old == null");
                 if (current.compareAndSet(old, maybeNewer)) {
