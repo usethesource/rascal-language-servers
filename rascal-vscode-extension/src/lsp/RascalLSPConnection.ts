@@ -111,7 +111,7 @@ async function showContentPanel(url: string, title:string, viewColumn:integer): 
     contentPanels.set(id, panel);
 }
 
-async function openEditor(uriString: string, range:vscode.Range, viewColumn: integer) {
+async function openEditor(uriString: string, range: vscode.Range | undefined, viewColumn: integer) {
     const uri = vscode.Uri.parse(uriString);
 
     const doc = await vscode.workspace.openTextDocument(uri);
