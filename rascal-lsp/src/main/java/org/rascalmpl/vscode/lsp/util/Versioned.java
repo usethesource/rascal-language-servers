@@ -72,11 +72,18 @@ public class Versioned<T> {
 
     public static <T> boolean replaceIfNewer(AtomicReference<@PolyNull Versioned<T>> current, Versioned<T> maybeNewer) {
         logger.debug("Versioned.replaceIfNewer({}, {})", current, maybeNewer);
-        logger.debug("maybeNewer.version: {}", maybeNewer.version());
+        logger.debug("current==null: {}; maybeNewer.version: {}", current == null, maybeNewer.version());
         int i = 1;
         while (true) {
+            Versioned<T> old = null;
             logger.debug("Iteration {}: Getting `old`...", i++);
-            var old = current.get();
+            try {
+                old = current.get();
+            } catch (Throwable t) {
+                logger.error("{}: {}", t.getClass(), t.getMessage());
+                t.printStackTrace();
+                throw t;
+            }
             logger.debug("Iteration {}: `old` = `{}`", i++, old);
             if (old == null) {
                 logger.debug("old == null");
