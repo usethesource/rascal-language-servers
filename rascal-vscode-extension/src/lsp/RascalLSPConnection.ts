@@ -63,7 +63,7 @@ export async function activateLanguageClient(
     });
 
 
-    client.onNotification("rascal/editDocument", (uri: string, viewColumn: integer, range: vscode.Range) => {
+    client.onNotification("rascal/editDocument", (uri: string, range: vscode.Range, viewColumn: integer) => {
         openEditor(uri, range, viewColumn);
     });
 
@@ -127,9 +127,11 @@ async function openEditor(uriString: string, range:vscode.Range, viewColumn: int
         // don't use the `selection` field here because we can not control scrolling behavior from that with editors which are already open
     });
 
-    // set the primary selection and move it into view (but don't scroll unless necessary)
-    editor.selection = new vscode.Selection(range.start, range.end);
-    editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    if (range !== null) {
+        // set the primary selection and move it into view (but don't scroll unless necessary)
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    }
 }
 
 
