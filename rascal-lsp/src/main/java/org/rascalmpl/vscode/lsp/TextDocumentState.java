@@ -230,7 +230,7 @@ public class TextDocumentState {
                             // The action of `whenCompleteAsync` shouldn't throw an exception (see JavaDoc): if it
                             // unexpectedly does, then it is almost surely a bug, but the exception is swallowed, so it
                             // is very hard to debug. The try/catch block and logger call aim to make it easier.
-                            logger.error("Unexpected exception after parsing: {}", exc);
+                            logger.error("Unexpected exception after parsing", exc);
                         }
                     }, exec);
             } catch (NoContributionException e) {
