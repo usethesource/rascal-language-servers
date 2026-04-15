@@ -74,11 +74,11 @@ public class TextDocumentState {
 
         this.parser = parser;
         this.location = location;
+        this.lastWithoutErrors = new AtomicReference<>();
+        this.last = new AtomicReference<>();
 
         var u = new Update(initialVersion, initialContent, initialTimestamp);
         this.current = new AtomicReference<>(new Versioned<>(initialVersion, u));
-        this.lastWithoutErrors = new AtomicReference<>();
-        this.last = new AtomicReference<>();
     }
 
     public ISourceLocation getLocation() {
