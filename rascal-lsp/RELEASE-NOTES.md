@@ -2,16 +2,28 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.22.4 (VS Code: 0.13.4)
+
+Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0).
+
+* avoid errors when navigating in rascal files stored in jars, such as libraries or the standard library
+* upgraded to rascal 0.42.2 that fixed a few bugs:
+  * rascal code executing during import are now not hiding overloads anymore
+  * fixed bugs in stored module parsers
+  * fixed a few edge cases in the mvn/jar+file/zip resolvers
+  * fixed a bug where typechecker would sometimes flip between errors and no error on the same file on every save
+  * other typechecker improvements
+
 ## Release 2.22.3 (VS Code: 0.13.3)
 
-Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
+Works best with rascal 0.42.1 (and rascal-maven-plugin 0.31.0).
 
 * fixed a regession in JSON encoding of rascal action results & parameters
 * fixed the race that sometimes broke go-to definition and other type-checker derived operations
 
 ## Release 2.22.2 (VS Code: 0.13.2)
 
-Works best with rascal 0.42.1 (and rascal-maven 0.31.0).
+Works best with rascal 0.42.1 (and rascal-maven-plugin 0.31.0).
 
 * upgraded to rascal 0.42.1 which contains a bugfix for missing overloads
 * fixed a bug where `readFile` inside of a repl would fail if the file was open in the IDE
