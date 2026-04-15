@@ -29,7 +29,7 @@ import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
 import * as os from 'os';
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 import path = require("path");
 
 export async function sleep(ms: number) {
@@ -428,10 +428,16 @@ export class IDEOperations {
         }
     }
 
-
-    findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
-        return this.driver.wait(() => ignoreFails(editor.getCodeLens(name)), timeout, message);
-
+    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
+        await this.driver.wait(async () => {
+            try {
+                const lens = await editor.getCodeLens(name);
+                await lens!.click();
+                return true;
+            } catch (_e) {
+                return false;
+            }
+        }, timeout, message);
     }
 
     statusContains(needle: string): () => Promise<boolean> {
