@@ -81,7 +81,7 @@ public class Versioned<T> {
                 old = current.get();
             } catch (Throwable t) {
                 logger.error("{}: {}", t.getClass(), t.getMessage());
-                t.printStackTrace();
+                // t.printStackTrace();
                 throw t;
             }
             logger.debug("Iteration {}: `old` = `{}`", i++, old);
