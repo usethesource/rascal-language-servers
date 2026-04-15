@@ -127,7 +127,7 @@ async function openEditor(uriString: string, range: vscode.Range | undefined, vi
         // don't use the `selection` field here because we can not control scrolling behavior from that with editors which are already open
     });
 
-    if (range !== null) {
+    if (range !== undefined) {
         // set the primary selection and move it into view (but don't scroll unless necessary)
         editor.selection = new vscode.Selection(range.start, range.end);
         editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
