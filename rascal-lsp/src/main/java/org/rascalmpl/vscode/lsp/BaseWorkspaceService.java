@@ -67,7 +67,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
     public static final String RASCAL_COMMAND = "rascal-command";
 
-    private final ExecutorService exec;
+    protected final ExecutorService exec;
 
     private @MonotonicNonNull IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
@@ -77,7 +77,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         this.exec = exec;
     }
 
-    void pair(IBaseTextDocumentService documentService) {
+    public void pair(IBaseTextDocumentService documentService) {
         this.documentService = documentService;
     }
 
@@ -102,6 +102,13 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         }
 
         return this.documentService;
+    }
+
+    protected LanguageClient availableClient() {
+        if (this.client == null) {
+            throw new IllegalStateException("Language client not initialized");
+        }
+        return this.client;
     }
 
     public List<WorkspaceFolder> workspaceFolders() {

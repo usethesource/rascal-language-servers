@@ -26,146 +26,203 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.RenameFilesParams;
+import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.eclipse.lsp4j.TextDocumentItem;
+import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.services.TextDocumentService;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
+import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 public class ParametricLanguageRouter extends BaseWorkspaceService implements IBaseTextDocumentService {
 
+    private final Map<String, ISingleLanguageService> languageServices = new ConcurrentHashMap<>();
+    private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
+
+    private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
+
     protected ParametricLanguageRouter(ExecutorService exec) {
         super(exec);
     }
 
+    private ISingleLanguageService language(TextDocumentItem textDocument) {
+        return language(textDocument.getUri());
+    }
+
+    private TextDocumentService language(VersionedTextDocumentIdentifier textDocument) {
+        return language(textDocument.getUri());
+    }
+
+    private TextDocumentService language(TextDocumentIdentifier textDocument) {
+        return language(textDocument.getUri());
+    }
+
+    private ISingleLanguageService language(String uri) {
+        var ext = URIUtil.getExtension(URIUtil.assumeCorrectLocation(uri));
+        var lang = languagesByExtension.get(ext);
+        if (lang == null) {
+            throw new IllegalStateException("No language exists for extension:" + ext);
+        }
+        var service = languageServices.get(ext);
+        if (service == null) {
+            throw new IllegalStateException("No language service exists for language: " + lang);
+        }
+        return service;
+    }
+
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didOpen'");
+        language(params.getTextDocument()).didOpen(params);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didChange'");
+        language(params.getTextDocument()).didChange(params);
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didClose'");
+        language(params.getTextDocument()).didClose(params);
     }
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didSave'");
+        language(params.getTextDocument()).didSave(params);
     }
 
     @Override
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'initializeServerCapabilities'");
+                // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
+        // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
+        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities
+            , new CompletionCapability()
+            , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
+        );
+        dynamicCapabilities.registerStaticCapabilities(result);
+
+        var tokenizer = new SemanticTokenizer();
+
+        result.setDefinitionProvider(true);
+        result.setTextDocumentSync(TextDocumentSyncKind.Full);
+        result.setHoverProvider(true);
+        result.setReferencesProvider(true);
+        result.setDocumentSymbolProvider(true);
+        result.setImplementationProvider(true);
+        result.setSemanticTokensProvider(tokenizer.options());
+        result.setCodeActionProvider(true);
+        result.setCodeLensProvider(new CodeLensOptions(false));
+        result.setRenameProvider(new RenameOptions(true));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+        result.setInlayHintProvider(true);
+        result.setSelectionRangeProvider(true);
+        result.setFoldingRangeProvider(true);
+        result.setCallHierarchyProvider(true);
     }
 
     @Override
     public void shutdown() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'shutdown'");
+        // TODO Kill all delegate processes
     }
 
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'pair'");
+        pair(workspaceService);
     }
 
     @Override
     public void initialized() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'initialized'");
+        initialized();
     }
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'registerLanguage'");
+        // Main workhorse
+        // TODO Start a delegate process with the right versions on the classpath for this language
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'unregisterLanguage'");
+        // TODO Kill the delegate process for this language and clean up maps
     }
 
     @Override
     public void projectAdded(String name, ISourceLocation projectRoot) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'projectAdded'");
+        // No need to do anything
     }
 
     @Override
     public void projectRemoved(String name, ISourceLocation projectRoot) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'projectRemoved'");
+        // No need to do anything
     }
 
     @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'executeCommand'");
+        // TODO Figure out what to do
+        return language(params).executeCommand(params);
     }
 
     @Override
     public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getColumnMap'");
+        return language(Locations.toUri(file).toString()).getColumnMap(file);
     }
 
     @Override
     public ColumnMaps getColumnMaps() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getColumnMaps'");
+        return language(params).getColumnMaps(params);
     }
 
     @Override
     public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getDocumentState'");
+        return language(params).getDocumentState(params);
     }
 
     @Override
     public boolean isManagingFile(ISourceLocation file) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'isManagingFile'");
+        return language(params).isManagingFile(params);
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didRenameFiles'");
+        // TODO Split by language/extension and inform each delegate of their own renamed files
+        return language(params).didRenameFiles(params);
     }
 
     @Override
     public void cancelProgress(String progressId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'cancelProgress'");
+        // TODO Since we don't know from which language this progress came, probably inform everyone
+        return language(params).cancelProgress(params);
     }
 
 }
