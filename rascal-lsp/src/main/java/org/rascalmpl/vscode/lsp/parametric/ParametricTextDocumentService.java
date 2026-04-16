@@ -156,7 +156,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
-import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -224,7 +224,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             this.dedicatedLanguageName = dedicatedLanguage.getName();
             this.dedicatedLanguage = dedicatedLanguage;
         }
-        FallbackResolver.getInstance().registerTextDocumentService(this);
+        LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
     @Override

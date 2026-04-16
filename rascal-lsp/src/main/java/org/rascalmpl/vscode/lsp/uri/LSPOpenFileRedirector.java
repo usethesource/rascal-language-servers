@@ -33,30 +33,23 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.rascalmpl.uri.ILogicalSourceLocationResolver;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 
 import io.usethesource.vallang.ISourceLocation;
 
-public class FallbackResolver implements ILogicalSourceLocationResolver {
+public class LSPOpenFileRedirector {
+    private static @MonotonicNonNull LSPOpenFileRedirector instance = null;
 
-    private static @MonotonicNonNull FallbackResolver instance = null;
-
-    public static FallbackResolver getInstance() {
+    public static LSPOpenFileRedirector getInstance() {
         if (instance == null) {
-            instance = new FallbackResolver();
+            instance = new LSPOpenFileRedirector();
         }
         return instance;
     }
 
-    private FallbackResolver() { }
-
-    @Override
-    public String scheme() {
-        throw new UnsupportedOperationException("Scheme not supported on fallback resolver");
-    }
+    private LSPOpenFileRedirector() { }
 
     public boolean isFileManaged(ISourceLocation file) {
         for (var service : textDocumentServices) {
@@ -67,7 +60,6 @@ public class FallbackResolver implements ILogicalSourceLocationResolver {
         return false;
     }
 
-    @Override
     public ISourceLocation resolve(ISourceLocation input) throws IOException {
         if (isFileManaged(input)) {
             try {
@@ -80,11 +72,6 @@ public class FallbackResolver implements ILogicalSourceLocationResolver {
             }
         }
         return input;
-    }
-
-    @Override
-    public String authority() {
-        throw new UnsupportedOperationException("'authority' not supported by fallback resolver");
     }
 
     private final List<IBaseTextDocumentService> textDocumentServices = new CopyOnWriteArrayList<>();

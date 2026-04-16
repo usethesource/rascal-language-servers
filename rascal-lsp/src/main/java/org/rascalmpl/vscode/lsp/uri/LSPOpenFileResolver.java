@@ -43,7 +43,7 @@ import io.usethesource.vallang.ISourceLocation;
 public class LSPOpenFileResolver implements ISourceLocationInput {
 
     private TextDocumentState getEditorState(ISourceLocation uri) throws IOException {
-        return FallbackResolver.getInstance().getDocumentState(stripLspPrefix(uri));
+        return LSPOpenFileRedirector.getInstance().getDocumentState(stripLspPrefix(uri));
     }
 
     @Override
@@ -58,7 +58,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public boolean exists(ISourceLocation uri) {
-        return FallbackResolver.getInstance().isFileManaged(stripLspPrefix(uri));
+        return LSPOpenFileRedirector.getInstance().isFileManaged(stripLspPrefix(uri));
     }
 
     @Override
@@ -113,7 +113,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public boolean isReadable(ISourceLocation uri) throws IOException {
-        return FallbackResolver.getInstance().isFileManaged(stripLspPrefix(uri));
+        return LSPOpenFileRedirector.getInstance().isFileManaged(stripLspPrefix(uri));
     }
 
     @Override

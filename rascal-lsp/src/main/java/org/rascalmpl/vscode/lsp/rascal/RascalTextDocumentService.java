@@ -130,7 +130,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
-import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -167,7 +167,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         this.exec = exec;
         this.documents = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
-        FallbackResolver.getInstance().registerTextDocumentService(this);
+        LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
 
