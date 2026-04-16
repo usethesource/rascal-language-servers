@@ -38,15 +38,11 @@ import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensParams;
-import org.eclipse.lsp4j.ColorInformation;
-import org.eclipse.lsp4j.ColorPresentation;
-import org.eclipse.lsp4j.ColorPresentationParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.CreateFilesParams;
-import org.eclipse.lsp4j.DeclarationParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;
@@ -56,15 +52,7 @@ import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
-import org.eclipse.lsp4j.DocumentColorParams;
-import org.eclipse.lsp4j.DocumentDiagnosticParams;
-import org.eclipse.lsp4j.DocumentDiagnosticReport;
 import org.eclipse.lsp4j.DocumentFormattingParams;
-import org.eclipse.lsp4j.DocumentHighlight;
-import org.eclipse.lsp4j.DocumentHighlightParams;
-import org.eclipse.lsp4j.DocumentLink;
-import org.eclipse.lsp4j.DocumentLinkParams;
-import org.eclipse.lsp4j.DocumentOnTypeFormattingParams;
 import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
@@ -76,14 +64,8 @@ import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
 import org.eclipse.lsp4j.InlayHint;
 import org.eclipse.lsp4j.InlayHintParams;
-import org.eclipse.lsp4j.InlineValue;
-import org.eclipse.lsp4j.InlineValueParams;
-import org.eclipse.lsp4j.LinkedEditingRangeParams;
-import org.eclipse.lsp4j.LinkedEditingRanges;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
-import org.eclipse.lsp4j.Moniker;
-import org.eclipse.lsp4j.MonikerParams;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
@@ -98,21 +80,9 @@ import org.eclipse.lsp4j.SemanticTokensDelta;
 import org.eclipse.lsp4j.SemanticTokensDeltaParams;
 import org.eclipse.lsp4j.SemanticTokensParams;
 import org.eclipse.lsp4j.SemanticTokensRangeParams;
-import org.eclipse.lsp4j.SignatureHelp;
-import org.eclipse.lsp4j.SignatureHelpParams;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextEdit;
-import org.eclipse.lsp4j.TypeDefinitionParams;
-import org.eclipse.lsp4j.TypeHierarchyItem;
-import org.eclipse.lsp4j.TypeHierarchyPrepareParams;
-import org.eclipse.lsp4j.TypeHierarchySubtypesParams;
-import org.eclipse.lsp4j.TypeHierarchySupertypesParams;
-import org.eclipse.lsp4j.WillSaveTextDocumentParams;
-import org.eclipse.lsp4j.WorkspaceDiagnosticParams;
-import org.eclipse.lsp4j.WorkspaceDiagnosticReport;
 import org.eclipse.lsp4j.WorkspaceEdit;
-import org.eclipse.lsp4j.WorkspaceSymbol;
-import org.eclipse.lsp4j.WorkspaceSymbolParams;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
@@ -183,50 +153,14 @@ public class SingleLanguageServer implements ISingleLanguageService {
     }
 
     @Override
-    public CompletableFuture<List<ColorPresentation>> colorPresentation(ColorPresentationParams params) {
-        return docService.colorPresentation(params);
-    }
-
-    @Override
     public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams position) {
         return docService.completion(position);
-    }
-
-    @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> declaration(
-            DeclarationParams params) {
-        return docService.declaration(params);
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
             DefinitionParams params) {
         return docService.definition(params);
-    }
-
-    @Override
-    public CompletableFuture<DocumentDiagnosticReport> diagnostic(DocumentDiagnosticParams params) {
-        return docService.diagnostic(params);
-    }
-
-    @Override
-    public CompletableFuture<List<ColorInformation>> documentColor(DocumentColorParams params) {
-        return  docService.documentColor(params);
-    }
-
-    @Override
-    public CompletableFuture<List<? extends DocumentHighlight>> documentHighlight(DocumentHighlightParams params) {
-        return docService.documentHighlight(params);
-    }
-
-    @Override
-    public CompletableFuture<List<DocumentLink>> documentLink(DocumentLinkParams params) {
-        return docService.documentLink(params);
-    }
-
-    @Override
-    public CompletableFuture<DocumentLink> documentLinkResolve(DocumentLink params) {
-        return docService.documentLinkResolve(params);
     }
 
     @Override
@@ -262,26 +196,6 @@ public class SingleLanguageServer implements ISingleLanguageService {
     }
 
     @Override
-    public CompletableFuture<List<InlineValue>> inlineValue(InlineValueParams params) {
-        return docService.inlineValue(params);
-    }
-
-    @Override
-    public CompletableFuture<LinkedEditingRanges> linkedEditingRange(LinkedEditingRangeParams params) {
-        return docService.linkedEditingRange(params);
-    }
-
-    @Override
-    public CompletableFuture<List<Moniker>> moniker(MonikerParams params) {
-        return docService.moniker(params);
-    }
-
-    @Override
-    public CompletableFuture<List<? extends TextEdit>> onTypeFormatting(DocumentOnTypeFormattingParams params) {
-        return docService.onTypeFormatting(params);
-    }
-
-    @Override
     public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
         return docService.prepareCallHierarchy(params);
     }
@@ -290,11 +204,6 @@ public class SingleLanguageServer implements ISingleLanguageService {
     public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
             PrepareRenameParams params) {
         return docService.prepareRename(params);
-    }
-
-    @Override
-    public CompletableFuture<List<TypeHierarchyItem>> prepareTypeHierarchy(TypeHierarchyPrepareParams params) {
-        return docService.prepareTypeHierarchy(params);
     }
 
     @Override
@@ -310,26 +219,6 @@ public class SingleLanguageServer implements ISingleLanguageService {
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         return docService.rename(params);
-    }
-
-    @Override
-    public CompletableFuture<CodeAction> resolveCodeAction(CodeAction unresolved) {
-        return docService.resolveCodeAction(unresolved);
-    }
-
-    @Override
-    public CompletableFuture<CodeLens> resolveCodeLens(CodeLens unresolved) {
-        return docService.resolveCodeLens(unresolved);
-    }
-
-    @Override
-    public CompletableFuture<CompletionItem> resolveCompletionItem(CompletionItem unresolved) {
-        return docService.resolveCompletionItem(unresolved);
-    }
-
-    @Override
-    public CompletableFuture<InlayHint> resolveInlayHint(InlayHint unresolved) {
-        return docService.resolveInlayHint(unresolved);
     }
 
     @Override
@@ -351,42 +240,6 @@ public class SingleLanguageServer implements ISingleLanguageService {
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         return docService.semanticTokensRange(params);
-    }
-
-    @Override
-    public CompletableFuture<SignatureHelp> signatureHelp(SignatureHelpParams params) {
-        return docService.signatureHelp(params);
-    }
-
-    @Override
-    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> typeDefinition(
-            TypeDefinitionParams params) {
-        return docService.typeDefinition(params);
-    }
-
-    @Override
-    public CompletableFuture<List<TypeHierarchyItem>> typeHierarchySubtypes(TypeHierarchySubtypesParams params) {
-        return docService.typeHierarchySubtypes(params);
-    }
-
-    @Override
-    public CompletableFuture<List<TypeHierarchyItem>> typeHierarchySupertypes(TypeHierarchySupertypesParams params) {
-        return docService.typeHierarchySupertypes(params);
-    }
-
-    @Override
-    public void willSave(WillSaveTextDocumentParams params) {
-        docService.willSave(params);
-    }
-
-    @Override
-    public CompletableFuture<List<TextEdit>> willSaveWaitUntil(WillSaveTextDocumentParams params) {
-        return docService.willSaveWaitUntil(params);
-    }
-
-    @Override
-    public CompletableFuture<WorkspaceDiagnosticReport> diagnostic(WorkspaceDiagnosticParams params) {
-        return wsService.diagnostic(params);
     }
 
     @Override
@@ -412,17 +265,6 @@ public class SingleLanguageServer implements ISingleLanguageService {
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
         return wsService.executeCommand(params);
-    }
-
-    @Override
-    public CompletableFuture<WorkspaceSymbol> resolveWorkspaceSymbol(WorkspaceSymbol workspaceSymbol) {
-        return wsService.resolveWorkspaceSymbol(workspaceSymbol);
-    }
-
-    @Override
-    public CompletableFuture<Either<List<? extends SymbolInformation>, List<? extends WorkspaceSymbol>>> symbol(
-            WorkspaceSymbolParams params) {
-        return wsService.symbol(params);
     }
 
     @Override
