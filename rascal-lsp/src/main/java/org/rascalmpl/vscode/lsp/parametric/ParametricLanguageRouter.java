@@ -169,13 +169,9 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         if (lang == null) {
             throw new IllegalStateException("No language exists for extension:" + ext);
         }
-        return language(lang);
-    }
-
-    private ISingleLanguageService language(String langName) {
-        var service = languageServices.get(langName);
+        var service = languageServices.get(lang);
         if (service == null) {
-            throw new IllegalStateException("No language service exists for language: " + langName);
+            throw new IllegalStateException("No language service exists for language: " + lang);
         }
         return service;
     }
@@ -184,12 +180,12 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         return URIUtil.getExtension(doc);
     }
 
-    private <R, P> R route(TextDocumentIdentifier textDocument, BiFunction<TextDocumentService, P, R> func, P param) {
-        return route(textDocument.getUri(), func, param);
+    private <R, P> R route(TextDocumentIdentifier file, BiFunction<TextDocumentService, P, R> func, P param) {
+        return route(Locations.toLoc(file.getUri()), func, param);
     }
 
-    private <R, P> R route(String uri, BiFunction<TextDocumentService, P, R> func, P param) {
-        TextDocumentService lang = language(uri);
+    private <R, P> R route(ISourceLocation file, BiFunction<TextDocumentService, P, R> func, P param) {
+        TextDocumentService lang = language(file);
         return func.apply(lang, param);
     }
 
@@ -380,13 +376,13 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     @Override
     public CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(
             CallHierarchyIncomingCallsParams params) {
-        return route(params.getItem().getUri(), TextDocumentService::callHierarchyIncomingCalls, params);
+        return route(Locations.toLoc(params.getItem().getUri()), TextDocumentService::callHierarchyIncomingCalls, params);
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(
             CallHierarchyOutgoingCallsParams params) {
-        return route(params.getItem().getUri(), TextDocumentService::callHierarchyOutgoingCalls, params);
+        return route(Locations.toLoc(params.getItem().getUri()), TextDocumentService::callHierarchyOutgoingCalls, params);
     }
 
     @Override
@@ -475,13 +471,13 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
-        return route(params.getTextDocument().getUri(), TextDocumentService::semanticTokensFull, params);
+        return route(params.getTextDocument(), TextDocumentService::semanticTokensFull, params);
     }
 
     @Override
     public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
             SemanticTokensDeltaParams params) {
-        return route(params.getTextDocument().getUri(), TextDocumentService::semanticTokensFullDelta, params);
+        return route(params.getTextDocument(), TextDocumentService::semanticTokensFullDelta, params);
     }
 
     @Override
