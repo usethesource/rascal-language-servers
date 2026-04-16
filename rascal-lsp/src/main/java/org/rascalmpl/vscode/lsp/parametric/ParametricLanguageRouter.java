@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -114,6 +113,7 @@ import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Lists;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -134,6 +134,8 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     private final String dedicatedLanguageName;
 
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
+
+    private final TextDocumentStateManager files = new TextDocumentStateManager();
 
     protected ParametricLanguageRouter(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         super(exec);
@@ -200,6 +202,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
+        files.updateFile(Locations.toLoc(params.getTextDocument()));
         language(params.getTextDocument()).didChange(params);
     }
 
@@ -210,7 +213,9 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
-        language(params.getTextDocument()).didClose(params);
+        var loc = Locations.toLoc(params.getTextDocument());
+        files.removeFile(loc);
+        language(loc).didClose(params);
     }
 
     @Override
@@ -222,6 +227,8 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
             .collect(Collectors.toMap(f -> language(URIUtil.assumeCorrectLocation(f.getUri())), List::of, Lists::union))
             .entrySet()
             .forEach(e -> e.getKey().didDeleteFiles(new DeleteFilesParams(e.getValue())));
+
+        // TODO Clear column maps for these files? (Parametric did not do this)
     }
 
     @Override
@@ -233,6 +240,8 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
             .collect(Collectors.toMap(f -> language(URIUtil.assumeCorrectLocation(f.getOldUri())), List::of, Lists::union))
             .entrySet()
             .forEach(e -> e.getKey().didRenameFiles(new RenameFilesParams(e.getValue())));
+
+        // TODO Move column maps for these files? (Parametric did not do this)
     }
 
     //// GLOBAL SERVER STUFF
@@ -324,17 +333,6 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
         // TODO Dynamic registration of capabilities
         // availableCapabilities().update(buildLanguageParams());
-
-        // If we opened any files with this extension before, now associate them with contributions
-        // TODO How to manage/update open files?
-        /*
-        var extensions = Arrays.asList(lang.getExtensions());
-        for (var f : files.keySet()) {
-            if (extensions.contains(extension(f))) {
-                updateFileState(lang, f);
-            }
-        }
-        */
     }
 
     @Override
@@ -354,22 +352,22 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     @Override
     public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
-        throw new NotImplementedException("ParametricLanguageRouter::getColumnMap");
+        return files.getColumnMap(file);
     }
 
     @Override
     public ColumnMaps getColumnMaps() {
-        throw new NotImplementedException("ParametricLanguageRouter::getColumnMaps");
+        return files.getColumnMaps();
     }
 
     @Override
     public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
-        throw new NotImplementedException("ParametricLanguageRouter::getDocumentState");
+        return files.getDocumentState(file);
     }
 
     @Override
     public boolean isManagingFile(ISourceLocation file) {
-        throw new NotImplementedException("ParametricLanguageRouter::isManagingFile");
+        return files.isManagingFile(file);
     }
 
     @Override

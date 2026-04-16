@@ -26,8 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
-import java.io.IOException;
-import java.io.Reader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,7 +48,6 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.util.IOUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -125,8 +122,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.util.locations.ColumnMaps;
-import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -171,7 +166,7 @@ import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 
-public class ParametricTextDocumentService implements IBaseTextDocumentService, LanguageClientAware {
+public class ParametricTextDocumentService extends TextDocumentStateManager implements IBaseTextDocumentService, LanguageClientAware {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
 
@@ -182,9 +177,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
-
-    private final Map<ISourceLocation, TextDocumentState> files;
-    private final ColumnMaps columns;
 
     /** extension to language */
     private final Map<String, String> registeredExtensions = new ConcurrentHashMap<>();
@@ -203,38 +195,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public ParametricTextDocumentService(ExecutorService exec) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
-        URIResolverRegistry.getInstance();
-
         this.exec = exec;
-        this.files = new ConcurrentHashMap<>();
-        this.columns = new ColumnMaps(this::getContents);
-
+        URIResolverRegistry.getInstance();
         FallbackResolver.getInstance().registerTextDocumentService(this);
-    }
-
-    @Override
-    public ColumnMaps getColumnMaps() {
-        return columns;
-    }
-
-    @Override
-    public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
-        return columns.get(file);
-    }
-
-    public String getContents(ISourceLocation file) {
-        file = file.top();
-        TextDocumentState ideState = files.get(file);
-        if (ideState != null) {
-            return ideState.getCurrentContent().get();
-        }
-        try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
-            return IOUtils.toString(src);
-        }
-        catch (IOException e) {
-            logger.error("Error opening file {} to get contents", file, e);
-            return "";
-        }
     }
 
     @Override
@@ -303,7 +266,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public void didClose(DidCloseTextDocumentParams params) {
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
-        if (files.remove(loc) == null) {
+        if (removeFile(loc)) {
             throw new ResponseErrorException(unknownFileError(loc, params));
         }
         facts(loc).close(loc);
@@ -355,14 +318,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         logger.trace("New contents for {}", doc);
         TextDocumentState file = getFile(Locations.toLoc(doc));
-        columns.clear(file.getLocation());
+        updateFile(file.getLocation());
         handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
     }
 
     private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
         diagnosticsAsync.thenAccept(diagnostics -> {
             List<Diagnostic> parseErrors = diagnostics.get().stream()
-                .map(diagnostic -> diagnostic.instantiate(columns))
+                .map(diagnostic -> diagnostic.instantiate(getColumnMaps()))
                 .collect(Collectors.toList());
 
             logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
@@ -403,7 +366,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 if (loc.equals(URIUtil.unknownLocation())) {
                     throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, "Rename not possible", pos));
                 }
-                return Either3.forFirst(Locations.toRange(loc, columns));
+                return Either3.forFirst(Locations.toRange(loc, getColumnMaps()));
             });
     }
 
@@ -420,7 +383,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
         logger.trace("rename for: {}, new name: {}", params.getTextDocument().getUri(), params.getNewName());
-        ISourceLocation loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
+        ISourceLocation loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), getColumnMaps());
         ILanguageContributions contribs = contributions(loc);
         return getFile(loc)
                 .getCurrentTreeAsync(true)
@@ -440,7 +403,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 .thenApply(tuple -> {
                     IList documentEdits = (IList) tuple.get(0);
                     showMessages(availableClient(), (ISet) tuple.get(1));
-                    return DocumentChanges.translateDocumentChanges(documentEdits, columns);
+                    return DocumentChanges.translateDocumentChanges(documentEdits, getColumnMaps());
                 })
                 .get();
     }
@@ -511,7 +474,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                         return;
                     }
 
-                    WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(edits, columns);
+                    WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(edits, getColumnMaps());
                     client.applyEdit(new ApplyWorkspaceEditParams(changes, "Rename files")).thenAccept(editResponse -> {
                         if (!editResponse.isApplied()) {
                             throw new RuntimeException("didRenameFiles resulted in a list of edits but applying them failed"
@@ -591,7 +554,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         var atEnd = KeywordParameter.get("atEnd", tKW, false);
 
         // translate to lsp
-        var result = new InlayHint(Locations.toPosition(loc, columns, atEnd), Either.forLeft(label.trim()));
+        var result = new InlayHint(Locations.toPosition(loc, getColumnMaps(), atEnd), Either.forLeft(label.trim()));
         result.setKind(kind.getName().equals("type") ? InlayHintKind.Type : InlayHintKind.Parameter);
         result.setPaddingLeft(label.startsWith(" "));
         result.setPaddingRight(label.endsWith(" "));
@@ -606,7 +569,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         ISourceLocation loc = (ISourceLocation) t.get(0);
         IConstructor command = (IConstructor) t.get(1);
 
-        return new CodeLens(Locations.toRange(loc, columns), CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command), null);
+        return new CodeLens(Locations.toRange(loc, getColumnMaps()), CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command), null);
     }
 
     private static <T> T last(List<T> l) {
@@ -656,17 +619,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
-        return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(contributions(l)::parsing, l, doc.getVersion(), doc.getText(), timestamp, exec));
-    }
-
-    private TextDocumentState getFile(ISourceLocation loc) {
-        loc = loc.top();
-        TextDocumentState file = files.get(loc);
-        if (file == null) {
-            throw new ResponseErrorException(unknownFileError(loc, loc));
-        }
-        return file;
+        return openFile(doc, contributions(Locations.toLoc(doc))::parsing, timestamp, exec);
     }
 
     public void shutdown() {
@@ -715,7 +668,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             .thenApply(Versioned::get)
             .thenApply(contrib::documentSymbol)
             .thenCompose(InterruptibleFuture::get)
-            .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, columns.get(file.getLocation())))
+            .thenApply(documentSymbols -> DocumentSymbols.toLSP(documentSymbols, getColumnMap(file.getLocation())))
             , Collections::emptyList);
     }
 
@@ -723,7 +676,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
         logger.debug("codeAction: {}", params);
 
-        var location = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), columns);
+        var location = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), getColumnMaps());
         final ILanguageContributions contribs = contributions(location);
 
         // first we make a future stream for filtering out the "fixes" that were optionally sent along with earlier diagnostics
@@ -834,17 +787,17 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         return recoverExceptions(file.getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
                 .thenCompose(t -> CompletableFutureUtils.reduce(params.getPositions().stream()
-                    .map(p -> Locations.setPosition(loc, p, columns))
+                    .map(p -> Locations.setPosition(loc, p, getColumnMaps()))
                     .map(p -> computeSelection
                         .thenCompose(compute -> compute.apply(TreeSearch.computeFocusList(t, p.getBeginLine(), p.getBeginColumn())))
-                        .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, columns)))
+                        .thenApply(selection -> SelectionRanges.toSelectionRange(p, selection, getColumnMaps())))
                     .collect(Collectors.toUnmodifiableList()), exec)),
             Collections::emptyList);
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
-        final var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
+        final var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), getColumnMaps());
         final var contrib = contributions(loc);
         final var file = getFile(loc);
 
@@ -857,7 +810,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                         var ch = new CallHierarchy(exec);
                         return items.stream()
                             .map(IConstructor.class::cast)
-                            .map(ci -> ch.toLSP(ci, columns))
+                            .map(ci -> ch.toLSP(ci, getColumnMaps()))
                             .collect(Collectors.toList());
                     })), Collections::emptyList);
     }
@@ -865,7 +818,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private <T> CompletableFuture<List<T>> incomingOutgoingCalls(BiFunction<CallHierarchyItem, List<Range>, T> constructor, CallHierarchyItem source, CallHierarchy.Direction direction) {
         final var contrib = contributions(Locations.toLoc(source.getUri()));
         var ch = new CallHierarchy(exec);
-        return ch.toRascal(source, contrib::parseCallHierarchyData, columns)
+        return ch.toRascal(source, contrib::parseCallHierarchyData, getColumnMaps())
             .thenCompose(sourceItem -> contrib.incomingOutgoingCalls(sourceItem, ch.direction(direction)).get())
             .thenApply(callRel -> {
                 // we need to maintain the order
@@ -874,10 +827,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                     var ciItem = (IConstructor)((ITuple)entry).get(0);
                     var sites = orderedEdges.computeIfAbsent(ciItem, _k -> new ArrayList<>());
                     var callSite = (ISourceLocation)((ITuple)entry).get(1);
-                    sites.add(Locations.toRange(callSite, columns));
+                    sites.add(Locations.toRange(callSite, getColumnMaps()));
                 }
                 return orderedEdges.entrySet().stream()
-                    .map(entry -> constructor.apply(ch.toLSP(entry.getKey(), columns), entry.getValue()))
+                    .map(entry -> constructor.apply(ch.toLSP(entry.getKey(), getColumnMaps()), entry.getValue()))
                     .collect(Collectors.toList());
             });
     }
@@ -896,7 +849,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams params) {
         logger.debug("Completion: {} at {} with {}", params.getTextDocument(), params.getPosition(), params.getContext());
 
-        var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), columns);
+        var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getPosition(), getColumnMaps());
         var contrib = contributions(loc);
         var file = getFile(loc);
 
@@ -907,7 +860,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
                 var focus = TreeSearch.computeFocusList(t, loc.getBeginLine(), loc.getBeginColumn());
                 var cursorOffset = loc.getBeginColumn() - TreeAdapter.getLocation((ITree) focus.get(0)).getBeginColumn();
                 return contrib.completion(focus, VF.integer(cursorOffset), completion.triggerKindToRascal(params.getContext())).get()
-                    .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName(), loc.getBeginLine(), columns.get(loc)));
+                    .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName(), loc.getBeginLine(), getColumnMap(loc)));
             })
             .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
     }
@@ -920,7 +873,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             t -> new LanguageContributionsMultiplexer(lang.getName(), exec)
         );
         var fact = facts.computeIfAbsent(lang.getName(), t ->
-            new ParametricFileFacts(exec, columns, multiplexer)
+            new ParametricFileFacts(exec, getColumnMaps(), multiplexer)
         );
 
         var parserConfig = lang.getPrecompiledParser();
@@ -959,7 +912,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         // If we opened any files with this extension before, now associate them with contributions
         var extensions = Arrays.asList(lang.getExtensions());
-        for (var f : files.keySet()) {
+        for (var f : getOpenFiles()) {
             if (extensions.contains(extension(f))) {
                 updateFileState(lang, f);
             }
@@ -988,9 +941,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private void updateFileState(LanguageParameter lang, ISourceLocation f) {
         f = f.top();
         logger.trace("File of language {} - updating state: {}", lang.getName(), f);
-        // Since we cannot know what happened to this file before we were called, we need to be careful about races.
-        // It might have been closed in the meantime, so we compute the new value if the key still exists, based on the current value.
-        var state = files.computeIfPresent(f, (loc, currentState) -> currentState.changeParser(contributions(loc)::parsing));
+        var state = super.updateFileState(f, contributions(f)::parsing);
         if (state == null) {
             logger.debug("Updating the parser of {} failed, since it was closed.", f);
             return;
@@ -1062,22 +1013,10 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     */
 
     @Override
-    public boolean isManagingFile(ISourceLocation file) {
-        return files.containsKey(file.top());
-    }
-
-    @Override
-    public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
-        return files.get(file.top());
-    }
-
-    @Override
     public void cancelProgress(String progressId) {
         contributions.values().forEach(plex ->
             plex.cancelProgress(progressId));
     }
 
-    private ResponseError unknownFileError(ISourceLocation loc, Object data) {
-        return new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, data);
-    }
+
 }
