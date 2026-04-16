@@ -61,7 +61,7 @@ export async function activateLanguageClient(
     });
 
 
-    client.onNotification("rascal/editDocument", (uri: string, viewColumn: integer, range: vscode.Range) => {
+    client.onNotification("rascal/editDocument", (uri: string, range: vscode.Range | undefined, viewColumn: integer) => {
         logger.trace(`[RascalLSPConnection] editDocument: ${uri}`);
         openEditor(uri, range, viewColumn);
     });
@@ -110,7 +110,7 @@ async function showContentPanel(url: string, title:string, viewColumn:integer): 
     contentPanels.set(id, panel);
 }
 
-async function openEditor(uriString: string, range:vscode.Range, viewColumn: integer) {
+async function openEditor(uriString: string, range: vscode.Range | undefined, viewColumn: integer) {
     const uri = vscode.Uri.parse(uriString);
 
     const doc = await vscode.workspace.openTextDocument(uri);
@@ -126,9 +126,11 @@ async function openEditor(uriString: string, range:vscode.Range, viewColumn: int
         // don't use the `selection` field here because we can not control scrolling behavior from that with editors which are already open
     });
 
-    // set the primary selection and move it into view (but don't scroll unless necessary)
-    editor.selection = new vscode.Selection(range.start, range.end);
-    editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    if (range !== undefined) {
+        // set the primary selection and move it into view (but don't scroll unless necessary)
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    }
 }
 
 
