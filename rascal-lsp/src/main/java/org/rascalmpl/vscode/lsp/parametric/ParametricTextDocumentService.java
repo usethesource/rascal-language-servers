@@ -210,9 +210,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
-        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
-        URIResolverRegistry.getInstance();
-
         this.exec = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);

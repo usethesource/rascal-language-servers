@@ -161,9 +161,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public RascalTextDocumentService(ExecutorService exec) {
-        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
-        URIResolverRegistry.getInstance();
-
         this.exec = exec;
         this.documents = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
