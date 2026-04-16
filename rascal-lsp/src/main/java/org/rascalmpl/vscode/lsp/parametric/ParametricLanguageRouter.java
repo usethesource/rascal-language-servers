@@ -29,31 +29,78 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.CallHierarchyIncomingCall;
+import org.eclipse.lsp4j.CallHierarchyIncomingCallsParams;
+import org.eclipse.lsp4j.CallHierarchyItem;
+import org.eclipse.lsp4j.CallHierarchyOutgoingCall;
+import org.eclipse.lsp4j.CallHierarchyOutgoingCallsParams;
+import org.eclipse.lsp4j.CallHierarchyPrepareParams;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionParams;
+import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
+import org.eclipse.lsp4j.CodeLensParams;
+import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionParams;
+import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
+import org.eclipse.lsp4j.DocumentSymbol;
+import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
+import org.eclipse.lsp4j.FoldingRange;
+import org.eclipse.lsp4j.FoldingRangeRequestParams;
+import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.HoverParams;
+import org.eclipse.lsp4j.ImplementationParams;
+import org.eclipse.lsp4j.InlayHint;
+import org.eclipse.lsp4j.InlayHintParams;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
+import org.eclipse.lsp4j.PrepareRenameParams;
+import org.eclipse.lsp4j.PrepareRenameResult;
+import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.RenameOptions;
+import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SelectionRange;
+import org.eclipse.lsp4j.SelectionRangeParams;
+import org.eclipse.lsp4j.SemanticTokens;
+import org.eclipse.lsp4j.SemanticTokensDelta;
+import org.eclipse.lsp4j.SemanticTokensDeltaParams;
+import org.eclipse.lsp4j.SemanticTokensParams;
+import org.eclipse.lsp4j.SemanticTokensRangeParams;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
@@ -135,10 +182,13 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         return URIUtil.getExtension(doc);
     }
 
-    private Optional<ISingleLanguageService> safeLanguage(ISourceLocation uri) {
-        var ext = URIUtil.getExtension(uri);
-        var lang = languagesByExtension.get(ext);
-        return Optional.ofNullable(lang).map(this::language);
+    private <R, P> R route(TextDocumentIdentifier textDocument, BiFunction<TextDocumentService, P, R> func, P param) {
+        return route(textDocument, func, param);
+    }
+
+    private <R, P> R route(String uri, BiFunction<TextDocumentService, P, R> func, P param) {
+        TextDocumentService lang = language(uri);
+        return func.apply(lang, param);
     }
 
     //// WORKSPACE REQUESTS
@@ -325,6 +375,118 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     @Override
     public void cancelProgress(String progressId) {
         languageServices.values().stream().forEach(l -> l.cancelProgress(progressId));
+    }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(
+            CallHierarchyIncomingCallsParams params) {
+        return route(params.getItem().getUri(), TextDocumentService::callHierarchyIncomingCalls, params);
+    }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(
+            CallHierarchyOutgoingCallsParams params) {
+        return route(params.getItem().getUri(), TextDocumentService::callHierarchyOutgoingCalls, params);
+    }
+
+    @Override
+    public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+        return route(params.getTextDocument(), TextDocumentService::codeAction, params);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
+        return route(params.getTextDocument(), TextDocumentService::codeLens, params);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams position) {
+        return route(position.getTextDocument(), TextDocumentService::completion, position);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
+            DefinitionParams params) {
+        return route(params.getTextDocument(), TextDocumentService::definition, params);
+    }
+
+    @Override
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
+            DocumentSymbolParams params) {
+        return route(params.getTextDocument(), TextDocumentService::documentSymbol, params);
+    }
+
+    @Override
+    public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
+        return route(params.getTextDocument(), TextDocumentService::foldingRange, params);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
+        return route(params.getTextDocument(), TextDocumentService::formatting, params);
+    }
+
+    @Override
+    public CompletableFuture<Hover> hover(HoverParams params) {
+        return route(params.getTextDocument(), TextDocumentService::hover, params);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(
+            ImplementationParams params) {
+        return route(params.getTextDocument(), TextDocumentService::implementation, params);
+    }
+
+    @Override
+    public CompletableFuture<List<InlayHint>> inlayHint(InlayHintParams params) {
+        return route(params.getTextDocument(), TextDocumentService::inlayHint, params);
+    }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
+        return route(params.getTextDocument(), TextDocumentService::prepareCallHierarchy, params);
+    }
+
+    @Override
+    public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
+            PrepareRenameParams params) {
+        return route(params.getTextDocument(), TextDocumentService::prepareRename, params);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
+        return route(params.getTextDocument(), TextDocumentService::rangeFormatting, params);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
+        return route(params.getTextDocument(), TextDocumentService::references, params);
+    }
+
+    @Override
+    public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
+        return route(params.getTextDocument(), TextDocumentService::rename, params);
+    }
+
+    @Override
+    public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
+        return route(params.getTextDocument(), TextDocumentService::selectionRange, params);
+    }
+
+    @Override
+    public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
+        return route(params.getTextDocument().getUri(), TextDocumentService::semanticTokensFull, params);
+    }
+
+    @Override
+    public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
+            SemanticTokensDeltaParams params) {
+        return route(params.getTextDocument().getUri(), TextDocumentService::semanticTokensFullDelta, params);
+    }
+
+    @Override
+    public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
+        return route(params.getTextDocument(), TextDocumentService::semanticTokensRange, params);
     }
 
 }
