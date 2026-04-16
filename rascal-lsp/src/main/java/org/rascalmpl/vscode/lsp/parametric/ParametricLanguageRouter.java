@@ -308,7 +308,11 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     }
 
     private ISingleLanguageService getOrBuildLanguageService(LanguageParameter lang) {
-        return languageServices.computeIfAbsent(lang.getName(), l -> new SingleLanguageServer(l));
+        return languageServices.computeIfAbsent(lang.getName(), l -> {
+            var s = new SingleLanguageServer(l);
+            s.connect(availableClient());
+            return s;
+        });
     }
 
     @Override

@@ -26,11 +26,12 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
-public interface ISingleLanguageService extends TextDocumentService, WorkspaceService {
+public interface ISingleLanguageService extends TextDocumentService, WorkspaceService, LanguageClientAware {
     void cancelProgress(String progressId);
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);

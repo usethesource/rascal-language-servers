@@ -85,6 +85,7 @@ import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Either3;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
@@ -296,6 +297,12 @@ public class SingleLanguageServer implements ISingleLanguageService {
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
         docService.unregisterLanguage(lang);
+    }
+
+    @Override
+    public void connect(LanguageClient client) {
+        docService.connect(client);
+        wsService.connect(client);
     }
 
 }
