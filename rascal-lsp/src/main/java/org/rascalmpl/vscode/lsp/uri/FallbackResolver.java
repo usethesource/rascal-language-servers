@@ -79,7 +79,7 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
     // making it avaible through this method, we allow the IBaseTextDocumentService implementations to interact with it.
     public static FallbackResolver getInstance() {
         if (instance == null) {
-            throw new IllegalStateException("FallbackResolver accessed before initialization");
+            instance = new FallbackResolver();
         }
         return instance;
     }

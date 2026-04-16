@@ -64,7 +64,6 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
-import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
@@ -80,7 +79,6 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
-import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.FoldingRange;
@@ -103,7 +101,6 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
-import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SelectionRange;
 import org.eclipse.lsp4j.SelectionRangeParams;
@@ -116,7 +113,6 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
-import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -140,8 +136,6 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.ICapabilityParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
@@ -183,7 +177,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private final ExecutorService exec;
 
-    private final String dedicatedLanguageName;
+    private final String dedicatedLanguageName = "";
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
@@ -199,8 +193,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     /** language to contribution */
     private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
-    private final @Nullable LanguageParameter dedicatedLanguage;
-
     // Create "renamed" constructor of "FileSystemChange" so we can build a list of DocumentEdit objects for didRenameFiles
     private final TypeStore typeStore = new TypeStore();
     private final TypeFactory tf = TypeFactory.getInstance();
@@ -209,21 +201,14 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             tf.sourceLocationType(), "to");
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
-    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
+    public ParametricTextDocumentService(ExecutorService exec) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
 
         this.exec = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
-        if (dedicatedLanguage == null) {
-            this.dedicatedLanguageName = "";
-            this.dedicatedLanguage = null;
-        }
-        else {
-            this.dedicatedLanguageName = dedicatedLanguage.getName();
-            this.dedicatedLanguage = dedicatedLanguage;
-        }
+
         FallbackResolver.getInstance().registerTextDocumentService(this);
     }
 
@@ -252,46 +237,9 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         }
     }
 
-    private CapabilityRegistration availableCapabilities() {
-        if (dynamicCapabilities == null) {
-            throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
-        }
-        return dynamicCapabilities;
-    }
-
-    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
-        // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
-        // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities
-            , new CompletionCapability()
-            , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
-        );
-        dynamicCapabilities.registerStaticCapabilities(result);
-
-        result.setDefinitionProvider(true);
-        result.setTextDocumentSync(TextDocumentSyncKind.Full);
-        result.setHoverProvider(true);
-        result.setReferencesProvider(true);
-        result.setDocumentSymbolProvider(true);
-        result.setImplementationProvider(true);
-        result.setSemanticTokensProvider(tokenizer.options());
-        result.setCodeActionProvider(true);
-        result.setCodeLensProvider(new CodeLensOptions(false));
-        result.setRenameProvider(new RenameOptions(true));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
-        result.setInlayHintProvider(true);
-        result.setSelectionRangeProvider(true);
-        result.setFoldingRangeProvider(true);
-        result.setCallHierarchyProvider(true);
-    }
-
-    private String getRascalMetaCommandName() {
-        // if we run in dedicated mode, we prefix the commands with our language name
-        // to avoid ambiguity with other dedicated languages and the generic rascal plugin
-        if (!dedicatedLanguageName.isEmpty()) {
-            return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
-        }
-        return BaseWorkspaceService.RASCAL_META_COMMAND;
+    @Override
+    public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
+        // Nothing to do
     }
 
     private BaseWorkspaceService availableWorkspaceService() {
@@ -321,11 +269,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @Override
     public void initialized() {
-        if (dedicatedLanguage != null) {
-            // if there was one scheduled, we now start it up, since the connection has been made
-            // and the client and capabilities are initialized
-            this.registerLanguage(dedicatedLanguage);
-        }
+        // Nothing to do
     }
 
     // LSP interface methods
@@ -1010,7 +954,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
         // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
         // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
-        availableCapabilities().update(buildLanguageParams());
+        // TODO Update capabilities dynamically
+        // availableCapabilities().update(buildLanguageParams());
 
         // If we opened any files with this extension before, now associate them with contributions
         var extensions = Arrays.asList(lang.getExtensions());
@@ -1087,7 +1032,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             contributions.remove(lang.getName());
         }
 
-        availableCapabilities().update(buildLanguageParams());
+        // TODO Update capabilities dynamically
+        // availableCapabilities().update(buildLanguageParams());
     }
 
     @Override
@@ -1100,6 +1046,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
         // No need to do anything
     }
 
+    /*
     @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
         ILanguageContributions contribs = contributions.get(languageName);
@@ -1112,6 +1059,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             return CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().string("No contributions configured for the language: " + languageName), exec);
         }
     }
+    */
 
     @Override
     public boolean isManagingFile(ISourceLocation file) {

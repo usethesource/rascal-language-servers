@@ -122,9 +122,9 @@ public class SingleLanguageServer implements ISingleLanguageService {
     private final ParametricTextDocumentService docService;
     private final ParametricWorkspaceService wsService;
 
-    private SingleLanguageServer(String langName) {
+    /*package*/ SingleLanguageServer(String langName) {
         var exec = NamedThreadPool.cached(langName);
-        this.docService = new ParametricTextDocumentService(exec, null);
+        this.docService = new ParametricTextDocumentService(exec);
         this.wsService = new ParametricWorkspaceService(exec);
         this.docService.pair(wsService);
         this.wsService.pair(docService);
@@ -438,6 +438,11 @@ public class SingleLanguageServer implements ISingleLanguageService {
     @Override
     public CompletableFuture<WorkspaceEdit> willRenameFiles(RenameFilesParams params) {
         return wsService.willRenameFiles(params);
+    }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        docService.cancelProgress(progressId);
     }
 
 }

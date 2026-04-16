@@ -29,13 +29,18 @@ package org.rascalmpl.vscode.lsp.parametric;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeLensOptions;
+import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -61,46 +66,82 @@ import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.util.Lists;
 
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IValue;
 
 public class ParametricLanguageRouter extends BaseWorkspaceService implements IBaseTextDocumentService {
 
+    private static final Logger logger = LogManager.getLogger(ParametricLanguageRouter.class);
+
+    //// ROUTING
+
+    // Map language name to remote service
     private final Map<String, ISingleLanguageService> languageServices = new ConcurrentHashMap<>();
+    // Map file extension to language name
     private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
+
+
+    // Server stuff
+    private final @Nullable LanguageParameter dedicatedLanguage;
+    private final String dedicatedLanguageName;
 
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
 
-    protected ParametricLanguageRouter(ExecutorService exec) {
+    protected ParametricLanguageRouter(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         super(exec);
+
+        this.dedicatedLanguage = dedicatedLanguage;
+        if (dedicatedLanguage == null) {
+            this.dedicatedLanguageName = "";
+        }
+        else {
+            this.dedicatedLanguageName = dedicatedLanguage.getName();
+        }
     }
 
+    //// LANGUAGE MANAGEMENT
+
     private ISingleLanguageService language(TextDocumentItem textDocument) {
-        return language(textDocument.getUri());
+        return language(URIUtil.assumeCorrectLocation(textDocument.getUri()));
     }
 
     private TextDocumentService language(VersionedTextDocumentIdentifier textDocument) {
-        return language(textDocument.getUri());
+        return language(URIUtil.assumeCorrectLocation(textDocument.getUri()));
     }
 
     private TextDocumentService language(TextDocumentIdentifier textDocument) {
-        return language(textDocument.getUri());
+        return language(URIUtil.assumeCorrectLocation(textDocument.getUri()));
     }
 
-    private ISingleLanguageService language(String uri) {
-        var ext = URIUtil.getExtension(URIUtil.assumeCorrectLocation(uri));
+    private ISingleLanguageService language(ISourceLocation uri) {
+        var ext = extension(uri);
         var lang = languagesByExtension.get(ext);
         if (lang == null) {
             throw new IllegalStateException("No language exists for extension:" + ext);
         }
-        var service = languageServices.get(ext);
+        return language(lang);
+    }
+
+    private ISingleLanguageService language(String langName) {
+        var service = languageServices.get(langName);
         if (service == null) {
-            throw new IllegalStateException("No language service exists for language: " + lang);
+            throw new IllegalStateException("No language service exists for language: " + langName);
         }
         return service;
     }
+
+    private static String extension(ISourceLocation doc) {
+        return URIUtil.getExtension(doc);
+    }
+
+    private Optional<ISingleLanguageService> safeLanguage(ISourceLocation uri) {
+        var ext = URIUtil.getExtension(uri);
+        var lang = languagesByExtension.get(ext);
+        return Optional.ofNullable(lang).map(this::language);
+    }
+
+    //// WORKSPACE REQUESTS
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
@@ -113,18 +154,58 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     }
 
     @Override
-    public void didClose(DidCloseTextDocumentParams params) {
-        language(params.getTextDocument()).didClose(params);
-    }
-
-    @Override
     public void didSave(DidSaveTextDocumentParams params) {
         language(params.getTextDocument()).didSave(params);
     }
 
     @Override
+    public void didClose(DidCloseTextDocumentParams params) {
+        language(params.getTextDocument()).didClose(params);
+    }
+
+    @Override
+    public void didDeleteFiles(DeleteFilesParams params) {
+        // Parameters contain a list of files.
+        // Since these files can belong to different languages, we map them to their respective language and
+        // delegate to several services.
+        params.getFiles().stream()
+            .collect(Collectors.toMap(f -> language(URIUtil.assumeCorrectLocation(f.getUri())), List::of, Lists::union))
+            .entrySet()
+            .forEach(e -> e.getKey().didDeleteFiles(new DeleteFilesParams(e.getValue())));
+    }
+
+    @Override
+    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> _workspaceFolders) {
+        // Parameters contain a list of files.
+        // Since these files can belong to different languages, we map them to their respective language and
+        // delegate to several services.
+        params.getFiles().stream()
+            .collect(Collectors.toMap(f -> language(URIUtil.assumeCorrectLocation(f.getOldUri())), List::of, Lists::union))
+            .entrySet()
+            .forEach(e -> e.getKey().didRenameFiles(new RenameFilesParams(e.getValue())));
+    }
+
+    //// GLOBAL SERVER STUFF
+
+    private String getRascalMetaCommandName() {
+        // if we run in dedicated mode, we prefix the commands with our language name
+        // to avoid ambiguity with other dedicated languages and the generic rascal plugin
+        if (!dedicatedLanguageName.isEmpty()) {
+            return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
+        }
+        return BaseWorkspaceService.RASCAL_META_COMMAND;
+    }
+
+    private CapabilityRegistration availableCapabilities() {
+        if (dynamicCapabilities == null) {
+            throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
+        }
+        return dynamicCapabilities;
+    }
+
+    @Override
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
-                // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
+        // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
         dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities
             , new CompletionCapability()
@@ -154,6 +235,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     @Override
     public void shutdown() {
         // TODO Kill all delegate processes
+        exec.shutdown();
     }
 
     @Override
@@ -163,13 +245,46 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     @Override
     public void initialized() {
-        initialized();
+        if (dedicatedLanguage != null) {
+            // if there was one scheduled, we now start it up, since the connection has been made
+            // and the client and capabilities are initialized
+            this.registerLanguage(dedicatedLanguage);
+        }
+    }
+
+    private ISingleLanguageService getOrBuildLanguageService(LanguageParameter lang) {
+        return languageServices.computeIfAbsent(lang.getName(), l -> new SingleLanguageServer(l));
     }
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
         // Main workhorse
         // TODO Start a delegate process with the right versions on the classpath for this language
+
+        logger.info("registerLanguage({})", lang.getName());
+
+        var langService = getOrBuildLanguageService(lang);
+
+        for (var extension: lang.getExtensions()) {
+            this.languagesByExtension.put(extension, lang.getName());
+        }
+
+        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
+        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
+        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
+        // TODO Dynamic registration of capabilities
+        // availableCapabilities().update(buildLanguageParams());
+
+        // If we opened any files with this extension before, now associate them with contributions
+        // TODO How to manage/update open files?
+        /*
+        var extensions = Arrays.asList(lang.getExtensions());
+        for (var f : files.keySet()) {
+            if (extensions.contains(extension(f))) {
+                updateFileState(lang, f);
+            }
+        }
+        */
     }
 
     @Override
@@ -188,41 +303,28 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     }
 
     @Override
-    public CompletableFuture<IValue> executeCommand(String languageName, String command) {
-        // TODO Figure out what to do
-        return language(params).executeCommand(params);
-    }
-
-    @Override
     public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
-        return language(Locations.toUri(file).toString()).getColumnMap(file);
+        throw new NotImplementedException("ParametricLanguageRouter::getColumnMap");
     }
 
     @Override
     public ColumnMaps getColumnMaps() {
-        return language(params).getColumnMaps(params);
+        throw new NotImplementedException("ParametricLanguageRouter::getColumnMaps");
     }
 
     @Override
     public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
-        return language(params).getDocumentState(params);
+        throw new NotImplementedException("ParametricLanguageRouter::getDocumentState");
     }
 
     @Override
     public boolean isManagingFile(ISourceLocation file) {
-        return language(params).isManagingFile(params);
-    }
-
-    @Override
-    public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        // TODO Split by language/extension and inform each delegate of their own renamed files
-        return language(params).didRenameFiles(params);
+        throw new NotImplementedException("ParametricLanguageRouter::isManagingFile");
     }
 
     @Override
     public void cancelProgress(String progressId) {
-        // TODO Since we don't know from which language this progress came, probably inform everyone
-        return language(params).cancelProgress(params);
+        languageServices.values().stream().forEach(l -> l.cancelProgress(progressId));
     }
 
 }

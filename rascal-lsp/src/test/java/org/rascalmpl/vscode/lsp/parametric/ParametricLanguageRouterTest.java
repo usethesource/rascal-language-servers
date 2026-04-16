@@ -62,7 +62,7 @@ public class ParametricLanguageRouterTest {
 
     @Before
     public void setUp() {
-        router = new ParametricLanguageRouter(exec);
+        router = new ParametricLanguageRouter(exec, null);
         // pathConfigs = new PathConfigs(exec, pathConfigDiagnostics);
     }
 

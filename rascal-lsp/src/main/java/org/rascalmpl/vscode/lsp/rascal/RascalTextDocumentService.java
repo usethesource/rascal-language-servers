@@ -719,10 +719,12 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         );
     }
 
+    /*
     @Override
     public CompletableFuture<IValue> executeCommand(String extension, String command) {
         return availableRascalServices().executeCommand(command).get();
     }
+    */
 
     private static <T, S extends T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<S> defaultValue) {
         return future

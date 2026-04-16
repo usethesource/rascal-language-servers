@@ -119,6 +119,8 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 import org.eclipse.lsp4j.services.WorkspaceService;
 
 public interface ISingleLanguageService extends TextDocumentService, WorkspaceService {
+    void cancelProgress(String progressId);
+
     @Override CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(CallHierarchyIncomingCallsParams params);
     @Override CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(CallHierarchyOutgoingCallsParams params);
     @Override CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params);

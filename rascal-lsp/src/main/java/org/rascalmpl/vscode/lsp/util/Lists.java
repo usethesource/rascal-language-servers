@@ -67,4 +67,8 @@ public class Lists {
         result.addAll(c);
         return result;
     }
+
+    public static <T> T last(List<T> l) {
+        return l.get(l.size() - 1);
+    }
 }

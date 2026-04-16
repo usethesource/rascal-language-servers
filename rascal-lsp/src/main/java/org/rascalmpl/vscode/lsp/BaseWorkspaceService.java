@@ -26,13 +26,13 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import com.google.gson.JsonPrimitive;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -55,7 +55,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.vscode.lsp.util.Nullables;
-import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
@@ -188,6 +187,9 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
         logger.debug("workspace/executeCommand: {}", commandParams);
+        // TODO Split for Rascal and parametric
+        throw new NotImplementedException("BaseWorkspaceService::executeCommand");
+        /*
         return CompletableFutureUtils.completedFuture(commandParams, exec)
             .thenCompose(params -> {
                 if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
@@ -198,6 +200,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
                 return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", exec);
             });
+        */
     }
 
     protected final ExecutorService getExecutor() {
