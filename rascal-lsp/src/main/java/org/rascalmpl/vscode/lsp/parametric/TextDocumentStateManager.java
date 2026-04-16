@@ -37,6 +37,8 @@ import java.util.function.BiFunction;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.initialization.qual.UnknownInitialization;
+import org.checkerframework.checker.nullness.qual.KeyFor;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -56,9 +58,13 @@ public class TextDocumentStateManager {
     private static final Logger logger = LogManager.getLogger(TextDocumentStateManager.class);
 
     private final Map<ISourceLocation, TextDocumentState> files = new ConcurrentHashMap<>();
-    private final ColumnMaps columns = new ColumnMaps(this::getContents);
+    private final ColumnMaps columns;
 
-    public String getContents(ISourceLocation file) {
+    public TextDocumentStateManager() {
+        this.columns = new ColumnMaps(l -> getContents(l));
+    }
+
+    public String getContents(@UnknownInitialization TextDocumentStateManager this, ISourceLocation file) {
         file = file.top();
         TextDocumentState ideState = getFile(file);
         if (ideState != null) {
@@ -89,7 +95,7 @@ public class TextDocumentStateManager {
         return columns.get(loc.top());
     }
 
-    TextDocumentState getFile(ISourceLocation loc) {
+    TextDocumentState getFile(@UnknownInitialization TextDocumentStateManager this, ISourceLocation loc) {
         loc = loc.top();
         TextDocumentState file = files.get(loc);
         if (file == null) {
@@ -125,7 +131,7 @@ public class TextDocumentStateManager {
         return state;
     }
 
-    Set<ISourceLocation> getOpenFiles() {
+    Set<@KeyFor("this.files") ISourceLocation> getOpenFiles() {
         return files.keySet();
     }
 

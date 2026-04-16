@@ -31,7 +31,6 @@ import com.google.gson.GsonBuilder;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
@@ -46,7 +45,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
             dedicatedLanguage = null;
         }
 
-        AtomicReference<@MonotonicNonNull ParametricLanguageRouter> router = new AtomicReference<>();
+        AtomicReference<ParametricLanguageRouter> router = new AtomicReference<>();
         Function<ExecutorService, ParametricLanguageRouter> supplyService = exec ->
             router.updateAndGet(v -> v != null ? v : new ParametricLanguageRouter(exec, dedicatedLanguage));
 

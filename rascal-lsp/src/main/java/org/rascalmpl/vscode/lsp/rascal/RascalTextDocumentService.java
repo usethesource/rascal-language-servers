@@ -482,17 +482,15 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
-    public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
+    public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("textDocument/hover: {} at {}", params.getTextDocument(), params.getPosition());
         if (facts != null) {
             return recoverExceptions(facts.getSummary(Locations.toLoc(params.getTextDocument()))
                 .handle((t, r) -> (t == null ? (new SummaryBridge()) : t))
                 .thenApply(s -> s.getTypeName(params.getPosition()))
-                .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), () -> null);
+                .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), Hover::new);
         }
-        else {
-            return CompletableFutureUtils.completedFuture(null, exec);
-        }
+        return CompletableFutureUtils.completedFuture(new Hover(), exec);
     }
 
     @Override

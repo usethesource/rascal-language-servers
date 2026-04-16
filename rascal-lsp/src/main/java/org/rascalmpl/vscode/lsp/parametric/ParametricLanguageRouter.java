@@ -38,6 +38,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.CallHierarchyIncomingCall;
 import org.eclipse.lsp4j.CallHierarchyIncomingCallsParams;
 import org.eclipse.lsp4j.CallHierarchyItem;
@@ -180,12 +181,12 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         return URIUtil.getExtension(doc);
     }
 
-    private <R, P> R route(TextDocumentIdentifier file, BiFunction<TextDocumentService, P, R> func, P param) {
+    private <R, P> @PolyNull R route(TextDocumentIdentifier file, BiFunction<TextDocumentService, P, @PolyNull R> func, P param) {
         return route(Locations.toLoc(file.getUri()), func, param);
     }
 
-    private <R, P> R route(ISourceLocation file, BiFunction<TextDocumentService, P, R> func, P param) {
-        TextDocumentService lang = language(file);
+    private <R, P> @PolyNull R route(ISourceLocation file, BiFunction<TextDocumentService, P, @PolyNull R> func, P param) {
+        var lang = language(file);
         return func.apply(lang, param);
     }
 
@@ -340,8 +341,10 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     public void unregisterLanguage(LanguageParameter lang) {
         logger.info("unregisterLanguage({})", lang.getName());
         var removedLang = languageServices.remove(lang.getName());
-        removedLang.unregisterLanguage(lang);
-        // TODO Kill the delegate process for this language and clean up maps
+        if (removedLang != null) {
+            removedLang.unregisterLanguage(lang);
+            // TODO Kill the delegate process for this language and clean up maps
+        }
     }
 
     @Override

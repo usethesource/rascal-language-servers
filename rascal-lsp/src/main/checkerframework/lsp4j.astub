@@ -63,20 +63,6 @@ public class DocumentSymbol {
 }
 
 
-package org.eclipse.lsp4j.services;
-
-
-import org.eclipse.lsp4j.*;
-import org.eclipse.lsp4j.jsonrpc.services.*;
-import org.checkerframework.checker.nullness.qual.*;
-
-@JsonSegment("textDocument")
-public interface TextDocumentService {
-	@JsonRequest
-	default CompletableFuture<@Nullable Hover> hover(HoverParams params) { }
-}
-
-
 package org.eclipse.lsp4j;
 
 import org.checkerframework.checker.nullness.qual.*;

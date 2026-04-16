@@ -49,7 +49,6 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.CallHierarchyIncomingCall;
 import org.eclipse.lsp4j.CallHierarchyIncomingCallsParams;
@@ -193,8 +192,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public ParametricTextDocumentService(String langName, ExecutorService exec) {
-        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         this.exec = exec;
+        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
         FallbackResolver.getInstance().registerTextDocumentService(this);
     }
@@ -753,12 +752,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     @Override
-    public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
+    public CompletableFuture<Hover> hover(HoverParams params) {
         logger.debug("Hover: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(
             lookup(ParametricSummary::hovers, params.getTextDocument(), params.getPosition())
             .thenApply(Hover::new)
-            , () -> null);
+            , Hover::new);
     }
 
     @Override
@@ -876,7 +875,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             multiplexer = new LanguageContributionsMultiplexer(lang.getName(), exec);
         }
         var fact = facts.computeIfAbsent(lang.getName(), t ->
-            new ParametricFileFacts(exec, getColumnMaps(), multiplexer)
+            new ParametricFileFacts(exec, getColumnMaps(), availableMultiplexer())
         );
 
         var parserConfig = lang.getPrecompiledParser();
@@ -931,12 +930,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return Set.of(new ICapabilityParams() {
             @Override
             public ILanguageContributions contributions() {
-                return multiplexer;
+                return availableMultiplexer();
             }
 
             @Override
             public Set<String> fileExtensions() {
-                return extensionsByLang.getOrDefault(multiplexer.getName(), Collections.emptySet());
+                return extensionsByLang.getOrDefault(availableMultiplexer().getName(), Collections.emptySet());
             }
         });
     }
@@ -982,7 +981,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 this.registeredExtensions.remove(extension);
             }
             facts.remove(lang.getName());
-            multiplexer.clearContributors();
+            availableMultiplexer().clearContributors();
         }
 
         // TODO Update capabilities dynamically
