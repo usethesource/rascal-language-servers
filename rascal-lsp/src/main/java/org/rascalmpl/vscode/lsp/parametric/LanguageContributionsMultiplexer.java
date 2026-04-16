@@ -149,6 +149,14 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         return true;
     }
 
+    /**
+     * Remove all contributors.
+     */
+    public void clearContributors() {
+        contributions.clear();
+        calculateRouting();
+    }
+
     private synchronized void calculateRouting() {
         // after contributions have changed, we calculate the routing
         // this is to avoid doing this lookup every time we get a request

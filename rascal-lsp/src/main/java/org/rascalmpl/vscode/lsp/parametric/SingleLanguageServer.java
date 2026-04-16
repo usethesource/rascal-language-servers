@@ -96,7 +96,7 @@ public class SingleLanguageServer implements ISingleLanguageService {
 
     /*package*/ SingleLanguageServer(String langName) {
         var exec = NamedThreadPool.cached(langName);
-        this.docService = new ParametricTextDocumentService(exec);
+        this.docService = new ParametricTextDocumentService(langName, exec);
         this.wsService = new ParametricWorkspaceService(exec);
         this.docService.pair(wsService);
         this.wsService.pair(docService);

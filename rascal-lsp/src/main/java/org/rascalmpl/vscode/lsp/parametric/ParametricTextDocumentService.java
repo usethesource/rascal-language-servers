@@ -177,13 +177,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
+    private @MonotonicNonNull LanguageContributionsMultiplexer multiplexer;
 
     /** extension to language */
     private final Map<String, String> registeredExtensions = new ConcurrentHashMap<>();
     /** language to facts */
     private final Map<String, ParametricFileFacts> facts = new ConcurrentHashMap<>();
-    /** language to contribution */
-    private final Map<String, LanguageContributionsMultiplexer> contributions = new ConcurrentHashMap<>();
 
     // Create "renamed" constructor of "FileSystemChange" so we can build a list of DocumentEdit objects for didRenameFiles
     private final TypeStore typeStore = new TypeStore();
@@ -193,7 +192,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.sourceLocationType(), "to");
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
-    public ParametricTextDocumentService(ExecutorService exec) {
+    public ParametricTextDocumentService(String langName, ExecutorService exec) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         this.exec = exec;
         URIResolverRegistry.getInstance();
@@ -210,6 +209,13 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             throw new IllegalStateException("Workspace Service has not been paired");
         }
         return workspaceService;
+    }
+
+    private LanguageContributionsMultiplexer availableMultiplexer() {
+        if (multiplexer == null) {
+            throw new IllegalStateException("Multiplexer is not initialized");
+        }
+        return multiplexer;
     }
 
     @Override
@@ -502,7 +508,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             var l = Locations.toLoc(rename.getNewUri());
             var language = safeLanguage(l);
             if (language.isPresent()) {
-                ILanguageContributions contrib = contributions.get(language.get());
+                ILanguageContributions contrib = multiplexer;
                 if (contrib != null) {
                     bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
                 }
@@ -579,11 +585,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private Optional<String> safeLanguage(ISourceLocation loc) {
         var ext = extension(loc);
         if ("".equals(ext)) {
-            if (contributions.size() == 1) {
-                logger.trace("file was opened without an extension; falling back to the single registered language for: {}", loc);
-                return contributions.keySet().stream().findFirst();
+            if (multiplexer != null) {
+                logger.trace("File was opened without an extension; falling back to the single registered language for: {}", loc);
+                return Optional.of(availableMultiplexer().getName());
             } else {
-                logger.error("file was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
+                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
                 return Optional.empty();
             }
         }
@@ -597,11 +603,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private ILanguageContributions contributions(ISourceLocation doc) {
-        return safeLanguage(doc)
-            .map(contributions::get)
-            .map(ILanguageContributions.class::cast)
-            .flatMap(Optional::ofNullable)
-            .orElseGet(() -> new NoContributions(extension(doc), exec));
+        return Optional.<ILanguageContributions>ofNullable(multiplexer).orElse(new NoContributions(extension(doc), exec));
     }
 
     private static String extension(ISourceLocation doc) {
@@ -868,10 +870,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     @Override
     public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
+        logger.trace(lang);
 
-        var multiplexer = contributions.computeIfAbsent(lang.getName(),
-            t -> new LanguageContributionsMultiplexer(lang.getName(), exec)
-        );
+        if (multiplexer == null) {
+            multiplexer = new LanguageContributionsMultiplexer(lang.getName(), exec);
+        }
         var fact = facts.computeIfAbsent(lang.getName(), t ->
             new ParametricFileFacts(exec, getColumnMaps(), multiplexer)
         );
@@ -925,17 +928,17 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
      */
     private Collection<ICapabilityParams> buildLanguageParams() {
         var extensionsByLang = Maps.invert(registeredExtensions);
-        return contributions.entrySet().stream().map(e -> new ICapabilityParams() {
+        return Set.of(new ICapabilityParams() {
             @Override
             public ILanguageContributions contributions() {
-                return e.getValue();
+                return multiplexer;
             }
 
             @Override
             public Set<String> fileExtensions() {
-                return extensionsByLang.getOrDefault(e.getKey(), Collections.emptySet());
+                return extensionsByLang.getOrDefault(multiplexer.getName(), Collections.emptySet());
             }
-        }).collect(Collectors.toSet());
+        });
     }
 
     private void updateFileState(LanguageParameter lang, ISourceLocation f) {
@@ -959,8 +962,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public synchronized void unregisterLanguage(LanguageParameter lang) {
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (!removeAll) {
-            var contrib = contributions.get(lang.getName());
-            if (contrib != null && !contrib.removeContributor(buildContributionKey(lang))) {
+            if (multiplexer != null && !multiplexer.removeContributor(buildContributionKey(lang))) {
                 logger.error("unregisterLanguage cleared everything, so removing all");
                 // ok, so it was a clear after all
                 removeAll = true;
@@ -980,7 +982,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 this.registeredExtensions.remove(extension);
             }
             facts.remove(lang.getName());
-            contributions.remove(lang.getName());
+            multiplexer.clearContributors();
         }
 
         // TODO Update capabilities dynamically
@@ -1014,8 +1016,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @Override
     public void cancelProgress(String progressId) {
-        contributions.values().forEach(plex ->
-            plex.cancelProgress(progressId));
+        availableMultiplexer().cancelProgress(progressId);
     }
 
 
