@@ -34,7 +34,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     readonly client: BaseLanguageClient;
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
-    private readonly protectedSchemes:string[] = ["file", "http", "https", "unknown"];
+    private readonly protectedSchemes: string[] = ["file", "http", "https", "unknown"];
 
     /**
      * Registers a single FileSystemProvider for every URI scheme that Rascal supports, except
@@ -42,17 +42,17 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
      *
      * @param client to use as a server for the file system provider methods
      */
-    constructor (client:BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
+    constructor (client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
         this.client = client;
 
-        client.onNotification("rascal/vfs/watcher/fileChanged", (event:vscode.FileChangeEvent) => {
+        client.onNotification("rascal/vfs/watcher/fileChanged", (event: vscode.FileChangeEvent) => {
             this._emitter.fire([event]);
         });
     }
 
     // VS Code omits the leading two slashes from URIs if the autority is empty *and* the scheme is not equal to "file"
     // Rascal does not support this style of URIs, so we add the slashes before sending the URI over
-    toRascalUri(uri: vscode.Uri | string) : string {
+    toRascalUri(uri: vscode.Uri | string): string {
         if (typeof(uri) === "string") {
             return uri;
         }
@@ -64,9 +64,9 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return uriString;
     }
 
-    sendRequest<R>(uri : vscode.Uri | string, method: string): Promise<R>;
-    sendRequest<R, A>(uri : vscode.Uri | string, method: string, param: A): Promise<R>;
-    sendRequest<R, A>(uri : vscode.Uri | string, method: string, param?: A): Promise<R> {
+    sendRequest<R>(uri: vscode.Uri | string, method: string): Promise<R>;
+    sendRequest<R, A>(uri: vscode.Uri | string, method: string, param: A): Promise<R>;
+    sendRequest<R, A>(uri: vscode.Uri | string, method: string, param?: A): Promise<R> {
         return this.client.sendRequest<R>(method, param ?? <ISourceLocationRequest>{ loc: this.toRascalUri(uri) } )
             .catch((r: ResponseError) => {
                 throw RemoteIOError.translateResponseError(r, uri, this.logger);
@@ -148,7 +148,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
         // The `create` and `overwrite` options are handled on this side
         this.logger.trace("[RascalFileSystemInVSCode] writeFile: ", uri);
-        const parentUri = uri.with({path : path.dirname(uri.path)});
+        const parentUri = uri.with({ path: path.dirname(uri.path) });
         Promise.all([
             this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat"),
             this.sendRequest<FileAttributes>(parentUri, "rascal/vfs/input/stat")]
@@ -182,12 +182,12 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return this.sendRequest(oldUri, "rascal/vfs/output/rename", <RenameRequest>{ from: this.toRascalUri(oldUri), to: this.toRascalUri(newUri), overwrite: options.overwrite });
     }
 
-    copy(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean; }) : Thenable<void> {
+    copy(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean; }): Thenable<void> {
         this.logger.trace("[RascalFileSystemInVSCode] copy: ", source, target);
         return this.sendRequest(source, "rascal/vfs/output/copy", <CopyRequest>{ from: this.toRascalUri(source), to: this.toRascalUri(target), recursive: true, overwrite: (options && options.overwrite) ?? false });
     }
 }
 
-function isUnknownFileSystem(scheme : string) : boolean {
+function isUnknownFileSystem(scheme: string): boolean {
     return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
 }

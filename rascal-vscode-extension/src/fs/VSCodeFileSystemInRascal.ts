@@ -117,7 +117,7 @@ function connectWatchHandler(connection: rpc.MessageConnection, handler: ISource
 }
 
 interface ILogicalSourceLocationResolver {
-    resolve(req: ISourceLocationRequest) : Promise<SourceLocationResponse>
+    resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse>
 }
 
 function connectLogicalResolver(connection: rpc.MessageConnection, handler: ILogicalSourceLocationResolver, toClear: Disposable[]) {
@@ -131,9 +131,9 @@ export interface WatchEventReceiver {
     emitWatch(event: ISourceLocationChanged): void;
 }
 
-function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventReceiver {
+function buildWatchReceiver(connection: rpc.MessageConnection): WatchEventReceiver {
     return {
-        emitWatch : (e) => {
+        emitWatch: (e) => {
             connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/sourceLocationChanged"), e);
         }
     };
@@ -301,7 +301,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         });
     }
 
-    isRascalNative(loc: ISourceLocation | vscode.Uri) : boolean {
+    isRascalNative(loc: ISourceLocation | vscode.Uri): boolean {
         // Note that `ISourceLocation` === `URI` === `string` !== `vscode.Uri`
         const scheme = typeof(loc) === "string" ? loc.substring(0, loc.indexOf(":")) : loc.scheme;
         return this.rascalNativeSchemes.has(scheme);
@@ -311,7 +311,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         this.logger.trace("[VSCodeFileSystemInRascal] exists: ", req.loc);
         try {
             await this.stat(req.loc);
-            return { value : true };
+            return { value: true };
         }
         catch (_e) {
             return { value: false };
@@ -358,7 +358,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.numberResult(req.loc, f => f.size);
     }
 
-    private async boolResult(loc: ISourceLocation, mapper: (s :vscode.FileStat) => boolean): Promise<BooleanResponse> {
+    private async boolResult(loc: ISourceLocation, mapper: (s: vscode.FileStat) => boolean): Promise<BooleanResponse> {
         return this.asyncCatcher(async () => <BooleanResponse>{ value: mapper((await this.stat(loc))) });
     }
 
@@ -396,18 +396,18 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResponse> {
         this.logger.trace("[VSCodeFileSystemInRascal] list: ", req.loc);
         return this.asyncCatcher(async () => <DirectoryListingResponse>{ entries:
-            (await this.fs.readDirectory(this.toUri(req.loc))).map(entry => <DirectoryEntry>{name: entry[0], types: this.decodeFileTypeBitmask(entry[1])})
+            (await this.fs.readDirectory(this.toUri(req.loc))).map(entry => <DirectoryEntry>{ name: entry[0], types: this.decodeFileTypeBitmask(entry[1]) })
         });
     }
 
-    decodeFileTypeBitmask(input: number) : vscode.FileType[] {
+    decodeFileTypeBitmask(input: number): vscode.FileType[] {
         return input === 0 ? [vscode.FileType.Unknown] : [vscode.FileType.File, vscode.FileType.Directory, vscode.FileType.SymbolicLink].filter(t => t === (t & input));
     }
 
     async writeFile(req: WriteFileRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] writeFile: ", req.loc);
         const loc = this.toUri(req.loc);
-        let prefix : Buffer<ArrayBuffer> = Buffer.of();
+        let prefix: Buffer<ArrayBuffer> = Buffer.of();
         if (await this.exists(req) && req.append) {
             prefix = Buffer.from(await this.fs.readFile(loc));
         }
@@ -421,7 +421,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
     async remove(req: RemoveRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] remove: ", req.loc);
-        return this.asyncVoidCatcher(this.fs.delete(this.toUri(req.loc), {"recursive" : req.recursive}));
+        return this.asyncVoidCatcher(this.fs.delete(this.toUri(req.loc), { recursive: req.recursive }));
     }
     async rename(req: RenameRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] rename: ", req.from, req.to);
