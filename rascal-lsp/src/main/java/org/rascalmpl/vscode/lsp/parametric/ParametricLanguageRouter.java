@@ -185,7 +185,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     }
 
     private <R, P> R route(TextDocumentIdentifier textDocument, BiFunction<TextDocumentService, P, R> func, P param) {
-        return route(textDocument, func, param);
+        return route(textDocument.getUri(), func, param);
     }
 
     private <R, P> R route(String uri, BiFunction<TextDocumentService, P, R> func, P param) {
@@ -299,7 +299,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
-        pair(workspaceService);
+        // Nothing to do; no need to pair with ourselves
     }
 
     @Override
