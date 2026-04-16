@@ -104,7 +104,7 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
         var loc = req.getLocation();
         logger.info("writeFile: {}", loc);
         if (reg.exists(loc) && reg.isDirectory(loc)) {
-            throw new ResponseErrorException(new ResponseError(RemoteIOError.IsADirectory.code, "Is a directory: " + loc, null));
+            throw new ResponseErrorException(new ResponseError(RemoteIOError.IsADirectory.code, "Is a directory: " + loc, req));
         }
         return super.writeFile(new WriteFileRequest(Locations.toClientLocation(loc), req.getContent(), req.isAppend()));
     }
