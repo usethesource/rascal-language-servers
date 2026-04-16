@@ -337,6 +337,8 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
+        logger.info("unregisterLanguage({})", lang.getName());
+        var removedLang = languageServices.remove(lang.getName());
         // TODO Kill the delegate process for this language and clean up maps
     }
 
