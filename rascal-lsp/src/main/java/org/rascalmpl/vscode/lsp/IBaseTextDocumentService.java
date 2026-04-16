@@ -60,7 +60,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
 
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
     ColumnMaps getColumnMaps();
-    // Simplify return type to something that can be serialized
+    // TODO Simplify return type to something that can be serialized over JSON-RPC
     @Nullable TextDocumentState getDocumentState(ISourceLocation file);
 
     boolean isManagingFile(ISourceLocation file);

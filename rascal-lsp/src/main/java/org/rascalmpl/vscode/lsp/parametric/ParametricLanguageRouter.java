@@ -319,6 +319,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         logger.info("registerLanguage({})", lang.getName());
 
         var langService = getOrBuildLanguageService(lang);
+        langService.registerLanguage(lang);
 
         for (var extension: lang.getExtensions()) {
             this.languagesByExtension.put(extension, lang.getName());
@@ -335,6 +336,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     public void unregisterLanguage(LanguageParameter lang) {
         logger.info("unregisterLanguage({})", lang.getName());
         var removedLang = languageServices.remove(lang.getName());
+        removedLang.unregisterLanguage(lang);
         // TODO Kill the delegate process for this language and clean up maps
     }
 
