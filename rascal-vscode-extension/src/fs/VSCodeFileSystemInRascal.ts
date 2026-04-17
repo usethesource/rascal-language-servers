@@ -419,10 +419,12 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         this.logger.trace("[VSCodeFileSystemInRascal] mkDirectory: ", req.loc);
         return this.asyncVoidCatcher(this.fs.createDirectory(this.toUri(req.loc)));
     }
+
     async remove(req: RemoveRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] remove: ", req.loc);
         return this.asyncVoidCatcher(this.fs.delete(this.toUri(req.loc), { recursive: req.recursive }));
     }
+
     async rename(req: RenameRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] rename: ", req.from, req.to);
         return this.asyncVoidCatcher(this.fs.rename(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
