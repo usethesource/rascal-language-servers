@@ -59,7 +59,7 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("logLevel")
+    @JsonNotification
     void setMinimumLogLevel(String level);
 
     @JsonRequest("vfs/schemes")
