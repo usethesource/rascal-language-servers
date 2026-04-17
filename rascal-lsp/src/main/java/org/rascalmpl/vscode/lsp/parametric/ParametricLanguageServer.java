@@ -29,7 +29,6 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 import com.google.gson.GsonBuilder;
 
@@ -43,8 +42,8 @@ public class ParametricLanguageServer extends BaseLanguageServer {
             dedicatedLanguage = null;
         }
 
-        startLanguageServer(NamedThreadPool.single("parametric-lsp")
-            , NamedThreadPool.cached("parametric")
+        startLanguageServer("parametric-lsp"
+            , "parametric"
             , threadPool -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
             , ParametricWorkspaceService::new
             , 9999

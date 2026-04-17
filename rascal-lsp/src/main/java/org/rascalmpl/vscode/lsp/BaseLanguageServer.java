@@ -66,6 +66,7 @@ import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
+import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -131,9 +132,12 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    public static void startLanguageServer(String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
+
+        var requestPool = NamedThreadPool.single(requestPoolName);
+        var workerPool = NamedThreadPool.cached(workerPoolName);
 
         if (DEPLOY_MODE) {
             var docService = docServiceProvider.apply(workerPool);
@@ -149,6 +153,9 @@ public abstract class BaseLanguageServer {
                     var wsService = workspaceServiceProvider.apply(workerPool, docService);
                     docService.pair(wsService);
                     startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
+
+                    // Recreate `workerPool` (which has been shutdown by `RascalTextDocumentService.shutdown`)
+                    workerPool = NamedThreadPool.cached(workerPoolName);
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server on port {}", portNumber, e);
