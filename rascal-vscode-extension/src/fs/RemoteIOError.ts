@@ -28,6 +28,10 @@ import * as vscode from 'vscode';
 import * as rpc from 'vscode-jsonrpc/node';
 import { ResponseError } from "vscode-languageclient";
 
+/**
+ * This class mirrors the `RemoteIOError` enum in Rascal.
+ * The values must be kept in sync.
+ */
 export class RemoteIOError {
     static readonly fileExists = -1;
     static readonly fileNotFound = -2;
