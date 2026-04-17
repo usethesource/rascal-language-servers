@@ -27,11 +27,12 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.ExecutorService;
+import java.util.function.BooleanSupplier;
+
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 
 public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(ExecutorService exec, IBaseTextDocumentService docService) {
-        super(exec, docService);
+    ParametricWorkspaceService(BooleanSupplier isConnected, ExecutorService exec) {
+        super(isConnected, exec);
     }
 }

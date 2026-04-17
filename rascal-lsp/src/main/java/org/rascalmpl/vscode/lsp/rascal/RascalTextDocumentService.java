@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -148,6 +149,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
 
+    private final BooleanSupplier isConnected;
     private final ExecutorService exec;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
 
@@ -160,10 +162,11 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
-    public RascalTextDocumentService(ExecutorService exec) {
+    public RascalTextDocumentService(BooleanSupplier isConnected, ExecutorService exec) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
 
+        this.isConnected = isConnected;
         this.exec = exec;
         this.documents = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);

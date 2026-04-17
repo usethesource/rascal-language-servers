@@ -43,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -181,6 +182,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
 
+    private final BooleanSupplier isConnected;
     private final ExecutorService exec;
 
     private final String dedicatedLanguageName;
@@ -209,10 +211,11 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             tf.sourceLocationType(), "to");
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
-    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
+    public ParametricTextDocumentService(BooleanSupplier isConnected, ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
 
+        this.isConnected = isConnected;
         this.exec = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
