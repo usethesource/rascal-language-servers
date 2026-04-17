@@ -333,7 +333,7 @@ public abstract class BaseLanguageServer {
             var inputs = reg.getRegisteredInputSchemes();
             var logicals = reg.getRegisteredLogicalSchemes();
 
-            return CompletableFuture.completedFuture(Sets.union(inputs, logicals).toArray(String[]::new));
+            return CompletableFutureUtils.completedFuture(Sets.union(inputs, logicals).toArray(String[]::new), executor);
         }
     }
 }
