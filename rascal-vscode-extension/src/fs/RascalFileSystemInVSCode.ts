@@ -74,7 +74,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     }
 
     /**
-     * Attemptes to register all schemes.
+     * Attempts to register all schemes.
      * @param schemes The list of schemes to register for this provider
      */
     tryRegisterSchemes(schemes: string[]) {
