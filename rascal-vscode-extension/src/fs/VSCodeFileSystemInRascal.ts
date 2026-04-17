@@ -408,7 +408,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         this.logger.trace("[VSCodeFileSystemInRascal] writeFile: ", req.loc);
         const loc = this.toUri(req.loc);
         let prefix: Buffer<ArrayBuffer> = Buffer.of();
-        if (await this.exists(req) && req.append) {
+        if (req.append && await this.exists(req)) {
             prefix = Buffer.from(await this.fs.readFile(loc));
         }
         return this.asyncVoidCatcher(
