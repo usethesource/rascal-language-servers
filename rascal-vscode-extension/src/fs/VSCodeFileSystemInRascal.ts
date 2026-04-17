@@ -432,7 +432,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     async copy(req: CopyRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] copy: ", req.from, req.to);
-        if (req.recursive && await this.isDirectory({ loc: req.from })) {
+        if (!req.recursive && await this.isDirectory({ loc: req.from })) {
             throw new rpc.ResponseError(RemoteIOError.isADirectory, 'Non-recursive copy requested on a directory', req);
         }
         return this.asyncVoidCatcher(this.fs.copy(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
