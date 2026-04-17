@@ -91,12 +91,12 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
     }
 
     toRascalLocationString(sloc: SourceLocation): string {
-        let ret = "|" + sloc.uri + "|";
+        let ret = `|${sloc.uri}|`;
         if (sloc.offsetLength) {
-            ret += "(" + sloc.offsetLength[0] + "," + sloc.offsetLength[1];
+            ret += `(${sloc.offsetLength[0]},${sloc.offsetLength[1]}`;
             if (sloc.beginLineColumn) {
-                ret += "<" + sloc.beginLineColumn[0] + "," + sloc.beginLineColumn[1] + ">";
-                ret += "<" + sloc.endLineColumn![0] + "," + sloc.endLineColumn![1] + ">";
+                ret += `,<${sloc.beginLineColumn[0]},${sloc.beginLineColumn[1]}>`;
+                ret += `,<${sloc.endLineColumn![0]},${sloc.endLineColumn![1]}>`;
             }
             ret += ")";
         }
