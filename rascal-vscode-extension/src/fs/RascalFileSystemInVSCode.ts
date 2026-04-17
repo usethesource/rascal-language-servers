@@ -144,7 +144,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
-        // The `create` and `overwrite` options are handled on this side
+        // The `create` and `overwrite` options are handled on this side, as this function should comply with the requirements
+        // as specified by vscode.FileSystemProvider.writeFile; ISourceLocationOutput does not support `create` and `overwrite`.
         this.logger.trace("[RascalFileSystemInVSCode] writeFile: ", uri);
         const parentUri = uri.with({ path: path.dirname(uri.path) });
         Promise.all([
