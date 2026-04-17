@@ -184,7 +184,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
     copy(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean; }): Thenable<void> {
         this.logger.trace("[RascalFileSystemInVSCode] copy: ", source, target);
-        return this.sendRequest(source, "rascal/vfs/output/copy", <CopyRequest>{ from: this.toRascalUri(source), to: this.toRascalUri(target), recursive: true, overwrite: (options && options.overwrite) ?? false });
+        return this.sendRequest(source, "rascal/vfs/output/copy", <CopyRequest>{ from: this.toRascalUri(source), to: this.toRascalUri(target), recursive: true, overwrite: options?.overwrite ?? false });
     }
 }
 
