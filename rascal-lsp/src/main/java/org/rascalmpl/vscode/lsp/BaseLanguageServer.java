@@ -311,7 +311,7 @@ public abstract class BaseLanguageServer {
             var actualClient = (IBaseLanguageClient) client;
             lspDocumentService.connect(actualClient);
             lspWorkspaceService.connect(actualClient);
-            provideClient(actualClient);
+            this.client = actualClient;
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
