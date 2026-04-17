@@ -31,7 +31,6 @@ import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocationR
 import { RemoteIOError } from './RemoteIOError';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
-    readonly client: BaseLanguageClient;
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly protectedSchemes: string[] = ["file", "http", "https", "unknown"];
@@ -42,9 +41,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
      *
      * @param client to use as a server for the file system provider methods
      */
-    constructor (client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
-        this.client = client;
-
+    constructor (private readonly client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
         client.onNotification("rascal/vfs/watcher/fileChanged", (event: vscode.FileChangeEvent) => {
             this._emitter.fire([event]);
         });
