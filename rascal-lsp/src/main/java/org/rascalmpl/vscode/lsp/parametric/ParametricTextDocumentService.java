@@ -1001,7 +1001,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
         var clientCopy = availableClient();
         multiplexer.addContributor(buildContributionKey(lang),
-            new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
+            new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), isConnected, (IBaseLanguageClient)clientCopy, exec));
 
         fact.reloadContributions();
         fact.setClient(clientCopy);

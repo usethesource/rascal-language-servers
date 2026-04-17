@@ -256,7 +256,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        this.rascalServices = new RascalLanguageServices(this, availableWorkspaceServices(), (IBaseLanguageClient) client, exec);
+        this.rascalServices = new RascalLanguageServices(this, availableWorkspaceServices(), isConnected, (IBaseLanguageClient) client, exec);
         this.facts = new FileFacts(exec, rascalServices, client, columns);
     }
 

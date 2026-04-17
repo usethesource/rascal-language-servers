@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
@@ -113,11 +114,11 @@ public class RascalLanguageServices {
     private final BaseWorkspaceService workspaceService;
     private final RascalLSPMonitor monitor;
 
-    public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
+    public RascalLanguageServices(RascalTextDocumentService docService, BaseWorkspaceService workspaceService, BooleanSupplier isConnected, IBaseLanguageClient client, ExecutorService exec) {
         this.client = client;
         this.exec = exec;
 
-        monitor = new RascalLSPMonitor(client, logger);
+        monitor = new RascalLSPMonitor(isConnected, client, logger);
 
         var pcfg = EvaluatorUtil.addLSPSources(new PathConfig(URIUtil.rootLocation("cwd")), true);
         var compilerPcfg = EvaluatorUtil.addRascalCompilerSources(pcfg);
