@@ -39,6 +39,7 @@ import org.rascalmpl.uri.remote.RascalFileSystemServices;
 import org.rascalmpl.uri.remote.jsonrpc.CopyRequest;
 import org.rascalmpl.uri.remote.jsonrpc.DirectoryListingResponse;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
+import org.rascalmpl.uri.remote.jsonrpc.JsonRpcRequest;
 import org.rascalmpl.uri.remote.jsonrpc.LocationContentResponse;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.uri.remote.jsonrpc.RemoveRequest;
@@ -50,16 +51,20 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 /**
  * Wrapper for RascalFileSystemServices handling LSP-specifics.
- * In particular, locations from LSP are mapped to Rascal-friendly locations, and Rascal exceptions are mapped to exceptions LSP expects.
+ * In particular, locations from LSP are mapped to Rascal-friendly locations.
  */
 public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
+
+    private <T extends JsonRpcRequest> T transformLocations(T req) {
+        return req.transformLocations(Locations::toClientLocation);
+    }
     
     @Override
     public CompletableFuture<SourceLocationResponse> resolveLocation(ISourceLocationRequest req) {
         logger.trace("resolveLocation: {}", req.getLocation());
-        return super.resolveLocation(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation())));
+        return super.resolveLocation(transformLocations(req));
     }
 
     @Override
@@ -69,34 +74,34 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
         if (Locations.isWrappedOpaque(loc)) {
             throw RemoteIOError.translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal: " + loc.getScheme()));
         }
-        return super.watch(req);
+        return super.watch(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<FileAttributes> stat(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("stat: {}", loc);
-        return super.stat(new ISourceLocationRequest(Locations.toClientLocation(loc)));
+        return super.stat(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<DirectoryListingResponse> list(ISourceLocationRequest req) {
         logger.trace("list: {}", req.getLocation());
-        return super.list(new ISourceLocationRequest(Locations.toClientLocation(req.getLocation())));
+        return super.list(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> mkDirectory(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("mkDirectory: {}", loc);
-        return super.mkDirectory(new ISourceLocationRequest(Locations.toClientLocation(loc)));
+        return super.mkDirectory(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<LocationContentResponse> readFile(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("readFile: {}", loc);
-        return super.readFile(new ISourceLocationRequest(Locations.toClientLocation(loc)));
+        return super.readFile(transformLocations(req));
     }
 
     @Override
@@ -106,25 +111,25 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
         if (reg.exists(loc) && reg.isDirectory(loc)) {
             throw new ResponseErrorException(new ResponseError(RemoteIOError.IsADirectory.code, "Is a directory: " + loc, req));
         }
-        return super.writeFile(new WriteFileRequest(Locations.toClientLocation(loc), req.getContent(), req.isAppend()));
+        return super.writeFile(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> remove(RemoveRequest req) {
         var loc = req.getLocation();
         logger.trace("remove: {}", loc);
-        return super.remove(new RemoveRequest(Locations.toClientLocation(loc), req.isRecursive()));
+        return super.remove(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> rename(RenameRequest req) {
         logger.trace("rename: {} to {}", req.getFrom(), req.getTo());
-        return super.rename(new RenameRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isOverwrite()));
+        return super.rename(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> copy(CopyRequest req) {
         logger.trace("copy: {} to {}", req.getFrom(), req.getTo());
-        return super.copy(new CopyRequest(Locations.toClientLocation(req.getFrom()), Locations.toClientLocation(req.getTo()), req.isRecursive(), req.isOverwrite()));
+        return super.copy(transformLocations(req));
     }
 }
