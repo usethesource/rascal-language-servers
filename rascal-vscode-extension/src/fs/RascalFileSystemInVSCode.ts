@@ -61,13 +61,14 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return uriString;
     }
 
-    sendRequest<R>(uri: vscode.Uri | string, method: string): Promise<R>;
-    sendRequest<R, A>(uri: vscode.Uri | string, method: string, param: A): Promise<R>;
-    sendRequest<R, A>(uri: vscode.Uri | string, method: string, param?: A): Promise<R> {
-        return this.client.sendRequest<R>(method, param ?? <ISourceLocationRequest>{ loc: this.toRascalUri(uri) } )
-            .catch((r: ResponseError) => {
-                throw RemoteIOError.translateResponseError(r, uri, this.logger);
-            });
+    async sendRequest<R>(uri: vscode.Uri | string, method: string): Promise<R>;
+    async sendRequest<R, A>(uri: vscode.Uri | string, method: string, param: A): Promise<R>;
+    async sendRequest<R, A>(uri: vscode.Uri | string, method: string, param?: A): Promise<R> {
+        try {
+            return await this.client.sendRequest<R>(method, param ?? <ISourceLocationRequest>{ loc: this.toRascalUri(uri) });
+        } catch (r) {
+            throw RemoteIOError.translateResponseError(<ResponseError>r, uri, this.logger);
+        }
     }
 
     /**
