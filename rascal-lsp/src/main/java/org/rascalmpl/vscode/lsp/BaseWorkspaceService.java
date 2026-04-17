@@ -80,6 +80,13 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         this.exec = exec;
     }
 
+    private IBaseTextDocumentService availableDocumentService() {
+        if (documentService == null) {
+            throw new IllegalStateException("Document service has not been constructed yet");
+        }
+        return documentService;
+    }
+
     public void pair(IBaseTextDocumentService documentService) {
         this.documentService = documentService;
     }
@@ -132,7 +139,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (removed != null) {
             workspaceFolders.removeAll(removed);
             for (WorkspaceFolder folder : removed) {
-                documentService.projectRemoved(folder.getName(), Locations.toLoc(folder.getUri()));
+                availableDocumentService().projectRemoved(folder.getName(), Locations.toLoc(folder.getUri()));
             }
         }
 
@@ -140,7 +147,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (added != null) {
             workspaceFolders.addAll(added);
             for (WorkspaceFolder folder : added) {
-                documentService.projectAdded(folder.getName(), Locations.toLoc(folder.getUri()));
+                availableDocumentService().projectAdded(folder.getName(), Locations.toLoc(folder.getUri()));
             }
         }
     }
@@ -148,14 +155,14 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public void didCreateFiles(CreateFilesParams params) {
         logger.debug("workspace/didCreateFiles: {}", params.getFiles());
-        exec.submit(() -> documentService.didCreateFiles(params));
+        exec.submit(() -> availableDocumentService().didCreateFiles(params));
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        exec.submit(() -> documentService.didRenameFiles(params, workspaceFolders()));
+        exec.submit(() -> availableDocumentService().didRenameFiles(params, workspaceFolders()));
 
         exec.submit(() -> {
             // cleanup the old files (we do not get a `didDelete` event)
@@ -163,14 +170,14 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
                 .map(f -> f.getOldUri())
                 .map(FileDelete::new)
                 .collect(Collectors.toList());
-            documentService.didDeleteFiles(new DeleteFilesParams(oldFiles));
+            availableDocumentService().didDeleteFiles(new DeleteFilesParams(oldFiles));
         });
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         logger.debug("workspace/didDeleteFiles: {}", params.getFiles());
-        exec.submit(() -> documentService.didDeleteFiles(params));
+        exec.submit(() -> availableDocumentService().didDeleteFiles(params));
     }
 
     @Override
@@ -181,7 +188,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
                 if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
                     String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
                     String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
-                    return documentService.executeCommand(languageName, command).thenApply(v -> v);
+                    return availableDocumentService().executeCommand(languageName, command).thenApply(v -> v);
                 }
 
                 return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", exec);
