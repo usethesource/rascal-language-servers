@@ -27,8 +27,10 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -153,28 +155,41 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     //// LANGUAGE MANAGEMENT
 
     private ISingleLanguageService language(TextDocumentItem textDocument) {
-        return language(URIUtil.assumeCorrectLocation(textDocument.getUri()));
+        return language(Locations.toLoc(textDocument.getUri()));
     }
 
     private TextDocumentService language(VersionedTextDocumentIdentifier textDocument) {
-        return language(URIUtil.assumeCorrectLocation(textDocument.getUri()));
+        return language(Locations.toLoc(textDocument.getUri()));
     }
 
     private TextDocumentService language(TextDocumentIdentifier textDocument) {
-        return language(URIUtil.assumeCorrectLocation(textDocument.getUri()));
+        return language(Locations.toLoc(textDocument.getUri()));
     }
 
     private ISingleLanguageService language(ISourceLocation uri) {
-        var ext = extension(uri);
-        var lang = languagesByExtension.get(ext);
-        if (lang == null) {
-            throw new IllegalStateException("No language exists for extension:" + ext);
-        }
+        var lang = safeLanguage(uri).orElseThrow(() ->
+            new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered for extension '%s': %s", extension(uri), uri))
+        );
         var service = languageServices.get(lang);
         if (service == null) {
-            throw new IllegalStateException("No language service exists for language: " + lang);
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s': '%s'", lang, uri));
         }
         return service;
+    }
+
+    private Optional<String> safeLanguage(ISourceLocation loc) {
+        var ext = extension(loc);
+        if ("".equals(ext)) {
+            var languages = new HashSet<>(languagesByExtension.values());
+            if (languages.size() == 1) {
+                logger.trace("File was opened without an extension; falling back to the single registered language for: {}", loc);
+                return languages.stream().findFirst();
+            } else {
+                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
+                return Optional.empty();
+            }
+        }
+        return Optional.ofNullable(languagesByExtension.get(ext));
     }
 
     private static String extension(ISourceLocation doc) {
@@ -221,7 +236,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         // Since these files can belong to different languages, we map them to their respective language and
         // delegate to several services.
         params.getFiles().stream()
-            .collect(Collectors.toMap(f -> language(URIUtil.assumeCorrectLocation(f.getUri())), List::of, Lists::union))
+            .collect(Collectors.toMap(f -> language(Locations.toLoc(f.getUri())), List::of, Lists::union))
             .entrySet()
             .forEach(e -> e.getKey().didDeleteFiles(new DeleteFilesParams(e.getValue())));
 
@@ -234,7 +249,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         // Since these files can belong to different languages, we map them to their respective language and
         // delegate to several services.
         params.getFiles().stream()
-            .collect(Collectors.toMap(f -> language(URIUtil.assumeCorrectLocation(f.getOldUri())), List::of, Lists::union))
+            .collect(Collectors.toMap(f -> language(Locations.toLoc(f.getOldUri())), List::of, Lists::union))
             .entrySet()
             .forEach(e -> e.getKey().didRenameFiles(new RenameFilesParams(e.getValue())));
 
