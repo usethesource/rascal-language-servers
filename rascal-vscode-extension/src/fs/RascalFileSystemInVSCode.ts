@@ -71,6 +71,10 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         }
     }
 
+    private isUnknownFileSystem(scheme: string): boolean {
+        return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
+    }
+
     /**
      * Attempts to register all schemes.
      * @param schemes The list of schemes to register for this provider
@@ -82,16 +86,15 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             .concat(schemes
                 .filter(s => s !== "jar" && s !== "zip" && s !== "compressed")
                 .map(s => "jar+" + s))
-            .filter(isUnknownFileSystem)
+            .filter(this.isUnknownFileSystem)
             .forEach(s => {
                 try {
                     vscode.workspace.registerFileSystemProvider(s, this);
                     this.logger.debug(`Rascal VFS registered scheme: ${s}`);
                 } catch (error) {
-                    if (isUnknownFileSystem(s)) {
+                    if (this.isUnknownFileSystem(s)) {
                         this.logger.error(`Unable to register scheme: ${s}\n${error}`);
-                    }
-                    else {
+                    } else {
                         this.logger.debug(`Rascal VFS lost the race to register scheme: ${s}, which in most cases is fine`);
                     }
                 }
@@ -185,8 +188,4 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         this.logger.trace("[RascalFileSystemInVSCode] copy: ", source, target);
         return this.sendRequest(source, "rascal/vfs/output/copy", <CopyRequest>{ from: this.toRascalUri(source), to: this.toRascalUri(target), recursive: true, overwrite: options?.overwrite ?? false });
     }
-}
-
-function isUnknownFileSystem(scheme: string): boolean {
-    return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
 }
