@@ -31,11 +31,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -458,57 +456,41 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        Map<ILanguageContributions, List<FileRename>> byContrib =  bundleRenamesByContribution(params.getFiles());
-        for (var entry : byContrib.entrySet()) {
-            ILanguageContributions contrib = entry.getKey();
-            List<FileRename> renames = entry.getValue();
+        var renameDocumentEdits = params.getFiles()
+            .stream()
+            .map(rename -> fileRenameToDocumentEdit(rename))
+            .collect(VF.listWriter());
 
-            IList renameDocumentEdits = renames.stream().map(rename -> fileRenameToDocumentEdit(rename)).collect(VF.listWriter());
+        availableMultiplexer().didRenameFiles(renameDocumentEdits)
+            .thenAccept(res -> {
+                var edits = (IList) res.get(0);
+                var messages = (ISet) res.get(1);
+                var client = availableClient();
+                showMessages(client, messages);
 
-            contrib.didRenameFiles(renameDocumentEdits)
-                .thenAccept(res -> {
-                    var edits = (IList) res.get(0);
-                    var messages = (ISet) res.get(1);
-                    var client = availableClient();
-                    showMessages(client, messages);
+                if (edits.isEmpty()) {
+                    return;
+                }
 
-                    if (edits.isEmpty()) {
-                        return;
+                WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(edits, getColumnMaps());
+                client.applyEdit(new ApplyWorkspaceEditParams(changes, "Rename files")).thenAccept(editResponse -> {
+                    if (!editResponse.isApplied()) {
+                        throw new RuntimeException("didRenameFiles resulted in a list of edits but applying them failed"
+                            + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
                     }
-
-                    WorkspaceEdit changes = DocumentChanges.translateDocumentChanges(edits, getColumnMaps());
-                    client.applyEdit(new ApplyWorkspaceEditParams(changes, "Rename files")).thenAccept(editResponse -> {
-                        if (!editResponse.isApplied()) {
-                            throw new RuntimeException("didRenameFiles resulted in a list of edits but applying them failed"
-                                + (editResponse.getFailureReason() != null ? (": " + editResponse.getFailureReason()) : ""));
-                        }
-                    });
-                })
-                .get()
-                .exceptionally(e -> {
-                    var cause = e.getCause();
-                    logger.catching(Level.ERROR, cause);
-                    var message = "unknown error";
-                    if (cause != null && cause.getMessage() != null) {
-                        message = cause.getMessage();
-                    }
-                    availableClient().showMessage(new MessageParams(MessageType.Error, message));
-                    return null; // Return of type `Void` is unused, but required
                 });
-        }
-    }
-
-    private Map<ILanguageContributions, List<FileRename>> bundleRenamesByContribution(List<FileRename> allRenames) {
-        Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
-        for (FileRename rename : allRenames) {
-            var l = Locations.toLoc(rename.getNewUri());
-            ILanguageContributions contrib = multiplexer;
-            if (contrib != null) {
-                bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
-            }
-        }
-
-        return bundled;
+            })
+            .get()
+            .exceptionally(e -> {
+                var cause = e.getCause();
+                logger.catching(Level.ERROR, cause);
+                var message = "unknown error";
+                if (cause != null && cause.getMessage() != null) {
+                    message = cause.getMessage();
+                }
+                availableClient().showMessage(new MessageParams(MessageType.Error, message));
+                return null; // Return of type `Void` is unused, but required
+            });
     }
 
     private IConstructor fileRenameToDocumentEdit(FileRename rename) {
