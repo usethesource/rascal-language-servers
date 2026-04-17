@@ -323,12 +323,11 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             const fileInfo = await this.stat(req.loc);
             return {
                 exists: true,
-                isFile: (fileInfo.type | vscode.FileType.File) > 0,
+                isFile: (fileInfo.type | vscode.FileType.File) === vscode.FileType.File,
                 created: fileInfo.ctime,
                 lastModified: fileInfo.mtime,
                 isReadable: true,
-                isWritable: true,
-                permissions: fileInfo.permissions && (fileInfo.permissions | vscode.FilePermission.Readonly) > 0,
+                isWritable: !fileInfo.permissions || (fileInfo.permissions | vscode.FilePermission.Readonly) === 0,
                 size: fileInfo.size,
             };
         });
