@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import com.google.gson.JsonPrimitive;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -68,6 +69,7 @@ import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
+import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -104,6 +106,7 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.services.TextDocumentService;
+import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
@@ -170,9 +173,13 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         var lang = safeLanguage(uri).orElseThrow(() ->
             new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered for extension '%s': %s", extension(uri), uri))
         );
+        return languageByName(lang);
+    }
+
+    private ISingleLanguageService languageByName(String lang) {
         var service = languageServices.get(lang);
         if (service == null) {
-            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s': '%s'", lang, uri));
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
         }
         return service;
     }
@@ -202,6 +209,14 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     private <R, P> @PolyNull R route(ISourceLocation file, BiFunction<TextDocumentService, P, @PolyNull R> func, P param) {
         var lang = language(file);
+        return route(lang, func, param);
+    }
+
+    private <R, P> @PolyNull R route(ISingleLanguageService lang, BiFunction<TextDocumentService, P, @PolyNull R> func, P param) {
+        return func.apply(lang, param);
+    }
+
+    private <R, P> @PolyNull R routeWs(ISingleLanguageService lang, BiFunction<WorkspaceService, P, @PolyNull R> func, P param) {
         return func.apply(lang, param);
     }
 
@@ -505,6 +520,14 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
         return route(params.getTextDocument(), TextDocumentService::semanticTokensRange, params);
+    }
+
+    @Override
+    public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
+        // TODO Use helper class for param types here and on creation?
+        var langName = ((JsonPrimitive) commandParams.getArguments().get(0)).getAsString();
+        var lang = languageByName(langName);
+        return routeWs(lang, WorkspaceService::executeCommand, commandParams);
     }
 
 }
