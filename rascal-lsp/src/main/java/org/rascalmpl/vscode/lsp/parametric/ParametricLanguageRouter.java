@@ -325,6 +325,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     private ISingleLanguageService getOrBuildLanguageService(LanguageParameter lang) {
         return languageServices.computeIfAbsent(lang.getName(), l -> {
+            // TODO Start a delegate process with the right versions on the classpath for this language
             var s = new SingleLanguageServer(l);
             s.connect(availableClient());
             return s;
@@ -332,10 +333,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     }
 
     @Override
-    public void registerLanguage(LanguageParameter lang) {
-        // Main workhorse
-        // TODO Start a delegate process with the right versions on the classpath for this language
-
+    public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
         var langService = getOrBuildLanguageService(lang);
@@ -353,7 +351,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     }
 
     @Override
-    public void unregisterLanguage(LanguageParameter lang) {
+    public synchronized void unregisterLanguage(LanguageParameter lang) {
         logger.info("unregisterLanguage({})", lang.getName());
         var removedLang = languageServices.remove(lang.getName());
         if (removedLang != null) {
