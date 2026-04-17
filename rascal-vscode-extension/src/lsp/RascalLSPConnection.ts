@@ -164,7 +164,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
         , '-Drascal.lsp.deploy=true'
         , '-Drascal.compilerClasspath=' + classpath
         , '-Drascal.remoteResolverRegistryPort=' + remoteResolverRegistryPort
-        , '-Drascal.specializedRemoteResolverRegistryClass=org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeFileSystemInRascal'
+        , '-Drascal.customRemoteResolverRegistryClass=org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeFileSystemInRascal'
     ];
     let mainClass: string;
     if (isParametricServer) {
