@@ -289,7 +289,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     toUri(loc: ISourceLocation): vscode.Uri {
         const uri = vscode.Uri.parse(loc);
         if (this.isRascalNative(uri)) {
-            throw new rpc.ResponseError(RemoteIOError.isRascalNative, `Cannot request VS jobs on native Rascal locations: ${loc}`);
+            throw new rpc.ResponseError(RemoteIOError.isRascalNative, `Cannot perform VS Code file system operations on native Rascal locations: ${loc}`);
         }
         return uri;
     }
