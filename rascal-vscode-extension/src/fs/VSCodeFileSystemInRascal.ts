@@ -443,29 +443,27 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     async watch(newWatch: WatchRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] watch: ", newWatch.loc);
         const watchKey = newWatch.loc + newWatch.recursive;
-        if (!this.activeWatches.has(watchKey)) {
-            const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watchId);
-            this.activeWatches.set(watchKey, watcher);
-            this.disposables.push(watcher);
-            return;
+        if (this.activeWatches.has(watchKey)) {
+            throw new rpc.ResponseError(RemoteIOError.watchAlreadyDefined, `Watch already defined: ${newWatch.loc}`);
         }
-        throw new rpc.ResponseError(RemoteIOError.watchAlreadyDefined, `Watch already defined: ${newWatch.loc}`);
+        const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watchId);
+        this.activeWatches.set(watchKey, watcher);
+        this.disposables.push(watcher);
     }
 
     async unwatch(removeWatch: WatchRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] unwatch: ", removeWatch.loc);
         const watchKey = removeWatch.loc + removeWatch.recursive;
         const watcher = this.activeWatches.get(watchKey);
-        if (watcher) {
-            this.activeWatches.delete(watchKey);
-            watcher.dispose();
-            const index = this.disposables.indexOf(watcher);
-            if (index >= 0) {
-                this.disposables.splice(index, 1);
-            }
-            return;
+        if (watcher === undefined) {
+            throw new rpc.ResponseError(RemoteIOError.watchNotDefined, `Watch not defined: ${removeWatch.loc}`);
         }
-        throw new rpc.ResponseError(RemoteIOError.watchNotDefined, `Watch not defined: ${removeWatch.loc}`);
+        this.activeWatches.delete(watchKey);
+        watcher.dispose();
+        const index = this.disposables.indexOf(watcher);
+        if (index >= 0) {
+            this.disposables.splice(index, 1);
+        }
     }
 
     async resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
