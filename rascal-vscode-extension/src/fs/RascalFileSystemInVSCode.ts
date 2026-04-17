@@ -116,75 +116,70 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         });
     }
 
-    stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
+    async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
         this.logger.trace("[RascalFileSystemInVSCode] stat: ", uri);
-        return this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat").then(a =>
-            <vscode.FileStat>{
-                type: a.isFile ? vscode.FileType.File : vscode.FileType.Directory,
-                ctime: a.created,
-                mtime: a.lastModified,
-                size: a.size,
-                permissions: a.isWritable ? undefined : vscode.FilePermission.Readonly
-            }
-        );
+        const stat = await this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat");
+        return <vscode.FileStat>{
+            type: stat.isFile ? vscode.FileType.File : vscode.FileType.Directory,
+            ctime: stat.created,
+            mtime: stat.lastModified,
+            size: stat.size,
+            permissions: stat.isWritable ? undefined : vscode.FilePermission.Readonly
+        };
     }
 
-    readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
+    async readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {
         this.logger.trace("[RascalFileSystemInVSCode] readDirectory: ", uri);
-        return this.sendRequest<DirectoryListingResponse>(uri, "rascal/vfs/input/list")
-            .then(c => c.entries.map(ft => [ft.name, ft.types.reduce((a, i) => a | i)]));
+        return (await this.sendRequest<DirectoryListingResponse>(uri, "rascal/vfs/input/list"))
+            .entries.map(ft => [ft.name, ft.types.reduce((a, i) => a | i)]);
     }
 
-    createDirectory(uri: vscode.Uri): void | Thenable<void> {
+    async createDirectory(uri: vscode.Uri): Promise<void> {
         this.logger.trace("[RascalFileSystemInVSCode] createDirectory: ", uri);
         return this.sendRequest(uri, "rascal/vfs/output/mkDirectory");
     }
 
-    readFile(uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
+    async readFile(uri: vscode.Uri): Promise<Uint8Array<ArrayBufferLike>> {
         this.logger.trace("[RascalFileSystemInVSCode] readFile: ", uri);
-        return this.sendRequest<LocationContentResponse>(uri, "rascal/vfs/input/readFile")
-            .then(r => Buffer.from(r.content, "base64"));
+        return Buffer.from((await this.sendRequest<LocationContentResponse>(uri, "rascal/vfs/input/readFile")).content, "base64");
     }
 
-    writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): void | Thenable<void> {
+    async writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean; }): Promise<void> {
         // The `create` and `overwrite` options are handled on this side, as this function should comply with the requirements
         // as specified by vscode.FileSystemProvider.writeFile; ISourceLocationOutput does not support `create` and `overwrite`.
         this.logger.trace("[RascalFileSystemInVSCode] writeFile: ", uri);
         const parentUri = uri.with({ path: path.dirname(uri.path) });
-        Promise.all([
+        const [fileStat, parentStat] = await Promise.all([
             this.sendRequest<FileAttributes>(uri, "rascal/vfs/input/stat"),
-            this.sendRequest<FileAttributes>(parentUri, "rascal/vfs/input/stat")]
-        ).then(r => {
-            const fileStat = r[0];
-            const parentStat = r[1];
-            if (!fileStat.exists && !options.create) {
-                throw vscode.FileSystemError.FileNotFound(`File ${uri} does not exist and \`create\` was not set`);
-            }
-            if (!parentStat.exists && options.create) {
-                throw vscode.FileSystemError.FileNotFound(`Parent of ${uri} does not exist but \`create\` was set`);
-            }
-            if (fileStat.exists && options.create && !options.overwrite) {
-                throw vscode.FileSystemError.FileExists(`File ${uri} exists and \`create\` was set, but \`override\` was not set`);
-            }
-            return this.sendRequest(uri, "rascal/vfs/output/writeFile", <WriteFileRequest>{
-                loc: this.toRascalUri(uri),
-                content: Buffer.from(content).toString("base64"),
-                append: false
-            });
+            this.sendRequest<FileAttributes>(parentUri, "rascal/vfs/input/stat")
+        ]);
+        if (!fileStat.exists && !options.create) {
+            throw vscode.FileSystemError.FileNotFound(`File ${uri} does not exist and \`create\` was not set`);
+        }
+        if (!parentStat.exists && options.create) {
+            throw vscode.FileSystemError.FileNotFound(`Parent of ${uri} does not exist but \`create\` was set`);
+        }
+        if (fileStat.exists && options.create && !options.overwrite) {
+            throw vscode.FileSystemError.FileExists(`File ${uri} exists and \`create\` was set, but \`override\` was not set`);
+        }
+        return this.sendRequest(uri, "rascal/vfs/output/writeFile", <WriteFileRequest>{
+            loc: this.toRascalUri(uri),
+            content: Buffer.from(content).toString("base64"),
+            append: false
         });
     }
 
-    delete(uri: vscode.Uri, options: { recursive: boolean; }): void | Thenable<void> {
+    async delete(uri: vscode.Uri, options: { recursive: boolean; }): Promise<void> {
         this.logger.trace("[RascalFileSystemInVSCode] delete: ", uri);
         return this.sendRequest(uri, "rascal/vfs/output/remove", <RemoveRequest>{ loc: this.toRascalUri(uri), recursive: options.recursive });
     }
 
-    rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): void | Thenable<void> {
+    async rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean; }): Promise<void> {
         this.logger.trace("[RascalFileSystemInVSCode] rename: ", oldUri, newUri);
         return this.sendRequest(oldUri, "rascal/vfs/output/rename", <RenameRequest>{ from: this.toRascalUri(oldUri), to: this.toRascalUri(newUri), overwrite: options.overwrite });
     }
 
-    copy(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean; }): Thenable<void> {
+    async copy(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean; }): Promise<void> {
         this.logger.trace("[RascalFileSystemInVSCode] copy: ", source, target);
         return this.sendRequest(source, "rascal/vfs/output/copy", <CopyRequest>{ from: this.toRascalUri(source), to: this.toRascalUri(target), recursive: true, overwrite: options?.overwrite ?? false });
     }
