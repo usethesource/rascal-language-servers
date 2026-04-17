@@ -247,7 +247,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly watchListener: WatchEventReceiver;
     private readonly fs: vscode.FileSystem;
     private readonly rascalNativeSchemes: Set<string>;
-    private toClear: Disposable[] = [];
+    private disposables: Disposable[] = [];
     constructor(connection: rpc.MessageConnection, debug: boolean, rascalNativeSchemes: Set<string>, private readonly logger: vscode.LogOutputChannel){
         this.rascalNativeSchemes = rascalNativeSchemes;
         this.fs = vscode.workspace.fs;
@@ -260,10 +260,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             });
         }
         this.watchListener = buildWatchReceiver(connection);
-        connectInputHandler(connection, this, this.toClear);
-        connectOutputHandler(connection, this, this.toClear);
-        connectWatchHandler(connection, this, this.toClear);
-        connectLogicalResolver(connection, this, this.toClear);
+        connectInputHandler(connection, this, this.disposables);
+        connectOutputHandler(connection, this, this.disposables);
+        connectWatchHandler(connection, this, this.disposables);
+        connectLogicalResolver(connection, this, this.disposables);
     }
 
     async asyncCatcher<T>(build: () => Thenable<T>): Promise<T> {
@@ -444,7 +444,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (!this.activeWatches.has(watchKey)) {
             const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watchId);
             this.activeWatches.set(watchKey, watcher);
-            this.toClear.push(watcher);
+            this.disposables.push(watcher);
             return;
         }
         throw new rpc.ResponseError(RemoteIOError.watchAlreadyDefined, `Watch already defined: ${newWatch.loc}`);
@@ -457,9 +457,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (watcher) {
             this.activeWatches.delete(watchKey);
             watcher.dispose();
-            const index = this.toClear.indexOf(watcher);
+            const index = this.disposables.indexOf(watcher);
             if (index >= 0) {
-                this.toClear.splice(index, 1);
+                this.disposables.splice(index, 1);
             }
             return;
         }
@@ -473,7 +473,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     dispose() {
         this.activeWatches.clear();
-        this.toClear.forEach(c => c.dispose());
+        this.disposables.forEach(c => c.dispose());
         try {
             this.connection.end();
         } catch (_e: unknown) {
