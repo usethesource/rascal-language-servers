@@ -243,15 +243,11 @@ export class VSCodeFileSystemInRascal extends JsonRpcServer {
 }
 
 class ResolverClient implements VSCodeResolverServer, Disposable  {
-    private readonly connection: rpc.MessageConnection;
     private readonly watchListener: WatchEventReceiver;
     private readonly fs: vscode.FileSystem;
-    private readonly rascalNativeSchemes: Set<string>;
     private disposables: Disposable[] = [];
-    constructor(connection: rpc.MessageConnection, debug: boolean, rascalNativeSchemes: Set<string>, private readonly logger: vscode.LogOutputChannel){
-        this.rascalNativeSchemes = rascalNativeSchemes;
+    constructor(private readonly connection: rpc.MessageConnection, debug: boolean, private readonly rascalNativeSchemes: Set<string>, private readonly logger: vscode.LogOutputChannel){
         this.fs = vscode.workspace.fs;
-        this.connection = connection;
         if (debug) {
             connection.trace(rpc.Trace.Verbose, {
                 log: (a) => {
