@@ -32,13 +32,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -145,7 +145,6 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
-import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -178,10 +177,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
     private @MonotonicNonNull LanguageContributionsMultiplexer multiplexer;
 
-    /** extension to language */
-    private final Map<String, String> registeredExtensions = new ConcurrentHashMap<>();
-    /** language to facts */
-    private final Map<String, ParametricFileFacts> facts = new ConcurrentHashMap<>();
+    private final Set<String> registeredExtensions = new HashSet<>();
+    private @MonotonicNonNull ParametricFileFacts facts;
 
     // Create "renamed" constructor of "FileSystemChange" so we can build a list of DocumentEdit objects for didRenameFiles
     private final TypeStore typeStore = new TypeStore();
@@ -232,7 +229,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        facts.values().forEach(v -> v.setClient(client));
     }
 
     @Override
@@ -274,7 +270,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         if (removeFile(loc)) {
             throw new ResponseErrorException(unknownFileError(loc, params));
         }
-        facts(loc).close(loc);
+        facts.close(loc);
         // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
         // we mimic a delete event to ensure all diagnostics are cleared.
         if (!URIResolverRegistry.getInstance().exists(loc)) {
@@ -302,9 +298,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
-        if (safeLanguage(location).isPresent()) {
+        if (multiplexer != null) {
             logger.trace("Triggering analyzer for {}", location);
-            var fileFacts = facts(location);
+            var fileFacts = availableFileFacts();
             fileFacts.invalidateAnalyzer(location);
             fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
         } else {
@@ -315,7 +311,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private void triggerBuilder(TextDocumentIdentifier doc) {
         logger.trace("Triggering builder for {}", doc.getUri());
         var location = Locations.toLoc(doc);
-        var fileFacts = facts(location);
+        var fileFacts = availableFileFacts();
         fileFacts.invalidateBuilder(location);
         fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
     }
@@ -334,7 +330,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 .collect(Collectors.toList());
 
             logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(), diagnostics.version(), parseErrors);
+            availableFileFacts().reportParseErrors(file.getLocation(), diagnostics.version(), parseErrors);
         });
     }
 
@@ -505,12 +501,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         Map<ILanguageContributions, List<FileRename>> bundled = new HashMap<>();
         for (FileRename rename : allRenames) {
             var l = Locations.toLoc(rename.getNewUri());
-            var language = safeLanguage(l);
-            if (language.isPresent()) {
-                ILanguageContributions contrib = multiplexer;
-                if (contrib != null) {
-                    bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
-                }
+            ILanguageContributions contrib = multiplexer;
+            if (contrib != null) {
+                bundled.computeIfAbsent(contrib, k -> new ArrayList<>()).add(rename);
             }
         }
 
@@ -581,26 +574,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return l.get(l.size() - 1);
     }
 
-    private Optional<String> safeLanguage(ISourceLocation loc) {
-        var ext = extension(loc);
-        if ("".equals(ext)) {
-            if (multiplexer != null) {
-                logger.trace("File was opened without an extension; falling back to the single registered language for: {}", loc);
-                return Optional.of(availableMultiplexer().getName());
-            } else {
-                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
-                return Optional.empty();
-            }
-        }
-        return Optional.ofNullable(registeredExtensions.get(ext));
-    }
-
-    private String language(ISourceLocation loc) {
-        return safeLanguage(loc).orElseThrow(() ->
-            new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered for extension '%s': %s", extension(loc), loc))
-        );
-    }
-
     private ILanguageContributions contributions(ISourceLocation doc) {
         return Optional.<ILanguageContributions>ofNullable(multiplexer).orElse(new NoContributions(extension(doc), exec));
     }
@@ -609,14 +582,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return URIUtil.getExtension(doc);
     }
 
-    private ParametricFileFacts facts(ISourceLocation doc) {
-        ParametricFileFacts fact = facts.get(language(doc));
-
-        if (fact == null) {
-            throw new ResponseErrorException(unknownFileError(doc, doc));
+    private ParametricFileFacts availableFileFacts() {
+        if (facts == null) {
+            throw new IllegalStateException("No file facts registered");
         }
-
-        return fact;
+        return facts;
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
@@ -716,7 +686,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var loc = Locations.toLoc(doc);
         return getFile(loc)
             .getCurrentTreeAsync(true)
-            .thenApply(tree -> facts(loc).lookupInSummaries(lookup, loc, tree, cursor))
+            .thenApply(tree -> facts.lookupInSummaries(lookup, loc, tree, cursor))
             .thenCompose(Function.identity());
     }
 
@@ -874,9 +844,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         if (multiplexer == null) {
             multiplexer = new LanguageContributionsMultiplexer(lang.getName(), exec);
         }
-        var fact = facts.computeIfAbsent(lang.getName(), t ->
-            new ParametricFileFacts(exec, getColumnMaps(), availableMultiplexer())
-        );
+        if (facts == null) {
+            facts = new ParametricFileFacts(exec, getColumnMaps(), availableMultiplexer());
+        }
 
         var parserConfig = lang.getPrecompiledParser();
         if (parserConfig != null) {
@@ -899,12 +869,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         multiplexer.addContributor(buildContributionKey(lang),
             new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
 
-        fact.reloadContributions();
-        fact.setClient(clientCopy);
+        facts.reloadContributions();
+        facts.setClient(clientCopy);
 
-        for (var extension: lang.getExtensions()) {
-            this.registeredExtensions.put(extension, lang.getName());
-        }
+        registeredExtensions.addAll(Set.of(lang.getExtensions()));
 
         // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
         // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
@@ -926,7 +894,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
      * As long as this in only called from synchronized {@link registerLanguage}/{@link unregisterLanguage}, this should work fine.
      */
     private Collection<ICapabilityParams> buildLanguageParams() {
-        var extensionsByLang = Maps.invert(registeredExtensions);
         return Set.of(new ICapabilityParams() {
             @Override
             public ILanguageContributions contributions() {
@@ -935,7 +902,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
             @Override
             public Set<String> fileExtensions() {
-                return extensionsByLang.getOrDefault(availableMultiplexer().getName(), Collections.emptySet());
+                return registeredExtensions;
             }
         });
     }
@@ -967,9 +934,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 removeAll = true;
             }
             else {
-                var fact = facts.get(lang.getName());
-                if (fact != null) {
-                    fact.reloadContributions();
+                if (facts != null) {
+                    facts.reloadContributions();
                 }
             }
         }
@@ -980,7 +946,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             for (var extension : lang.getExtensions()) {
                 this.registeredExtensions.remove(extension);
             }
-            facts.remove(lang.getName());
+            // TODO What does clean-up look like?
+            // facts.remove(lang.getName());
             availableMultiplexer().clearContributors();
         }
 
