@@ -148,6 +148,9 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
 
+    public static final String RASCAL_LANGUAGE = "Rascal";
+    public static final String RASCAL_COMMAND = "rascal-command";
+
     private final ExecutorService exec;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
 
@@ -240,7 +243,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(new RenameOptions(true));
         result.setCodeActionProvider(true);
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(CodeActions.RASCAL_COMMAND)));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(RASCAL_COMMAND)));
         result.setSelectionRangeProvider(true);
     }
 
@@ -699,7 +702,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
-        return CodeActions.mergeAndConvertCodeActions(this, "", CodeActions.RASCAL_LANGUAGE, quickfixes, codeActions);
+        return CodeActions.mergeAndConvertCodeActions(this, RASCAL_COMMAND, RASCAL_LANGUAGE, quickfixes, codeActions);
     }
 
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
@@ -718,9 +721,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     }
 
     @Override
-    public CompletableFuture<IValue> executeCommand(String extension, String command) {
+    public CompletableFuture<IValue> executeCommand(String _language, String command) {
         return availableRascalServices().executeCommand(command).get();
     }
+
 
     private static <T, S extends T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<S> defaultValue) {
         return future

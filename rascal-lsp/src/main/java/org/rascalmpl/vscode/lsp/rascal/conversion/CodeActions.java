@@ -58,10 +58,6 @@ import io.usethesource.vallang.IWithKeywordParameters;
  */
 public class CodeActions {
 
-    public static final String RASCAL_LANGUAGE = "Rascal";
-    public static final String RASCAL_META_COMMAND = "rascal-meta-command";
-    public static final String RASCAL_COMMAND = "rascal-command";
-
     private CodeActions() { /* hide implicit public constructor */ }
 
     /**
@@ -89,17 +85,17 @@ public class CodeActions {
     }
 
     /* merges two streams of CodeAction terms and then converts them to LSP objects */
-    public static CompletableFuture<List<Either<Command, CodeAction>>> mergeAndConvertCodeActions(IBaseTextDocumentService doc, String dedicatedLanguageName, String languageName, CompletableFuture<Stream<IValue>> quickfixes, CompletableFuture<Stream<IValue>> codeActions) {
+    public static CompletableFuture<List<Either<Command, CodeAction>>> mergeAndConvertCodeActions(IBaseTextDocumentService doc, String metaCommandName, String languageName, CompletableFuture<Stream<IValue>> quickfixes, CompletableFuture<Stream<IValue>> codeActions) {
         return codeActions.thenCombine(quickfixes, (actions, quicks) ->
             Stream.concat(quicks, actions)
                 .map(IConstructor.class::cast)
-                .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
+                .map(cons -> constructorToCodeAction(doc, metaCommandName, languageName, cons))
                 .map(Either::<Command,CodeAction>forRight)
                 .collect(Collectors.toList())
         );
     }
 
-    private static CodeAction constructorToCodeAction(IBaseTextDocumentService doc, String dedicatedLanguageName, String languageName, IConstructor codeAction) {
+    private static CodeAction constructorToCodeAction(IBaseTextDocumentService doc, String metaCommandName, String languageName, IConstructor codeAction) {
         IWithKeywordParameters<?> kw = codeAction.asWithKeywordParameters();
         IConstructor command = (IConstructor) kw.getParameter(RascalADTs.CodeActionFields.COMMAND);
         IString title = (IString) kw.getParameter(RascalADTs.CodeActionFields.TITLE);
@@ -120,7 +116,7 @@ public class CodeActions {
         CodeAction result = new CodeAction(title.getValue());
 
         if (command != null) {
-            result.setCommand(constructorToCommand(dedicatedLanguageName, languageName, command));
+            result.setCommand(constructorToCommand(metaCommandName, languageName, command));
         }
 
         if (edits != null) {
@@ -164,24 +160,10 @@ public class CodeActions {
         return name;
     }
 
-    public static Command constructorToCommand(String dedicatedLanguageName, String languageName, IConstructor command) {
+    public static Command constructorToCommand(String metaCommandName, String languageName, IConstructor command) {
         IWithKeywordParameters<?> kw = command.asWithKeywordParameters();
         IString possibleTitle = (IString) kw.getParameter(RascalADTs.CommandFields.TITLE);
 
-        return new Command(possibleTitle != null ? possibleTitle.getValue() : command.toString(), getRascalMetaCommandName(languageName, dedicatedLanguageName), Arrays.asList(languageName, command.toString()));
-    }
-
-    public static String getRascalMetaCommandName(String language, String dedicatedLanguageName) {
-        // if we run in dedicated mode, we prefix the commands with our language name
-        // to avoid ambiguity with other dedicated languages and the generic rascal plugin
-        if (!dedicatedLanguageName.isEmpty()) {
-            return RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
-        }
-        else if (RASCAL_LANGUAGE.equals(language)) {
-            return RASCAL_COMMAND;
-        }
-        else {
-            return RASCAL_META_COMMAND;
-        }
+        return new Command(possibleTitle != null ? possibleTitle.getValue() : command.toString(), metaCommandName, Arrays.asList(languageName, command.toString()));
     }
 }

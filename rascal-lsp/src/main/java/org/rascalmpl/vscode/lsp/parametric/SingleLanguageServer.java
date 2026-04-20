@@ -93,12 +93,15 @@ import io.usethesource.vallang.IValue;
 
 public class SingleLanguageServer implements ISingleLanguageService {
 
+    private final String languageName;
     private final ParametricTextDocumentService docService;
     private final ParametricWorkspaceService wsService;
 
-    /*package*/ SingleLanguageServer(String langName) {
-        var exec = NamedThreadPool.cached(langName);
-        this.docService = new ParametricTextDocumentService(langName, exec);
+    /*package*/ SingleLanguageServer(String languageName) {
+        var exec = NamedThreadPool.cached(languageName);
+
+        this.languageName = languageName;
+        this.docService = new ParametricTextDocumentService(languageName, exec);
         this.wsService = new ParametricWorkspaceService(exec);
         this.docService.pair(wsService);
         this.wsService.pair(docService);
@@ -272,8 +275,8 @@ public class SingleLanguageServer implements ISingleLanguageService {
     }
 
     @Override
-    public CompletableFuture<IValue> executeCommand(String language, String command) {
-        return docService.executeCommand(language, command);
+    public CompletableFuture<IValue> executeCommand(String command) {
+        return docService.executeCommand(languageName, command);
     }
 
     @Override

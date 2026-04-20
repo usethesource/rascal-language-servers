@@ -167,9 +167,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(ParametricTextDocumentService.class);
 
+    public static final String RASCAL_META_COMMAND = "rascal-meta-command";
+
+    private final String languageName;
     private final ExecutorService exec;
 
-    private final String dedicatedLanguageName = "";
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
@@ -187,7 +189,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.sourceLocationType(), "to");
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
-    public ParametricTextDocumentService(String langName, ExecutorService exec) {
+    public ParametricTextDocumentService(String languageName, ExecutorService exec) {
+        this.languageName = languageName;
         this.exec = exec;
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
@@ -550,7 +553,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         ISourceLocation loc = (ISourceLocation) t.get(0);
         IConstructor command = (IConstructor) t.get(1);
 
-        return new CodeLens(Locations.toRange(loc, getColumnMaps()), CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command), null);
+        return new CodeLens(Locations.toRange(loc, getColumnMaps()), CodeActions.constructorToCommand(RASCAL_META_COMMAND, languageName, command), null);
     }
 
     private ILanguageContributions contributions(ISourceLocation doc) {
@@ -646,7 +649,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
-        return CodeActions.mergeAndConvertCodeActions(this, dedicatedLanguageName, contribs.getName(), quickfixes, codeActions);
+        return CodeActions.mergeAndConvertCodeActions(this, RASCAL_META_COMMAND, contribs.getName(), quickfixes, codeActions);
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
@@ -810,7 +813,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 var focus = TreeSearch.computeFocusList(t, loc.getBeginLine(), loc.getBeginColumn());
                 var cursorOffset = loc.getBeginColumn() - TreeAdapter.getLocation((ITree) focus.get(0)).getBeginColumn();
                 return contrib.completion(focus, VF.integer(cursorOffset), completion.triggerKindToRascal(params.getContext())).get()
-                    .thenApply(ci -> completion.toLSP(this, ci, dedicatedLanguageName, contrib.getName(), loc.getBeginLine(), getColumnMap(loc)));
+                    .thenApply(ci -> completion.toLSP(this, ci, RASCAL_META_COMMAND, contrib.getName(), loc.getBeginLine(), getColumnMap(loc)));
             })
             .thenApply(Either::forLeft), () -> Either.forLeft(Collections.emptyList()));
     }
@@ -945,14 +948,14 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     @Override
-    public CompletableFuture<IValue> executeCommand(String languageName, String command) {
+    public CompletableFuture<IValue> executeCommand(String _language, String command) {
         ILanguageContributions contribs = availableMultiplexer();
 
         if (contribs != null) {
             return contribs.execution(command).get();
         }
         else {
-            logger.warn("Ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
+            logger.warn("Ignoring command execution (no contributor configured for this language): {}, {}", languageName, command);
             return CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().string("No contributions configured for the language: " + languageName), exec);
         }
     }

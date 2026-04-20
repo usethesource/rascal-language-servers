@@ -118,7 +118,6 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
-import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -140,22 +139,14 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     // Server stuff
     private final @Nullable LanguageParameter dedicatedLanguage;
-    private final String dedicatedLanguageName;
 
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
 
     private final TextDocumentStateManager files = new TextDocumentStateManager();
 
     protected ParametricLanguageRouter(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
-        super(CodeActions.RASCAL_META_COMMAND, exec);
-
+        super(exec);
         this.dedicatedLanguage = dedicatedLanguage;
-        if (dedicatedLanguage == null) {
-            this.dedicatedLanguageName = "";
-        }
-        else {
-            this.dedicatedLanguageName = dedicatedLanguage.getName();
-        }
     }
 
     //// LANGUAGE MANAGEMENT
@@ -305,7 +296,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setRenameProvider(new RenameOptions(true));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(CodeActions.getRascalMetaCommandName("", dedicatedLanguageName))));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(metaCommandName())));
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
@@ -518,15 +509,25 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
-        // TODO Use helper class for param types here and on creation?
         var language = ((JsonPrimitive) commandParams.getArguments().get(0)).getAsString();
         var command = ((JsonPrimitive) commandParams.getArguments().get(1)).getAsString();
         return this.executeCommand(language, command).thenApply(Function.identity());
     }
 
     @Override
-    public CompletableFuture<IValue> executeCommand(String languageName, String command) {
-        return languageByName(languageName).executeCommand(languageName, command);
+    public CompletableFuture<IValue> executeCommand(String language, String command) {
+        return languageByName(language).executeCommand(command);
+    }
+
+    public String metaCommandName() {
+        // if we run in dedicated mode, we prefix the commands with our language name
+        // to avoid ambiguity with other dedicated languages and the generic rascal plugin
+        if (dedicatedLanguage != null) {
+            return ParametricTextDocumentService.RASCAL_META_COMMAND + "-" + dedicatedLanguage.getName();
+        }
+        else {
+            return ParametricTextDocumentService.RASCAL_META_COMMAND;
+        }
     }
 
 }

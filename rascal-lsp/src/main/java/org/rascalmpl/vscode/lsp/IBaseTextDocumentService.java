@@ -60,7 +60,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void projectAdded(String name, ISourceLocation projectRoot);
     void projectRemoved(String name, ISourceLocation projectRoot);
 
-    CompletableFuture<IValue> executeCommand(String languageName, String command);
+    CompletableFuture<IValue> executeCommand(String language, String command);
 
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
     ColumnMaps getColumnMaps();

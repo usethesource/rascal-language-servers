@@ -76,7 +76,7 @@ public class Completion {
         this.character = c -> VF.constructor(TF.constructor(store, completionTriggerAdt, CompletionFields.CHARACTER, TF.stringType(), CompletionFields.TRIGGER), c);
     }
 
-    public List<CompletionItem> toLSP(final IBaseTextDocumentService docService, IList items, String dedicatedLanguageName, String languageName, int editLine, LineColumnOffsetMap offsets) {
+    public List<CompletionItem> toLSP(final IBaseTextDocumentService docService, IList items, String metaCommandName, String languageName, int editLine, LineColumnOffsetMap offsets) {
         return items.stream()
             .map(IConstructor.class::cast)
             .map(c -> {
@@ -103,7 +103,7 @@ public class Completion {
                 ci.setPreselect(KeywordParameter.get(CompletionFields.PRESELECT, kws, false));
                 ci.setCommitCharacters(KeywordParameter.get(CompletionFields.COMMIT_CHARACTERS, kws, List.of(), ch -> ((IString) ch).getValue()));
                 ci.setAdditionalTextEdits(DocumentChanges.translateTextEdits(KeywordParameter.get(CompletionFields.ADDITIONAL_CHANGES, kws, VF.list()), docService.getColumnMaps()));
-                var command = getCommand(kws, dedicatedLanguageName, languageName);
+                var command = getCommand(kws, metaCommandName, languageName);
                 if (command != null) {
                     ci.setCommand(command);
                 }
@@ -113,12 +113,12 @@ public class Completion {
             .collect(Collectors.toList());
     }
 
-    private @Nullable Command getCommand(IWithKeywordParameters<? extends IConstructor> kws, String dedicatedLanguageName, String languageName) {
+    private @Nullable Command getCommand(IWithKeywordParameters<? extends IConstructor> kws, String metaCommandName, String languageName) {
         var command = (IConstructor) kws.getParameter(CompletionFields.COMMAND);
         if (command == null) {
             return null;
         }
-        return CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command);
+        return CodeActions.constructorToCommand(metaCommandName, languageName, command);
     }
 
     private InsertReplaceEdit editToLSP(IConstructor edit, int currentLine, LineColumnOffsetMap offsets) {

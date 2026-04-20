@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -55,7 +56,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.vscode.lsp.util.Nullables;
-import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
@@ -63,16 +63,13 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     private @MonotonicNonNull LanguageClient client;
 
-    public final String commandNamePrefix;
-
     protected final ExecutorService exec;
 
     private @MonotonicNonNull IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
 
-    protected BaseWorkspaceService(String commandNamePrefix, ExecutorService exec) {
-        this.commandNamePrefix = commandNamePrefix;
+    protected BaseWorkspaceService(ExecutorService exec) {
         this.exec = exec;
     }
 
@@ -187,16 +184,9 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
         logger.debug("workspace/executeCommand: {}", commandParams);
-        return CompletableFutureUtils.completedFuture(commandParams, exec)
-            .thenCompose(params -> {
-                if (params.getCommand().startsWith(commandNamePrefix)) {
-                    String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
-                    String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
-                    return availableDocumentService().executeCommand(languageName, command).thenApply(v -> v);
-                }
-
-                return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", exec);
-            });
+        var language = ((JsonPrimitive) commandParams.getArguments().get(0)).getAsString();
+        var command = ((JsonPrimitive) commandParams.getArguments().get(1)).getAsString();
+        return availableDocumentService().executeCommand(language, command).thenApply(Function.identity());
     }
 
     protected final ExecutorService getExecutor() {

@@ -38,5 +38,5 @@ public interface ISingleLanguageService extends TextDocumentService, WorkspaceSe
     void cancelProgress(String progressId);
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
-    CompletableFuture<IValue> executeCommand(String language, String command);
+    CompletableFuture<IValue> executeCommand(String command);
 }
