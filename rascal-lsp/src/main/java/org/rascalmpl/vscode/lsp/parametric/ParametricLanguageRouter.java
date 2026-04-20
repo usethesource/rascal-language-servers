@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -117,11 +118,13 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
+import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 public class ParametricLanguageRouter extends BaseWorkspaceService implements IBaseTextDocumentService {
 
@@ -144,7 +147,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     private final TextDocumentStateManager files = new TextDocumentStateManager();
 
     protected ParametricLanguageRouter(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
-        super(exec);
+        super(CodeActions.RASCAL_META_COMMAND, exec);
 
         this.dedicatedLanguage = dedicatedLanguage;
         if (dedicatedLanguage == null) {
@@ -273,15 +276,6 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
 
     //// GLOBAL SERVER STUFF
 
-    private String getRascalMetaCommandName() {
-        // if we run in dedicated mode, we prefix the commands with our language name
-        // to avoid ambiguity with other dedicated languages and the generic rascal plugin
-        if (!dedicatedLanguageName.isEmpty()) {
-            return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
-        }
-        return BaseWorkspaceService.RASCAL_META_COMMAND;
-    }
-
     private CapabilityRegistration availableCapabilities() {
         if (dynamicCapabilities == null) {
             throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
@@ -311,7 +305,7 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
         result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setRenameProvider(new RenameOptions(true));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(CodeActions.getRascalMetaCommandName("", dedicatedLanguageName))));
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
@@ -525,9 +519,14 @@ public class ParametricLanguageRouter extends BaseWorkspaceService implements IB
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
         // TODO Use helper class for param types here and on creation?
-        var langName = ((JsonPrimitive) commandParams.getArguments().get(0)).getAsString();
-        var lang = languageByName(langName);
-        return routeWs(lang, WorkspaceService::executeCommand, commandParams);
+        var language = ((JsonPrimitive) commandParams.getArguments().get(0)).getAsString();
+        var command = ((JsonPrimitive) commandParams.getArguments().get(1)).getAsString();
+        return this.executeCommand(language, command).thenApply(Function.identity());
+    }
+
+    @Override
+    public CompletableFuture<IValue> executeCommand(String languageName, String command) {
+        return languageByName(languageName).executeCommand(languageName, command);
     }
 
 }

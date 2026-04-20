@@ -26,13 +26,17 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
+import io.usethesource.vallang.IValue;
+
 public interface ISingleLanguageService extends TextDocumentService, WorkspaceService, LanguageClientAware {
     void cancelProgress(String progressId);
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
+    CompletableFuture<IValue> executeCommand(String language, String command);
 }

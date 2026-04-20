@@ -43,7 +43,6 @@ import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.rascalmpl.values.IRascalValueFactory;
-import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -58,6 +57,10 @@ import io.usethesource.vallang.IWithKeywordParameters;
  * Reusable utilities for code actions and commands (maps between Rascal and LSP world)
  */
 public class CodeActions {
+
+    public static final String RASCAL_LANGUAGE = "Rascal";
+    public static final String RASCAL_META_COMMAND = "rascal-meta-command";
+    public static final String RASCAL_COMMAND = "rascal-command";
 
     private CodeActions() { /* hide implicit public constructor */ }
 
@@ -172,13 +175,13 @@ public class CodeActions {
         // if we run in dedicated mode, we prefix the commands with our language name
         // to avoid ambiguity with other dedicated languages and the generic rascal plugin
         if (!dedicatedLanguageName.isEmpty()) {
-            return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
+            return RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
         }
-        else if (BaseWorkspaceService.RASCAL_LANGUAGE.equals(language)) {
-            return BaseWorkspaceService.RASCAL_COMMAND;
+        else if (RASCAL_LANGUAGE.equals(language)) {
+            return RASCAL_COMMAND;
         }
         else {
-            return BaseWorkspaceService.RASCAL_META_COMMAND;
+            return RASCAL_META_COMMAND;
         }
     }
 }

@@ -240,7 +240,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(new RenameOptions(true));
         result.setCodeActionProvider(true);
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(BaseWorkspaceService.RASCAL_COMMAND)));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(CodeActions.RASCAL_COMMAND)));
         result.setSelectionRangeProvider(true);
     }
 
@@ -699,7 +699,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
             ;
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
-        return CodeActions.mergeAndConvertCodeActions(this, "", BaseWorkspaceService.RASCAL_LANGUAGE, quickfixes, codeActions);
+        return CodeActions.mergeAndConvertCodeActions(this, "", CodeActions.RASCAL_LANGUAGE, quickfixes, codeActions);
     }
 
     private CompletableFuture<IList> computeCodeActions(final int startLine, final int startColumn, ITree tree, PathConfig pcfg) {
@@ -717,12 +717,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
         );
     }
 
-    /*
     @Override
     public CompletableFuture<IValue> executeCommand(String extension, String command) {
         return availableRascalServices().executeCommand(command).get();
     }
-    */
 
     private static <T, S extends T> CompletableFuture<T> recoverExceptions(CompletableFuture<T> future, Supplier<S> defaultValue) {
         return future

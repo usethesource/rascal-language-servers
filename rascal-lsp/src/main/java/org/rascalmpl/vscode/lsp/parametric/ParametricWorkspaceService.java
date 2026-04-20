@@ -28,9 +28,10 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.ExecutorService;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
 
 public class ParametricWorkspaceService extends BaseWorkspaceService {
     ParametricWorkspaceService(ExecutorService exec) {
-        super(exec);
+        super(CodeActions.RASCAL_META_COMMAND, exec);
     }
 }

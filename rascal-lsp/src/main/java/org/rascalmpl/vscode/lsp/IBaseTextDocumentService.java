@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CreateFilesParams;
@@ -42,6 +43,7 @@ import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IValue;
 
 public interface IBaseTextDocumentService extends TextDocumentService {
     static final Duration NO_DEBOUNCE = Duration.ZERO;
@@ -57,6 +59,8 @@ public interface IBaseTextDocumentService extends TextDocumentService {
 
     void projectAdded(String name, ISourceLocation projectRoot);
     void projectRemoved(String name, ISourceLocation projectRoot);
+
+    CompletableFuture<IValue> executeCommand(String languageName, String command);
 
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
     ColumnMaps getColumnMaps();

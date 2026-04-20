@@ -944,20 +944,18 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         // No need to do anything
     }
 
-    /*
     @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
-        ILanguageContributions contribs = contributions.get(languageName);
+        ILanguageContributions contribs = availableMultiplexer();
 
         if (contribs != null) {
             return contribs.execution(command).get();
         }
         else {
-            logger.warn("ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
+            logger.warn("Ignoring command execution (no contributor configured for this language): {}, {} ", languageName, command);
             return CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().string("No contributions configured for the language: " + languageName), exec);
         }
     }
-    */
 
     @Override
     public void cancelProgress(String progressId) {

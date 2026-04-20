@@ -26,13 +26,13 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import com.google.gson.JsonPrimitive;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -55,6 +55,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.vscode.lsp.util.Nullables;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
@@ -62,9 +63,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     private @MonotonicNonNull LanguageClient client;
 
-    public static final String RASCAL_LANGUAGE = "Rascal";
-    public static final String RASCAL_META_COMMAND = "rascal-meta-command";
-    public static final String RASCAL_COMMAND = "rascal-command";
+    public final String commandNamePrefix;
 
     protected final ExecutorService exec;
 
@@ -72,7 +71,8 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
 
-    protected BaseWorkspaceService(ExecutorService exec) {
+    protected BaseWorkspaceService(String commandNamePrefix, ExecutorService exec) {
+        this.commandNamePrefix = commandNamePrefix;
         this.exec = exec;
     }
 
@@ -187,12 +187,9 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
         logger.debug("workspace/executeCommand: {}", commandParams);
-        // TODO Split for Rascal and parametric
-        throw new NotImplementedException("BaseWorkspaceService::executeCommand");
-        /*
         return CompletableFutureUtils.completedFuture(commandParams, exec)
             .thenCompose(params -> {
-                if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
+                if (params.getCommand().startsWith(commandNamePrefix)) {
                     String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
                     String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
                     return availableDocumentService().executeCommand(languageName, command).thenApply(v -> v);
@@ -200,7 +197,6 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
                 return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", exec);
             });
-        */
     }
 
     protected final ExecutorService getExecutor() {

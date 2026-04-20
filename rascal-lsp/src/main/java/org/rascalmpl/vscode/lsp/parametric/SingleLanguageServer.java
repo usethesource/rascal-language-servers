@@ -89,6 +89,8 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
+import io.usethesource.vallang.IValue;
+
 public class SingleLanguageServer implements ISingleLanguageService {
 
     private final ParametricTextDocumentService docService;
@@ -267,6 +269,11 @@ public class SingleLanguageServer implements ISingleLanguageService {
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams params) {
         return wsService.executeCommand(params);
+    }
+
+    @Override
+    public CompletableFuture<IValue> executeCommand(String language, String command) {
+        return docService.executeCommand(language, command);
     }
 
     @Override
