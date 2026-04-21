@@ -45,7 +45,7 @@ export class RascalMFValidator implements vscode.Disposable {
         vscode.workspace.onDidChangeWorkspaceFolders(async ws => {
             for (const added of ws.added) {
                 if (await isRascalProject(added.uri)) {
-                    await this.verifyRascalMF(added.uri);
+                    void this.verifyRascalMF(added.uri);
                 }
             }
             for (const rem of ws.removed) {
