@@ -41,6 +41,7 @@ import util::Reflective;
 extend lang::pico::\syntax::Main;
 import DateTime;
 import IO;
+import List;
 import Location;
 import String;
 
@@ -317,7 +318,7 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
     t = focus[0];
     str prefix = "<t>"[..cursorOffset];
     cc = t.src.begin.column + cursorOffset;
-    items = [];
+    list[CompletionItem] items = [];
 
     isTypingId = false;
     try {
@@ -339,7 +340,7 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
         }
     }
 
-    return items;
+    return sort(items, bool(CompletionItem i1, CompletionItem i2) {return i1.label < i2.label; });
 }
 
 @synopsis{The main function registers the Pico language with the IDE}

@@ -322,7 +322,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(10, 10);
         await editor.typeText("  x :=");
-        await expectCompletions(editor, ["x", "n", "a", "b"]);
+        await expectCompletions(editor, ["a", "b", "n", "x"]);
     });
 
     it("serializes Rascal values as expected", async function() {
