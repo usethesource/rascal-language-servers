@@ -27,11 +27,9 @@
 import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
-import { URI } from "vscode-languageclient";
 import { JsonRpcServer } from "../util/JsonRpcServer";
+import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SourceLocationResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
-
-export declare type ISourceLocation = URI;
 
 /**
  * VS Code implements this and offers it to the rascal-lsp server
@@ -141,95 +139,6 @@ function buildWatchReceiver(connection: rpc.MessageConnection): WatchEventReceiv
 
 // Messages (requests and responses)
 
-export interface ISourceLocationRequest {
-    loc: ISourceLocation;
-}
-
-export interface WriteFileRequest extends ISourceLocationRequest {
-    content: string;
-    append: boolean;
-}
-
-export interface RenameRequest {
-    from: ISourceLocation;
-    to: ISourceLocation;
-    overwrite: boolean;
-}
-
-export interface CopyRequest {
-    from: ISourceLocation;
-    to: ISourceLocation;
-    recursive: boolean;
-    overwrite: boolean;
-}
-
-export interface RemoveRequest extends ISourceLocationRequest {
-    recursive: boolean;
-}
-
-export interface WatchRequest {
-    loc: ISourceLocation;
-    /**
-     * subscription id, this helps the calling in linking up to the original request
-     * as the watches are recursive
-     */
-    watchId: string;
-    recursive: boolean;
-}
-
-export interface FileAttributes {
-    exists: boolean;
-    isFile: boolean;
-    created: number;
-    lastModified: number;
-    isWritable: boolean;
-    isReadable: boolean;
-    size: number;
-}
-
-export enum ISourceLocationChangeType {
-    created = 1,
-    deleted = 2,
-    modified = 3
-}
-
-export interface ISourceLocationChanged {
-    root: ISourceLocation;
-    type: ISourceLocationChangeType;
-    watchId: string;
-}
-
-export interface LocationContentResponse {
-    /**
-     * Base64-encoded content of a location
-     */
-    content: string
-}
-
-interface BooleanResponse {
-    value: boolean
-}
-
-interface NumberResponse {
-    value: number
-}
-
-interface TimestampResponse {
-    value: number
-}
-
-interface SourceLocationResponse {
-    loc: ISourceLocation
-}
-
-export interface DirectoryListingResponse {
-    entries: DirectoryEntry[]
-}
-
-export interface DirectoryEntry {
-    name: string;
-    types: vscode.FileType[]
-}
 
 export class VSCodeFileSystemInRascal extends JsonRpcServer {
     private rascalNativeSchemes: Set<string> = new Set();

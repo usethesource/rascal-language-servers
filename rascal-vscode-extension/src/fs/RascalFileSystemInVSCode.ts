@@ -27,7 +27,7 @@
 import path from 'path';
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
-import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocationRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './VSCodeFileSystemInRascal';
+import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocation, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
