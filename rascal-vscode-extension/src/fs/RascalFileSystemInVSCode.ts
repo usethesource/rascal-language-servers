@@ -125,6 +125,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         this.sendRequest("rascal/vfs/watcher/watch", <WatchRequest>{
             loc: RascalFileSystemInVSCode.toRascalUri(uri),
             recursive: options.recursive
+        }).catch(r => {
+            throw RemoteIOError.translateResponseError(<ResponseError>r, uri, this.logger);
         });
 
         return new vscode.Disposable(() => {
