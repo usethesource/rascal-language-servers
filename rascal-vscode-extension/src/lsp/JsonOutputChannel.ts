@@ -114,7 +114,7 @@ export class JsonParserOutputChannel implements vscode.LogOutputChannel {
             // Do nothing for now. this::setClient will take care of this once the client is available.
             return;
         }
-        this.client.sendNotification("rascal/logLevel", newLevel);
+        void this.client.sendNotification("rascal/logLevel", newLevel);
     }
 
     private printLogOutput(loglevel: LogLevel, message: string) {

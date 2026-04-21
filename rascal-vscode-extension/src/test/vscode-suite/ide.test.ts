@@ -196,7 +196,7 @@ describe('IDE', function () {
         const checkRascalStatus = ide.statusContains("Loading Rascal");
         await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
-        ide.renameSymbol(editor, bench, "i");
+        await ide.renameSymbol(editor, bench, "i");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 

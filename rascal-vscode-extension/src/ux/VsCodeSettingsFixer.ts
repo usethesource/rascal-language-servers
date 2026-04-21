@@ -80,7 +80,7 @@ export class VsCodeSettingsFixer implements vscode.Disposable {
 
         // Fix settings for currently open projects
         for (const projectRoot of vscode.workspace.workspaceFolders || []) {
-            this.fixSettings(projectRoot.uri); // Do not await; process workspaces in parallel
+            void this.fixSettings(projectRoot.uri); // Do not await; process workspaces in parallel
         }
     }
 
