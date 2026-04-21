@@ -312,7 +312,7 @@ end
 
         await editor.moveCursor(9, 4);
         await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
-        expectCompletions(editor, ["a", "aa"]);
+        await expectCompletions(editor, ["a", "aa"]);
     });
 
     it("completion by trigger character works", async function() {
@@ -322,7 +322,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(10, 10);
         await editor.typeText("  x :=");
-        expectCompletions(editor, ["x", "n", "a", "b"]);
+        await expectCompletions(editor, ["x", "n", "a", "b"]);
     });
 
     it("serializes Rascal values as expected", async function() {
