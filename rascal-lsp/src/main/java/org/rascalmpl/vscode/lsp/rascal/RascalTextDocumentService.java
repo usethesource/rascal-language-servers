@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -149,7 +148,6 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
 
-    private final BooleanSupplier isConnected;
     private final ExecutorService exec;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
 
@@ -162,11 +160,10 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
-    public RascalTextDocumentService(BooleanSupplier isConnected, ExecutorService exec) {
+    public RascalTextDocumentService(ExecutorService exec) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
 
-        this.isConnected = isConnected;
         this.exec = exec;
         this.documents = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
@@ -256,7 +253,7 @@ public class RascalTextDocumentService implements IBaseTextDocumentService, Lang
     @Override
     public void connect(LanguageClient client) {
         this.client = client;
-        this.rascalServices = new RascalLanguageServices(this, availableWorkspaceServices(), isConnected, (IBaseLanguageClient) client, exec);
+        this.rascalServices = new RascalLanguageServices(this, availableWorkspaceServices(), (IBaseLanguageClient) client, exec);
         this.facts = new FileFacts(exec, rascalServices, client, columns);
     }
 

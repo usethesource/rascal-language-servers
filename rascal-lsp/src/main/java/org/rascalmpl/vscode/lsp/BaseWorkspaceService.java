@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -68,15 +67,13 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
     public static final String RASCAL_COMMAND = "rascal-command";
 
-    private final BooleanSupplier isConnected;
     private final ExecutorService exec;
 
     private @MonotonicNonNull IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
 
-    protected BaseWorkspaceService(BooleanSupplier isConnected, ExecutorService exec) {
-        this.isConnected = isConnected;
+    protected BaseWorkspaceService(ExecutorService exec) {
         this.exec = exec;
     }
 

@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -48,8 +47,8 @@ import org.rascalmpl.vscode.lsp.util.Nullables;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
 
-    RascalWorkspaceService(BooleanSupplier isConnected, ExecutorService exec) {
-        super(isConnected, exec);
+    RascalWorkspaceService(ExecutorService exec) {
+        super(exec);
     }
 
     @Override

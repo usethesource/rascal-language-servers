@@ -29,7 +29,6 @@ package org.rascalmpl.vscode.lsp;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
@@ -55,22 +54,19 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public class RascalLSPMonitor implements IRascalMonitor {
     private final Logger logger;
-    private final BooleanSupplier isConnected;
     private final IBaseLanguageClient languageClient;
     private final String progressPrefix;
     // Future work: think if we can calculate a progress bar (not sure how VS Code likes us jumping back as soon as we know about more work)
 
-    public RascalLSPMonitor(BooleanSupplier isConnected, IBaseLanguageClient languageClient, Logger logger) {
-        this(isConnected, languageClient, logger, "");
+    public RascalLSPMonitor(IBaseLanguageClient languageClient, Logger logger) {
+        this(languageClient, logger, "");
     }
     /**
-     * @param isConnected supplier to check if the connection with the client is still open
      * @param languageClient lsp client to forward messages to
      * @param logger log4j target to send `warning` messages to
      * @param progressPrefix an optional prefix for progress bar messages (uses to prefix the language name to the progress bar)
      */
-    public RascalLSPMonitor(BooleanSupplier isConnected, IBaseLanguageClient languageClient, Logger logger, String progressPrefix) {
-        this.isConnected = isConnected;
+    public RascalLSPMonitor(IBaseLanguageClient languageClient, Logger logger, String progressPrefix) {
         this.logger = logger;
         this.languageClient = languageClient;
         this.progressPrefix = progressPrefix;
@@ -96,9 +92,6 @@ public class RascalLSPMonitor implements IRascalMonitor {
         }
 
         private void notifyProgress(WorkDoneProgressNotification value) {
-            if (!isConnected.getAsBoolean()) {
-                return;
-            }
             created.thenRun(() -> languageClient
                 .notifyProgress(new ProgressParams(Either.forLeft(progressId), Either.forLeft(value))));
         }
@@ -122,9 +115,6 @@ public class RascalLSPMonitor implements IRascalMonitor {
         }
 
         private CompletableFuture<Void> tryRegisterProgress(@UnderInitialization LSPProgressBar this, String id) {
-            if (!isConnected.getAsBoolean()) {
-                return CompletableFuture.completedFuture(null);
-            }
             return languageClient.createProgress(new WorkDoneProgressCreateParams(Either.forLeft(id)));
         }
 

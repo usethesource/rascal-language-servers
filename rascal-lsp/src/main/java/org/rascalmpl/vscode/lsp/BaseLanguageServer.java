@@ -41,8 +41,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BiFunction;
-import java.util.function.BooleanSupplier;
+import java.util.function.Function;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -132,7 +132,7 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(String requestPoolName, String workerPoolName, BiFunction<BooleanSupplier, ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<BooleanSupplier, ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    public static void startLanguageServer(String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
@@ -140,9 +140,8 @@ public abstract class BaseLanguageServer {
             var requestPool = NamedThreadPool.single(requestPoolName);
             var workerPool = NamedThreadPool.cached(workerPoolName);
 
-            BooleanSupplier isConnected = () -> true;
-            var docService = docServiceProvider.apply(isConnected, workerPool);
-            var wsService = workspaceServiceProvider.apply(isConnected, workerPool);
+            var docService = docServiceProvider.apply(workerPool);
+            var wsService = workspaceServiceProvider.apply(workerPool);
             docService.pair(wsService);
             wsService.pair(docService);
             startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
@@ -155,9 +154,8 @@ public abstract class BaseLanguageServer {
                     var workerPool = NamedThreadPool.cached(workerPoolName);
 
                     try (Socket clientSocket = serverSocket.accept()) {
-                        BooleanSupplier isConnected = () -> !clientSocket.isClosed();
-                        var docService = docServiceProvider.apply(isConnected, workerPool);
-                        var wsService = workspaceServiceProvider.apply(isConnected, workerPool);
+                        var docService = docServiceProvider.apply(workerPool);
+                        var wsService = workspaceServiceProvider.apply(workerPool);
                         docService.pair(wsService);
                         wsService.pair(docService);
                         startLSP(constructLSPClient(clientSocket, new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));

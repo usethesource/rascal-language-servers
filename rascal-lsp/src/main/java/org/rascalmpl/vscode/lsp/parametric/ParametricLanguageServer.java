@@ -44,7 +44,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
 
         startLanguageServer("parametric-lsp"
             , "parametric"
-            , (isConnected, threadPool) -> new ParametricTextDocumentService(isConnected, threadPool, dedicatedLanguage)
+            , (threadPool) -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
             , ParametricWorkspaceService::new
             , 9999
         );
