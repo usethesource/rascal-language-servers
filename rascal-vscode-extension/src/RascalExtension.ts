@@ -55,7 +55,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerMainRun();
         this.registerImportModule();
         this.registerCopySourceLocationCommand();
-        checkForJVMUpdate();
+        void checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient, this.log));
         vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
@@ -84,7 +84,7 @@ export class RascalExtension implements vscode.Disposable {
     private registerTerminalCommand() {
         this.context.subscriptions.push(
             vscode.commands.registerCommand("rascalmpl.createTerminal", () => {
-                this.startTerminal(vscode.window.activeTextEditor?.document.uri);
+                void this.startTerminal(vscode.window.activeTextEditor?.document.uri);
             })
         );
     }
@@ -95,7 +95,7 @@ export class RascalExtension implements vscode.Disposable {
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
-                this.startTerminal(text.document.uri, `import ${moduleName};\nmain();\n`);
+                void this.startTerminal(text.document.uri, `import ${moduleName};\nmain();\n`);
             })
         );
     }
@@ -107,7 +107,7 @@ export class RascalExtension implements vscode.Disposable {
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
-                this.startTerminal(text.document.uri, `import ${moduleName};\n`);
+                void this.startTerminal(text.document.uri, `import ${moduleName};\n`);
             })
         );
     }
