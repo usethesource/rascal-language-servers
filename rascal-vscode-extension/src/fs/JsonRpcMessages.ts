@@ -29,7 +29,9 @@ import { URI } from 'vscode-languageclient';
 
 export declare type ISourceLocation = URI;
 
-export interface ISourceLocationRequest {
+export interface JsonRpcRequest { }
+
+export interface ISourceLocationRequest extends JsonRpcRequest {
     loc: ISourceLocation;
 }
 
@@ -38,13 +40,13 @@ export interface WriteFileRequest extends ISourceLocationRequest {
     append: boolean;
 }
 
-export interface RenameRequest {
+export interface RenameRequest extends JsonRpcRequest {
     from: ISourceLocation;
     to: ISourceLocation;
     overwrite: boolean;
 }
 
-export interface CopyRequest {
+export interface CopyRequest extends JsonRpcRequest {
     from: ISourceLocation;
     to: ISourceLocation;
     recursive: boolean;
@@ -80,7 +82,7 @@ export enum ISourceLocationChangeType {
     modified = 3
 }
 
-export interface ISourceLocationChanged {
+export interface ISourceLocationChanged extends JsonRpcRequest {
     root: ISourceLocation;
     type: ISourceLocationChangeType;
     watchId: string;
