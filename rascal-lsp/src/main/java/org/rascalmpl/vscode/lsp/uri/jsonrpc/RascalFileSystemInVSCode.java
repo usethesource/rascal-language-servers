@@ -36,18 +36,24 @@ import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.remote.RascalFileSystemServices;
+import org.rascalmpl.uri.remote.jsonrpc.BooleanResponse;
 import org.rascalmpl.uri.remote.jsonrpc.CopyRequest;
 import org.rascalmpl.uri.remote.jsonrpc.DirectoryListingResponse;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.JsonRpcRequest;
 import org.rascalmpl.uri.remote.jsonrpc.LocationContentResponse;
+import org.rascalmpl.uri.remote.jsonrpc.NumberResponse;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.uri.remote.jsonrpc.RemoveRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RenameRequest;
+import org.rascalmpl.uri.remote.jsonrpc.SetLastModifiedRequest;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
+import org.rascalmpl.uri.remote.jsonrpc.TimestampResponse;
 import org.rascalmpl.uri.remote.jsonrpc.WatchRequest;
 import org.rascalmpl.uri.remote.jsonrpc.WriteFileRequest;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
+import io.usethesource.vallang.ISourceLocation;
 
 /**
  * Wrapper for RascalFileSystemServices handling LSP-specifics.
@@ -58,7 +64,14 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
     private <T extends JsonRpcRequest> T transformLocations(T req) {
-        return req.transformLocations(Locations::toClientLocation);
+        return req.transformLocations(RascalFileSystemInVSCode::toRascalLocation);
+    }
+
+    private static ISourceLocation toRascalLocation(ISourceLocation loc) {
+        if (Locations.isWrappedOpaque(loc)) {
+            throw RemoteIOError.translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal: " + loc.getScheme()));
+        }
+        return Locations.toClientLocation(loc);
     }
     
     @Override
@@ -71,10 +84,20 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     public CompletableFuture<Void> watch(WatchRequest req) {
         var loc = req.getLocation();
         logger.trace("watch: {}", loc);
-        if (Locations.isWrappedOpaque(loc)) {
-            throw RemoteIOError.translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal: " + loc.getScheme()));
-        }
         return super.watch(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<Void> unwatch(WatchRequest req) {
+        var loc = req.getLocation();
+        logger.trace("unwatch: {}", loc);
+        return super.unwatch(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<BooleanResponse> supportsRecursiveWatch() {
+        logger.trace("supportsRecursiveWatch");
+        return super.supportsRecursiveWatch();
     }
 
     @Override
@@ -132,4 +155,69 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
         logger.trace("copy: {} to {}", req.getFrom(), req.getTo());
         return super.copy(transformLocations(req));
     }
+
+    @Override
+    public CompletableFuture<BooleanResponse> exists(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("exists: {}", loc);
+        return super.exists(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<TimestampResponse> lastModified(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("lastModified: {}", loc);
+        return super.lastModified(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<TimestampResponse> created(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("created: {}", loc);
+        return super.created(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<BooleanResponse> isDirectory(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("isDirectory: {}", loc);
+        return super.isDirectory(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<BooleanResponse> isFile(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("isFile: {}", loc);
+        return super.isFile(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<NumberResponse> size(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("size: {}", loc);
+        return super.size(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<BooleanResponse> isReadable(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("isReadable: {}", loc);
+        return super.isReadable(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<Void> setLastModified(SetLastModifiedRequest req) {
+        var loc = req.getLocation();
+        logger.trace("setLastModified: {}", loc);
+        return super.setLastModified(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<BooleanResponse> isWritable(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("isWritable: {}", loc);
+        return super.isWritable(transformLocations(req));
+    }
+    
+
 }
