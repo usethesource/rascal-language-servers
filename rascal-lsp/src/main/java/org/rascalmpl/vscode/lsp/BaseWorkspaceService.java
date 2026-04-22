@@ -33,8 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -47,12 +45,6 @@ import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.FileDelete;
-import org.eclipse.lsp4j.FileOperationFilter;
-import org.eclipse.lsp4j.FileOperationOptions;
-import org.eclipse.lsp4j.FileOperationPattern;
-import org.eclipse.lsp4j.FileOperationPatternKind;
-import org.eclipse.lsp4j.FileOperationsServerCapabilities;
-import org.eclipse.lsp4j.FileOperationsWorkspaceCapabilities;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceClientCapabilities;
@@ -98,16 +90,6 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
             folderOptions.setSupported(true);
             folderOptions.setChangeNotifications(true);
             workspaceCapabilities.setWorkspaceFolders(folderOptions);
-        }
-
-        // Make sure that all delete events are listened to by this workspace service (and propagated to the linked
-        // document service by method `didDeleteFiles`), so all diagnostics of deleted files can be properly cleared.
-        var fileOperationCapabilities = Nullables.ensureNonNullAndGet(workspaceCapabilities, WorkspaceServerCapabilities::getFileOperations, WorkspaceServerCapabilities::setFileOperations, FileOperationsServerCapabilities::new);
-        if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidDelete)) {
-            var anyFile = new FileOperationPattern("**/*");
-            anyFile.setMatches(FileOperationPatternKind.File);
-            var didDelete = new FileOperationOptions(Stream.of(anyFile).map(FileOperationFilter::new).collect(Collectors.toList()));
-            fileOperationCapabilities.setDidDelete(didDelete);
         }
     }
 
