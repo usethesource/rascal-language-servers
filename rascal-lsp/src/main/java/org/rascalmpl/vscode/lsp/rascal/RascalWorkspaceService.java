@@ -72,9 +72,5 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidRename)) {
             fileOperationCapabilities.setDidRename(whichFiles);
         }
-        if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidDelete)) {
-            fileOperationCapabilities.setDidDelete(whichFiles);
-        }
     }
-
 }
