@@ -132,7 +132,7 @@ export interface WatchEventReceiver {
 function buildWatchReceiver(connection: rpc.MessageConnection): WatchEventReceiver {
     return {
         emitWatch: (e) => {
-            connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/sourceLocationChanged"), e);
+            void connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/sourceLocationChanged"), e);
         }
     };
 }
@@ -158,7 +158,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     constructor(private readonly connection: rpc.MessageConnection, debug: boolean, private readonly rascalNativeSchemes: Set<string>, private readonly logger: vscode.LogOutputChannel){
         this.fs = vscode.workspace.fs;
         if (debug) {
-            connection.trace(rpc.Trace.Verbose, {
+            void connection.trace(rpc.Trace.Verbose, {
                 log: (a) => {
                     this.logger.debug("[VSCodeFileSystemInRascal]: " + a);
                 }
@@ -319,6 +319,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             this.fs.writeFile(loc, Buffer.concat([prefix, Buffer.from(req.content, "base64")]))
         );
     }
+
     async mkDirectory(req: ISourceLocationRequest): Promise<void> {
         this.logger.trace("[VSCodeFileSystemInRascal] mkDirectory: ", req.loc);
         return this.asyncVoidCatcher(this.fs.createDirectory(this.toUri(req.loc)));

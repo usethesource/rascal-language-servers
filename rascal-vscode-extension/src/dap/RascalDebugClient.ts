@@ -73,7 +73,7 @@ export class RascalDebugClient {
 
     async startDebuggingSession(serverPort: number){
         const conf: DebugConfiguration = {type: "rascalmpl", name: "Rascal debugger", request: "attach", serverPort: serverPort};
-        debug.startDebugging(undefined, conf);
+        await debug.startDebugging(undefined, conf);
     }
 
     registerDebugServerPort(processID: number, serverPort: number){

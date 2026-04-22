@@ -57,18 +57,17 @@ export async function activateLanguageClient(
 
     client.onNotification("rascal/showContent", (uri: string, title: string, viewColumn: integer) => {
         logger.trace(`[RascalLSPConnection] showContent: ${uri}`);
-        showContentPanel(uri, title, viewColumn);
+        void showContentPanel(uri, title, viewColumn);
     });
-
 
     client.onNotification("rascal/editDocument", (uri: string, range: vscode.Range | undefined, viewColumn: integer) => {
         logger.trace(`[RascalLSPConnection] editDocument: ${uri}`);
-        openEditor(uri, range, viewColumn);
+        void openEditor(uri, range, viewColumn);
     });
 
     const schemesReply = client.sendRequest<string[]>("rascal/vfs/schemes");
 
-    schemesReply.then( schemes => {
+    void schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
         new RascalFileSystemInVSCode(client, logger).tryRegisterSchemes(schemes);
     });
