@@ -43,13 +43,12 @@ import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Nullables;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
 
-    RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-        super(exec, documentService);
+    RascalWorkspaceService(ExecutorService exec) {
+        super(exec);
     }
 
     @Override

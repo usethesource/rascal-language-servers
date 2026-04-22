@@ -69,8 +69,9 @@ public class LanguageServerRouter implements IBaseLanguageServerExtensions, Lang
         this.onExit = onExit;
         this.exec = exec;
         this.docService = new RoutingTextDocumentService();
-        this.wsService = new RoutingWorkspaceService(exec, docService);
+        this.wsService = new RoutingWorkspaceService(exec);
         docService.pair(wsService);
+        wsService.pair(docService);
     }
 
     @Override
@@ -217,8 +218,8 @@ public class LanguageServerRouter implements IBaseLanguageServerExtensions, Lang
 
     private class RoutingWorkspaceService extends BaseWorkspaceService {
 
-        protected RoutingWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-            super(exec, documentService);
+        protected RoutingWorkspaceService(ExecutorService exec) {
+            super(exec);
         }
 
     }

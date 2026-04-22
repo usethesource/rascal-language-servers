@@ -41,7 +41,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -131,14 +130,15 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
         if (DEPLOY_MODE) {
             var docService = docServiceProvider.apply(workerPool);
-            var wsService = workspaceServiceProvider.apply(workerPool, docService);
+            var wsService = workspaceServiceProvider.apply(workerPool);
             docService.pair(wsService);
+            wsService.pair(docService);
             startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
         }
         else {
@@ -146,8 +146,9 @@ public abstract class BaseLanguageServer {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
                     var docService = docServiceProvider.apply(workerPool);
-                    var wsService = workspaceServiceProvider.apply(workerPool, docService);
+                    var wsService = workspaceServiceProvider.apply(workerPool);
                     docService.pair(wsService);
+                    wsService.pair(docService);
                     startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
                 }
             } catch (IOException e) {
