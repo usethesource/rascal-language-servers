@@ -76,9 +76,9 @@ import io.usethesource.vallang.ISourceLocation;
 */
 @SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public abstract class BaseLanguageServer {
-    private static final PrintStream capturedOut;
-    private static final InputStream capturedIn;
-    private static final boolean DEPLOY_MODE;
+    protected static final PrintStream capturedOut;
+    protected static final InputStream capturedIn;
+    protected static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
 
     static {
@@ -104,13 +104,13 @@ public abstract class BaseLanguageServer {
 
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
 
-    private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server, ExecutorService threadPool)
+    protected static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server, ExecutorService threadPool)
         throws IOException {
         client.setTcpNoDelay(true);
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server, threadPool);
     }
 
-    private static Launcher<IBaseLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server, ExecutorService threadPool) {
+    protected static Launcher<IBaseLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server, ExecutorService threadPool) {
         Launcher<IBaseLanguageClient> clientLauncher = new Launcher.Builder<IBaseLanguageClient>()
             .setLocalService(server)
             .setRemoteInterface(IBaseLanguageClient.class)
@@ -125,7 +125,7 @@ public abstract class BaseLanguageServer {
         return clientLauncher;
     }
 
-    private static void printClassPath() {
+    protected static void printClassPath() {
         logger.trace("Started with classpath: {}", () -> System.getProperty("java.class.path"));
     }
 
@@ -159,7 +159,7 @@ public abstract class BaseLanguageServer {
 
     private static final String DEFAULT_VERSION = "unknown";
 
-    private static String getVersion() {
+    protected static String getVersion() {
         try (InputStream prop =  ActualLanguageServer.class.getClassLoader().getResourceAsStream("project.properties")) {
             if (prop == null) {
                 logger.error("Could not find project.properties file");
@@ -176,7 +176,7 @@ public abstract class BaseLanguageServer {
         }
     }
 
-    private static void startLSP(Launcher<IBaseLanguageClient> server) {
+    protected static void startLSP(Launcher<IBaseLanguageClient> server) {
         try {
             server.startListening().get();
         } catch (InterruptedException e) {
@@ -194,7 +194,7 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
+    protected static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
@@ -202,7 +202,7 @@ public abstract class BaseLanguageServer {
         private final ExecutorService executor;
         private @MonotonicNonNull IDEServicesConfiguration remoteIDEServicesConfiguration;
 
-        private ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
+        protected ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
             this.executor = executor;
             this.lspDocumentService = lspDocumentService;
