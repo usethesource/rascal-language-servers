@@ -84,6 +84,11 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
         anyFolder.setMatches(FileOperationPatternKind.Folder);
         patterns.add(new FileOperationFilter(anyFolder));
 
+        // Only extension-less files would be enough, but it seems that cannot be expressed using LSP's glob patterns.
+        var anyFile = new FileOperationPattern("**/*");
+        anyFile.setMatches(FileOperationPatternKind.File);
+        patterns.add(new FileOperationFilter(anyFile));
+
         return CompletableFutureUtils.completedFuture(new FileOperationOptions(patterns), exec);
     }
 
