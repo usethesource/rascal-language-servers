@@ -32,35 +32,37 @@ import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
+import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 
+@JsonSegment("rascal")
 public interface IBaseLanguageServerExtensions extends LanguageServer, IRascalFileSystemServices {
-    @JsonNotification("rascal/supplyRemoteIDEServicesConfiguration")
+    @JsonNotification
     default CompletableFuture<IDEServicesConfiguration> supplyRemoteIDEServicesConfiguration() {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/sendRegisterLanguage")
+    @JsonRequest
     default CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/sendUnregisterLanguage")
+    @JsonRequest
     default CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/supplyPathConfig")
+    @JsonRequest
     default CompletableFuture<Two<String, URI[]>[]> supplyPathConfig(PathConfigParameter projectFolder) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("rascal/vfs/register")
+    @JsonNotification("vfs/register")
     void registerVFS(VFSRegister registration);
 
-    @JsonNotification("rascal/logLevel")
+    @JsonNotification("logLevel")
     void setMinimumLogLevel(String level);
 }

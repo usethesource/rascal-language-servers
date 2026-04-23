@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
+import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.BooleanResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.DirectoryListingResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.FileAttributesResult;
@@ -40,89 +41,90 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.TimestampResult;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WatchRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.WriteFileRequest;
 
+@JsonSegment("rascal/vfs")
 public interface VSCodeUriResolverServer {
-    @JsonRequest("rascal/vfs/input/readFile")
+    @JsonRequest("input/readFile")
     default CompletableFuture<ReadFileResult> readFile(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/exists")
+    @JsonRequest("input/exists")
     default CompletableFuture<BooleanResult> exists(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/lastModified")
+    @JsonRequest("input/lastModified")
     default CompletableFuture<TimestampResult> lastModified(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/created")
+    @JsonRequest("input/created")
     default CompletableFuture<TimestampResult> created(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/isDirectory")
+    @JsonRequest("input/isDirectory")
     default CompletableFuture<BooleanResult> isDirectory(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/isFile")
+    @JsonRequest("input/isFile")
     default CompletableFuture<BooleanResult> isFile(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/list")
+    @JsonRequest("input/list")
     default CompletableFuture<DirectoryListingResult> list(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/size")
+    @JsonRequest("input/size")
     default CompletableFuture<NumberResult> size(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/stat")
+    @JsonRequest("input/stat")
     default CompletableFuture<FileAttributesResult> stat(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/isReadable")
+    @JsonRequest("input/isReadable")
     default CompletableFuture<BooleanResult> isReadable(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/input/isWritable")
+    @JsonRequest("input/isWritable")
     default CompletableFuture<BooleanResult> isWritable(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
 
-    @JsonRequest("rascal/vfs/output/writeFile")
+    @JsonRequest("output/writeFile")
     default CompletableFuture<Void> writeFile(WriteFileRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/output/mkDirectory")
+    @JsonRequest("output/mkDirectory")
     default CompletableFuture<Void> mkDirectory(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/output/remove")
+    @JsonRequest("output/remove")
     default CompletableFuture<Void> remove(ISourceLocationRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/output/rename")
+    @JsonRequest("output/rename")
     default CompletableFuture<Void> rename(RenameRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/watcher/watch")
+    @JsonRequest("watcher/watch")
     default CompletableFuture<Void> watch(WatchRequest req) {
         throw new UnsupportedOperationException();
     }
 
-    @JsonRequest("rascal/vfs/watcher/unwatch")
+    @JsonRequest("watcher/unwatch")
     default CompletableFuture<Void> unwatch(WatchRequest req) {
         throw new UnsupportedOperationException();
     }
