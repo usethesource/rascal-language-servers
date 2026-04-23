@@ -64,7 +64,7 @@ public class RascalInterface {
                 var port = Integer.parseInt(property);
                 Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
                 Launcher<LanguageRegistry> clientLauncher = new Launcher.Builder<LanguageRegistry>()
-                    .setLocalService(new Object())
+                    .setLocalService(new Object()) // no local service
                     .setRemoteInterface(LanguageRegistry.class)
                     .setInput(socket.getInputStream())
                     .setOutput(socket.getOutputStream())
