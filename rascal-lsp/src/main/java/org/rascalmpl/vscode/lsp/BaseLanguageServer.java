@@ -56,6 +56,7 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SetTraceParams;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
@@ -122,7 +123,12 @@ public abstract class BaseLanguageServer {
             .setOutput(out)
             .configureGson(GsonUtils.complexAsJsonObject())
             .setExecutorService(threadPool)
-            .setExceptionHandler(t -> RemoteIOError.translate((Exception) t).getResponseError())
+            .setExceptionHandler(t -> {
+                if (t instanceof ResponseErrorException) {
+                    return ((ResponseErrorException) t).getResponseError();
+                }
+                return RemoteIOError.translate(t).getResponseError();
+            })
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
