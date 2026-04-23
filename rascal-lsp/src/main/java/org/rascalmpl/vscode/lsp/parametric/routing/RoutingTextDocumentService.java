@@ -34,16 +34,59 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.CallHierarchyIncomingCall;
+import org.eclipse.lsp4j.CallHierarchyIncomingCallsParams;
+import org.eclipse.lsp4j.CallHierarchyItem;
+import org.eclipse.lsp4j.CallHierarchyOutgoingCall;
+import org.eclipse.lsp4j.CallHierarchyOutgoingCallsParams;
+import org.eclipse.lsp4j.CallHierarchyPrepareParams;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CodeAction;
+import org.eclipse.lsp4j.CodeActionParams;
+import org.eclipse.lsp4j.CodeLens;
+import org.eclipse.lsp4j.CodeLensParams;
+import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.CompletionItem;
+import org.eclipse.lsp4j.CompletionList;
+import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.CreateFilesParams;
+import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentSymbol;
+import org.eclipse.lsp4j.DocumentSymbolParams;
+import org.eclipse.lsp4j.FoldingRange;
+import org.eclipse.lsp4j.FoldingRangeRequestParams;
+import org.eclipse.lsp4j.Hover;
+import org.eclipse.lsp4j.HoverParams;
+import org.eclipse.lsp4j.ImplementationParams;
+import org.eclipse.lsp4j.InlayHint;
+import org.eclipse.lsp4j.InlayHintParams;
+import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.LocationLink;
+import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
+import org.eclipse.lsp4j.PrepareRenameParams;
+import org.eclipse.lsp4j.PrepareRenameResult;
+import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
+import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SelectionRange;
+import org.eclipse.lsp4j.SelectionRangeParams;
+import org.eclipse.lsp4j.SemanticTokens;
+import org.eclipse.lsp4j.SemanticTokensDelta;
+import org.eclipse.lsp4j.SemanticTokensDeltaParams;
+import org.eclipse.lsp4j.SemanticTokensParams;
+import org.eclipse.lsp4j.SemanticTokensRangeParams;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.SymbolInformation;
+import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.util.locations.ColumnMaps;
@@ -231,5 +274,109 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Cal
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'cancelProgress'");
     }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(
+            CallHierarchyIncomingCallsParams params) {
+        return callC(route(Locations.toLoc(params.getItem().getUri())), TextDocumentService::callHierarchyIncomingCalls, params);
+    }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(
+            CallHierarchyOutgoingCallsParams params) {
+        return callC(route(Locations.toLoc(params.getItem().getUri())), TextDocumentService::callHierarchyOutgoingCalls, params);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams position) {
+        return callC(route(position.getTextDocument()), TextDocumentService::completion, position);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
+            DefinitionParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::definition, params);
+    }
+
+    @Override
+    public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::prepareCallHierarchy, params);
+    }
+
+    @Override
+    public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::semanticTokensFull, params);
+    }
+
+    @Override
+    public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
+            SemanticTokensDeltaParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::semanticTokensFullDelta, params);
+    }
+
+    @Override
+    public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::semanticTokensRange, params);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::codeLens, params);
+    }
+
+    @Override
+    public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
+            PrepareRenameParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::prepareRename, params);
+    }
+
+    @Override
+    public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::rename, params);
+    }
+
+    @Override
+    public CompletableFuture<List<InlayHint>> inlayHint(InlayHintParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::inlayHint, params);
+    }
+
+    @Override
+    public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::codeAction, params);
+    }
+
+    @Override
+    public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
+            DocumentSymbolParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::documentSymbol, params);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(
+            ImplementationParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::implementation, params);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::references, params);
+    }
+
+    @Override
+    public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::foldingRange, params);
+    }
+
+    @Override
+    public CompletableFuture<Hover> hover(HoverParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::hover, params);
+    }
+
+    @Override
+    public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
+        return callC(route(params.getTextDocument()), TextDocumentService::selectionRange, params);
+    }
+
+
 
 }

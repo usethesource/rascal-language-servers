@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -40,6 +41,10 @@ public interface Router<T> {
     }
 
     default T route(VersionedTextDocumentIdentifier id) {
+        return route(Locations.toLoc(id.getUri()));
+    }
+
+    default T route(TextDocumentIdentifier id) {
         return route(Locations.toLoc(id.getUri()));
     }
 }

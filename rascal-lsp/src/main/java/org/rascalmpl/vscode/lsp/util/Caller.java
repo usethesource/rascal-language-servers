@@ -32,6 +32,10 @@ import java.util.function.BiFunction;
 
 public interface Caller<T> {
 
+    default <A, R> CompletableFuture<R> callC(CompletableFuture<T> t, BiFunction<T, A, CompletableFuture<R>> func, A arg) {
+        return t.thenCompose(actualT -> func.apply(actualT, arg));
+    }
+
     default <A, R> CompletableFuture<R> call(CompletableFuture<T> t, BiFunction<T, A, R> func, A arg) {
         return t.thenApply(actualT -> func.apply(actualT, arg));
     }
