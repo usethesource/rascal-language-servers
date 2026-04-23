@@ -263,15 +263,11 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
         TModel getModel(loc f) = f.top == l.top ? tm : r.getConfig().tmodelForLoc(f);
 
         tm = r.getConfig().tmodelForLoc(l);
-        try {
-            tr = parseModuleWithSpaces(l);
-            tm = augmentExceptProductions(tr, tm, getModel);
-            tm = augmentFieldUses(tr, tm, getModel);
-            tm = augmentFormalUses(tr, tm, getModel);
-            tm = augmentTypeParams(tr, tm);
-        } catch value e: {
-            println("Suppressed error during TModel augmentation: <e>");
-        }
+        tr = parseModuleWithSpaces(l);
+        tm = augmentExceptProductions(tr, tm, getModel);
+        tm = augmentFieldUses(tr, tm, getModel);
+        tm = augmentFormalUses(tr, tm, getModel);
+        tm = augmentTypeParams(tr, tm);
         return tm;
     }
 
