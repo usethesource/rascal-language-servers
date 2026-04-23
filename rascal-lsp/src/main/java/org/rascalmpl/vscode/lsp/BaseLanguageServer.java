@@ -200,7 +200,9 @@ public abstract class BaseLanguageServer {
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
         private final ExecutorService executor;
+
         private @MonotonicNonNull IDEServicesConfiguration remoteIDEServicesConfiguration;
+        private @MonotonicNonNull IBaseLanguageClient client;
 
         protected ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
@@ -224,6 +226,13 @@ public abstract class BaseLanguageServer {
                 .map(ISourceLocation.class::cast)
                 .map(Locations::toUri)
                 .toArray(URI[]::new);
+        }
+
+        protected IBaseLanguageClient availableClient() {
+            if (client == null) {
+                throw new IllegalStateException("Client not connected");
+            }
+            return client;
         }
 
         @Override
@@ -307,9 +316,9 @@ public abstract class BaseLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            var actualClient = (IBaseLanguageClient) client;
-            lspDocumentService.connect(actualClient);
-            lspWorkspaceService.connect(actualClient);
+            this.client = (IBaseLanguageClient) client;
+            lspDocumentService.connect(this.client);
+            lspWorkspaceService.connect(this.client);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
@@ -329,5 +338,10 @@ public abstract class BaseLanguageServer {
             final var l = Level.toLevel(level, Level.DEBUG); // fall back to debug when the string cannot be mapped
             Configurator.setRootLevel(l);
         }
+
+        protected ExecutorService getExecutor() {
+            return executor;
+        }
+
     }
 }

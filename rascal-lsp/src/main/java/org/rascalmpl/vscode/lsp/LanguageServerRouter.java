@@ -35,6 +35,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
@@ -48,13 +49,24 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
+import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
+import org.eclipse.lsp4j.ConfigurationParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.LogTraceParams;
 import org.eclipse.lsp4j.MessageActionItem;
 import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.RegistrationParams;
+import org.eclipse.lsp4j.ShowDocumentParams;
+import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
+import org.eclipse.lsp4j.UnregistrationParams;
+import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
@@ -246,68 +258,129 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     @Override
     public void telemetryEvent(Object object) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'telemetryEvent'");
+        availableClient().telemetryEvent(object);
     }
 
     @Override
     public void publishDiagnostics(PublishDiagnosticsParams diagnostics) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'publishDiagnostics'");
+        availableClient().publishDiagnostics(diagnostics);
     }
 
     @Override
     public void showMessage(MessageParams messageParams) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'showMessage'");
+        availableClient().showMessage(messageParams);
     }
 
     @Override
     public CompletableFuture<MessageActionItem> showMessageRequest(ShowMessageRequestParams requestParams) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'showMessageRequest'");
+        return availableClient().showMessageRequest(requestParams);
     }
 
     @Override
     public void logMessage(MessageParams message) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'logMessage'");
+        availableClient().logMessage(message);
     }
 
     @Override
     public void showContent(URI uri, IString title, IInteger viewColumn) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'showContent'");
+        availableClient().showContent(uri, title, viewColumn);
     }
 
     @Override
     public void receiveRegisterLanguage(LanguageParameter lang) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'receiveRegisterLanguage'");
+        availableClient().receiveRegisterLanguage(lang);
     }
 
     @Override
     public void receiveUnregisterLanguage(LanguageParameter lang) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'receiveUnregisterLanguage'");
+        availableClient().receiveUnregisterLanguage(lang);
     }
 
     @Override
     public void editDocument(URI uri, @Nullable Range range, int viewColumn) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'editDocument'");
+        availableClient().editDocument(uri, range, viewColumn);
     }
 
     @Override
     public void startDebuggingSession(int serverPort) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'startDebuggingSession'");
+        availableClient().startDebuggingSession(serverPort);
     }
 
     @Override
     public void registerDebugServerPort(int processID, int serverPort) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'registerDebugServerPort'");
+        availableClient().registerDebugServerPort(processID, serverPort);
+    }
+
+    @Override
+    public CompletableFuture<Void> createProgress(WorkDoneProgressCreateParams params) {
+        return availableClient().createProgress(params);
+    }
+
+    @Override
+    public void notifyProgress(ProgressParams params) {
+        availableClient().notifyProgress(params);
+    }
+
+    @Override
+    public CompletableFuture<ApplyWorkspaceEditResponse> applyEdit(ApplyWorkspaceEditParams params) {
+        return availableClient().applyEdit(params);
+    }
+
+    @Override
+    public CompletableFuture<List<Object>> configuration(ConfigurationParams configurationParams) {
+        return availableClient().configuration(configurationParams);
+    }
+
+    @Override
+    public void logTrace(LogTraceParams params) {
+        availableClient().logTrace(params);
+    }
+
+    @Override
+    public CompletableFuture<Void> refreshCodeLenses() {
+        return availableClient().refreshCodeLenses();
+    }
+
+    @Override
+    public CompletableFuture<Void> refreshDiagnostics() {
+        return availableClient().refreshDiagnostics();
+    }
+
+    @Override
+    public CompletableFuture<Void> refreshInlayHints() {
+        return availableClient().refreshInlayHints();
+    }
+
+    @Override
+    public CompletableFuture<Void> refreshInlineValues() {
+        return availableClient().refreshInlineValues();
+    }
+
+    @Override
+    public CompletableFuture<Void> refreshSemanticTokens() {
+        return availableClient().refreshSemanticTokens();
+    }
+
+    @Override
+    public CompletableFuture<ShowDocumentResult> showDocument(ShowDocumentParams params) {
+        return availableClient().showDocument(params);
+    }
+
+    @Override
+    public CompletableFuture<Void> registerCapability(RegistrationParams params) {
+        // TODO Collect/maintain capabilities of all delegate servers, combine, and unregister capabilities if necessary based on that.
+        return availableClient().registerCapability(params);
+    }
+
+    @Override
+    public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
+        // TODO Collect/maintain capabilities of all delegate servers, combine, and unregister capabilities if necessary based on that.
+        return availableClient().unregisterCapability(params);
+    }
+
+    @Override
+    public CompletableFuture<List<WorkspaceFolder>> workspaceFolders() {
+        return availableClient().workspaceFolders();
     }
 
 }
