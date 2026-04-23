@@ -41,7 +41,7 @@ import io.usethesource.vallang.ISourceLocation;
 
 /**
  * According to the LSP specification, for files that are opened in the IDE, all IO operations must be carried out over LSP.
- * In particular, a "read" should yield the contents in the IDE editor, not the state on disk. 
+ * In particular, a "read" should yield the contents in the IDE editor, not the state on disk.
  */
 public class LSPOpenFileRedirector {
     private static @MonotonicNonNull LSPOpenFileRedirector instance = null;
