@@ -45,16 +45,17 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
-import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
+import org.rascalmpl.vscode.lsp.util.Caller;
+import org.rascalmpl.vscode.lsp.util.Router;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
-class RoutingTextDocumentService implements IBaseTextDocumentService {
+class RoutingTextDocumentService implements IBaseTextDocumentService, Caller<TextDocumentService>, Router<CompletableFuture<TextDocumentService>> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
@@ -72,17 +73,11 @@ class RoutingTextDocumentService implements IBaseTextDocumentService {
         this.server = server;
     }
 
-    private CompletableFuture<IBaseLanguageServerExtensions> route(String langName) {
-        var server = availableServer();
-        return server.languageByName(langName);
-    }
-
-    private CompletableFuture<TextDocumentService> routeDocService(String langName) {
-        return route(langName).thenApply(IBaseLanguageServerExtensions::getTextDocumentService);
-    }
-
-    private CompletableFuture<WorkspaceService> routeWsService(String langName) {
-        return route(langName).thenApply(IBaseLanguageServerExtensions::getWorkspaceService);
+    @Override
+    public CompletableFuture<TextDocumentService> route(ISourceLocation loc) {
+        return availableServer()
+            .route(loc)
+            .thenApply(IBaseLanguageServerExtensions::getTextDocumentService);
     }
 
     private LanguageClient availableClient() {
@@ -101,14 +96,12 @@ class RoutingTextDocumentService implements IBaseTextDocumentService {
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didOpen'");
+        call(route(params.getTextDocument()), TextDocumentService::didOpen, params);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didChange'");
+        call(route(params.getTextDocument()), TextDocumentService::didChange, params);
     }
 
     @Override
@@ -152,12 +145,12 @@ class RoutingTextDocumentService implements IBaseTextDocumentService {
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        route(lang.getName()).thenApply(s -> s.sendRegisterLanguage(lang));
+        availableServer().languageByName(lang.getName()).thenApply(s -> s.sendRegisterLanguage(lang));
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        route(lang.getName()).thenApply(s -> s.sendUnregisterLanguage(lang));
+        availableServer().languageByName(lang.getName()).thenApply(s -> s.sendUnregisterLanguage(lang));
     }
 
     @Override

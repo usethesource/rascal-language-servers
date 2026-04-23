@@ -70,12 +70,13 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.util.Router;
 
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
-public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServer implements IBaseLanguageClient {
+public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServer implements IBaseLanguageClient, Router<CompletableFuture<IBaseLanguageServerExtensions>> {
 
     private static final Logger logger = LogManager.getLogger(LanguageServerRouter.class);
 
@@ -100,6 +101,13 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
         }
         return service;
+    }
+
+    @Override
+    public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation file) {
+        return safeLanguage(file).map(this::languageByName).orElseThrow(() -> {
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s': %s", extension(file), file));
+        });
     }
 
     private Optional<String> safeLanguage(ISourceLocation loc) {
