@@ -34,26 +34,30 @@ import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 public class ParametricLanguageServer extends BaseLanguageServer {
 
-    protected static final int PORT_NUMBER = 9999;
+    protected static final int DEFAULT_PORT_NUMBER = 9999;
 
-    protected static void start(LanguageParameter dedicatedLanguage) {
+    protected static void start(int portNumber, LanguageParameter dedicatedLanguage) {
         startLanguageServer(NamedThreadPool.single("parametric-lsp")
             , NamedThreadPool.cached("parametric")
             , threadPool -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
             , ParametricWorkspaceService::new
-            , PORT_NUMBER
+            , portNumber
         );
     }
 
     public static void main(String[] args) {
+        int portNumber = args.length == 0
+            ? DEFAULT_PORT_NUMBER
+            : Integer.parseInt(args[0]);
+
         LanguageParameter dedicatedLanguage;
-        if (args.length > 0) {
+        if (args.length > 1) {
             dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
         }
         else {
             dedicatedLanguage = null;
         }
 
-        start(dedicatedLanguage);
+        start(portNumber, dedicatedLanguage);
     }
 }

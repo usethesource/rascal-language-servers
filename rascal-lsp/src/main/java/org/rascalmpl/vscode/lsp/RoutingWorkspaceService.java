@@ -27,28 +27,11 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-
-import io.usethesource.vallang.ISourceLocation;
 
 class RoutingWorkspaceService extends BaseWorkspaceService {
 
-    private @MonotonicNonNull Function<ISourceLocation, ISingleLanguageServer> route;
-
     protected RoutingWorkspaceService(ExecutorService exec) {
         super(exec);
-    }
-
-    void setRouter(Function<ISourceLocation, ISingleLanguageServer> routeFunc) {
-        this.route = routeFunc;
-    }
-
-    private BaseWorkspaceService route(ISourceLocation uri) {
-        if (this.route == null) {
-            throw new IllegalStateException("Router has not been initialized");
-        }
-        return (BaseWorkspaceService) this.route.apply(uri).getServer().getWorkspaceService();
     }
 
 }

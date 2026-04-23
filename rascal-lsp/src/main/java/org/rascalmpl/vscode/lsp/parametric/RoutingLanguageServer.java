@@ -42,7 +42,7 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
     private static final Logger logger = LogManager.getLogger(RoutingLanguageServer.class);
 
     public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, int portNumber) {
-        logger.info("Starting Rascal Language Server: {}", getVersion());
+        logger.info("Starting Rascal Language Server Router: {}", getVersion());
         printClassPath();
 
         if (DEPLOY_MODE) {
@@ -50,7 +50,7 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
-                logger.info("Rascal LSP server listens on port number: {}", portNumber);
+                logger.info("Rascal LSP server router listens on port number: {}", portNumber);
                 while (true) {
                     startLSP(constructLSPClient(serverSocket.accept(), new LanguageServerRouter(() -> {}, workerPool), requestPool));
                 }
@@ -63,11 +63,11 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
     public static void main(String[] args) {
         if (args.length > 0) {
             var dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
-            start(dedicatedLanguage);
+            start(DEFAULT_PORT_NUMBER, dedicatedLanguage);
         } else {
             startLanguageServer(NamedThreadPool.single("parametric-lsp-router")
                 , NamedThreadPool.cached("parametric-router")
-                , PORT_NUMBER
+                , DEFAULT_PORT_NUMBER
             );
         }
     }

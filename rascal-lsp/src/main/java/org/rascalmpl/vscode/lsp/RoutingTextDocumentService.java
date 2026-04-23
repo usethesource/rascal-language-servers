@@ -28,7 +28,9 @@ package org.rascalmpl.vscode.lsp;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.concurrent.ExecutorService;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
@@ -42,26 +44,59 @@ import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.eclipse.lsp4j.services.TextDocumentService;
+import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 class RoutingTextDocumentService implements IBaseTextDocumentService {
 
-    private @MonotonicNonNull Function<ISourceLocation, ISingleLanguageServer> route;
+    private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
-    void setRouter(Function<ISourceLocation, ISingleLanguageServer> routeFunc) {
-        this.route = routeFunc;
+    private @MonotonicNonNull LanguageClient client;
+    private @MonotonicNonNull BaseWorkspaceService wsService;
+    private @MonotonicNonNull LanguageServerRouter server;
+
+    private final ExecutorService exec;
+
+    public RoutingTextDocumentService(ExecutorService exec) {
+        this.exec = exec;
     }
 
-    private IBaseTextDocumentService route(ISourceLocation uri) {
-        if (this.route == null) {
-            throw new IllegalStateException("Router has not been initialized");
+    public void setServer(LanguageServerRouter server) {
+        this.server = server;
+    }
+
+    private CompletableFuture<IBaseLanguageServerExtensions> route(String langName) {
+        var server = availableServer();
+        return server.languageByName(langName);
+    }
+
+    private CompletableFuture<TextDocumentService> routeDocService(String langName) {
+        return route(langName).thenApply(IBaseLanguageServerExtensions::getTextDocumentService);
+    }
+
+    private CompletableFuture<WorkspaceService> routeWsService(String langName) {
+        return route(langName).thenApply(IBaseLanguageServerExtensions::getWorkspaceService);
+    }
+
+    private LanguageClient availableClient() {
+        if (client == null) {
+            throw new IllegalStateException("Client not connected yet.");
         }
-        return (IBaseTextDocumentService) this.route.apply(uri).getServer().getTextDocumentService();
+        return client;
+    }
+
+    private LanguageServerRouter availableServer() {
+        if (server == null) {
+            throw new IllegalStateException("Server not connected yet.");
+        }
+        return server;
     }
 
     @Override
@@ -90,8 +125,7 @@ class RoutingTextDocumentService implements IBaseTextDocumentService {
 
     @Override
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'initializeServerCapabilities'");
+        ParametricTextDocumentService.setStaticServerCapabilities(result);
     }
 
     @Override
@@ -102,32 +136,28 @@ class RoutingTextDocumentService implements IBaseTextDocumentService {
 
     @Override
     public void connect(LanguageClient client) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'connect'");
+        logger.debug("Connecting client {}", client);
+        this.client = client;
     }
 
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'pair'");
+        this.wsService = workspaceService;
     }
 
     @Override
     public void initialized() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'initialized'");
+        // reserved for future use
     }
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'registerLanguage'");
+        route(lang.getName()).thenApply(s -> s.sendRegisterLanguage(lang));
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'unregisterLanguage'");
+        route(lang.getName()).thenApply(s -> s.sendUnregisterLanguage(lang));
     }
 
     @Override

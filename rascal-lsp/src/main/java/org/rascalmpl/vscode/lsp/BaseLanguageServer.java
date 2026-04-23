@@ -207,6 +207,8 @@ public abstract class BaseLanguageServer {
             this.executor = executor;
             this.lspDocumentService = lspDocumentService;
             this.lspWorkspaceService = lspWorkspaceService;
+            lspDocumentService.pair(lspWorkspaceService);
+            lspWorkspaceService.pair(lspDocumentService);
         }
 
         @Override

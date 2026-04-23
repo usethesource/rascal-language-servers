@@ -266,26 +266,32 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             , new CompletionCapability()
             , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
         );
-        dynamicCapabilities.registerStaticCapabilities(result);
+        setStaticServerCapabilities(dedicatedLanguageName, result);
+    }
 
+    public static void setStaticServerCapabilities(ServerCapabilities result) {
+        setStaticServerCapabilities("", result);
+    }
+
+    private static void setStaticServerCapabilities(String dedicatedLanguageName, ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setHoverProvider(true);
         result.setReferencesProvider(true);
         result.setDocumentSymbolProvider(true);
         result.setImplementationProvider(true);
-        result.setSemanticTokensProvider(tokenizer.options());
+        result.setSemanticTokensProvider(SemanticTokenizer.options());
         result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setRenameProvider(new RenameOptions(true));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName(dedicatedLanguageName))));
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
         result.setCallHierarchyProvider(true);
     }
 
-    private String getRascalMetaCommandName() {
+    public static String getRascalMetaCommandName(String dedicatedLanguageName) {
         // if we run in dedicated mode, we prefix the commands with our language name
         // to avoid ambiguity with other dedicated languages and the generic rascal plugin
         if (!dedicatedLanguageName.isEmpty()) {
