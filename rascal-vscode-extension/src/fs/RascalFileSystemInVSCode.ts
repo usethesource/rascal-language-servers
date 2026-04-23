@@ -61,32 +61,32 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return uriString;
     }
 
-    static getLocation(msg: vscode.Uri | string | JsonRpcRequest) : ISourceLocation {
-        if (typeof msg === "string") {
-            return <ISourceLocation> msg;
+    static getLocation(arg: vscode.Uri | string | JsonRpcRequest): ISourceLocation {
+        if (typeof arg === "string") {
+            return <ISourceLocation>arg;
         }
-        if (msg instanceof vscode.Uri) {
-            return RascalFileSystemInVSCode.toRascalUri(<vscode.Uri> msg);
+        if (arg instanceof vscode.Uri) {
+            return RascalFileSystemInVSCode.toRascalUri(<vscode.Uri>arg);
         }
-        if ("loc" in msg) {
-            return <ISourceLocation>msg.loc;
+        if ("loc" in arg) {
+            return <ISourceLocation>arg.loc;
         }
-        if ("from" in msg) {
-            return <ISourceLocation>msg.from;
+        if ("from" in arg) {
+            return <ISourceLocation>arg.from;
         }
-        if ("root" in msg) {
-            return <ISourceLocation>msg.root;
+        if ("root" in arg) {
+            return <ISourceLocation>arg.root;
         }
         return "unknown";
     }
 
     async sendRequest<R>(method: string, uri: vscode.Uri | string): Promise<R>;
     async sendRequest<R>(method: string, param: JsonRpcRequest): Promise<R>;
-    async sendRequest<R>(method: string, param: vscode.Uri | string | JsonRpcRequest): Promise<R> {
+    async sendRequest<R>(method: string, arg: vscode.Uri | string | JsonRpcRequest): Promise<R> {
         try {
-            return await this.client.sendRequest<R>(method, RascalFileSystemInVSCode.getLocation(param));
+            return await this.client.sendRequest<R>(method, RascalFileSystemInVSCode.getLocation(arg));
         } catch (r) {
-            throw RemoteIOError.translateResponseError(<ResponseError>r, RascalFileSystemInVSCode.getLocation(param), this.logger);
+            throw RemoteIOError.translateResponseError(<ResponseError>r, RascalFileSystemInVSCode.getLocation(arg), this.logger);
         }
     }
 
