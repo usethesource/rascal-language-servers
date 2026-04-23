@@ -55,8 +55,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                 for (const exclude of excludes) {
                     const isAbsolute = path.isAbsolute(exclude);
                     const isGlob = exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
-                    if (isAbsolute && this.excludeMatchesUri(event.uri.toString(), exclude, isGlob)
-                        || !isAbsolute && this.excludeMatchesUri(path.join(uri.toString(), exclude), exclude, isGlob)) {
+                    if (isAbsolute && this.excludeMatchesUri(event.uri.path, exclude, isGlob)
+                        || !isAbsolute && this.excludeMatchesUri(event.uri.path, path.join(uri.path, exclude), isGlob)) {
                         // Event uri was excluded in current watch
                         continue;
                     }
