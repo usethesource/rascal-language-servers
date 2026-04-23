@@ -27,7 +27,7 @@
 import path from 'path';
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
-import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocation, JsonRpcRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
+import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
@@ -49,10 +49,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
     // VS Code omits the leading two slashes from URIs if the autority is empty *and* the scheme is not equal to "file"
     // Rascal does not support this style of URIs, so we add the slashes before sending the URI over
-    static toRascalUri(uri: vscode.Uri | string): string {
-        if (typeof(uri) === "string") {
-            return uri;
-        }
+    static toRascalUri(uri: vscode.Uri): string {
         const uriString = uri.toString();
         if (uri.authority === "" && uri.scheme !== "file") {
             const colon = uri.scheme.length + 1;
@@ -61,10 +58,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return uriString;
     }
 
-    static getLocation(arg: vscode.Uri | string | JsonRpcRequest): ISourceLocation {
-        if (typeof arg === "string") {
-            return <ISourceLocation>arg;
-        }
+    static getLocation(arg: vscode.Uri | JsonRpcRequest): ISourceLocation {
         if (arg instanceof vscode.Uri) {
             return RascalFileSystemInVSCode.toRascalUri(<vscode.Uri>arg);
         }
@@ -80,11 +74,15 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return "unknown";
     }
 
-    async sendRequest<R>(method: string, uri: vscode.Uri | string): Promise<R>;
+    private static makeJsonRpcArgument(arg: vscode.Uri | JsonRpcRequest): JsonRpcRequest {
+        return arg instanceof vscode.Uri ? <ISourceLocationRequest>{ loc: RascalFileSystemInVSCode.toRascalUri(arg) } : arg;
+    }
+
+    async sendRequest<R>(method: string, uri: vscode.Uri): Promise<R>;
     async sendRequest<R>(method: string, param: JsonRpcRequest): Promise<R>;
-    async sendRequest<R>(method: string, arg: vscode.Uri | string | JsonRpcRequest): Promise<R> {
+    async sendRequest<R>(method: string, arg: vscode.Uri | JsonRpcRequest): Promise<R> {
         try {
-            return await this.client.sendRequest<R>(method, RascalFileSystemInVSCode.getLocation(arg));
+            return await this.client.sendRequest<R>(method, RascalFileSystemInVSCode.makeJsonRpcArgument(arg));
         } catch (r) {
             throw RemoteIOError.translateResponseError(<ResponseError>r, RascalFileSystemInVSCode.getLocation(arg), this.logger);
         }
