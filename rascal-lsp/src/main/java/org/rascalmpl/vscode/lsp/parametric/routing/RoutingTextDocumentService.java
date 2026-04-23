@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -55,7 +56,9 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Caller;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Router;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -202,20 +205,25 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Cal
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didCreateFiles'");
+        // TODO Mimick VS given certain file operation filters (capabilities)
+        var filesByExt = params.getFiles().stream()
+            .collect(Collectors.toMap(f -> LanguageServerRouter.extension(Locations.toLoc(f.getUri())), List::of, Lists::union));
+
+        for (var e : filesByExt.entrySet()) {
+            availableServer().route(e.getKey()).thenAccept(server -> {
+                server.getWorkspaceService().didCreateFiles(new CreateFilesParams(e.getValue()));
+            });
+        }
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didRenameFiles'");
+        // TODO Mimick VS given certain file operation filters (capabilities)
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didDeleteFiles'");
+        // TODO Mimick VS given certain file operation filters (capabilities)
     }
 
     @Override

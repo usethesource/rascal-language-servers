@@ -107,27 +107,34 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     @Override
     public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation file) {
-        return safeLanguage(file).map(this::languageByName).orElseThrow(() -> {
-            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s': %s", extension(file), file));
+        return route(extension(file));
+    }
+
+    public CompletableFuture<IBaseLanguageServerExtensions> route(String extension) {
+        return safeLanguage(extension).map(this::languageByName).orElseThrow(() -> {
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension));
         });
     }
 
     private Optional<String> safeLanguage(ISourceLocation loc) {
-        var ext = extension(loc);
-        if ("".equals(ext)) {
+        return safeLanguage(extension(loc));
+    }
+
+    private Optional<String> safeLanguage(String extension) {
+        if ("".equals(extension)) {
             var languages = new HashSet<>(languagesByExtension.values());
             if (languages.size() == 1) {
-                logger.trace("File was opened without an extension; falling back to the single registered language for: {}", loc);
+                logger.trace("File was opened without an extension; falling back to the single registered language for extension '{}'", extension);
                 return languages.stream().findFirst();
             } else {
-                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
+                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for extension '{}'", extension);
                 return Optional.empty();
             }
         }
-        return Optional.ofNullable(languagesByExtension.get(ext));
+        return Optional.ofNullable(languagesByExtension.get(extension));
     }
 
-    private static String extension(ISourceLocation doc) {
+    public static String extension(ISourceLocation doc) {
         return URIUtil.getExtension(doc);
     }
 
