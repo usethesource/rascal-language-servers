@@ -44,7 +44,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(new RascalMFValidator());
     context.subscriptions.push(new VsCodeSettingsFixer());
     context.subscriptions.push(new RascalProjectValidator(extension.logger()));
-    if (deployMode || testDeployMode || 1>0) {
+    if (deployMode || testDeployMode) {
         context.subscriptions.push(new TestVirtualFileSystem(extension.logger()));
     }
 
