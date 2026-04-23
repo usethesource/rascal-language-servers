@@ -45,7 +45,7 @@
       "type": "java",
       "name": "Parametric Routing Server",
       "request": "launch",
-      "mainClass": "org.rascalmpl.vscode.lsp.parametric.RoutingLanguageServer",
+      "mainClass": "org.rascalmpl.vscode.lsp.parametric.routing.RoutingLanguageServer",
       "projectName": "rascal-lsp",
       "console": "internalConsole",
       "vmArgs": [

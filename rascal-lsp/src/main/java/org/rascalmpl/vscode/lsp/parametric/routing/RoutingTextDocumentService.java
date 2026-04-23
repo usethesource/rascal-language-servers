@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +47,11 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
+import org.rascalmpl.vscode.lsp.LanguageServerRouter;
+import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Caller;
@@ -55,7 +60,7 @@ import org.rascalmpl.vscode.lsp.util.Router;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
-class RoutingTextDocumentService implements IBaseTextDocumentService, Caller<TextDocumentService>, Router<CompletableFuture<TextDocumentService>> {
+public class RoutingTextDocumentService implements IBaseTextDocumentService, Caller<TextDocumentService>, Router<CompletableFuture<TextDocumentService>> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 

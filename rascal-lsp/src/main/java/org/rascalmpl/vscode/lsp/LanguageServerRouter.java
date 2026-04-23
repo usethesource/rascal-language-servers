@@ -70,6 +70,8 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
+import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
 import org.rascalmpl.vscode.lsp.util.Router;
 
 import io.usethesource.vallang.IInteger;
@@ -95,7 +97,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         this.languageServers = new ConcurrentHashMap<>();
     }
 
-    /*package*/ CompletableFuture<IBaseLanguageServerExtensions> languageByName(String lang) {
+    /*package*/ public CompletableFuture<IBaseLanguageServerExtensions> languageByName(String lang) {
         var service = languageServers.get(lang);
         if (service == null) {
             throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));

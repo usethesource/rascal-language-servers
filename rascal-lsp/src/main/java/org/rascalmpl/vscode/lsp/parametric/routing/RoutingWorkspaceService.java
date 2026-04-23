@@ -24,13 +24,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
+package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.util.concurrent.ExecutorService;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 
-class RoutingWorkspaceService extends BaseWorkspaceService {
+public class RoutingWorkspaceService extends BaseWorkspaceService {
 
-    protected RoutingWorkspaceService(ExecutorService exec) {
+    public RoutingWorkspaceService(ExecutorService exec) {
         super(exec);
     }
 

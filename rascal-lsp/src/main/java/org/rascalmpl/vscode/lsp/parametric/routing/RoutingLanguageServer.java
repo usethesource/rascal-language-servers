@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
@@ -35,6 +35,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.vscode.lsp.LanguageServerRouter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 public class RoutingLanguageServer extends ParametricLanguageServer {
