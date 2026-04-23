@@ -88,7 +88,7 @@ public class CodeActions {
     /* merges two streams of CodeAction terms and then converts them to LSP objects */
     public static CompletableFuture<List<Either<Command, CodeAction>>> mergeAndConvertCodeActions(IBaseTextDocumentService doc, String dedicatedLanguageName, String languageName, CompletableFuture<Stream<IValue>> quickfixes, CompletableFuture<Stream<IValue>> codeActions) {
         return codeActions.thenCombine(quickfixes, (actions, quicks) ->
-            Stream.concat(quicks, actions)
+            Stream.<IValue>concat(quicks, actions)
                 .map(IConstructor.class::cast)
                 .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
                 .map(Either::<Command,CodeAction>forRight)

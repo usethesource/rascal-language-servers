@@ -256,7 +256,7 @@ public class Diagnostics {
             .collect(Collectors.toList());
     }
 
-    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(ICollection<?> messages, ColumnMaps cm) {
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(IList messages, ColumnMaps cm) {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)

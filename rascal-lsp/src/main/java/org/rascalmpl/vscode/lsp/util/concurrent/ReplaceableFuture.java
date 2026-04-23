@@ -31,8 +31,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /**
  * A wrapper around CompletableFuture's that allow for us to replace the results of a still running future, and call an
@@ -111,7 +111,7 @@ public class ReplaceableFuture<T> {
         return new InterruptibleFuture<>(result, with::interrupt);
     }
 
-    public static <T> ReplaceableFuture<T> completedFuture(T result, Executor exec) {
+    public static <T> ReplaceableFuture<@PolyNull T> completedFuture(@PolyNull T result, Executor exec) {
         return new ReplaceableFuture<>(CompletableFutureUtils.completedFuture(result, exec));
     }
 }

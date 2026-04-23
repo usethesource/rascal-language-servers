@@ -20,3 +20,14 @@ public abstract class TreeVisitor<E extends Throwable> extends IdentityVisitor<E
 	public abstract @Nullable ITree visitTreeChar(ITree arg) throws E;
 	public abstract @Nullable ITree visitTreeCycle(ITree arg) throws E;
 }
+
+package org.rascalmpl.values.functions;
+
+import io.usethesource.vallang.IExternalValue;
+import io.usethesource.vallang.IValue;
+
+import org.checkerframework.checker.nullness.qual.NonNull;
+
+public interface IFunction extends IExternalValue {
+  default <T extends @NonNull IValue> T call(IValue... parameters) { }
+}

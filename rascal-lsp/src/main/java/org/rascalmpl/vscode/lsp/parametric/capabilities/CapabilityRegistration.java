@@ -65,7 +65,7 @@ public class CapabilityRegistration {
 
     private final LanguageClient client;
     private final Executor exec;
-    private final CompletableFuture<Void> noop;
+    private final CompletableFuture<@Nullable Void> noop;
 
     private final Set<AbstractDynamicCapability<?>> dynamicCapabilities;
     private final Set<AbstractDynamicCapability<?>> staticCapabilities;
