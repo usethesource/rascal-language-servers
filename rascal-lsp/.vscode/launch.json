@@ -27,12 +27,26 @@
         "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
       ]
     },
-        {
+    {
       "type": "java",
-      "name": "Parametric Server (routing delegate 1)",
+      "name": "Delegate Parametric Server [1]",
       "request": "launch",
       "mainClass": "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer",
-      "args": "9990",
+      "args": ["--port", "9990"],
+      "projectName": "rascal-lsp",
+      "console": "internalConsole",
+      "vmArgs": [
+        "-Dlog4j2.level=TRACE",
+        "-Drascal.compilerClasspath=${workspaceFolder}/target/lib/rascal.jar",
+        "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
+      ]
+    },
+    {
+      "type": "java",
+      "name": "Delegate Parametric Server [2]",
+      "request": "launch",
+      "mainClass": "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer",
+      "args": ["--port", "9991"],
       "projectName": "rascal-lsp",
       "console": "internalConsole",
       "vmArgs": [

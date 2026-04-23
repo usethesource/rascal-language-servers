@@ -46,16 +46,18 @@ public class ParametricLanguageServer extends BaseLanguageServer {
     }
 
     public static void main(String[] args) {
-        int portNumber = args.length == 0
-            ? DEFAULT_PORT_NUMBER
-            : Integer.parseInt(args[0]);
+        int portNumber = DEFAULT_PORT_NUMBER;
+        LanguageParameter dedicatedLanguage = null;
 
-        LanguageParameter dedicatedLanguage;
-        if (args.length > 1) {
-            dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
-        }
-        else {
-            dedicatedLanguage = null;
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--port":
+                    portNumber = Integer.parseInt(args[++i]);
+                    break;
+                default:
+                    dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
+                    break;
+            }
         }
 
         start(portNumber, dedicatedLanguage);
