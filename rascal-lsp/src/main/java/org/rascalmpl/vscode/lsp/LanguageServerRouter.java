@@ -37,11 +37,16 @@ import java.net.URI;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
@@ -64,6 +69,11 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     private final Map<String, String> languagesByExtension;
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers;
+
+    private @MonotonicNonNull InitializeParams initializeParams;
+
+    private static final int REMOTE_BASE_PORT = 9990;
+    private AtomicInteger remotePortOffset = new AtomicInteger(0);
 
     public LanguageServerRouter(Runnable onExit, ExecutorService exec) {
         super(onExit, exec, new RoutingTextDocumentService(exec), new RoutingWorkspaceService(exec));
@@ -104,7 +114,9 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             var classPath = System.getProperty("java.class.path");
             InputStream in;
             OutputStream out;
+            Runnable onExit;
             if (DEPLOY_MODE) {
+                // In deployment, we start a process and connect to it via input/output streams
                 var proc = new ProcessBuilder("java"
                     , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
                     , "-Dlog4j2.level=DEBUG"
@@ -116,22 +128,32 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                 ).start();
                 in = proc.getInputStream();
                 out = proc.getOutputStream();
+                // TODO Do we need to close the process here? Or is this triggered after the process exits?
+                onExit = () -> {};
             } else {
-                // TODO Predictably increment ports for subsequent languages
-                Socket socket = new Socket(InetAddress.getLoopbackAddress(), 9990);
+                // In development, we expect the server to have been launched on a pre-agreed port
+                int port = getNextPort();
+                Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
                 socket.setTcpNoDelay(true);
                 in = socket.getInputStream();
                 out = socket.getOutputStream();
+                onExit = () -> {
+                    try {
+                        socket.close();
+                    } catch (IOException e) {
+                        logger.error("Closing socket for language {} on port {} failed", lang.getName(), port);
+                    }
+                };
             }
-            var client = new Launcher.Builder<IBaseLanguageServerExtensions>()
+            var serverLauncher = new Launcher.Builder<IBaseLanguageServerExtensions>()
                 .setRemoteInterface(IBaseLanguageServerExtensions.class)
                 .setLocalService(this)
                 .setInput(in)
                 .setOutput(out)
                 .create();
 
-            client.startListening();
-            var server = client.getRemoteProxy();
+            scheduleShutdown(serverLauncher.startListening(), lang, onExit);
+            var server = serverLauncher.getRemoteProxy();
             var delegateServerCaps = server.initialize(delegateInitializationParams());
 
             // When initialization is done, we can use the server
@@ -142,8 +164,45 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         }
     }
 
+    private void scheduleShutdown(Future<Void> server, LanguageParameter lang, Runnable onExit) {
+        getExecutor().execute(() -> {
+            try {
+                server.get();
+            } catch (CancellationException | ExecutionException | InterruptedException e) {
+                logger.error("Language server for {} crashed", lang.getName(), e);
+            }
+            try {
+                onExit.run();
+            } catch (Throwable e) {
+                logger.error("Unexpected error while cleaning up connection to language server for {}", lang.getName(), e);
+            }
+        });
+    }
+
+    private int getNextPort() {
+        return REMOTE_BASE_PORT + remotePortOffset.getAndIncrement();
+    }
+
+    private InitializeParams availableInitializeParams() {
+        if (this.initializeParams == null) {
+            throw new IllegalStateException("Server not initialized yet");
+        }
+        return initializeParams;
+    }
+
+    // TODO If this function does not require any parameters, change to a constant
     private InitializeParams delegateInitializationParams() {
         var params = new InitializeParams();
+        var clientParams = availableInitializeParams();
+        params.setCapabilities(clientParams.getCapabilities()); // We support precisely the capabilities of VS Code
+        params.setClientInfo(clientParams.getClientInfo());
+        params.setInitializationOptions(clientParams.getInitializationOptions());
+        params.setLocale(clientParams.getLocale());
+        try {
+            params.setProcessId((int) ProcessHandle.current().pid());
+        } catch (UnsupportedOperationException | SecurityException e) {
+            logger.debug("Cannot set process ID", e);
+        }
         return params;
     }
 
@@ -157,7 +216,12 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     @Override
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
+        // Capture the initialization params to re-use when initializing our delegates
+        this.initializeParams = params;
+
+        // Our child needs us, but we cannot set this in the constructor, so we set it here.
         getTextDocumentService().setServer(this);
+
         return super.initialize(params);
     }
 
@@ -165,12 +229,10 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         // If we do not have a parametric server running for this language, start and initialize it.
         synchronized (this) {
-            var remote = languageServers.computeIfAbsent(lang.getName(), name -> {
-                for (var ext : lang.getExtensions()) {
-                    languagesByExtension.put(ext, lang.getName());
-                }
-                return startServer(lang);
-            });
+            languageServers.computeIfAbsent(lang.getName(), _n -> startServer(lang));
+            for (var ext : lang.getExtensions()) {
+                languagesByExtension.put(ext, lang.getName());
+            }
         }
 
         return super.sendRegisterLanguage(lang);
