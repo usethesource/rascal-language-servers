@@ -108,7 +108,7 @@ export interface TimestampResponse {
 }
 
 export interface SourceLocationResponse {
-    loc: ISourceLocation
+    loc: ISourceLocation | undefined
 }
 
 export interface DirectoryListingResponse {
