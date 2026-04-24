@@ -82,6 +82,7 @@ interface ISourceLocationOutput {
     rename(req: RenameRequest): Promise<void>;
     copy(req: CopyRequest): Promise<void>;
     isWritable(req: ISourceLocationRequest): Promise<BooleanResponse>;
+    supportsCopy(req: JsonRpcRequest): Promise<BooleanResponse>;
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
@@ -96,6 +97,7 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req("remove", handler.remove);
     req("rename", handler.rename);
     req("isWritable", handler.isWritable);
+    req("supportsCopy", handler.supportsCopy);
 }
 
 // Rascal's interface reduced to a subset we can support
@@ -341,6 +343,11 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             throw new rpc.ResponseError(RemoteIOError.isADirectory, 'Non-recursive copy requested on a directory', req);
         }
         return this.asyncVoidCatcher(this.fs.copy(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
+    }
+
+    async supportsCopy(_req: JsonRpcRequest): Promise<BooleanResponse> {
+        this.logger.trace("[VSCodeFileSystemInRascal] supportsCopy");
+        return <BooleanResponse>{ value: true };
     }
 
     private readonly activeWatches = new Map<string, WatcherCallbacks>();
