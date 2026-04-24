@@ -51,6 +51,7 @@ public class RascalADTs {
         public static final String CALL_HIERARCHY = "callHierarchy";
         public static final String COMPLETION = "completion";
         public static final String COMPLETION_TRIGGER_CHARACTERS = "additionalTriggerCharacters";
+        public static final String FORMATTING = "formatting";
 
         public static final String RENAME_SERVICE = "renameService";
         public static final String PREPARE_RENAME_SERVICE = "prepareRenameService";
