@@ -28,7 +28,7 @@ import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { JsonRpcServer } from "../util/JsonRpcServer";
-import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SourceLocationResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
+import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SourceLocationResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
 
 /**
@@ -96,6 +96,7 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req("mkDirectory", handler.mkDirectory);
     req("remove", handler.remove);
     req("rename", handler.rename);
+    req("copy", handler.copy);
     req("isWritable", handler.isWritable);
     req("supportsCopy", handler.supportsCopy);
 }
