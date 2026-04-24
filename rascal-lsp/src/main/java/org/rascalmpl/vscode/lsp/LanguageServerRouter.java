@@ -35,6 +35,7 @@ import java.lang.ProcessBuilder.Redirect;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,7 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -87,6 +89,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     private final Map<String, String> languagesByExtension;
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers;
+    private final Collection<Process> delegateProcesses = new CopyOnWriteArrayList<>();
 
     private @MonotonicNonNull InitializeParams initializeParams;
 
@@ -98,6 +101,9 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
         this.languagesByExtension = new ConcurrentHashMap<>();
         this.languageServers = new ConcurrentHashMap<>();
+
+        // Shutdown child processes when we exit
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> delegateProcesses.forEach(Process::destroy)));
     }
 
     /*package*/ public CompletableFuture<IBaseLanguageServerExtensions> languageByName(String lang) {
