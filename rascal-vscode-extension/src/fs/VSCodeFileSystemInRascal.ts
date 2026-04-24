@@ -28,7 +28,7 @@ import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { JsonRpcServer } from "../util/JsonRpcServer";
-import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
+import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, StringResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
 
 /**
@@ -54,6 +54,7 @@ interface ISourceLocationInput {
     size(req: ISourceLocationRequest): Promise<NumberResponse>;
     fileStat(req: ISourceLocationRequest): Promise<FileAttributes>;
     isReadable(req: ISourceLocationRequest): Promise<BooleanResponse>;
+    getCharset(req: ISourceLocationRequest): Promise<StringResponse>;
 }
 
 function connectInputHandler(connection: rpc.MessageConnection, handler: ISourceLocationInput, toClear: Disposable[]) {
@@ -72,6 +73,7 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<NumberResponse>("size", handler.size);
     req<FileAttributes>("stat", handler.fileStat);
     req<BooleanResponse>("isReadable", handler.isReadable);
+    req<StringResponse>("getCharset", handler.getCharset);
 }
 
 // Rascal's interface reduced to a subset we can support
@@ -83,7 +85,8 @@ interface ISourceLocationOutput {
     copy(req: CopyRequest): Promise<void>;
     isWritable(req: ISourceLocationRequest): Promise<BooleanResponse>;
     supportsCopy(req: JsonRpcRequest): Promise<BooleanResponse>;
-    setLastModified(req: SetLastModifiedRequest): Promise<void>
+    setLastModified(req: SetLastModifiedRequest): Promise<void>;
+    getCharset(req: ISourceLocationRequest): Promise<StringResponse>;
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
@@ -101,6 +104,7 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req("isWritable", handler.isWritable);
     req("supportsCopy", handler.supportsCopy);
     req("setLastModified", handler.setLastModified);
+    req("getCharset", handler.getCharset);
 }
 
 // Rascal's interface reduced to a subset we can support
@@ -310,6 +314,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     decodeFileTypeBitmask(input: number): vscode.FileType[] {
         return input === 0 ? [vscode.FileType.Unknown] : [vscode.FileType.File, vscode.FileType.Directory, vscode.FileType.SymbolicLink].filter(t => t === (t & input));
+    }
+
+    async getCharset(req: ISourceLocationRequest): Promise<StringResponse> {
+        return <StringResponse>{ value: (await vscode.workspace.openTextDocument(req.loc)).encoding };
     }
 
     async writeFile(req: WriteFileRequest): Promise<void> {

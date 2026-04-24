@@ -107,6 +107,10 @@ export interface NumberResponse {
     value: number
 }
 
+export interface StringResponse {
+    value: string;
+}
+
 export interface TimestampResponse {
     value: number
 }
