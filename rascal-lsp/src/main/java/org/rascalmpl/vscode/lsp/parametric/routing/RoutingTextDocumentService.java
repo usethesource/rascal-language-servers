@@ -367,7 +367,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Cal
     }
 
     @Override
-    public CompletableFuture<Hover> hover(HoverParams params) {
+    public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
         return callC(route(params.getTextDocument()), TextDocumentService::hover, params);
     }
 

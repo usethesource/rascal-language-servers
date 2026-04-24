@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 
 import com.google.gson.GsonBuilder;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
@@ -36,7 +37,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
 
     protected static final int DEFAULT_PORT_NUMBER = 9999;
 
-    protected static void start(int portNumber, LanguageParameter dedicatedLanguage) {
+    protected static void start(int portNumber, @Nullable LanguageParameter dedicatedLanguage) {
         startLanguageServer(NamedThreadPool.single("parametric-lsp")
             , NamedThreadPool.cached("parametric")
             , threadPool -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
