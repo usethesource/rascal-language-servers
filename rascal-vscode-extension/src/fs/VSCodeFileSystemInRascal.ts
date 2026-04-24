@@ -107,6 +107,7 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
 interface ISourceLocationWatcher {
     watch(newWatch: WatchRequest): Promise<void>;
     unwatch(removeWatch: WatchRequest): Promise<void>;
+    supportsRecursiveWatch(req: JsonRpcRequest): Promise<BooleanResponse>;
 }
 
 function connectWatchHandler(connection: rpc.MessageConnection, handler: ISourceLocationWatcher, toClear: Disposable[]) {
@@ -117,6 +118,7 @@ function connectWatchHandler(connection: rpc.MessageConnection, handler: ISource
     }
     req("watch", handler.watch);
     req("unwatch", handler.unwatch);
+    req("supportsRecursiveWatch", handler.supportsRecursiveWatch);
 }
 
 interface ILogicalSourceLocationResolver {
@@ -383,6 +385,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (index >= 0) {
             this.disposables.splice(index, 1);
         }
+    }
+
+    async supportsRecursiveWatch(_req: JsonRpcRequest): Promise<BooleanResponse> {
+        return <BooleanResponse>{ value: true };
     }
 
     async resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
