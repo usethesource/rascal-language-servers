@@ -144,9 +144,6 @@ function buildWatchReceiver(connection: rpc.MessageConnection): WatchEventReceiv
     };
 }
 
-// Messages (requests and responses)
-
-
 export class VSCodeFileSystemInRascal extends JsonRpcServer {
     private rascalNativeSchemes: Set<string> = new Set();
     constructor(debug: boolean, private readonly logger: vscode.LogOutputChannel) {
