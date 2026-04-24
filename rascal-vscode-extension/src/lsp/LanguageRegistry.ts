@@ -30,11 +30,11 @@ import { Disposable, LogOutputChannel } from 'vscode';
 import { JsonRpcServer } from '../util/JsonRpcServer';
 
 /**
- * Json-rpc server that handles registration and unregistration of languages
+ * JSON-RPC server that handles registration and unregistration of languages
  */
 export class LanguageRegistry extends JsonRpcServer {
     constructor(dslLSP: ParameterizedLanguageServer, logger: LogOutputChannel) {
-        super("LanguageRegistry", connection => Disposable.from(
+        super("LanguageRegistry", false, connection => Disposable.from(
             connection.onRequest(new rpc.RequestType1<LanguageParameter, void, void>("rascal/receiveRegisterLanguage"), lang => {
                 logger.info("LanguageRegistry: registerLanguage", lang);
                 return dslLSP.registerLanguage(lang);

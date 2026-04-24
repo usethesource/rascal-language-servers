@@ -80,12 +80,20 @@ describe('REPL', function () {
         expect(repl.lastOutput).is.equal("5\nint: 0");
     }).timeout(Delays.extremelySlow * 3);
 
-    it("edit call module via repl", async() => {
+    it("open module editor via repl", async() => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute(":edit demo::lang::pico::LanguageServer", true, Delays.extremelySlow);
 
         await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.slow, "LanguageServer should be opened");
+    });
+
+    it("open stdlib module editor via repl", async() => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute(":edit IO", true, Delays.extremelySlow);
+
+        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "IO.rsc", Delays.slow, "IO should be opened");
     });
 
     it("VFS works", async() => {

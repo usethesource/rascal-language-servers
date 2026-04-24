@@ -27,4 +27,4 @@
 // make sure that everything you might need to run `ParameterizedLanguageServer` is exported in this file
 export { ParameterizedLanguageServer } from "./ParameterizedLanguageServer";
 export type { LanguageParameter, ParserSpecification } from "./ParameterizedLanguageServer";
-export { VSCodeUriResolverServer } from "../fs/VSCodeURIResolver";
+export { VSCodeFileSystemInRascal as VSCodeFileSystemInRascal } from "../fs/VSCodeFileSystemInRascal";

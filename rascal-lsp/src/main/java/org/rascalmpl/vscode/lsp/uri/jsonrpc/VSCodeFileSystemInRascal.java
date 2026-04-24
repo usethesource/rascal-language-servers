@@ -27,17 +27,23 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
 import java.io.IOException;
-import java.util.function.Consumer;
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.rascalmpl.uri.ISourceLocationWatcher;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
+
+import org.rascalmpl.uri.remote.RemoteExternalResolverRegistry;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
+
 import io.usethesource.vallang.ISourceLocation;
 
-public interface VSCodeUriResolverClient {
+/**
+ * Wrapper for RemoteExternalResolverRegistry handling LSP-specifics.
+ * In particular, locations from LSP are mapped to Rascal-friendly locations.
+ */
+public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
+    public VSCodeFileSystemInRascal(int remoteResolverRegistryPort) {
+        super(remoteResolverRegistryPort);
+    }
 
-    @JsonNotification("rascal/vfs/watcher/emitWatch")
-    void emitWatch(ISourceLocationChanged event);
-
-    void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
-    void removeWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
+    @Override
+    public ISourceLocation resolve(ISourceLocation input) throws IOException {
+        return LSPOpenFileRedirector.getInstance().resolve(super.resolve(input));
+    }
 }

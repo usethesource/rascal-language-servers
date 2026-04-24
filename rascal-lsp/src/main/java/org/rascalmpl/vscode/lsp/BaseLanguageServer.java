@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -55,17 +56,20 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SetTraceParams;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVSCode;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
+import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -73,7 +77,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
-* The main language server class for Rascal is build on top of the Eclipse lsp4j library
+* The main language server class for Rascal is built on top of the Eclipse lsp4j library
 */
 @SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public abstract class BaseLanguageServer {
@@ -119,6 +123,12 @@ public abstract class BaseLanguageServer {
             .setOutput(out)
             .configureGson(GsonUtils.complexAsJsonObject())
             .setExecutorService(threadPool)
+            .setExceptionHandler(t -> {
+                if (t instanceof ResponseErrorException) {
+                    return ((ResponseErrorException) t).getResponseError();
+                }
+                return RemoteIOError.translate(t).getResponseError();
+            })
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
@@ -193,7 +203,7 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
+    private static class ActualLanguageServer extends RascalFileSystemInVSCode implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
@@ -307,13 +317,9 @@ public abstract class BaseLanguageServer {
             var actualClient = (IBaseLanguageClient) client;
             lspDocumentService.connect(actualClient);
             lspWorkspaceService.connect(actualClient);
+            this.client = actualClient;
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
-        }
-
-        @Override
-        public void registerVFS(VFSRegister registration) {
-            VSCodeVFSClient.buildAndRegister(registration.getPort());
         }
 
         @Override
@@ -325,6 +331,15 @@ public abstract class BaseLanguageServer {
         public void setMinimumLogLevel(String level) {
             final var l = Level.toLevel(level, Level.DEBUG); // fall back to debug when the string cannot be mapped
             Configurator.setRootLevel(l);
+        }
+
+        @Override
+        public CompletableFuture<String[]> fileSystemSchemes() {
+            var reg = URIResolverRegistry.getInstance();
+            var inputs = reg.getRegisteredInputSchemes();
+            var logicals = reg.getRegisteredLogicalSchemes();
+
+            return CompletableFutureUtils.completedFuture(Sets.union(inputs, logicals).toArray(String[]::new), executor);
         }
     }
 }

@@ -156,7 +156,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
-import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -210,9 +210,6 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
-        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
-        URIResolverRegistry.getInstance();
-
         this.exec = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
@@ -224,7 +221,7 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             this.dedicatedLanguageName = dedicatedLanguage.getName();
             this.dedicatedLanguage = dedicatedLanguage;
         }
-        FallbackResolver.getInstance().registerTextDocumentService(this);
+        LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
     @Override

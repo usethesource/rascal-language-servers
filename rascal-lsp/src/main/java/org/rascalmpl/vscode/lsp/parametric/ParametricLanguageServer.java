@@ -27,9 +27,9 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 import com.google.gson.GsonBuilder;
 

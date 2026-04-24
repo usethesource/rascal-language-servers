@@ -277,7 +277,7 @@ public class Diagnostics {
         return isValidLocation(getMessageLocation(d), d);
     }
 
-    private static boolean isValidLocation( ISourceLocation loc, IValue m) {
+    private static boolean isValidLocation(ISourceLocation loc, IValue m) {
         if (loc == null || loc.getScheme().equals("unknown")) {
             logger.trace("Dropping diagnostic due to incorrect location on message: {}", m);
             return false;
@@ -291,7 +291,7 @@ public class Diagnostics {
         if (loc.getPath().endsWith("/pom.xml")) {
             return true;
         }
-        logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on: {}", m);
+        logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on ({}): {}", loc, m);
         return false;
     }
 }

@@ -37,9 +37,9 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IConstructor;
