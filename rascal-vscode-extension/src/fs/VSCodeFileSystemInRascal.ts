@@ -28,7 +28,7 @@ import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { JsonRpcServer } from "../util/JsonRpcServer";
-import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SourceLocationResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
+import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
 
 /**
@@ -83,6 +83,7 @@ interface ISourceLocationOutput {
     copy(req: CopyRequest): Promise<void>;
     isWritable(req: ISourceLocationRequest): Promise<BooleanResponse>;
     supportsCopy(req: JsonRpcRequest): Promise<BooleanResponse>;
+    setLastModified(req: SetLastModifiedRequest): Promise<void>
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
@@ -99,6 +100,7 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req("copy", handler.copy);
     req("isWritable", handler.isWritable);
     req("supportsCopy", handler.supportsCopy);
+    req("setLastModified", handler.setLastModified);
 }
 
 // Rascal's interface reduced to a subset we can support
@@ -349,6 +351,10 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     async supportsCopy(_req: JsonRpcRequest): Promise<BooleanResponse> {
         this.logger.trace("[VSCodeFileSystemInRascal] supportsCopy");
         return <BooleanResponse>{ value: true };
+    }
+
+    async setLastModified(req: SetLastModifiedRequest): Promise<void> {
+        throw new rpc.ResponseError(RemoteIOError.notSupported, 'setLastModified is not supported by VS Code', req);
     }
 
     private readonly activeWatches = new Map<string, WatcherCallbacks>();

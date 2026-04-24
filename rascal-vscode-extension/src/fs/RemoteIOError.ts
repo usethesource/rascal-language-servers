@@ -53,6 +53,8 @@ export class RemoteIOError {
 
     static readonly unknown = -100;
 
+    static readonly notSupported = 101;
+
     static translateResponseError(r: ResponseError | undefined, uri: vscode.Uri | string, logger: vscode.LogOutputChannel) : vscode.FileSystemError | undefined {
         if (r !== undefined) {
             logger.debug("Received error from Rascal file system", r);

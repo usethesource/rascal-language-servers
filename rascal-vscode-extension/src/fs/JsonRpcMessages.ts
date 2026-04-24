@@ -57,6 +57,10 @@ export interface RemoveRequest extends ISourceLocationRequest {
     recursive: boolean;
 }
 
+export interface SetLastModifiedRequest extends ISourceLocationRequest {
+    timestamp: number;
+}
+
 export interface WatchRequest extends ISourceLocationRequest {
     /**
      * subscription id, this helps the calling in linking up to the original request
