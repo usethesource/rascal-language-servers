@@ -31,6 +31,7 @@ import static org.rascalmpl.vscode.lsp.BaseLanguageServer.DEPLOY_MODE;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.ProcessBuilder.Redirect;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
@@ -68,10 +69,12 @@ import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
+import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.Router;
 
 import io.usethesource.vallang.IInteger;
@@ -140,24 +143,29 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
         try {
-            var classPath = System.getProperty("java.class.path");
             InputStream in;
             OutputStream out;
             Runnable onExit;
             if (DEPLOY_MODE) {
+                // TODO Figure out Rascal/Rascal-LSP versions/class path
+                logger.info("Starting LSP process for {}", lang.getName());
+                logger.debug("{} runs with Rascal {} and Rascal-LSP {}", lang.getName(), "x.xx.xx", "y.yy.yy");
                 // In deployment, we start a process and connect to it via input/output streams
-                var proc = new ProcessBuilder("java"
+                var classPath = System.getProperty("java.class.path");
+                var proc = new ProcessBuilder(ProcessHandle.current().info().command().get()
                     , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
                     , "-Dlog4j2.level=DEBUG"
                     , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
-                    , "-Drascal.lsp.deploy=" + DEPLOY_MODE
+                    , "-Drascal.lsp.deploy=true"
                     , "-Drascal.compilerClasspath=" + classPath
-                    , "-cp" + classPath
+                    , "-Xmx2048M"
+                    , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-                ).start();
+                ).redirectError(Redirect.INHERIT).start();
+
+                logger.debug("Launched language server on process {}", proc.pid());
                 in = proc.getInputStream();
                 out = proc.getOutputStream();
-                // TODO Do we need to close the process here? Or is this triggered after the process exits?
                 onExit = () -> {};
             } else {
                 // In development, we expect the server to have been launched on a pre-agreed port
@@ -168,9 +176,10 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                 out = socket.getOutputStream();
                 onExit = () -> {
                     try {
+                        logger.debug("Closing socket for language {} on port", lang.getName(), port);
                         socket.close();
                     } catch (IOException e) {
-                        logger.error("Closing socket for language {} on port {} failed", lang.getName(), port);
+                        logger.error("Closing socket failed", lang.getName(), port);
                     }
                 };
             }
@@ -179,9 +188,12 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                 .setLocalService(this)
                 .setInput(in)
                 .setOutput(out)
+                .configureGson(GsonUtils.complexAsJsonObject()) // Only needed if we want to communicate IValues
+                .setExecutorService(NamedThreadPool.single("parametric-lsp-router-out"))
                 .create();
 
-            scheduleShutdown(serverLauncher.startListening(), lang, onExit);
+            var runner = serverLauncher.startListening();
+            scheduleShutdown(runner, lang, onExit);
             var server = serverLauncher.getRemoteProxy();
             var delegateServerCaps = server.initialize(delegateInitializationParams());
 
@@ -197,6 +209,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         getExecutor().execute(() -> {
             try {
                 server.get();
+                logger.info("Language server for {} terminated gracefully", lang.getName());
             } catch (CancellationException | ExecutionException | InterruptedException e) {
                 logger.error("Language server for {} crashed", lang.getName(), e);
             }

@@ -174,8 +174,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Cal
 
     @Override
     public void shutdown() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'shutdown'");
+        availableServer().shutdown();
     }
 
     @Override

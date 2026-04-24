@@ -66,7 +66,7 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
             var dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
             start(DEFAULT_PORT_NUMBER, dedicatedLanguage);
         } else {
-            startLanguageServer(NamedThreadPool.single("parametric-lsp-router")
+            startLanguageServer(NamedThreadPool.single("parametric-lsp-router-in")
                 , NamedThreadPool.cached("parametric-router")
                 , DEFAULT_PORT_NUMBER
             );
