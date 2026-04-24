@@ -206,9 +206,10 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             try {
                 server.get();
                 logger.info("Language server for {} terminated gracefully", lang.getName());
-            } catch (CancellationException | ExecutionException | InterruptedException e) {
+            } catch (CancellationException | ExecutionException e) {
                 logger.error("Language server for {} crashed", lang.getName(), e);
                 // TODO Remove from the map? Attempt a restart with the same parameters?
+            } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
             try {
