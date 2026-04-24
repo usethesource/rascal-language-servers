@@ -44,6 +44,7 @@ public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
 
     @Override
     public ISourceLocation resolve(ISourceLocation input) throws IOException {
-        return LSPOpenFileRedirector.getInstance().resolve(super.resolve(input));
+        var resolved = super.resolve(input);
+        return LSPOpenFileRedirector.getInstance().resolve(resolved == null ? input : resolved);
     }
 }
