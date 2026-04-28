@@ -255,10 +255,12 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+            logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
             return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang), executor);
         }
         @Override
         public CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
+            logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
             return CompletableFuture.runAsync(() -> lspDocumentService.unregisterLanguage(lang), executor);
         }
 

@@ -319,6 +319,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     @Override
     public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+        logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         // If we do not have a parametric server running for this language, start and initialize it.
         synchronized (this) {
             languageServers.computeIfAbsent(lang.getName(), _n -> {
@@ -339,6 +340,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     @Override
     public synchronized CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
+        logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
         // TODO Handle shutting down the remote parametric server iff it is empty now.
         return super.sendUnregisterLanguage(lang);
     }
@@ -375,11 +377,13 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     @Override
     public void receiveRegisterLanguage(LanguageParameter lang) {
+        logger.debug("rascal/receiveRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         availableClient().receiveRegisterLanguage(lang);
     }
 
     @Override
     public void receiveUnregisterLanguage(LanguageParameter lang) {
+        logger.debug("rascal/receiveUnregisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         availableClient().receiveUnregisterLanguage(lang);
     }
 

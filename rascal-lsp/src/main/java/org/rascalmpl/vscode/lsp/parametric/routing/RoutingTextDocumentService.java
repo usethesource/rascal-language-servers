@@ -195,11 +195,13 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Cal
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
+        logger.debug("textDocument/registerLanguage({}, {})", lang.getName(), lang.getMainFunction());
         availableServer().languageByName(lang.getName()).thenApply(s -> s.sendRegisterLanguage(lang));
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
+        logger.debug("textDocument/unregisterLanguage({})", lang.getName());
         availableServer().languageByName(lang.getName()).thenApply(s -> s.sendUnregisterLanguage(lang));
     }
 
