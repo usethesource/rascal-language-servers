@@ -45,7 +45,7 @@ export class RascalMFValidator implements vscode.Disposable {
         vscode.workspace.onDidChangeWorkspaceFolders(async ws => {
             for (const added of ws.added) {
                 if (await isRascalProject(added.uri)) {
-                    this.verifyRascalMF(added.uri);
+                    void this.verifyRascalMF(added.uri);
                 }
             }
             for (const rem of ws.removed) {
@@ -57,7 +57,7 @@ export class RascalMFValidator implements vscode.Disposable {
         // also at the start, check the already opened folders
         for (const openProject of vscode.workspace.workspaceFolders || []) {
             const mfURI = buildMFChildPath(openProject.uri);
-            vscode.workspace.fs.stat(mfURI).then(_s => this.verifyRascalMF(mfURI));
+            void vscode.workspace.fs.stat(mfURI).then(_s => void this.verifyRascalMF(mfURI));
         }
 
         // all changed files should be checked on save (for example a git pull)

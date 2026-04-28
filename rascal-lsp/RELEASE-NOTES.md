@@ -2,6 +2,14 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.22.5 (VS Code: 0.13.5)
+
+Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0)
+
+* Bug fixes:
+  * `edit` function did not jump to the right offset in a file
+  * a race in the initialization of the LSP server
+
 ## Release 2.22.4 (VS Code: 0.13.4)
 
 Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0).

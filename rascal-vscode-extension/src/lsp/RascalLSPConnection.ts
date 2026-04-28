@@ -54,22 +54,22 @@ export async function activateLanguageClient(
 
     await client.start();
     logger.setClient(client);
-    client.sendNotification("rascal/vfs/register", {
+    void client.sendNotification("rascal/vfs/register", {
         port: await vfsServer.serverPort
     });
 
     client.onNotification("rascal/showContent", (uri: string, title: string, viewColumn: integer) => {
-        showContentPanel(uri, title, viewColumn);
+        void showContentPanel(uri, title, viewColumn);
     });
 
 
     client.onNotification("rascal/editDocument", (uri: string, range: vscode.Range | undefined, viewColumn: integer) => {
-        openEditor(uri, range, viewColumn);
+        void openEditor(uri, range, viewColumn);
     });
 
     const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
 
-    schemesReply.then( schemes => {
+    void schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
         new RascalFileSystemProvider(client, logger).tryRegisterSchemes(schemes);
     });
