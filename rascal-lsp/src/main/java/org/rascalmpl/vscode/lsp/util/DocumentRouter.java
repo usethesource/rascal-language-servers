@@ -33,7 +33,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
-public interface Router<T> {
+public interface DocumentRouter<T> {
     T route(ISourceLocation loc);
 
     default T route(TextDocumentItem doc) {

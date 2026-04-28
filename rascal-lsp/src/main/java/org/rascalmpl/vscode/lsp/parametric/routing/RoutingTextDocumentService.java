@@ -98,15 +98,15 @@ import org.rascalmpl.vscode.lsp.LanguageServerRouter;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
+import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.FutureCaller;
 import org.rascalmpl.vscode.lsp.util.Lists;
-import org.rascalmpl.vscode.lsp.util.Router;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
-public class RoutingTextDocumentService implements IBaseTextDocumentService, FutureCaller<IBaseTextDocumentService>, Router<CompletableFuture<IBaseTextDocumentService>> {
+public class RoutingTextDocumentService implements IBaseTextDocumentService, FutureCaller<IBaseTextDocumentService>, DocumentRouter<CompletableFuture<IBaseTextDocumentService>> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 

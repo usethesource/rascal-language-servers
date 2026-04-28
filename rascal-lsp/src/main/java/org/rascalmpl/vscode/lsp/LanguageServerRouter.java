@@ -78,14 +78,14 @@ import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
+import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
-import org.rascalmpl.vscode.lsp.util.Router;
 
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
-public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServer implements IBaseLanguageClient, Router<CompletableFuture<IBaseLanguageServerExtensions>> {
+public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServer implements IBaseLanguageClient, DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> {
 
     private static final Logger logger = LogManager.getLogger(LanguageServerRouter.class);
 
