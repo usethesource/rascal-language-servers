@@ -73,6 +73,7 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
@@ -147,6 +148,50 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         return URIUtil.getExtension(doc);
     }
 
+    private static boolean isRascalLspProject(Artifact art) {
+        var c = art.getCoordinate();
+        if (!c.getGroupId().equals("org.rascalmpl")) {
+            return false;
+        }
+        var id = c.getArtifactId();
+        return "rascal-lsp".equals(id);
+    }
+
+    private String classPath(LanguageParameter lang) {
+        // TODO Build class path based on POM
+        /*
+        try {
+            var pcfg = PathConfig.parse(lang.getPathConfig());
+            var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
+            var p = new MavenParser(Path.of(pom.getURI()));
+            var rootProject = p.parseProject();
+
+            // Check if we are in Rascal-LSP
+            var classPath = new StringBuilder();
+            if (isRascalLspProject(rootProject)) {
+                classPath.append(';');
+                classPath.append(Path.of(Locations.toUri(pcfg.getBin())));
+            }
+
+            // Check the project dependencies
+            var deps = rootProject.resolveDependencies(Scope.COMPILE, p);
+            for (var d : deps) {
+                if (d.getResolved() != null) {
+                    classPath.append(';');
+                    classPath.append(d.getResolved());
+                }
+            }
+            // strip of the initial separator ';'
+            return classPath.substring(1).toString();
+        } catch (IOException e) {
+            logger.error("Error while parsing path config {}", lang.getPathConfig(), e);
+        } catch (ModelResolutionError e) {
+            logger.error("Error while parsing Maven project {}", e);
+        }
+        */
+        return System.getProperty("java.class.path");
+    }
+
     private CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) throws IOException {
         InputStream in;
         OutputStream out;
@@ -154,11 +199,11 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         if (DEPLOY_MODE) {
             // TODO Figure out Rascal/Rascal-LSP versions/class path
             logger.info("Starting LSP process for {}", lang.getName());
-            logger.debug("{} runs with Rascal {} and Rascal-LSP {}", lang.getName(), "x.xx.xx", "y.yy.yy");
+
+            var classPath = classPath(lang);
+            logger.debug("{} runs with class path {}", lang.getName(), classPath);
             // In deployment, we start a process and connect to it via input/output streams
-            var classPath = System.getProperty("java.class.path");
-            var javaCmd = ProcessHandle.current().info().command().orElse("java");
-            var proc = new ProcessBuilder(javaCmd
+            var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
                 , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
                 , "-Dlog4j2.level=DEBUG"
                 , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
