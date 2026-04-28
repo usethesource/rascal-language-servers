@@ -325,7 +325,7 @@ public abstract class BaseLanguageServer {
             lspDocumentService.connect(this.client);
             lspWorkspaceService.connect(this.client);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
-            logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
+            logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration.getPort());
         }
 
         @Override
