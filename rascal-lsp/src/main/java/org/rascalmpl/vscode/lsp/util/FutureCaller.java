@@ -30,17 +30,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
-public interface Caller<T> {
+public interface FutureCaller<T> {
 
-    default <A, R> CompletableFuture<R> callC(CompletableFuture<T> t, BiFunction<T, A, CompletableFuture<R>> func, A arg) {
+    default <A, R> CompletableFuture<R> callCompose(CompletableFuture<T> t, BiFunction<T, A, CompletableFuture<R>> func, A arg) {
         return t.thenCompose(actualT -> func.apply(actualT, arg));
     }
 
-    default <A, R> CompletableFuture<R> call(CompletableFuture<T> t, BiFunction<T, A, R> func, A arg) {
+    default <A, R> CompletableFuture<R> callApply(CompletableFuture<T> t, BiFunction<T, A, R> func, A arg) {
         return t.thenApply(actualT -> func.apply(actualT, arg));
     }
 
-    default <A> CompletableFuture<Void> call(CompletableFuture<T> t, BiConsumer<T, A> func, A arg) {
+    default <A> CompletableFuture<Void> callAccept(CompletableFuture<T> t, BiConsumer<T, A> func, A arg) {
         return t.thenAccept(actualT -> func.accept(actualT, arg));
     }
 }
