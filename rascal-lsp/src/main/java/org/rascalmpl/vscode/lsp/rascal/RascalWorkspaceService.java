@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -43,13 +44,12 @@ import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
-import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.Nullables;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
 
-    RascalWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-        super(exec, documentService);
+    RascalWorkspaceService(BooleanSupplier isConnected, ExecutorService exec) {
+        super(isConnected, exec);
     }
 
     @Override

@@ -42,7 +42,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.function.BooleanSupplier;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -66,6 +66,7 @@ import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
+import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -131,24 +132,41 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    public static void startLanguageServer(String requestPoolName, String workerPoolName, BiFunction<BooleanSupplier, ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<BooleanSupplier, ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
         if (DEPLOY_MODE) {
-            var docService = docServiceProvider.apply(workerPool);
-            var wsService = workspaceServiceProvider.apply(workerPool, docService);
+            var requestPool = NamedThreadPool.single(requestPoolName);
+            var workerPool = NamedThreadPool.cached(workerPoolName);
+
+            BooleanSupplier isConnected = () -> true;
+            var docService = docServiceProvider.apply(isConnected, workerPool);
+            var wsService = workspaceServiceProvider.apply(isConnected, workerPool);
             docService.pair(wsService);
+            wsService.pair(docService);
             startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
-                    var docService = docServiceProvider.apply(workerPool);
-                    var wsService = workspaceServiceProvider.apply(workerPool, docService);
-                    docService.pair(wsService);
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
+                    var requestPool = NamedThreadPool.single(requestPoolName);
+                    var workerPool = NamedThreadPool.cached(workerPoolName);
+
+                    try (Socket clientSocket = serverSocket.accept()) {
+                        BooleanSupplier isConnected = () -> !clientSocket.isClosed();
+                        var docService = docServiceProvider.apply(isConnected, workerPool);
+                        var wsService = workspaceServiceProvider.apply(isConnected, workerPool);
+                        docService.pair(wsService);
+                        wsService.pair(docService);
+                        startLSP(constructLSPClient(clientSocket, new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
+                    }
+
+                    finally {
+                        requestPool.shutdown();
+                        workerPool.shutdown();
+                    }
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server on port {}", portNumber, e);

@@ -31,6 +31,8 @@ import java.io.StringReader;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BooleanSupplier;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -128,7 +130,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final IBaseLanguageClient client;
     private final RascalLSPMonitor monitor;
 
-    public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, IBaseLanguageClient client, ExecutorService exec) {
+    public InterpretedLanguageContributions(LanguageParameter lang, IBaseTextDocumentService docService, BaseWorkspaceService workspaceService, BooleanSupplier isConnected, IBaseLanguageClient client, ExecutorService exec) {
         this.client = client;
         this.name = lang.getName();
         this.mainModule = lang.getMainModule();
@@ -138,7 +140,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             var pcfg = PathConfig.parse(lang.getPathConfig());
             pcfg = EvaluatorUtil.addLSPSources(pcfg, false);
 
-            monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
+            monitor = new RascalLSPMonitor(isConnected, client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
 
             this.eval = EvaluatorUtil.makeFutureEvaluator(new LSPContext(exec, docService, workspaceService, client),
                 "evaluator for " + lang.getName(), monitor, pcfg, lang.getMainModule());
