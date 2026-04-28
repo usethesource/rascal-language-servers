@@ -106,7 +106,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
-public class RoutingTextDocumentService implements IBaseTextDocumentService, Caller<TextDocumentService>, Router<CompletableFuture<TextDocumentService>> {
+public class RoutingTextDocumentService implements IBaseTextDocumentService, Caller<IBaseTextDocumentService>, Router<CompletableFuture<IBaseTextDocumentService>> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
@@ -125,10 +125,10 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Cal
     }
 
     @Override
-    public CompletableFuture<TextDocumentService> route(ISourceLocation loc) {
+    public CompletableFuture<IBaseTextDocumentService> route(ISourceLocation loc) {
         return availableServer()
             .route(loc)
-            .thenApply(IBaseLanguageServerExtensions::getTextDocumentService);
+            .thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService);
     }
 
     private LanguageClient availableClient() {
@@ -217,8 +217,8 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Cal
 
     @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'executeCommand'");
+        return availableServer().languageByName(languageName)
+            .thenCompose(s -> s.getIBaseTextDocumentService().executeCommand(languageName, command));
     }
 
     @Override
