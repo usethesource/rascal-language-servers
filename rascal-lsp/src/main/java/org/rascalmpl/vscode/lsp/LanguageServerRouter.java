@@ -48,6 +48,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -322,7 +323,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         // If we do not have a parametric server running for this language, start and initialize it.
         synchronized (this) {
-            languageServers.computeIfAbsent(lang.getName(), _n -> {
+            var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable CompletableFuture<IBaseLanguageServerExtensions>>) _n -> {
                 try {
                     return startServer(lang);
                 } catch (IOException e) {
@@ -330,8 +331,10 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                     return null;
                 }
             });
-            for (var ext : lang.getExtensions()) {
-                languagesByExtension.put(ext, lang.getName());
+            if (server != null) {
+                for (var ext : lang.getExtensions()) {
+                    languagesByExtension.put(ext, lang.getName());
+                }
             }
         }
 
