@@ -94,7 +94,6 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
-import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -231,14 +230,18 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         var timestamp = System.currentTimeMillis();
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(), this::reportDiagnostics);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        try {
+            updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp, this::reportDiagnostics);
+        } catch (FileNotFoundException ignored) {
+            throw new ResponseErrorException(unknownFileError(params.getTextDocument(), params));
+        }
     }
 
     @Override
@@ -278,25 +281,10 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         }
     }
 
-    private TextDocumentState updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
-        TextDocumentState file = getFile(doc);
-        logger.trace("New contents for {}", doc);
-        updateFile(file.getLocation());
-        handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
-        return file;
-    }
-
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
-        diagnosticsAsync.thenAccept(diagnostics -> {
-            List<Diagnostic> parseErrors = diagnostics.get().stream()
-                .map(diagnostic -> diagnostic.instantiate(getColumnMaps()))
-                .collect(Collectors.toList());
-
-            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
-            if (facts != null) {
-                facts.reportParseErrors(file.getLocation(), parseErrors);
-            }
-        });
+    private void reportDiagnostics(ISourceLocation file, Versioned<List<Diagnostics.Template>> diagnostics, List<Diagnostic> parseErrors) {
+        if (facts != null) {
+            facts.reportParseErrors(file, parseErrors);
+        }
     }
 
     @Override

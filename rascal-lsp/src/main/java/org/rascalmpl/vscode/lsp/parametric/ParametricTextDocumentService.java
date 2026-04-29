@@ -296,6 +296,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
     }
 
+    private void reportDiagnostics(ISourceLocation file, Versioned<List<Diagnostics.Template>> diagnostics, List<Diagnostic> parseErrors) {
+        facts(file).reportParseErrors(file, diagnostics.version(), parseErrors);
+    }
+
     // LSP interface methods
 
     @Override
@@ -303,7 +307,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(), this::reportDiagnostics);
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
@@ -311,8 +315,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
-        triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
+        try {
+            updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp, this::reportDiagnostics);
+            triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
+        } catch (FileNotFoundException ignored) {
+            throw new ResponseErrorException(unknownFileError(params.getTextDocument(), params));
+        }
     }
 
     @Override
@@ -374,24 +382,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var fileFacts = facts(location);
         fileFacts.invalidateBuilder(location);
         fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
-    }
-
-    private void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
-        logger.trace("New contents for {}", doc);
-        TextDocumentState file = getFile(Locations.toLoc(doc));
-        updateFile(file.getLocation());
-        handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
-    }
-
-    private void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
-        diagnosticsAsync.thenAccept(diagnostics -> {
-            List<Diagnostic> parseErrors = diagnostics.get().stream()
-                .map(diagnostic -> diagnostic.instantiate(getColumnMaps()))
-                .collect(Collectors.toList());
-
-            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
-            facts(file.getLocation()).reportParseErrors(file.getLocation(), diagnostics.version(), parseErrors);
-        });
     }
 
     @Override
@@ -1018,7 +1008,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             return;
         }
         // Update open editor
-        handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
+        handleParsingErrors(state, state.getCurrentDiagnosticsAsync(), this::reportDiagnostics);
         triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
     }
 

@@ -29,25 +29,32 @@ package org.rascalmpl.vscode.lsp;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.function.TriConsumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.KeyFor;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.TextDocumentItem;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -142,4 +149,27 @@ public class TextDocumentStateManager {
     protected static ResponseError unknownFileError(ISourceLocation loc, @Nullable Object data) {
         return new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, data);
     }
+
+    protected static ResponseError unknownFileError(VersionedTextDocumentIdentifier doc, @Nullable Object data) {
+        return unknownFileError(Locations.toLoc(doc), data);
+    }
+
+    protected void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp, TriConsumer<ISourceLocation, Versioned<List<Diagnostics.Template>>, List<Diagnostic>> reportDiagnostics) throws FileNotFoundException {
+        logger.trace("New contents for {}", doc);
+        TextDocumentState file = getFile(Locations.toLoc(doc));
+        updateFile(file.getLocation());
+        handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp), reportDiagnostics);
+    }
+
+    protected void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync, TriConsumer<ISourceLocation, Versioned<List<Diagnostics.Template>>, List<Diagnostic>> reportDiagnostics) {
+        diagnosticsAsync.thenAccept(diagnostics -> {
+            List<Diagnostic> parseErrors = diagnostics.get().stream()
+                .map(diagnostic -> diagnostic.instantiate(getColumnMaps()))
+                .collect(Collectors.toList());
+
+            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
+            reportDiagnostics.accept(file.getLocation(), diagnostics, parseErrors);
+        });
+    }
+
 }
