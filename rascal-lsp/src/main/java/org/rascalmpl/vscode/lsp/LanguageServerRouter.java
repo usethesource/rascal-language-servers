@@ -74,7 +74,6 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
@@ -127,10 +126,6 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         });
     }
 
-    private Optional<String> safeLanguage(ISourceLocation loc) {
-        return safeLanguage(extension(loc));
-    }
-
     private Optional<String> safeLanguage(String extension) {
         if ("".equals(extension)) {
             var languages = new HashSet<>(languagesByExtension.values());
@@ -149,6 +144,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         return URIUtil.getExtension(doc);
     }
 
+    /*
     private static boolean isRascalLspProject(Artifact art) {
         var c = art.getCoordinate();
         if (!c.getGroupId().equals("org.rascalmpl")) {
@@ -157,6 +153,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         var id = c.getArtifactId();
         return "rascal-lsp".equals(id);
     }
+    */
 
     private String classPath(LanguageParameter lang) {
         // TODO Build class path based on POM
@@ -222,16 +219,17 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         } else {
             // In development, we expect the server to have been launched on a pre-agreed port
             int port = getNextPort();
+            @SuppressWarnings("java:S2095") // no need to close the socket here - we close it on server shutdown
             Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
             socket.setTcpNoDelay(true);
             in = socket.getInputStream();
             out = socket.getOutputStream();
             onExit = () -> {
                 try {
-                    logger.debug("Closing socket for language {} on port", lang.getName(), port);
+                    logger.debug("Closing socket for language {} on port {}", lang.getName(), port);
                     socket.close();
                 } catch (IOException e) {
-                    logger.error("Closing socket failed", lang.getName(), port);
+                    logger.error("Closing socket for {} on port {} failed", lang.getName(), port);
                 }
             };
         }
@@ -299,10 +297,12 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         return params;
     }
 
+    @Override
     public RoutingTextDocumentService getTextDocumentService() {
         return (RoutingTextDocumentService) super.getTextDocumentService();
     }
 
+    @Override
     public RoutingWorkspaceService getWorkspaceService() {
         return (RoutingWorkspaceService) super.getWorkspaceService();
     }

@@ -42,6 +42,7 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
 
     private static final Logger logger = LogManager.getLogger(RoutingLanguageServer.class);
 
+    @SuppressWarnings("java:S2189") // endless loop is fine for the development server
     public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, int portNumber) {
         logger.info("Starting Rascal Language Server Router: {}", getVersion());
         printClassPath();

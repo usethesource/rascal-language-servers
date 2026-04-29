@@ -114,6 +114,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     private @MonotonicNonNull BaseWorkspaceService wsService;
     private @MonotonicNonNull LanguageServerRouter server;
 
+    @SuppressWarnings("unused")
     private final ExecutorService exec;
 
     public RoutingTextDocumentService(ExecutorService exec) {
@@ -131,6 +132,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
             .thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService);
     }
 
+    @SuppressWarnings("unused")
     private LanguageClient availableClient() {
         if (client == null) {
             throw new IllegalStateException("Client not connected yet.");

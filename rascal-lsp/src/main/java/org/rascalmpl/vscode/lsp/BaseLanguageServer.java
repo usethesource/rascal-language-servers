@@ -307,7 +307,7 @@ public abstract class BaseLanguageServer {
 
         @Override
         public IBaseTextDocumentService getIBaseTextDocumentService() {
-            return lspDocumentService;
+            return getTextDocumentService();
         }
 
         @Override
