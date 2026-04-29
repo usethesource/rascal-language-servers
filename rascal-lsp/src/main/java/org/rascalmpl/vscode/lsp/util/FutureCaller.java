@@ -24,13 +24,27 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.util;
 
-import java.util.concurrent.ExecutorService;
-import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
-public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(ExecutorService exec) {
-        super(exec);
+/**
+ * A helper interface to support calling functions on values in futures.
+ * @param <T> The type of the value in the futures.
+ */
+public interface FutureCaller<T> {
+
+    default <A, R> CompletableFuture<R> callCompose(CompletableFuture<T> t, BiFunction<T, A, CompletableFuture<R>> func, A arg) {
+        return t.thenCompose(actualT -> func.apply(actualT, arg));
+    }
+
+    default <A, R> CompletableFuture<R> callApply(CompletableFuture<T> t, BiFunction<T, A, R> func, A arg) {
+        return t.thenApply(actualT -> func.apply(actualT, arg));
+    }
+
+    default <A> CompletableFuture<Void> callAccept(CompletableFuture<T> t, BiConsumer<T, A> func, A arg) {
+        return t.thenAccept(actualT -> func.accept(actualT, arg));
     }
 }

@@ -30,6 +30,7 @@ import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
+import org.eclipse.lsp4j.jsonrpc.services.JsonDelegate;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -63,4 +64,7 @@ public interface IBaseLanguageServerExtensions extends LanguageServer, IRascalFi
 
     @JsonNotification("rascal/logLevel")
     void setMinimumLogLevel(String level);
+
+    @JsonDelegate
+    IBaseTextDocumentService getIBaseTextDocumentService();
 }

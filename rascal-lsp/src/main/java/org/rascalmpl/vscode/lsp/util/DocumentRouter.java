@@ -24,13 +24,38 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.util;
 
-import java.util.concurrent.ExecutorService;
-import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.eclipse.lsp4j.TextDocumentItem;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(ExecutorService exec) {
-        super(exec);
+import io.usethesource.vallang.ISourceLocation;
+
+/**
+ * A router of document-like inputs to outputs of {{@link T}}.
+ * @param <T> The type of the mapped value.
+ */
+public interface DocumentRouter<T> {
+
+    /**
+     * Map an {{@link ISourceLocation}} to a {{@link T}}.
+     * @param loc The input location.
+     * @return The mapped value.
+     */
+    T route(ISourceLocation loc);
+
+    default T route(TextDocumentItem doc) {
+        return route(Locations.toLoc(doc.getUri()));
     }
+
+    default T route(VersionedTextDocumentIdentifier id) {
+        return route(Locations.toLoc(id.getUri()));
+    }
+
+    default T route(TextDocumentIdentifier id) {
+        return route(Locations.toLoc(id.getUri()));
+    }
+
 }

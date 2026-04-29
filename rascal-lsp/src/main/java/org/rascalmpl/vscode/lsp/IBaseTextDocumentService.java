@@ -36,6 +36,7 @@ import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.util.locations.ColumnMaps;
@@ -60,6 +61,7 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void projectAdded(String name, ISourceLocation projectRoot);
     void projectRemoved(String name, ISourceLocation projectRoot);
 
+    @JsonRequest("executeRascalCommand")
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
     ColumnMaps getColumnMaps();
