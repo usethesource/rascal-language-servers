@@ -84,11 +84,15 @@ import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 
+/**
+ * A language server implementation that routes LSP requests to dedicated remote language servers.
+ */
 public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServer implements IBaseLanguageClient, DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> {
 
     private static final Logger logger = LogManager.getLogger(LanguageServerRouter.class);
 
     private final Map<String, String> languagesByExtension;
+    // TODO To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers;
     private final Collection<Process> delegateProcesses = new CopyOnWriteArrayList<>();
 

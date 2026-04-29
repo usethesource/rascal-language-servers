@@ -29,6 +29,9 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import java.util.concurrent.ExecutorService;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 
+/**
+ * A language-parametric workspace service that routes incoming requests to remote dedicated language servers.
+ */
 public class RoutingWorkspaceService extends BaseWorkspaceService {
 
     public RoutingWorkspaceService(ExecutorService exec) {

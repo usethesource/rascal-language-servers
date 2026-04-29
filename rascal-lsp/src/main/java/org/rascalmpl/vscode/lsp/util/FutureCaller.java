@@ -30,6 +30,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
+/**
+ * A helper interface to support calling functions on values in futures.
+ * @param <T> The type of the value in the futures.
+ */
 public interface FutureCaller<T> {
 
     default <A, R> CompletableFuture<R> callCompose(CompletableFuture<T> t, BiFunction<T, A, CompletableFuture<R>> func, A arg) {

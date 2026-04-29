@@ -36,6 +36,10 @@ import org.rascalmpl.vscode.lsp.LanguageServerRouter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
+/**
+ * A language-parametric server that assigns a dedicated server to each language.
+ * This server routes LSP requests to the appropriate language server.
+ */
 public class RoutingLanguageServer extends ParametricLanguageServer {
 
     private static final Logger logger = LogManager.getLogger(RoutingLanguageServer.class);

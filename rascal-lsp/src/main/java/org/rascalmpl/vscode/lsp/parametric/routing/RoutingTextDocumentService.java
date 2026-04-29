@@ -106,6 +106,9 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
+/**
+ * A language-parametric text document service that routes incoming requests to remote dedicated language servers.
+ */
 public class RoutingTextDocumentService implements IBaseTextDocumentService, FutureCaller<IBaseTextDocumentService>, DocumentRouter<CompletableFuture<IBaseTextDocumentService>> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
