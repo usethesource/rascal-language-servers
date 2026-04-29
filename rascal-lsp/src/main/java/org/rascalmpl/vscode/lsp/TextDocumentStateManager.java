@@ -77,10 +77,14 @@ public class TextDocumentStateManager {
 
     public String getContents(@UnknownInitialization TextDocumentStateManager this, ISourceLocation file) {
         file = file.top();
-        try {
-            return getFile(file).getCurrentContent().get();
-        } catch (FileNotFoundException ignored) {}
-
+        var ideState = files.get(file);
+        if (ideState != null) {
+            return ideState.getCurrentContent().get();
+        }
+        if (!URIResolverRegistry.getInstance().isFile(file)) {
+            logger.error("Trying to get the contents of a directory: {}", file);
+            return "";
+        }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
             return IOUtils.toString(src);
         }
