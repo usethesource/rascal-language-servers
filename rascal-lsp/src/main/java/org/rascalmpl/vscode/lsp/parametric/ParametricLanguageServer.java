@@ -38,7 +38,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
     protected static void startParametric(ServerArgs args) {
         startLanguageServer(NamedThreadPool.single("parametric-lsp")
             , NamedThreadPool.cached("parametric")
-            , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage())
+            , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage(), args.isExitWhenEmpty())
             , ParametricWorkspaceService::new
             , args.getPort()
         );
@@ -51,6 +51,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
     public static class ServerArgs {
         private int port = 9999;
         private @Nullable LanguageParameter dedicatedLanguage = null;
+        private boolean exitWhenEmpty = false;
 
         public int getPort() {
             return port;
@@ -68,6 +69,14 @@ public class ParametricLanguageServer extends BaseLanguageServer {
             this.dedicatedLanguage = dedicatedLanguage;
         }
 
+        public boolean isExitWhenEmpty() {
+            return exitWhenEmpty;
+        }
+
+        public void setExitWhenEmpty(boolean exitWhenEmpty) {
+            this.exitWhenEmpty = exitWhenEmpty;
+        }
+
     }
 
     protected static ServerArgs parseArgs(String[] args) {
@@ -76,6 +85,9 @@ public class ParametricLanguageServer extends BaseLanguageServer {
             switch (args[i]) {
                 case "--port":
                     serverArgs.setPort(Integer.parseInt(args[++i]));
+                    break;
+                case "--exitWhenEmpty":
+                    serverArgs.setExitWhenEmpty(true);
                     break;
                 default:
                     if (serverArgs.getDedicatedLanguage() == null) {

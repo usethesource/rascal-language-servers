@@ -185,6 +185,8 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
 
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
+    private final boolean exitWhenEmpty;
+
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
@@ -209,13 +211,15 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             tf.sourceLocationType(), "to");
 
     @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
-    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
+    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage, boolean exitWhenEmpty) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
 
         this.exec = exec;
         this.files = new ConcurrentHashMap<>();
         this.columns = new ColumnMaps(this::getContents);
+        this.exitWhenEmpty = exitWhenEmpty;
+
         if (dedicatedLanguage == null) {
             this.dedicatedLanguageName = "";
             this.dedicatedLanguage = null;
@@ -1091,6 +1095,12 @@ public class ParametricTextDocumentService implements IBaseTextDocumentService, 
             }
             facts.remove(lang.getName());
             contributions.remove(lang.getName());
+        }
+
+        if (exitWhenEmpty && contributions.isEmpty()) {
+            logger.debug("Shutting down; no more registered languages");
+            shutdown();
+            System.exit(0);
         }
 
         availableCapabilities().update(buildLanguageParams());

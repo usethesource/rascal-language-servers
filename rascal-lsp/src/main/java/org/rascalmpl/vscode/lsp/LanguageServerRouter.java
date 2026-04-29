@@ -211,6 +211,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             , "-Xmx2048M"
             , "-cp", classPath
             , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
+            , "--exitWhenEmpty"
             , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"")
         )
         .redirectError(Redirect.INHERIT) // Show logs in current process
