@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
-import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -34,7 +33,6 @@ import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.vscode.lsp.LanguageServerRouter;
-import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
@@ -63,13 +61,14 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
     }
 
     public static void main(String[] args) {
-        if (args.length > 0) {
-            var dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
-            start(DEFAULT_PORT_NUMBER, dedicatedLanguage);
+        var serverArgs = parseArgs(args);
+        if (serverArgs.getDedicatedLanguage() != null) {
+            // If we get a dedicated language argument, we just start a single parametric server
+            startParametric(serverArgs);
         } else {
             startLanguageServer(NamedThreadPool.single("parametric-lsp-router-in")
                 , NamedThreadPool.cached("parametric-router")
-                , DEFAULT_PORT_NUMBER
+                , serverArgs.getPort()
             );
         }
     }

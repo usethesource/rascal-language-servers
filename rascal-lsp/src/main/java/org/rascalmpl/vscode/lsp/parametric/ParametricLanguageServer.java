@@ -35,32 +35,55 @@ import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 public class ParametricLanguageServer extends BaseLanguageServer {
 
-    protected static final int DEFAULT_PORT_NUMBER = 9999;
-
-    protected static void start(int portNumber, @Nullable LanguageParameter dedicatedLanguage) {
+    protected static void startParametric(ServerArgs args) {
         startLanguageServer(NamedThreadPool.single("parametric-lsp")
             , NamedThreadPool.cached("parametric")
-            , threadPool -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
+            , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage())
             , ParametricWorkspaceService::new
-            , portNumber
+            , args.getPort()
         );
     }
 
     public static void main(String[] args) {
-        int portNumber = DEFAULT_PORT_NUMBER;
-        LanguageParameter dedicatedLanguage = null;
+        startParametric(parseArgs(args));
+    }
 
+    public static class ServerArgs {
+        private int port = 9999;
+        private @Nullable LanguageParameter dedicatedLanguage = null;
+
+        public int getPort() {
+            return port;
+        }
+
+        public void setPort(int port) {
+            this.port = port;
+        }
+
+        public @Nullable LanguageParameter getDedicatedLanguage() {
+            return dedicatedLanguage;
+        }
+
+        public void setDedicatedLanguage(LanguageParameter dedicatedLanguage) {
+            this.dedicatedLanguage = dedicatedLanguage;
+        }
+
+    }
+
+    protected static ServerArgs parseArgs(String[] args) {
+        var serverArgs = new ServerArgs();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port":
-                    portNumber = Integer.parseInt(args[++i]);
+                    serverArgs.setPort(Integer.parseInt(args[++i]));
                     break;
                 default:
-                    dedicatedLanguage = new GsonBuilder().create().fromJson(args[i], LanguageParameter.class);
+                    if (serverArgs.getDedicatedLanguage() == null) {
+                        serverArgs.setDedicatedLanguage(new GsonBuilder().create().fromJson(args[i], LanguageParameter.class));
+                    }
                     break;
             }
         }
-
-        start(portNumber, dedicatedLanguage);
+        return serverArgs;
     }
 }
