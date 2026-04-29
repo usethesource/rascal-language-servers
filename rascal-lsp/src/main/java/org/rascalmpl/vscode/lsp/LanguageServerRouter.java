@@ -210,7 +210,9 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             , "-Xmx2048M"
             , "-cp", classPath
             , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-        ).redirectError(Redirect.INHERIT).start();
+        )
+        .redirectError(Redirect.INHERIT) // Show logs in current process
+        .start();
 
         logger.debug("Launched language server on process {}", proc.pid());
         return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
