@@ -46,9 +46,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -159,7 +159,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     }
     */
 
-    private String classPath(LanguageParameter lang) {
+    private static String classPath(LanguageParameter lang) {
         // TODO Build class path based on POM
         /*
         try {
@@ -194,84 +194,82 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         return System.getProperty("java.class.path");
     }
 
+    private static Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) throws IOException {
+        // TODO Figure out Rascal/Rascal-LSP versions/class path
+        logger.info("Starting LSP process for {}", lang.getName());
+
+        var classPath = classPath(lang);
+        logger.debug("{} runs with class path {}", lang.getName(), classPath);
+        // In deployment, we start a process and connect to it via input/output streams
+        var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
+            , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
+            , "-Dlog4j2.level=DEBUG"
+            , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
+            , "-Drascal.lsp.deploy=true"
+            , "-Drascal.compilerClasspath=" + classPath
+            , "-Xmx2048M"
+            , "-cp", classPath
+            , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
+        ).redirectError(Redirect.INHERIT).start();
+
+        logger.debug("Launched language server on process {}", proc.pid());
+        return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
+    }
+
+    private Triple<InputStream, OutputStream, Runnable> connectToServer(LanguageParameter lang) throws IOException {
+        // In development, we expect the server to have been launched on a pre-agreed port
+        int port = getNextPort();
+        @SuppressWarnings("java:S2095") // no need to close the socket here - we close it on server shutdown
+        Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
+        socket.setTcpNoDelay(true);
+        return Triple.of(socket.getInputStream(), socket.getOutputStream(), () -> {
+            try {
+                logger.debug("Closing socket for language {} on port {}", lang.getName(), port);
+                socket.close();
+            } catch (IOException e) {
+                logger.error("Closing socket for {} on port {} failed", lang.getName(), port);
+            }
+        });
+    }
+
     private CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) throws IOException {
-        InputStream in;
-        OutputStream out;
-        Runnable onExit;
-        if (DEPLOY_MODE) {
-            // TODO Figure out Rascal/Rascal-LSP versions/class path
-            logger.info("Starting LSP process for {}", lang.getName());
+        var serverParams = DEPLOY_MODE
+            ? startServerProcess(lang)
+            : connectToServer(lang)
+            ;
 
-            var classPath = classPath(lang);
-            logger.debug("{} runs with class path {}", lang.getName(), classPath);
-            // In deployment, we start a process and connect to it via input/output streams
-            var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
-                , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
-                , "-Dlog4j2.level=DEBUG"
-                , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
-                , "-Drascal.lsp.deploy=true"
-                , "-Drascal.compilerClasspath=" + classPath
-                , "-Xmx2048M"
-                , "-cp", classPath
-                , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-            ).redirectError(Redirect.INHERIT).start();
-
-            logger.debug("Launched language server on process {}", proc.pid());
-            in = proc.getInputStream();
-            out = proc.getOutputStream();
-            onExit = () -> {};
-        } else {
-            // In development, we expect the server to have been launched on a pre-agreed port
-            int port = getNextPort();
-            @SuppressWarnings("java:S2095") // no need to close the socket here - we close it on server shutdown
-            Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
-            socket.setTcpNoDelay(true);
-            in = socket.getInputStream();
-            out = socket.getOutputStream();
-            onExit = () -> {
-                try {
-                    logger.debug("Closing socket for language {} on port {}", lang.getName(), port);
-                    socket.close();
-                } catch (IOException e) {
-                    logger.error("Closing socket for {} on port {} failed", lang.getName(), port);
-                }
-            };
-        }
         var serverLauncher = new Launcher.Builder<IBaseLanguageServerExtensions>()
             .setRemoteInterface(IBaseLanguageServerExtensions.class)
             .setLocalService(this)
-            .setInput(in)
-            .setOutput(out)
+            .setInput(serverParams.getLeft())
+            .setOutput(serverParams.getMiddle())
             .configureGson(GsonUtils.complexAsJsonObject()) // Only needed if we want to communicate IValues
             .setExecutorService(NamedThreadPool.single("parametric-lsp-router-out"))
             .create();
 
         var runner = serverLauncher.startListening();
-        scheduleShutdown(runner, lang, onExit);
         var server = serverLauncher.getRemoteProxy();
-        var delegateServerCaps = server.initialize(delegateInitializationParams());
 
-        // When initialization is done, we can use the server
-        return delegateServerCaps.thenApply(_c -> server);
-    }
-
-    private void scheduleShutdown(Future<Void> server, LanguageParameter lang, Runnable onExit) {
         getExecutor().execute(() -> {
             try {
-                server.get();
+                runner.get();
                 logger.info("Language server for {} terminated gracefully", lang.getName());
             } catch (CancellationException | ExecutionException e) {
-                logger.error("Language server for {} crashed", lang.getName(), e);
-                // TODO Remove from the map? Attempt a restart with the same parameters?
+                logger.error("Language server for {} terminated", lang.getName(), e);
+                languageServers.remove(lang.getName(), server);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
             try {
-                onExit.run();
+                serverParams.getRight().run();
             } catch (Throwable e) {
                 logger.error("Unexpected error while cleaning up connection to language server for {}", lang.getName(), e);
             }
         });
+
+        // When initialization is done, we can use the server
+        return server.initialize(delegateInitializationParams())
+            .thenApply(_c -> server);
     }
 
     private int getNextPort() {
