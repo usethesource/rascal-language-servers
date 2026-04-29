@@ -512,6 +512,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         return getFile(Locations.toLoc(doc));
     }
 
+    @Override
     protected TextDocumentState getFile(@UnknownInitialization RascalTextDocumentService this, ISourceLocation loc) {
         try {
             return super.getFile(loc);

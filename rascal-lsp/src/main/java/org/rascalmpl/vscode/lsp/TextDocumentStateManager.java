@@ -72,7 +72,7 @@ public class TextDocumentStateManager {
     private final ColumnMaps columns;
 
     public TextDocumentStateManager() {
-        this.columns = new ColumnMaps(l -> getContents(l));
+        this.columns = new ColumnMaps(this::getContents);
     }
 
     public String getContents(@UnknownInitialization TextDocumentStateManager this, ISourceLocation file) {
@@ -114,7 +114,7 @@ public class TextDocumentStateManager {
         loc = loc.top();
         TextDocumentState file = files.get(loc);
         if (file == null) {
-            throw new FileNotFoundException(String.format("Unknown file: {}", loc));
+            throw new FileNotFoundException(String.format("Unknown file: %s", loc));
         }
         return file;
     }
