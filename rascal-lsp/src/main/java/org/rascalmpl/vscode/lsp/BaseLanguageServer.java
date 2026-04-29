@@ -137,8 +137,6 @@ public abstract class BaseLanguageServer {
         if (DEPLOY_MODE) {
             var docService = docServiceProvider.apply(workerPool);
             var wsService = workspaceServiceProvider.apply(workerPool);
-            docService.pair(wsService);
-            wsService.pair(docService);
             startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
         }
         else {
@@ -147,8 +145,6 @@ public abstract class BaseLanguageServer {
                 while (true) {
                     var docService = docServiceProvider.apply(workerPool);
                     var wsService = workspaceServiceProvider.apply(workerPool);
-                    docService.pair(wsService);
-                    wsService.pair(docService);
                     startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
                 }
             } catch (IOException e) {
