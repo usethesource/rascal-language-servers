@@ -41,7 +41,6 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.function.TriConsumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.KeyFor;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
@@ -72,11 +71,12 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
     private final Map<ISourceLocation, TextDocumentState> files = new ConcurrentHashMap<>();
     private final ColumnMaps columns;
 
+    @SuppressWarnings({"methodref.receiver.bound"}) // this::getContents
     public TextDocumentStateManager() {
         this.columns = new ColumnMaps(this::getContents);
     }
 
-    public String getContents(@UnknownInitialization TextDocumentStateManager this, ISourceLocation file) {
+    public String getContents(ISourceLocation file) {
         file = file.top();
         var ideState = files.get(file);
         if (ideState != null) {
