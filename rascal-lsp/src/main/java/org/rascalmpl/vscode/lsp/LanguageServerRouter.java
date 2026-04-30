@@ -36,6 +36,7 @@ import java.lang.ProcessBuilder.Redirect;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -74,12 +75,18 @@ import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.ideservices.GsonUtils;
+import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.maven.Artifact;
+import org.rascalmpl.util.maven.MavenParser;
+import org.rascalmpl.util.maven.ModelResolutionError;
+import org.rascalmpl.util.maven.Scope;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.ISourceLocation;
@@ -149,7 +156,6 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         return URIUtil.getExtension(doc);
     }
 
-    /*
     private static boolean isRascalLspProject(Artifact art) {
         var c = art.getCoordinate();
         if (!c.getGroupId().equals("org.rascalmpl")) {
@@ -158,11 +164,8 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         var id = c.getArtifactId();
         return "rascal-lsp".equals(id);
     }
-    */
 
     private static String classPath(LanguageParameter lang) {
-        // TODO Build class path based on POM
-        /*
         try {
             var pcfg = PathConfig.parse(lang.getPathConfig());
             var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
@@ -191,7 +194,9 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         } catch (ModelResolutionError e) {
             logger.error("Error while parsing Maven project {}", e);
         }
-        */
+
+        // If all else fails, just use the same class path that we have
+        logger.warn("Could not compute class path for {}; falling back to class path of routing server", lang.getName());
         return System.getProperty("java.class.path");
     }
 
