@@ -54,7 +54,6 @@ import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
-import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -113,10 +112,10 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
+import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
 import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
-import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
@@ -228,7 +227,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         var timestamp = System.currentTimeMillis();
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(), this::reportDiagnostics);
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
     }
 
     @Override
@@ -236,7 +235,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
         try {
-            updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp, this::reportDiagnostics);
+            updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
         } catch (FileNotFoundException ignored) {
             throw new ResponseErrorException(unknownFileError(params.getTextDocument(), params));
         }
@@ -277,10 +276,9 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         }
     }
 
-    private void reportDiagnostics(ISourceLocation file, Versioned<List<Diagnostics.Template>> diagnostics, List<Diagnostic> parseErrors) {
-        if (facts != null) {
-            facts.reportParseErrors(file, parseErrors);
-        }
+    @Override
+    protected DiagnosticsReporter getDiagnosticsReporter(ISourceLocation ignored) {
+        return facts;
     }
 
     @Override

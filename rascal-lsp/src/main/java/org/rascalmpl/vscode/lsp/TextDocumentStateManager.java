@@ -38,12 +38,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.function.TriConsumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.KeyFor;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -53,6 +51,7 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -65,7 +64,7 @@ import io.usethesource.vallang.ISourceLocation;
  * This class maintains a set of open files, their state, and information derived from their contents, like column maps.
  * This functionality is shared by implementations of {@link IBaseTextDocumentService}.
  */
-public class TextDocumentStateManager implements ITextDocumentStateManager {
+public abstract class TextDocumentStateManager implements ITextDocumentStateManager {
 
     private static final Logger logger = LogManager.getLogger(TextDocumentStateManager.class);
 
@@ -189,22 +188,25 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
         return files.keySet();
     }
 
-    protected void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp, TriConsumer<ISourceLocation, Versioned<List<Diagnostics.Template>>, List<Diagnostic>> reportDiagnostics) throws FileNotFoundException {
+    protected void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) throws FileNotFoundException {
         logger.trace("New contents for {}", doc);
         TextDocumentState file = getFile(Locations.toLoc(doc));
         invalidateColumnMaps(file.getLocation());
-        handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp), reportDiagnostics);
+        handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
     }
 
-    protected void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync, TriConsumer<ISourceLocation, Versioned<List<Diagnostics.Template>>, List<Diagnostic>> reportDiagnostics) {
+    protected void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
         diagnosticsAsync.thenAccept(diagnostics -> {
-            List<Diagnostic> parseErrors = diagnostics.get().stream()
+            var parseErrors = diagnostics.map(d -> d.stream()
                 .map(diagnostic -> diagnostic.instantiate(getColumnMaps()))
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
 
-            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, file.getLocation());
-            reportDiagnostics.accept(file.getLocation(), diagnostics, parseErrors);
+            var loc = file.getLocation();
+            logger.trace("Finished parsing tree, reporting new parse errors: {} for: {}", parseErrors, loc);
+            getDiagnosticsReporter(loc).reportParseErrors(loc, parseErrors);
         });
     }
+
+    abstract protected DiagnosticsReporter getDiagnosticsReporter(ISourceLocation file);
 
 }

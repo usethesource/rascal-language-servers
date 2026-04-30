@@ -71,7 +71,6 @@ import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
-import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -135,6 +134,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
+import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
@@ -146,7 +146,6 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup
 import org.rascalmpl.vscode.lsp.rascal.conversion.CallHierarchy;
 import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Completion;
-import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
@@ -294,8 +293,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
     }
 
-    private void reportDiagnostics(ISourceLocation file, Versioned<List<Diagnostics.Template>> diagnostics, List<Diagnostic> parseErrors) {
-        facts(file).reportParseErrors(file, diagnostics.version(), parseErrors);
+    @Override
+    protected DiagnosticsReporter getDiagnosticsReporter(ISourceLocation file) {
+        return facts(file);
     }
 
     // LSP interface methods
@@ -305,7 +305,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
-        handleParsingErrors(file, file.getCurrentDiagnosticsAsync(), this::reportDiagnostics);
+        handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
@@ -314,7 +314,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
         try {
-            updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp, this::reportDiagnostics);
+            updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
             triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
         } catch (FileNotFoundException ignored) {
             throw new ResponseErrorException(unknownFileError(params.getTextDocument(), params));
@@ -995,7 +995,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             return;
         }
         // Update open editor
-        handleParsingErrors(state, state.getCurrentDiagnosticsAsync(), this::reportDiagnostics);
+        handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
         triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
     }
 
