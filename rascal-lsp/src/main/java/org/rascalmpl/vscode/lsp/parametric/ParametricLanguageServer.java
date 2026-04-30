@@ -79,6 +79,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
 
     }
 
+    @SuppressWarnings("java:S127") // skipping next argument from loop
     protected static ServerArgs parseArgs(String[] args) {
         var serverArgs = new ServerArgs();
         for (int i = 0; i < args.length; i++) {

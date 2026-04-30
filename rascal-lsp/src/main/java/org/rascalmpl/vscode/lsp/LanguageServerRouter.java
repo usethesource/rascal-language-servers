@@ -267,14 +267,14 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             }
             try {
                 serverParams.getRight().run();
-            } catch (Throwable e) {
+            } catch (Exception e) {
                 logger.error("Unexpected error while cleaning up connection to language server for {}", lang.getName(), e);
             }
         });
 
         // When initialization is done, we can use the server
         return server.initialize(delegateInitializationParams())
-            .thenApply(_c -> server);
+            .thenApply(ignored -> server); // ignore initialized static server capabilities, since ours are the same
     }
 
     private int getNextPort() {

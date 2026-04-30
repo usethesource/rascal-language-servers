@@ -259,9 +259,9 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
             .collect(Collectors.toMap(f -> LanguageServerRouter.extension(Locations.toLoc(f.getUri())), List::of, Lists::union));
 
         for (var e : filesByExt.entrySet()) {
-            availableServer().route(e.getKey()).thenAccept(server -> {
-                server.getWorkspaceService().didCreateFiles(new CreateFilesParams(e.getValue()));
-            });
+            availableServer().route(e.getKey()).thenAccept(s ->
+                s.getWorkspaceService().didCreateFiles(new CreateFilesParams(e.getValue()))
+            );
         }
     }
 
