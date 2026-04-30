@@ -60,9 +60,10 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
- * Management of {{@link TextDocumentState}} associated with locations.
+ * Manages open files and their contents.
  *
- *
+ * This class maintains a set of open files, their state, and information derived from their contents, like column maps.
+ * This functionality is shared by implementations of {@link IBaseTextDocumentService}.
  */
 public class TextDocumentStateManager implements ITextDocumentStateManager {
 
