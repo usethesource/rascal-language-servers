@@ -76,6 +76,14 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
         this.columns = new ColumnMaps(this::getContents);
     }
 
+    protected static ResponseError unknownFileError(ISourceLocation loc, @Nullable Object data) {
+        return new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, data);
+    }
+
+    protected static ResponseError unknownFileError(VersionedTextDocumentIdentifier doc, @Nullable Object data) {
+        return unknownFileError(Locations.toLoc(doc), data);
+    }
+
     public String getContents(ISourceLocation file) {
         file = file.top();
         var ideState = files.get(file);
@@ -131,11 +139,12 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
     }
 
     /**
-     * Get open file state. If the file is not open, throws an (unchecked) {@link ResponseErrorException}.
+     * Get open file state.
      *
      * Intentionally protected function, only to be used from LSP endpoints. Users outside of the LSP context should call {@link TextDocumentStateManager#getEditorState}.
      * @param loc The location of the file.
      * @return The current state in the editor.
+     * @throws ResponseErrorException If the file is not open.
      */
     protected TextDocumentState getFile(ISourceLocation loc) {
         try {
@@ -150,16 +159,23 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
             l -> new TextDocumentState(parser, l, doc.getVersion(), doc.getText(), timestamp, exec));
     }
 
-    protected void updateFile(ISourceLocation loc) {
+    private void invalidateColumnMaps(ISourceLocation loc) {
         columns.clear(loc.top());
     }
 
-    protected boolean removeFile(ISourceLocation loc) {
-        updateFile(loc);
-        return files.remove(loc.top()) != null;
+    /**
+     * Close a file/editor.
+     * @param loc The location of the file.
+     * @throws ResponseErrorException If the file was not open.
+     */
+    protected void closeFile(ISourceLocation loc) {
+        invalidateColumnMaps(loc);
+        if (files.remove(loc.top()) == null) {
+            throw new ResponseErrorException(unknownFileError(loc, loc));
+        }
     }
 
-    protected @Nullable TextDocumentState updateFileState(ISourceLocation f, BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser) {
+    protected @Nullable TextDocumentState changeParser(ISourceLocation f, BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser) {
         f = f.top();
         logger.trace("Updating state: {}", f);
 
@@ -176,18 +192,10 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
         return files.keySet();
     }
 
-    protected static ResponseError unknownFileError(ISourceLocation loc, @Nullable Object data) {
-        return new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, data);
-    }
-
-    protected static ResponseError unknownFileError(VersionedTextDocumentIdentifier doc, @Nullable Object data) {
-        return unknownFileError(Locations.toLoc(doc), data);
-    }
-
     protected void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp, TriConsumer<ISourceLocation, Versioned<List<Diagnostics.Template>>, List<Diagnostic>> reportDiagnostics) throws FileNotFoundException {
         logger.trace("New contents for {}", doc);
         TextDocumentState file = getFile(Locations.toLoc(doc));
-        updateFile(file.getLocation());
+        invalidateColumnMaps(file.getLocation());
         handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp), reportDiagnostics);
     }
 

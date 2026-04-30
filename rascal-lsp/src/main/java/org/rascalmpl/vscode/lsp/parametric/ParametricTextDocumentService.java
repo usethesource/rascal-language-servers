@@ -333,9 +333,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void didClose(DidCloseTextDocumentParams params) {
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
-        if (!removeFile(loc)) {
-            throw new ResponseErrorException(unknownFileError(loc, params));
-        }
+        closeFile(loc);
         facts(loc).close(loc);
         // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
         // we mimic a delete event to ensure all diagnostics are cleared.
@@ -962,7 +960,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var extensions = Arrays.asList(lang.getExtensions());
         for (var f : getOpenFiles()) {
             if (extensions.contains(extension(f))) {
-                updateFileState(lang, f);
+                logger.trace("File of language {} - updating state: {}", lang.getName(), f);
+                refreshFileState(f);
             }
         }
     }
@@ -986,12 +985,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }).collect(Collectors.toSet());
     }
 
-    private void updateFileState(LanguageParameter lang, ISourceLocation f) {
+    private void refreshFileState(ISourceLocation f) {
         f = f.top();
-        logger.trace("File of language {} - updating state: {}", lang.getName(), f);
         // Since we cannot know what happened to this file before we were called, we need to be careful about races.
         // It might have been closed in the meantime, so we compute the new value if the key still exists, based on the current value.
-        var state = updateFileState(f, contributions(f)::parsing);
+        var state = changeParser(f, contributions(f)::parsing);
         if (state == null) {
             logger.debug("Updating the parser of {} failed, since it was closed.", f);
             return;

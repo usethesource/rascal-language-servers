@@ -246,9 +246,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public void didClose(DidCloseTextDocumentParams params) {
         logger.debug("Close: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
-        if (!removeFile(loc)) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.InternalError, "Unknown file: " + loc, params));
-        }
+        closeFile(loc);
         if (facts != null) {
             facts.close(loc);
         }
