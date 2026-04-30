@@ -207,6 +207,6 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
         });
     }
 
-    abstract protected DiagnosticsReporter getDiagnosticsReporter(ISourceLocation file);
+    protected abstract DiagnosticsReporter getDiagnosticsReporter(ISourceLocation file);
 
 }
