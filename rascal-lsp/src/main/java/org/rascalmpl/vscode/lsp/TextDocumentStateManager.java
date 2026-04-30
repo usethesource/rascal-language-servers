@@ -72,7 +72,7 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
     private final ColumnMaps columns;
 
     @SuppressWarnings({"methodref.receiver.bound"}) // this::getContents
-    public TextDocumentStateManager() {
+    protected TextDocumentStateManager() {
         this.columns = new ColumnMaps(this::getContents);
     }
 
@@ -188,7 +188,7 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
         return files.keySet();
     }
 
-    protected void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) throws FileNotFoundException {
+    protected void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
         logger.trace("New contents for {}", doc);
         TextDocumentState file = getFile(Locations.toLoc(doc));
         invalidateColumnMaps(file.getLocation());

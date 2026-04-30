@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
-import java.io.FileNotFoundException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -234,11 +233,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        try {
-            updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
-        } catch (FileNotFoundException ignored) {
-            throw new ResponseErrorException(unknownFileError(params.getTextDocument(), params));
-        }
+        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
     }
 
     @Override

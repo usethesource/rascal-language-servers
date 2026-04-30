@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
-import java.io.FileNotFoundException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -313,12 +312,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        try {
-            updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
-            triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
-        } catch (FileNotFoundException ignored) {
-            throw new ResponseErrorException(unknownFileError(params.getTextDocument(), params));
-        }
+        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
     @Override

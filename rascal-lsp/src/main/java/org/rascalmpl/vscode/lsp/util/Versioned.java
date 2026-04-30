@@ -80,6 +80,6 @@ public class Versioned<T> {
     }
 
     public <U> Versioned<U> map(Function<? super T, ? extends U> func) {
-        return new Versioned<U>(this.version, func.apply(this.object), this.timestamp);
+        return new Versioned<>(this.version, func.apply(this.object), this.timestamp);
     }
 }

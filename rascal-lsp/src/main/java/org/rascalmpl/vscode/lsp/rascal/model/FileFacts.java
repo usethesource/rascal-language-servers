@@ -149,7 +149,7 @@ public class FileFacts implements DiagnosticsReporter {
     private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
         private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
-        private volatile AtomicReference<Versioned<List<Diagnostic>>> parseMessages = Versioned.atomic(-1, Collections.emptyList());
+        private AtomicReference<Versioned<List<Diagnostic>>> parseMessages = Versioned.atomic(-1, Collections.emptyList());
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
