@@ -64,7 +64,7 @@ import io.usethesource.vallang.ISourceLocation;
  *
  *
  */
-public class TextDocumentStateManager {
+public class TextDocumentStateManager implements ITextDocumentStateManager {
 
     private static final Logger logger = LogManager.getLogger(TextDocumentStateManager.class);
 
@@ -94,18 +94,22 @@ public class TextDocumentStateManager {
         }
     }
 
+    @Override
     public ColumnMaps getColumnMaps() {
         return columns;
     }
 
+    @Override
     public boolean isManagingFile(ISourceLocation loc) {
         return files.containsKey(loc.top());
     }
 
+    @Override
     public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
         return files.get(file.top());
     }
 
+    @Override
     public LineColumnOffsetMap getColumnMap(ISourceLocation loc) {
         return columns.get(loc.top());
     }
