@@ -278,7 +278,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     @Override
     protected DiagnosticsReporter getDiagnosticsReporter(ISourceLocation ignored) {
-        return facts;
+        return availableFacts();
     }
 
     @Override
