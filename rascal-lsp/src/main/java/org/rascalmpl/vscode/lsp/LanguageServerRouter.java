@@ -203,19 +203,19 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         logger.debug("{} runs with class path {}", lang.getName(), classPath);
         // In deployment, we start a process and connect to it via input/output streams
         var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
-            , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
-            , "-Dlog4j2.level=DEBUG"
-            , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
-            , "-Drascal.lsp.deploy=true"
-            , "-Drascal.compilerClasspath=" + classPath
-            , "-Xmx2048M"
-            , "-cp", classPath
-            , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-            , "--exitWhenEmpty"
-            , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"")
-        )
-        .redirectError(Redirect.INHERIT) // Show logs in current process
-        .start();
+                , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
+                , "-Dlog4j2.level=DEBUG"
+                , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
+                , "-Drascal.lsp.deploy=true"
+                , "-Drascal.compilerClasspath=" + classPath
+                , "-Xmx2048M"
+                , "-cp", classPath
+                , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
+                , "--exitWhenEmpty"
+                , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"")
+            )
+            .redirectError(Redirect.INHERIT) // Show logs in current process
+            .start();
 
         logger.debug("Launched language server on process {}", proc.pid());
         return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
