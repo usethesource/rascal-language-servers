@@ -114,11 +114,6 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
     }
 
     @Override
-    public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
-        return files.get(file.top());
-    }
-
-    @Override
     public LineColumnOffsetMap getColumnMap(ISourceLocation loc) {
         return columns.get(loc.top());
     }
@@ -129,6 +124,7 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
      * @return The current state in the editor.
      * @throws FileNotFoundException If the file is not open.
      */
+    @Override
     public TextDocumentState getEditorState(ISourceLocation loc) throws FileNotFoundException {
         loc = loc.top();
         TextDocumentState file = files.get(loc);

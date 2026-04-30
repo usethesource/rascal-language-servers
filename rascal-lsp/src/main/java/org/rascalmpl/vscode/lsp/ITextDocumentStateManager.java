@@ -26,7 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
+import java.io.FileNotFoundException;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 
@@ -35,6 +35,6 @@ import io.usethesource.vallang.ISourceLocation;
 public interface ITextDocumentStateManager {
     LineColumnOffsetMap getColumnMap(ISourceLocation file);
     ColumnMaps getColumnMaps();
-    @Nullable TextDocumentState getDocumentState(ISourceLocation file);
+    TextDocumentState getEditorState(ISourceLocation file) throws FileNotFoundException;
     boolean isManagingFile(ISourceLocation file);
 }
