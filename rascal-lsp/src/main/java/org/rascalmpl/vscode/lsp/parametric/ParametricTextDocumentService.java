@@ -661,7 +661,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
-        return openFile(doc, contributions(Locations.toLoc(doc))::parsing, timestamp, exec);
+        return openFile(doc, l -> contributions(l)::parsing, timestamp, exec);
     }
 
     public void shutdown() {

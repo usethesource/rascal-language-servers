@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
@@ -150,9 +151,9 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
         }
     }
 
-    protected TextDocumentState openFile(TextDocumentItem doc, BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, long timestamp, ExecutorService exec)  {
+    protected TextDocumentState openFile(TextDocumentItem doc, Function<ISourceLocation, BiFunction<ISourceLocation, String, CompletableFuture<ITree>>> parserGetter, long timestamp, ExecutorService exec)  {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(parser, l, doc.getVersion(), doc.getText(), timestamp, exec));
+            l -> new TextDocumentState(parserGetter.apply(l), l, doc.getVersion(), doc.getText(), timestamp, exec));
     }
 
     private void invalidateColumnMaps(ISourceLocation loc) {

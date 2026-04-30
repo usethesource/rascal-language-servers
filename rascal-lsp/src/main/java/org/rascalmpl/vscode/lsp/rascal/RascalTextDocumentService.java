@@ -494,7 +494,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
-        return openFile(doc, availableRascalServices()::parseSourceFile, timestamp, exec);
+        return openFile(doc, l -> availableRascalServices()::parseSourceFile, timestamp, exec);
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {
