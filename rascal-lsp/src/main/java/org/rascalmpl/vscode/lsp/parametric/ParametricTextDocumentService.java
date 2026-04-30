@@ -49,7 +49,6 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -203,7 +202,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.abstractDataType(typeStore, "FileSystemChange"), "renamed", tf.sourceLocationType(), "from",
             tf.sourceLocationType(), "to");
 
-    @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
@@ -667,15 +665,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
 
         return fact;
-    }
-
-    @Override
-    protected TextDocumentState getFile(@UnknownInitialization ParametricTextDocumentService this, ISourceLocation loc) {
-        try {
-            return super.getFile(loc);
-        } catch (FileNotFoundException e) {
-            throw new ResponseErrorException(unknownFileError(loc, loc));
-        }
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {

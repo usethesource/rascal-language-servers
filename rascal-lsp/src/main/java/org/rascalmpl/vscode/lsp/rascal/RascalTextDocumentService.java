@@ -40,7 +40,6 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -152,7 +151,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private @MonotonicNonNull FileFacts facts;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
-    @SuppressWarnings({"initialization", "methodref.receiver.bound"}) // this::getContents
     public RascalTextDocumentService(ExecutorService exec) {
         // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
         URIResolverRegistry.getInstance();
@@ -510,15 +508,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {
         return getFile(Locations.toLoc(doc));
-    }
-
-    @Override
-    protected TextDocumentState getFile(@UnknownInitialization RascalTextDocumentService this, ISourceLocation loc) {
-        try {
-            return super.getFile(loc);
-        } catch (FileNotFoundException e) {
-            throw new ResponseErrorException(unknownFileError(loc, loc));
-        }
     }
 
     public void shutdown() {

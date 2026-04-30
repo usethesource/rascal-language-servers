@@ -47,6 +47,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -114,13 +115,34 @@ public class TextDocumentStateManager implements ITextDocumentStateManager {
         return columns.get(loc.top());
     }
 
-    protected TextDocumentState getFile(@UnknownInitialization TextDocumentStateManager this, ISourceLocation loc) throws FileNotFoundException {
+    /**
+     * Get open file state.
+     * @param loc The location of the file.
+     * @return The current state in the editor.
+     * @throws FileNotFoundException If the file is not open.
+     */
+    public TextDocumentState getEditorState(ISourceLocation loc) throws FileNotFoundException {
         loc = loc.top();
         TextDocumentState file = files.get(loc);
         if (file == null) {
             throw new FileNotFoundException(String.format("Unknown file: %s", loc));
         }
         return file;
+    }
+
+    /**
+     * Get open file state. If the file is not open, throws an (unchecked) {@link ResponseErrorException}.
+     *
+     * Intentionally protected function, only to be used from LSP endpoints. Users outside of the LSP context should call {@link TextDocumentStateManager#getEditorState}.
+     * @param loc The location of the file.
+     * @return The current state in the editor.
+     */
+    protected TextDocumentState getFile(ISourceLocation loc) {
+        try {
+            return getEditorState(loc);
+        } catch (FileNotFoundException ignored) {
+            throw new ResponseErrorException(unknownFileError(loc, loc));
+        }
     }
 
     protected TextDocumentState openFile(TextDocumentItem doc, BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser, long timestamp, ExecutorService exec)  {
