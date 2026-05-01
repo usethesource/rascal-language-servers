@@ -402,7 +402,7 @@
     <profile>
       <id>checker-framework</id>
       <properties>
-        <checkerframework.version>3.42.0</checkerframework.version>
+        <checkerframework.version>4.0.0</checkerframework.version>
       </properties>
        <build>
         <plugins>
