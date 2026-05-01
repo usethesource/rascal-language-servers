@@ -260,15 +260,22 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         var runner = serverLauncher.startListening();
         var server = serverLauncher.getRemoteProxy();
 
+        // When initialization is done, we can use the server
+        var initializedServer = server.initialize(delegateInitializationParams())
+            .thenApply(ignored -> server); // ignore initialized static server capabilities, since ours are the same
+
         getExecutor().execute(() -> {
             try {
                 runner.get();
                 logger.info("Language server for {} terminated gracefully", lang.getName());
             } catch (CancellationException | ExecutionException e) {
-                logger.error("Language server for {} terminated", lang.getName(), e);
-                languageServers.remove(lang.getName(), server);
+                logger.error("Language server for {} terminated with an exception", lang.getName(), e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            } finally {
+                if (languageServers.remove(lang.getName(), initializedServer)) {
+                    logger.error("Could not remove LSP routing for {}; restart the Rascal extension", lang.getName());
+                }
             }
             try {
                 serverParams.getRight().run();
@@ -277,9 +284,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             }
         });
 
-        // When initialization is done, we can use the server
-        return server.initialize(delegateInitializationParams())
-            .thenApply(ignored -> server); // ignore initialized static server capabilities, since ours are the same
+        return initializedServer;
     }
 
     private int getNextPort() {
