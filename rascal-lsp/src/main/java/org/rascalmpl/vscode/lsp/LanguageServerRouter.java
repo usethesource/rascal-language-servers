@@ -119,7 +119,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         Runtime.getRuntime().addShutdownHook(new Thread(() -> delegateProcesses.forEach(Process::destroy)));
     }
 
-    /*package*/ public CompletableFuture<IBaseLanguageServerExtensions> languageByName(String lang) {
+    public CompletableFuture<IBaseLanguageServerExtensions> languageByName(String lang) {
         var service = languageServers.get(lang);
         if (service == null) {
             throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));

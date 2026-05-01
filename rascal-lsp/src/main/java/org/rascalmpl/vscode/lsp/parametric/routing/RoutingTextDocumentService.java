@@ -207,7 +207,14 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
         logger.debug("textDocument/unregisterLanguage({})", lang.getName());
-        availableServer().languageByName(lang.getName()).thenApply(s -> s.sendUnregisterLanguage(lang));
+        CompletableFuture<IBaseLanguageServerExtensions> server;
+        try {
+            server = availableServer().languageByName(lang.getName());
+        } catch (UnsupportedOperationException e) {
+            logger.debug("Ignored language unregistration for unknown language {}", lang.getName());
+            return;
+        }
+        server.thenApply(s -> s.sendUnregisterLanguage(lang));
     }
 
     @Override
