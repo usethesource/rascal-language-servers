@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.uri;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -325,10 +326,9 @@ public class FallbackResolver implements ISourceLocationInputOutput, ISourceLoca
 
     public TextDocumentState getDocumentState(ISourceLocation file) throws IOException {
         for (var service : textDocumentServices) {
-            var state = service.getDocumentState(file);
-            if (state != null) {
-                return state;
-            }
+            try {
+                return service.getEditorState(file);
+            } catch (FileNotFoundException ignored) { /* try the next service */}
         }
         throw new IOException("File is not managed by lsp");
     }
