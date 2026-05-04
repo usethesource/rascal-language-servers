@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp;
 
 import static org.rascalmpl.vscode.lsp.BaseLanguageServer.DEPLOY_MODE;
 
-import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -219,7 +218,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
                     , "--exitWhenEmpty"
-                    , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"") // escape JSON string on command line
+                    // , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"") // escape JSON string on command line
                 )
                 .redirectError(Redirect.INHERIT) // Show logs in current process
                 .start();
