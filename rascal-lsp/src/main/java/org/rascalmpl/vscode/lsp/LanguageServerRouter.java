@@ -49,7 +49,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -74,6 +73,9 @@ import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
@@ -85,7 +87,7 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IInteger;
@@ -200,53 +202,69 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         return System.getProperty("java.class.path");
     }
 
-    private static Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) throws IOException {
-        // TODO Figure out Rascal/Rascal-LSP versions/class path
+    private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) {
         logger.info("Starting LSP process for {}", lang.getName());
 
         var classPath = classPath(lang);
         logger.debug("{} runs with class path {}", lang.getName(), classPath);
         // In deployment, we start a process and connect to it via input/output streams
-        var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
-                , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
-                , "-Dlog4j2.level=DEBUG"
-                , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
-                , "-Drascal.lsp.deploy=true"
-                , "-Drascal.compilerClasspath=" + classPath
-                , "-Xmx2048M"
-                , "-cp", classPath
-                , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-                , "--exitWhenEmpty"
-                , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"")
-            )
-            .redirectError(Redirect.INHERIT) // Show logs in current process
-            .start();
+        try {
+            var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
+                    , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
+                    , "-Dlog4j2.level=DEBUG"
+                    , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
+                    , "-Drascal.lsp.deploy=true"
+                    , "-Drascal.compilerClasspath=" + classPath
+                    , "-Xmx2048M"
+                    , "-cp", classPath
+                    , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
+                    , "--exitWhenEmpty"
+                    , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"") // escape JSON string on command line
+                )
+                .redirectError(Redirect.INHERIT) // Show logs in current process
+                .start();
 
-        logger.debug("Launched language server on process {}", proc.pid());
-        return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
+            // Make sure we can clean this process up when we exit
+            delegateProcesses.add(proc);
+
+            logger.debug("Launched language server on process {}", proc.pid());
+            return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
+        } catch (IOException e) {
+            logger.error("Starting language server process for {} failed", lang.getName(), e);
+            return null;
+        }
     }
 
-    private Triple<InputStream, OutputStream, Runnable> connectToServer(LanguageParameter lang) throws IOException {
+    private @Nullable Triple<InputStream, OutputStream, Runnable> connectToServer(LanguageParameter lang) {
         // In development, we expect the server to have been launched on a pre-agreed port
         int port = getNextPort();
-        @SuppressWarnings("java:S2095") // no need to close the socket here - we close it on server shutdown
-        Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
-        socket.setTcpNoDelay(true);
-        return Triple.of(socket.getInputStream(), socket.getOutputStream(), () -> {
-            try {
-                logger.debug("Closing socket for language {} on port {}", lang.getName(), port);
-                socket.close();
-            } catch (IOException e) {
-                logger.error("Closing socket for {} on port {} failed", lang.getName(), port);
-            }
-        });
+        try {
+            @SuppressWarnings("java:S2095") // no need to close the socket here - we close it on server shutdown
+            Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
+            socket.setTcpNoDelay(true);
+            return Triple.of(socket.getInputStream(), socket.getOutputStream(), () -> {
+                try {
+                    logger.debug("Closing socket for language {} on port {}", lang.getName(), port);
+                    socket.close();
+                } catch (IOException e) {
+                    logger.error("Closing socket for {} on port {} failed", lang.getName(), port);
+                }
+            });
+        } catch (IOException e) {
+            logger.error("Connecting to socket at port {} failed", port, e);
+            return null;
+        }
     }
 
-    private CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) throws IOException {
+    private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
         var serverParams = DEPLOY_MODE
             ? startServerProcess(lang)
             : connectToServer(lang)
             ;
+
+        if (serverParams == null) {
+            return null;
+        }
 
         var serverLauncher = new Launcher.Builder<IBaseLanguageServerExtensions>()
             .setRemoteInterface(IBaseLanguageServerExtensions.class)
@@ -254,14 +272,14 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
             .configureGson(GsonUtils.complexAsJsonObject()) // Only needed if we want to communicate IValues
-            .setExecutorService(NamedThreadPool.single("parametric-lsp-router-out"))
+            .setExecutorService(getExecutor())
             .create();
 
         var runner = serverLauncher.startListening();
         var server = serverLauncher.getRemoteProxy();
 
-        // When initialization is done, we can use the server
-        var initializedServer = server.initialize(delegateInitializationParams())
+        var initializedServer = CompletableFutureUtils.completedFuture(delegateInitializationParams(), getExecutor())
+            .thenCompose(server::initialize)
             .thenApply(ignored -> server); // ignore initialized static server capabilities, since ours are the same
 
         getExecutor().execute(() -> {
@@ -274,6 +292,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                 Thread.currentThread().interrupt();
             } finally {
                 if (languageServers.remove(lang.getName(), initializedServer)) {
+                    // TODO Remove extension mapping as well
                     logger.error("Could not remove LSP routing for {}; restart the Rascal extension", lang.getName());
                 }
             }
@@ -284,7 +303,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             }
         });
 
-        return initializedServer;
+        return initializedServer; // When initialization is done, we can use the server
     }
 
     private int getNextPort() {
@@ -339,23 +358,17 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         // If we do not have a parametric server running for this language, start and initialize it.
-        synchronized (this) {
-            var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable CompletableFuture<IBaseLanguageServerExtensions>>) _n -> {
-                try {
-                    return startServer(lang);
-                } catch (IOException e) {
-                    logger.error("Unexpected error while starting language server for {}", lang.getName(), e);
-                    return null;
+        return CompletableFuture.runAsync(() -> {
+            synchronized (this) {
+                var server = languageServers.computeIfAbsent(lang.getName(), _n -> startServer(lang));
+                if (server == null) {
+                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
                 }
-            });
-            if (server != null) {
                 for (var ext : lang.getExtensions()) {
                     languagesByExtension.put(ext, lang.getName());
                 }
             }
-        }
-
-        return super.sendRegisterLanguage(lang);
+        }, getExecutor()).thenCompose(v -> super.sendRegisterLanguage(lang));
     }
 
     @Override
