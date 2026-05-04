@@ -39,7 +39,6 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -101,9 +100,9 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     private static final Logger logger = LogManager.getLogger(LanguageServerRouter.class);
 
-    private final Map<String, String> languagesByExtension;
+    private final ConcurrentHashMap<String, String> languagesByExtension = new ConcurrentHashMap<>();
     // TODO To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
-    private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers;
+    private final ConcurrentHashMap<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
     private final Collection<Process> delegateProcesses = new CopyOnWriteArrayList<>();
 
     private @MonotonicNonNull InitializeParams initializeParams;
@@ -113,9 +112,6 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     public LanguageServerRouter(Runnable onExit, ExecutorService exec) {
         super(onExit, exec, new RoutingTextDocumentService(exec), new RoutingWorkspaceService(exec));
-
-        this.languagesByExtension = new ConcurrentHashMap<>();
-        this.languageServers = new ConcurrentHashMap<>();
 
         // Shutdown child processes when we exit
         Runtime.getRuntime().addShutdownHook(new Thread(() -> delegateProcesses.forEach(Process::destroy)));
