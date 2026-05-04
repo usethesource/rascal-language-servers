@@ -155,24 +155,26 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
+        // Note: floating future
         callAccept(route(params.getTextDocument()), TextDocumentService::didOpen, params);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
+        // Note: floating future
         callAccept(route(params.getTextDocument()), TextDocumentService::didChange, params);
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didClose'");
+        // Note: floating future
+        callAccept(route(params.getTextDocument()), TextDocumentService::didClose, params);
     }
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'didSave'");
+        // Note: floating future
+        callAccept(route(params.getTextDocument()), TextDocumentService::didSave, params);
     }
 
     @Override
