@@ -28,7 +28,10 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -201,20 +204,38 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     @Override
     public void registerLanguage(LanguageParameter lang) {
         logger.debug("textDocument/registerLanguage({}, {})", lang.getName(), lang.getMainFunction());
-        availableServer().languageByName(lang.getName()).thenCompose(s -> s.sendRegisterLanguage(lang));
+        try {
+            availableServer().languageByName(lang.getName())
+                .thenAccept(server -> server.sendRegisterLanguage(lang)).get(1, TimeUnit.MINUTES);
+        } catch (UnsupportedOperationException e) {
+            // Strange, since we just registered this language and should have a server for it
+            logger.error("Language registration for unknown language {}", lang.getName());
+            return;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e ) {
+            logger.error("Registration of language {} failed due to unexpected error", e);
+        } catch (TimeoutException e) {
+            logger.error("Registration of language {} timed out", lang.getName(), e);
+        }
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
         logger.debug("textDocument/unregisterLanguage({})", lang.getName());
-        CompletableFuture<IBaseLanguageServerExtensions> server;
         try {
-            server = availableServer().languageByName(lang.getName());
+            availableServer().languageByName(lang.getName())
+                .thenApply(s -> s.sendUnregisterLanguage(lang)).get(1, TimeUnit.MINUTES);
         } catch (UnsupportedOperationException e) {
             logger.debug("Ignored language unregistration for unknown language {}", lang.getName());
             return;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e ) {
+            logger.error("Unregistration of language {} failed due to unexpected error", e);
+        } catch (TimeoutException e) {
+            logger.error("Unregistration of language {} timed out", lang.getName(), e);
         }
-        server.thenApply(s -> s.sendUnregisterLanguage(lang));
     }
 
     @Override
