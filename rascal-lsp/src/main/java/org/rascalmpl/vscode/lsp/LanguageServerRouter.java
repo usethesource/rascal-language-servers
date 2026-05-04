@@ -291,9 +291,14 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } finally {
-                if (languageServers.remove(lang.getName(), initializedServer)) {
-                    // TODO Remove extension mapping as well
-                    logger.error("Could not remove LSP routing for {}; restart the Rascal extension", lang.getName());
+                synchronized (this) {
+                    if (languageServers.remove(lang.getName(), initializedServer)) {
+                        for (var ext : lang.getExtensions()) {
+                            languagesByExtension.remove(ext, lang.getName());
+                        }
+                    } else {
+                        logger.error("Could not remove LSP routing for {}; restart the Rascal extension", lang.getName());
+                    }
                 }
             }
             try {
@@ -368,13 +373,29 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                     languagesByExtension.put(ext, lang.getName());
                 }
             }
-        }, getExecutor()).thenCompose(v -> super.sendRegisterLanguage(lang));
+        }, getExecutor())
+            .thenCompose(v -> super.sendRegisterLanguage(lang));
     }
 
     @Override
     public synchronized CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
-        // TODO Handle shutting down the remote parametric server iff it is empty now.
+
+        boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
+        if (removeAll) {
+            // clear the whole language
+            logger.trace("unregisterLanguage({}) completely", lang.getName());
+
+            for (var extension : lang.getExtensions()) {
+                this.languagesByExtension.remove(extension);
+            }
+            var removed = languageServers.remove(lang.getName());
+            if (removed != null) {
+                removed.thenCompose(server -> server.shutdown().thenApply(o -> server))
+                    .thenAccept(server -> server.exit());
+            }
+        }
+
         return super.sendUnregisterLanguage(lang);
     }
 

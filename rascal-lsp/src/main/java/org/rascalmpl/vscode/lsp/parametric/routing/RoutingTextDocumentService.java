@@ -201,7 +201,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     @Override
     public void registerLanguage(LanguageParameter lang) {
         logger.debug("textDocument/registerLanguage({}, {})", lang.getName(), lang.getMainFunction());
-        availableServer().languageByName(lang.getName()).thenApply(s -> s.sendRegisterLanguage(lang));
+        availableServer().languageByName(lang.getName()).thenCompose(s -> s.sendRegisterLanguage(lang));
     }
 
     @Override
