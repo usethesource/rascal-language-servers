@@ -70,7 +70,7 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
             // If we get a dedicated language argument, we just start a single parametric server
             startParametric(serverArgs);
         } else {
-            startLanguageServer(NamedThreadPool.single("parametric-lsp-router-in")
+            startLanguageServer(NamedThreadPool.single("parametric-lsp-router")
                 , NamedThreadPool.cached("parametric-router")
                 , serverArgs.getPort()
             );
