@@ -277,7 +277,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     }
 
     @Override
-    public @Nullable TextDocumentState getDocumentState(ISourceLocation file) {
+    public TextDocumentState getEditorState(ISourceLocation file) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'getDocumentState'");
     }
