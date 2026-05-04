@@ -29,6 +29,8 @@ package org.rascalmpl.vscode.lsp.util;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
+import org.apache.commons.lang3.function.TriConsumer;
 
 /**
  * A helper interface to support calling functions on values in futures.
@@ -46,5 +48,17 @@ public interface FutureCaller<T> {
 
     default <A> CompletableFuture<Void> callAccept(CompletableFuture<T> t, BiConsumer<T, A> func, A arg) {
         return t.thenAccept(actualT -> func.accept(actualT, arg));
+    }
+
+    default <A, B> CompletableFuture<Void> callAccept(CompletableFuture<T> t, TriConsumer<T, A, B> func, A arg1, B arg2) {
+        return t.thenAccept(actualT -> func.accept(actualT, arg1, arg2));
+    }
+
+    default <A> Stream<CompletableFuture<Void>> callAccept(Stream<CompletableFuture<T>> ts, BiConsumer<T, A> func, A arg) {
+        return ts.map(t -> callAccept(t, func, arg));
+    }
+
+    default <A, B> Stream<CompletableFuture<Void>> callAccept(Stream<CompletableFuture<T>> ts, TriConsumer<T, A, B> func, A arg1, B arg2) {
+        return ts.map(t -> callAccept(t, func, arg1, arg2));
     }
 }

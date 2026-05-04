@@ -48,6 +48,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -126,6 +127,11 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
         }
         return service;
+    }
+
+    @Override
+    public Stream<CompletableFuture<IBaseLanguageServerExtensions>> allRoutes() {
+        return languageServers.values().stream();
     }
 
     @Override

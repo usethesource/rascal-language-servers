@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -129,6 +130,13 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
 
     public void setServer(LanguageServerRouter server) {
         this.server = server;
+    }
+
+    @Override
+    public Stream<CompletableFuture<IBaseTextDocumentService>> allRoutes() {
+        return availableServer()
+            .allRoutes()
+            .map(server -> server.thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService));
     }
 
     @Override
@@ -242,14 +250,12 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
 
     @Override
     public void projectAdded(String name, ISourceLocation projectRoot) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'projectAdded'");
+        callAccept(allRoutes(), IBaseTextDocumentService::projectAdded, name, projectRoot);
     }
 
     @Override
     public void projectRemoved(String name, ISourceLocation projectRoot) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'projectRemoved'");
+        callAccept(allRoutes(), IBaseTextDocumentService::projectRemoved, name, projectRoot);
     }
 
     @Override
@@ -307,8 +313,8 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
 
     @Override
     public void cancelProgress(String progressId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'cancelProgress'");
+        // Note: floating futures
+        callAccept(allRoutes(), IBaseTextDocumentService::cancelProgress, progressId);
     }
 
     @Override
