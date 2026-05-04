@@ -119,7 +119,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
 
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService wsService;
-    private @MonotonicNonNull LanguageServerRouter server;
+    private @MonotonicNonNull LanguageServerRouter parentServer;
 
     @SuppressWarnings("unused")
     private final ExecutorService exec;
@@ -128,8 +128,8 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
         this.exec = exec;
     }
 
-    public void setServer(LanguageServerRouter server) {
-        this.server = server;
+    public void setParentServer(LanguageServerRouter server) {
+        this.parentServer = server;
     }
 
     @Override
@@ -155,10 +155,10 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     }
 
     private LanguageServerRouter availableServer() {
-        if (server == null) {
+        if (parentServer == null) {
             throw new IllegalStateException("Server not connected yet.");
         }
-        return server;
+        return parentServer;
     }
 
     @Override
@@ -220,11 +220,10 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
         } catch (UnsupportedOperationException e) {
             // Strange, since we just registered this language and should have a server for it
             logger.error("Language registration for unknown language {}", lang.getName());
-            return;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ExecutionException e ) {
-            logger.error("Registration of language {} failed due to unexpected error", e);
+            logger.error("Registration of language {} failed due to unexpected error", lang.getName(), e);
         } catch (TimeoutException e) {
             logger.error("Registration of language {} timed out", lang.getName(), e);
         }
@@ -238,11 +237,10 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
                 .thenApply(s -> s.sendUnregisterLanguage(lang)).get(1, TimeUnit.MINUTES);
         } catch (UnsupportedOperationException e) {
             logger.debug("Ignored language unregistration for unknown language {}", lang.getName());
-            return;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ExecutionException e ) {
-            logger.error("Unregistration of language {} failed due to unexpected error", e);
+            logger.error("Unregistration of language {} failed due to unexpected error", lang.getName(), e);
         } catch (TimeoutException e) {
             logger.error("Unregistration of language {} timed out", lang.getName(), e);
         }

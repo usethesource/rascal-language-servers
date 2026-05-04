@@ -75,6 +75,7 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
@@ -169,10 +170,18 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     }
 
     private static String classPath(LanguageParameter lang) {
+        PathConfig pcfg;
         try {
-            var pcfg = PathConfig.parse(lang.getPathConfig());
-            var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
-            var p = new MavenParser(Path.of(pom.getURI()));
+            pcfg = PathConfig.parse(lang.getPathConfig());
+        } catch (IOException e) {
+            logger.error("Error while parsing path config {}", lang.getPathConfig(), e);
+            logger.warn("Could not compute class path for {}; falling back to class path of routing server", lang.getName());
+            return System.getProperty("java.class.path");
+        }
+
+        var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
+        var p = new MavenParser(Path.of(pom.getURI()));
+        try {
             var rootProject = p.parseProject();
 
             // Check if we are in Rascal-LSP
@@ -191,11 +200,9 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                 }
             }
             // strip of the initial separator ';'
-            return classPath.substring(1).toString();
-        } catch (IOException e) {
-            logger.error("Error while parsing path config {}", lang.getPathConfig(), e);
+            return classPath.substring(1);
         } catch (ModelResolutionError e) {
-            logger.error("Error while parsing Maven project {}", e);
+            logger.error("Error while parsing POM at {}", pom, e);
         }
 
         // If all else fails, just use the same class path that we have
@@ -355,7 +362,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         this.initializeParams = params;
 
         // Our child needs us, but we cannot set this in the constructor, so we set it here.
-        getTextDocumentService().setServer(this);
+        getTextDocumentService().setParentServer(this);
 
         return super.initialize(params);
     }
@@ -366,7 +373,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         // If we do not have a parametric server running for this language, start and initialize it.
         return CompletableFuture.runAsync(() -> {
             synchronized (this) {
-                var server = languageServers.computeIfAbsent(lang.getName(), _n -> startServer(lang));
+                var server = languageServers.computeIfAbsent(lang.getName(), ignored -> startServer(lang));
                 if (server == null) {
                     throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
                 }
@@ -393,7 +400,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             var removed = languageServers.remove(lang.getName());
             if (removed != null) {
                 removed.thenCompose(server -> server.shutdown().thenApply(o -> server))
-                    .thenAccept(server -> server.exit());
+                    .thenAccept(LanguageServer::exit);
             }
         }
 
