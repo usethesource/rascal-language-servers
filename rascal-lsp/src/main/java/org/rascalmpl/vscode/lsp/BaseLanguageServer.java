@@ -142,11 +142,16 @@ public abstract class BaseLanguageServer {
             var requestPool = NamedThreadPool.single(requestPoolName);
             var workerPool = NamedThreadPool.cached(workerPoolName);
 
-            var docService = docServiceProvider.apply(workerPool);
-            var wsService = workspaceServiceProvider.apply(workerPool);
-            docService.pair(wsService);
-            wsService.pair(docService);
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
+            try {
+                var docService = docServiceProvider.apply(workerPool);
+                var wsService = workspaceServiceProvider.apply(workerPool);
+                docService.pair(wsService);
+                wsService.pair(docService);
+                startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
+            } finally {
+                requestPool.shutdown();
+                workerPool.shutdown();
+            }
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
