@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 import java.util.concurrent.ExecutorService;
-
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 
 public class ParametricWorkspaceService extends BaseWorkspaceService {
