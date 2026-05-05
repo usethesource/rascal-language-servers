@@ -216,7 +216,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
         logger.debug("textDocument/registerLanguage({}, {})", lang.getName(), lang.getMainFunction());
         try {
             availableServer().languageByName(lang.getName())
-                .thenAccept(server -> server.sendRegisterLanguage(lang)).get(1, TimeUnit.MINUTES);
+                .thenCompose(server -> server.sendRegisterLanguage(lang)).get(1, TimeUnit.MINUTES);
         } catch (UnsupportedOperationException e) {
             // Strange, since we just registered this language and should have a server for it
             logger.error("Language registration for unknown language {}", lang.getName());
@@ -234,7 +234,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
         logger.debug("textDocument/unregisterLanguage({})", lang.getName());
         try {
             availableServer().languageByName(lang.getName())
-                .thenApply(s -> s.sendUnregisterLanguage(lang)).get(1, TimeUnit.MINUTES);
+                .thenCompose(s -> s.sendUnregisterLanguage(lang)).get(1, TimeUnit.MINUTES);
         } catch (UnsupportedOperationException e) {
             logger.debug("Ignored language unregistration for unknown language {}", lang.getName());
         } catch (InterruptedException e) {

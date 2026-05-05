@@ -371,18 +371,14 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         // If we do not have a parametric server running for this language, start and initialize it.
-        return CompletableFuture.runAsync(() -> {
-            synchronized (this) {
-                var server = languageServers.computeIfAbsent(lang.getName(), ignored -> startServer(lang));
-                if (server == null) {
-                    throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
-                }
-                for (var ext : lang.getExtensions()) {
-                    languagesByExtension.put(ext, lang.getName());
-                }
-            }
-        }, getExecutor())
-            .thenCompose(v -> super.sendRegisterLanguage(lang));
+        var server = languageServers.computeIfAbsent(lang.getName(), ignored -> startServer(lang));
+        if (server == null) {
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
+        }
+        for (var ext : lang.getExtensions()) {
+            languagesByExtension.put(ext, lang.getName());
+        }
+        return super.sendRegisterLanguage(lang);
     }
 
     @Override
