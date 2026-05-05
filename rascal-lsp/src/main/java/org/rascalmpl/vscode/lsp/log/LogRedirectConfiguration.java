@@ -72,36 +72,14 @@ public class LogRedirectConfiguration extends ConfigurationFactory {
         builder.setConfigurationName("DefaultLogger");
         builder.setStatusLevel(targetLevel);
 
-        // Root logger
-        var rootAppenderName = "RootConsole";
-
         builder.add(builder
-            .newAppender(rootAppenderName, "CONSOLE")
+            .newAppender("Console", "CONSOLE")
             .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
             .add(builder.newLayout("PatternLayout").addAttribute("pattern", "%d [%t] %p - %c %m%n")));
 
         builder.add(builder
             .newRootLogger(targetLevel)
-            .add(builder.newAppenderRef(rootAppenderName)));
-
-        // LSP4J logger
-        var lsp4jAppenderName = "Lsp4jConsole";
-
-        builder.add(builder
-            .newAppender(lsp4jAppenderName, "CONSOLE")
-            .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
-            .add(builder.newLayout("PatternLayout")
-                .addAttribute("pattern", "%d [%t] %p - %c %m (change `LogRedirectConfiguration.java` to write exceptions)%n")
-
-                // Suppress printing of strack traces by lsp4j to avoid choking the server. This would happen, for
-                // instance, when the connection with the client is lost, but the server keeps trying to report
-                // progress. Related issue: https://github.com/eclipse-lsp4j/lsp4j/issues/849.
-                .addAttribute("alwaysWriteExceptions", false)));
-
-        builder.add(builder
-            .newLogger("org.eclipse.lsp4j.jsonrpc", Level.INFO)
-            .add(builder.newAppenderRef(lsp4jAppenderName))
-            .addAttribute("additivity", false));
+            .add(builder.newAppenderRef("Console")));
 
         return builder.build();
     }
