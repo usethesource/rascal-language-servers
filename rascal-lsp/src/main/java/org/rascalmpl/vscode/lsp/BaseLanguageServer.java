@@ -31,6 +31,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -320,11 +323,24 @@ public abstract class BaseLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            var actualClient = (IBaseLanguageClient) client;
-            lspDocumentService.connect(actualClient);
-            lspWorkspaceService.connect(actualClient);
-            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
+            var proxy = proxyLanguageClient(client);
+            lspDocumentService.connect(proxy);
+            lspWorkspaceService.connect(proxy);
+            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(proxy, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
+        }
+
+        private IBaseLanguageClient proxyLanguageClient(LanguageClient client) {
+            var loader = IBaseLanguageClient.class.getClassLoader();
+            var interfaces = new Class<?>[] { IBaseLanguageClient.class };
+            var handler = (InvocationHandler) (Object proxy, Method method, Object[] args) -> {
+                if (this.executor.isShutdown()) {
+                    throw new IllegalStateException("Its thread pool was shut down, so the language client must no longer be used.");
+                }
+                return method.invoke(client, args);
+            };
+
+            return (IBaseLanguageClient) Proxy.newProxyInstance(loader, interfaces, handler);
         }
 
         @Override
