@@ -665,7 +665,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     public void shutdown() {
-        exec.shutdown();
+        // Don't shutdown the thread pool; its lifecycle is managed outside this object.
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
