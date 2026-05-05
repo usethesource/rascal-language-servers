@@ -2,6 +2,14 @@
 
 We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
+## 0.13.5
+
+Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0)
+
+* Bug fixes:
+  * `edit` function did not jump to the right offset in a file
+  * a race in the initialization of the LSP server
+
 ## 0.13.4
 
 Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0)

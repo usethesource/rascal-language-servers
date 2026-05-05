@@ -247,7 +247,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(5, 6);
 
-        ide.renameSymbol(editor, bench, "z");
+        await ide.renameSymbol(editor, bench, "z");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
@@ -312,7 +312,7 @@ end
 
         await editor.moveCursor(9, 4);
         await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
-        expectCompletions(editor, ["a", "aa"]);
+        await expectCompletions(driver, editor, ["a", "aa"]);
     });
 
     it("completion by trigger character works", async function() {
@@ -322,7 +322,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(10, 10);
         await editor.typeText("  x :=");
-        expectCompletions(editor, ["x", "n", "a", "b"]);
+        await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
     });
 
     it("serializes Rascal values as expected", async function() {

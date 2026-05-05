@@ -283,7 +283,7 @@ export class IDEOperations {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
                 const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
-                this.screenshot(`revert of ${title} failed ` + tryCount);
+                await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
             try {
@@ -299,7 +299,7 @@ export class IDEOperations {
                 return !(await new TextEditor().isDirty());
             }
             catch (ignored) {
-                this.screenshot("open editor check failed " + tryCount);
+                await this.screenshot("open editor check failed " + tryCount);
                 console.log("Open editor dirty check failed: ", ignored);
                 return false;
 
@@ -538,10 +538,13 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
     });
 }
 
-export async function expectCompletions(editor: TextEditor, expectedLabels: string[]) {
-    const completionMenu = new ContentAssist(editor);
-    const completions = await completionMenu.getItems();
+export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
+    const completions = await driver.wait(async () => {
+        const completionMenu = new ContentAssist(editor);
+        return await ignoreFails(completionMenu.getItems());
+    }, Delays.fast, "Completion items not found");
+
     expect(completions).to.have.length(expectedLabels.length);
-    const labels: string[] = await Promise.all(completions.map(c => c.getLabel()));
-    expect(labels).to.deep.equal(expectedLabels);
+    const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
+    expect(labels).deep.equal(expectedLabels);
 }

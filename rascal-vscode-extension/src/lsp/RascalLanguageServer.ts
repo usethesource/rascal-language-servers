@@ -62,9 +62,9 @@ export class RascalLanguageServer implements vscode.Disposable {
 
         this.languageRegistry = new LanguageRegistry(dslLSP, logger);
 
-        this.rascalClient.then(client => {
+        void this.rascalClient.then(client => {
             client.onNotification("rascal/startDebuggingSession", (serverPort:number) => {
-                this.rascalDebugClient.startDebuggingSession(serverPort);
+                void this.rascalDebugClient.startDebuggingSession(serverPort);
             });
             client.onNotification("rascal/registerDebugServerPort", (processID:number, serverPort:number) => {
                 this.rascalDebugClient.registerDebugServerPort(processID, serverPort);
@@ -72,7 +72,7 @@ export class RascalLanguageServer implements vscode.Disposable {
         });
     }
     dispose() {
-        this.rascalClient.then(c => c.dispose());
+        void this.rascalClient.then(c => c.dispose());
         this.languageRegistry.dispose();
     }
 }

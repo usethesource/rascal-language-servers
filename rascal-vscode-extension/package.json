@@ -14,7 +14,7 @@
     "color": "#ffffff",
     "theme": "light"
   },
-  "version": "0.13.5-head",
+  "version": "0.13.6-head",
   "engines": {
     "vscode": "^1.90.0",
     "node": ">=20.9.0"
@@ -323,12 +323,12 @@
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "3.x",
     "chai": "4.x",
-    "esbuild": "0.27.x",
+    "esbuild": "0.28.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
     "mocha": "11.x",
-    "typescript": "5.x",
+    "typescript": "6.x",
     "vscode-extension-tester": "8.x"
   }
 }
