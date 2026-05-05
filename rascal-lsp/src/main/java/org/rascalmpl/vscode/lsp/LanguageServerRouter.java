@@ -169,6 +169,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     }
 
     private static String classPath(LanguageParameter lang) {
+        var separator = System.getProperty("path.separator");
         PathConfig pcfg;
         try {
             pcfg = PathConfig.parse(lang.getPathConfig());
@@ -186,7 +187,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             // Check if we are in Rascal-LSP
             var classPath = new StringBuilder();
             if (isRascalLspProject(rootProject)) {
-                classPath.append(';');
+                classPath.append(separator);
                 classPath.append(Path.of(Locations.toUri(pcfg.getBin())));
             }
 
@@ -194,12 +195,12 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             var deps = rootProject.resolveDependencies(Scope.COMPILE, p);
             for (var d : deps) {
                 if (d.getResolved() != null) {
-                    classPath.append(';');
+                    classPath.append(separator);
                     classPath.append(d.getResolved());
                 }
             }
-            // strip of the initial separator ';'
-            return classPath.substring(1);
+            // strip of the initial separator
+            return classPath.substring(separator.length());
         } catch (ModelResolutionError e) {
             logger.error("Error while parsing POM at {}", pom, e);
         }
