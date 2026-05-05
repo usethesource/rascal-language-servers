@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -40,8 +41,9 @@ import org.rascalmpl.library.util.ParseErrorRecovery;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.NoContributions.NoContributionException;
-import org.rascalmpl.vscode.lsp.util.Diagnostics;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Versioned;
+
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
@@ -61,6 +63,7 @@ public class TextDocumentState {
 
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
+    private final ExecutorService exec;
 
     private final AtomicReference<Versioned<Update>> current;
     private final AtomicReference<@Nullable Versioned<ITree>> lastWithoutErrors;
@@ -69,15 +72,17 @@ public class TextDocumentState {
     public TextDocumentState(
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
             ISourceLocation location,
-            int initialVersion, String initialContent, long initialTimestamp) {
+            int initialVersion, String initialContent, long initialTimestamp,
+            ExecutorService exec) {
 
         this.parser = parser;
         this.location = location;
+        this.lastWithoutErrors = new AtomicReference<>();
+        this.last = new AtomicReference<>();
+        this.exec = exec;
 
         var u = new Update(initialVersion, initialContent, initialTimestamp);
         this.current = new AtomicReference<>(new Versioned<>(initialVersion, u));
-        this.lastWithoutErrors = new AtomicReference<>();
-        this.last = new AtomicReference<>();
     }
 
     public ISourceLocation getLocation() {
@@ -199,28 +204,35 @@ public class TextDocumentState {
         private void parse() {
             try {
                 parser.apply(location, content)
-                    .whenComplete((ITree t, Throwable e) -> {
-                        if (e instanceof CompletionException && e.getCause() != null) {
-                            e = e.getCause();
-                        }
-                        var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
-
-                        // Complete future to get the tree
-                        if (t == null) {
-                            treeAsync.completeExceptionally(e);
-                        } else {
-                            var tree = new Versioned<>(version, t, timestamp);
-                            Versioned.replaceIfNewer(last, tree);
-                            if (diagnosticsList.isEmpty()) {
-                                Versioned.replaceIfNewer(lastWithoutErrors, tree);
+                    .whenCompleteAsync((ITree t, Throwable e) -> {
+                        try {
+                            if (e instanceof CompletionException && e.getCause() != null) {
+                                e = e.getCause();
                             }
-                            treeAsync.complete(tree);
-                        }
+                            var diagnosticsList = toDiagnosticsList(t, e); // `t` and `e` are nullable
 
-                        // Complete future to get diagnostics
-                        var diagnostics = new Versioned<>(version, diagnosticsList);
-                        diagnosticsAsync.complete(diagnostics);
-                    });
+                            // Complete future to get the tree
+                            if (t == null) {
+                                treeAsync.completeExceptionally(e);
+                            } else {
+                                var tree = new Versioned<>(version, t, timestamp);
+                                Versioned.replaceIfNewer(last, tree);
+                                if (diagnosticsList.isEmpty()) {
+                                    Versioned.replaceIfNewer(lastWithoutErrors, tree);
+                                }
+                                treeAsync.complete(tree);
+                            }
+
+                            // Complete future to get diagnostics
+                            var diagnostics = new Versioned<>(version, diagnosticsList);
+                            diagnosticsAsync.complete(diagnostics);
+                        } catch (Exception exc) {
+                            // The action of `whenCompleteAsync` shouldn't throw an exception (see JavaDoc): if it
+                            // unexpectedly does, then it is almost surely a bug, but the exception is swallowed, so it
+                            // is very hard to debug. The try/catch block and logger call aim to make it easier.
+                            logger.error("Unexpected exception after parsing", exc);
+                        }
+                    }, exec);
             } catch (NoContributionException e) {
                 logger.debug("Ignoring missing parser for {}", location, e);
                 treeAsync.completeOnTimeout(new Versioned<>(version, IRascalValueFactory.getInstance().character(0), timestamp), 60, TimeUnit.SECONDS);
@@ -254,6 +266,6 @@ public class TextDocumentState {
 
     public TextDocumentState changeParser(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parsing) {
         var c = getCurrentContent();
-        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified());
+        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified(), exec);
     }
 }

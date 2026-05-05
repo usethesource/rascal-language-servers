@@ -42,11 +42,10 @@ import lang::rascal::\syntax::Rascal;
 
 import analysis::typepal::Collector;
 import analysis::typepal::TModel;
-import analysis::diff::edits::TextEdits;
+import analysis::diff::edits::AnnotatedTextEdits;
 
 import Map;
 import util::Maybe;
-import util::LanguageServer;
 
 set[IdRole] fieldRoles = {fieldId(), keywordFieldId(), keywordFormalId()};
 bool isFieldRole(IdRole role) = role in fieldRoles;
@@ -144,10 +143,10 @@ TModel augmentFieldUses(Tree tr, TModel tm, TModel(loc) getModel) {
 }
 
 // Positional fields
-tuple[type[Tree] as, str desc] asType(fieldId(), _) = <#NonterminalLabel, "field name">;
+tuple[type[Tree] as, str desc] asRoleType(fieldId(), _) = <#NonterminalLabel, "field name">;
 
 // Keyword fields
-tuple[type[Tree] as, str desc] asType(keywordFieldId(), _) = <#Name, "keyword field name">;
+tuple[type[Tree] as, str desc] asRoleType(keywordFieldId(), _) = <#Name, "keyword field name">;
 
 bool isUnsupportedCursor(list[Tree] _: [*_, Name n1, *_, (Expression) `<Expression _> has <Name n2>`, *_], Renamer _) = (n1 := n2);
 

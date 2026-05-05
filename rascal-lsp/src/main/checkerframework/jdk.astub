@@ -49,3 +49,15 @@ public class URI {
     public URI(@Nullable String scheme, @Nullable String authority, @Nullable String path, @Nullable String query, @Nullable String fragment) throws URISyntaxException {}
     public URI(@Nullable String scheme, @Nullable String userInfo, @Nullable String host, int port, @Nullable String path, @Nullable String query, @Nullable String fragment) throws URISyntaxException {}
 }
+
+
+package java.util;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public interface Map<K, V> {
+    // Mirror fixes in https://github.com/typetools/jdk/pull/227
+    public @Nullable V compute(
+            K key,
+            BiFunction<? super K, ? super @Nullable V, ? extends @Nullable V> remappingFunction) {}
+}

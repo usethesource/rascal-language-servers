@@ -122,7 +122,7 @@ export interface WatchEventReceiver {
 function buildWatchReceiver(connection: rpc.MessageConnection) : WatchEventReceiver {
     return {
         emitWatch : (e) => {
-            connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/emitWatch"), e);
+            void connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/emitWatch"), e);
         }
     };
 }
@@ -262,7 +262,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         this.fs = vscode.workspace.fs;
         this.connection = connection;
         if (debug) {
-            connection.trace(rpc.Trace.Verbose, {
+            void connection.trace(rpc.Trace.Verbose, {
                 log: (a) => {
                     this.logger.debug("[VFS]: " + a);
                 }

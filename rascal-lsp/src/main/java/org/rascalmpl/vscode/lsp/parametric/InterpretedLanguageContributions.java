@@ -31,11 +31,11 @@ import java.io.StringReader;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.library.util.PathConfig;
@@ -51,12 +51,14 @@ import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.LanguageContributions;
+import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
@@ -98,22 +100,25 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> selectionRange;
     private final CompletableFuture<@Nullable IFunction> prepareCallHierarchy;
     private final CompletableFuture<@Nullable IFunction> callHierarchyService;
+    private final CompletableFuture<@Nullable IFunction> completion;
+    private final CompletableFuture<IList> completionTriggerCharacters;
 
-    private final CompletableFuture<Boolean> hasAnalysis;
-    private final CompletableFuture<Boolean> hasBuild;
-    private final CompletableFuture<Boolean> hasDocumentSymbol;
-    private final CompletableFuture<Boolean> hasCodeLens;
-    private final CompletableFuture<Boolean> hasInlayHint;
-    private final CompletableFuture<Boolean> hasExecution;
-    private final CompletableFuture<Boolean> hasHover;
-    private final CompletableFuture<Boolean> hasDefinition;
-    private final CompletableFuture<Boolean> hasReferences;
-    private final CompletableFuture<Boolean> hasImplementation;
-    private final CompletableFuture<Boolean> hasCodeAction;
-    private final CompletableFuture<Boolean> hasRename;
-    private final CompletableFuture<Boolean> hasDidRenameFiles;
-    private final CompletableFuture<Boolean> hasSelectionRange;
-    private final CompletableFuture<Boolean> hasCallHierarchy;
+    private final CompletableFuture<Boolean> providesAnalysis;
+    private final CompletableFuture<Boolean> providesBuild;
+    private final CompletableFuture<Boolean> providesDocumentSymbol;
+    private final CompletableFuture<Boolean> providesCodeLens;
+    private final CompletableFuture<Boolean> providesInlayHint;
+    private final CompletableFuture<Boolean> providesExecution;
+    private final CompletableFuture<Boolean> providesHover;
+    private final CompletableFuture<Boolean> providesDefinition;
+    private final CompletableFuture<Boolean> providesReferences;
+    private final CompletableFuture<Boolean> providesImplementation;
+    private final CompletableFuture<Boolean> providesCodeAction;
+    private final CompletableFuture<Boolean> providesRename;
+    private final CompletableFuture<Boolean> providesDidRenameFiles;
+    private final CompletableFuture<Boolean> providesSelectionRange;
+    private final CompletableFuture<Boolean> providesCallHierarchy;
+    private final CompletableFuture<Boolean> providesCompletion;
 
     private final CompletableFuture<Boolean> specialCaseHighlighting;
 
@@ -162,23 +167,26 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.selectionRange = getFunctionFor(contributions, LanguageContributions.SELECTION_RANGE);
             this.prepareCallHierarchy = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 0);
             this.callHierarchyService = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 1);
+            this.completion = getFunctionFor(contributions, LanguageContributions.COMPLETION);
+            this.completionTriggerCharacters = getContributionParameter(contributions, LanguageContributions.COMPLETION, LanguageContributions.COMPLETION_TRIGGER_CHARACTERS, VF.list(), IList.class);
 
             // assign boolean properties once instead of wasting futures all the time
-            this.hasAnalysis = nonNull(this.analysis);
-            this.hasBuild = nonNull(this.build);
-            this.hasDocumentSymbol = nonNull(this.documentSymbol);
-            this.hasCodeLens = nonNull(this.codeLens);
-            this.hasInlayHint = nonNull(this.inlayHint);
-            this.hasExecution = nonNull(this.execution);
-            this.hasHover = nonNull(this.hover);
-            this.hasDefinition = nonNull(this.definition);
-            this.hasReferences = nonNull(this.references);
-            this.hasImplementation = nonNull(this.implementation);
-            this.hasCodeAction = nonNull(this.codeAction);
-            this.hasRename = nonNull(this.rename);
-            this.hasDidRenameFiles = nonNull(this.didRenameFiles);
-            this.hasSelectionRange = nonNull(this.selectionRange);
-            this.hasCallHierarchy = nonNull(this.prepareCallHierarchy);
+            this.providesAnalysis = nonNull(this.analysis);
+            this.providesBuild = nonNull(this.build);
+            this.providesDocumentSymbol = nonNull(this.documentSymbol);
+            this.providesCodeLens = nonNull(this.codeLens);
+            this.providesInlayHint = nonNull(this.inlayHint);
+            this.providesExecution = nonNull(this.execution);
+            this.providesHover = nonNull(this.hover);
+            this.providesDefinition = nonNull(this.definition);
+            this.providesReferences = nonNull(this.references);
+            this.providesImplementation = nonNull(this.implementation);
+            this.providesCodeAction = nonNull(this.codeAction);
+            this.providesRename = nonNull(this.rename);
+            this.providesDidRenameFiles = nonNull(this.didRenameFiles);
+            this.providesSelectionRange = nonNull(this.selectionRange);
+            this.providesCallHierarchy = nonNull(this.prepareCallHierarchy);
+            this.providesCompletion = nonNull(this.completion);
 
             this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
@@ -237,16 +245,31 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
 
     private static CompletableFuture<Boolean> getContributionParameter(
             CompletableFuture<ISet> contributions, String name, String parameter) {
+        return getContributionParameter(contributions, name, parameter, VF.bool(false), IBool.class).thenApply(IBool::getValue);
+    }
 
-        return contributions.thenApply(c -> isTrue(getContribution(c, name), parameter));
+    private static <T extends IValue> CompletableFuture<@PolyNull T> getContributionParameter(CompletableFuture<ISet> contributions, String name, String parameter, @PolyNull T defaultVal, Class<T> t) {
+        return contributions.thenApply(c -> {
+            var contrib = getContribution(c, name);
+            if (contrib != null) {
+                var val = contrib.asWithKeywordParameters().getParameter(parameter);
+                if (val != null) {
+                    try {
+                        return t.cast(val);
+                    } catch (ClassCastException e) {
+                        return defaultVal;
+                    }
+                }
+            }
+            return defaultVal;
+        });
     }
 
     private static boolean isTrue(@Nullable IConstructor constructor, String parameter) {
         if (constructor == null) {
             return false;
         }
-        var val = constructor.asWithKeywordParameters().getParameter(parameter);
-        return !(val instanceof IBool) || ((IBool)val).getValue();
+        return KeywordParameter.get(parameter, constructor.asWithKeywordParameters(), true);
     }
 
     private static ISet loadContributions(Evaluator eval, LanguageParameter lang) {
@@ -319,7 +342,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     return contrib;
                 }
             }
-            logger.debug("No {} defined", cons);
             return null;
         });
     }
@@ -397,7 +419,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public InterruptibleFuture<ITuple> rename(IList focus, String newName) {
         debug(LanguageContributions.RENAME_SERVICE, newName, focus.isEmpty() ? "" : focus.get(0));
-        return execFunction(LanguageContributions.RENAME_SERVICE, rename, VF.tuple(VF.list(), VF.list()), focus, VF.string(newName));
+        return execFunction(LanguageContributions.RENAME_SERVICE, rename, VF.tuple(VF.list(), VF.set()), focus, VF.string(newName));
     }
 
     @Override
@@ -442,7 +464,6 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return execFunction(LanguageContributions.SELECTION_RANGE, selectionRange, VF.list(), focus);
     }
 
-    @Override
     public InterruptibleFuture<IList> prepareCallHierarchy(IList focus) {
         debug(LanguageContributions.CALL_HIERARCHY, "prepare", focus.length());
         return execFunction(LanguageContributions.CALL_HIERARCHY, prepareCallHierarchy, VF.list(), focus);
@@ -454,6 +475,17 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return execFunction(LanguageContributions.CALL_HIERARCHY, callHierarchyService, VF.list(), hierarchyItem, direction);
     }
 
+    @Override
+    public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
+        debug(LanguageContributions.COMPLETION, focus.length());
+        return execFunction(LanguageContributions.COMPLETION, completion, VF.list(), focus, cursorOffset, trigger);
+    }
+
+    @Override
+    public CompletableFuture<IList> completionTriggerCharacters() {
+        return completionTriggerCharacters;
+    }
+
     private void debug(String name, Object param) {
         logger.debug("{}({})", name, param);
     }
@@ -463,78 +495,82 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefinition() {
-        return hasDefinition;
+    public CompletableFuture<Boolean> providesDefinition() {
+        return providesDefinition;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferences() {
-        return hasReferences;
+    public CompletableFuture<Boolean> providesReferences() {
+        return providesReferences;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementation() {
-        return hasImplementation;
+    public CompletableFuture<Boolean> providesImplementation() {
+        return providesImplementation;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasHover() {
-        return hasHover;
+    public CompletableFuture<Boolean> providesHover() {
+        return providesHover;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecution() {
-        return hasExecution;
+    public CompletableFuture<Boolean> providesExecution() {
+        return providesExecution;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
-        return hasInlayHint;
+    public CompletableFuture<Boolean> providesInlayHint() {
+        return providesInlayHint;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasRename() {
-        return hasRename;
+    public CompletableFuture<Boolean> providesRename() {
+        return providesRename;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDidRenameFiles() {
-        return hasDidRenameFiles;
+    public CompletableFuture<Boolean> providesDidRenameFiles() {
+        return providesDidRenameFiles;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLens() {
-        return hasCodeLens;
+    public CompletableFuture<Boolean> providesCodeLens() {
+        return providesCodeLens;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumentSymbol() {
-        return hasDocumentSymbol;
+    public CompletableFuture<Boolean> providesDocumentSymbol() {
+        return providesDocumentSymbol;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeAction() {
-        return hasCodeAction;
+    public CompletableFuture<Boolean> providesCodeAction() {
+        return providesCodeAction;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSelectionRange() {
-        return hasSelectionRange;
+    public CompletableFuture<Boolean> providesSelectionRange() {
+        return providesSelectionRange;
+    }
+
+    public CompletableFuture<Boolean> providesCallHierarchy() {
+        return providesCallHierarchy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCallHierarchy() {
-        return hasCallHierarchy;
+    public CompletableFuture<Boolean> providesCompletion() {
+        return providesCompletion;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalysis() {
-        return hasAnalysis;
+    public CompletableFuture<Boolean> providesAnalysis() {
+        return providesAnalysis;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuild() {
-        return hasBuild;
+    public CompletableFuture<Boolean> providesBuild() {
+        return providesBuild;
     }
 
     @Override

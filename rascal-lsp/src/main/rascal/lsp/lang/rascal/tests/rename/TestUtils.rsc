@@ -37,6 +37,7 @@ import Location;
 import ParseTree;
 import Set;
 import String;
+import ValueIO;
 
 import lang::rascal::\syntax::Rascal; // `Name`
 
@@ -48,14 +49,15 @@ import lang::rascalcore::compile::util::Names;
 import analysis::diff::edits::ExecuteTextEdits;
 
 import util::FileSystem;
-import util::LanguageServer;
 import util::Math;
 import util::Maybe;
 import util::Monitor;
 import util::PathConfig;
 import util::Reflective;
+import util::SystemAPI;
 import util::Util;
 
+public LanguageFileConfig RASCAL_CONF = fileConfig();
 
 //// Fixtures and utility functions
 data TestModule = byText(str name, str body, set[int] nameOccs, str newName = name, set[int] skipCursors = {})
@@ -76,7 +78,7 @@ private list[DocumentEdit] groupEditsByFile(list[DocumentEdit] _: [*pre, changed
     groupEditsByFile([*pre, changed(f, [*e1, *e2]), *mid, *post]);
 private default list[DocumentEdit] groupEditsByFile(list[DocumentEdit] edits) = edits;
 
-private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
+void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathConfig pcfg) {
     list[loc] editLocs = [l | /replace(l, _) := edits];
     assert size(editLocs) == size(toSet(editLocs)) : "Duplicate locations in suggested edits - VS Code cannot handle this";
 
@@ -88,7 +90,7 @@ private void verifyTypeCorrectRenaming(loc root, list[DocumentEdit] edits, PathC
     remove(backupLoc, recursive = true);
     copy(root, backupLoc, recursive = true);
 
-    executeDocumentEdits(sortEdits(groupEditsByFile(edits)));
+    executeFileSystemChanges(sortEdits(groupEditsByFile(edits)));
     remove(pcfg.bin, recursive = true);
 
     list[ModuleMessages] checkAfter = checkAll(root, ccfg);
@@ -115,6 +117,49 @@ bool expectEq(&T expected, &T actual, str epilogue = "") {
         iprintln(actual);
         println();
         return false;
+    }
+    return true;
+}
+
+// Rascal port of TreeSearch::computeFocusList
+private list[Tree] computeFocusList(amb(set[Tree] alts), int line, int col) {
+    if (a <- alts) {
+        return computeFocusList(a, line, col);
+    }
+    return [];
+}
+
+private list[Tree] computeFocusList(tr:appl(Production p, _), int line, int col) = [tr] when isLexical(p.def) && isInside(tr, line, col);
+
+private bool isLexical(\lex(_)) = true;
+private bool isLexical(\parameterized-lex(_, _)) = true;
+private default bool isLexical(_) = false;
+
+private list[Tree] computeFocusList(appl(prod, _), int _, int _) = [] when prod.def is \layouts;
+
+private list[Tree] computeFocusList(tr:appl(_, args), int line, int col) {
+    list[Tree] focus = isInside(tr, line, col) ? [tr] : [];
+    for (a <- args, isInside(a, line, col)) {
+        return computeFocusList(a, line, col) + focus;
+    }
+    return focus;
+}
+
+private default list[Tree] computeFocusList(Tree _, int _, int _) = [];
+
+private bool isInside(Tree tr, int line, int col) = tr.src? && isInside(tr.src, line, col);
+private bool isInside(loc l, int line, int col) {
+    if (!(l.begin? && l.end?)) return false;
+    if (line < l.begin.line || line > l.end.line) return false;
+
+    if (line == l.begin.line) {
+        if (line < l.end.line) {
+            return l.begin.column <= col;
+        }
+        return l.begin.column <= col && col <= l.end.column;
+    }
+    if (line == l.end.line) {
+        return col <= l.end.column;
     }
     return true;
 }
@@ -151,13 +196,65 @@ bool testProject(set[TestModule] modules, str testName, bool(set[TestModule] mod
     return result;
 }
 
+bool isMoved(byText(name, _, _, newName = newName)) = name != newName;
+
+bool moveRenameTest(set[TestModule] modules, set[tuple[tuple[int, int], tuple[int, int]]] additionalEdits = {}, bool debug = false) {
+    testDir = |memory:///tests/move|;
+    remove(testDir);
+    pcfg = getTestPathConfig(testDir);
+    getPathConfig = PathConfig(loc _) {
+        return pcfg;
+    };
+
+    // We test renaming *after* files have been moved, so we use the new name for the path here
+    modsAndPaths = {<m, srcsFile(replaceAll(m.newName, "\\", ""), pcfg, RASCAL_CONF, force=true)> | m <- modules, isMoved(m)};
+
+    if (debug) {
+        print("Mods and paths: ");
+        iprintln(modsAndPaths);
+    }
+
+    for (<byText(name, body, _), p> <- modsAndPaths) {
+        writeFile(p, "module <name>\n<body>");
+    }
+
+    renames = [<old, new> | <m, new> <- modsAndPaths, old := srcsFile(replaceAll(m.name, "\\", ""), pcfg, RASCAL_CONF, force=true)];
+
+    edits = rascalRenameModule(renames, toSet(pcfg.srcs), getPathConfig);
+
+    expectedEdits = {
+        replace(\mod.top.header.name.src, m.newName)
+        | <m, p> <- modsAndPaths
+        , start[Module] \mod := parse(#start[Module], p)
+        , isMoved(m)
+    };
+
+    if (debug) {
+        print("Edits: ");
+        iprintln(edits<0>);
+
+        print("Expected edits: ");
+        iprintln(expectedEdits);
+
+        print("Additional edits: ");
+        iprintln(additionalEdits);
+    }
+
+    verifyTypeCorrectRenaming(testDir, edits<0>, pcfg);
+
+    if (edits<1> != {}) {
+        throw edits<1>;
+    }
+
+    return {r | /r:replace(_, _) := edits<0>}
+        == expectedEdits + additionalEdits;
+}
+
 bool testRenameOccurrences(set[TestModule] modules, str oldName = "foo", str newName = "bar") {
     bool success = true;
     for (mm <- modules, cursorOcc <- (mm.nameOccs - mm.skipCursors)) {
         success = success && testProject(modules, "Test_<mm.name>_<cursorOcc>", bool(set[TestModule] modulesByLocation, loc testDir, PathConfig pcfg) {
             <cursor, focus> = findCursor([m.file | m <- modulesByLocation, m.name == mm.name][0], oldName, cursorOcc);
-
-            println("Renaming \'<oldName>\' from <focus[0].src>");
             <edits, msgs> = rascalRenameSymbol(cursor, focus, newName, toSet(pcfg.srcs), PathConfig(loc _) { return pcfg; });
 
             throwMessagesIfError(msgs);
@@ -227,19 +324,24 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
     return false;
 }
 
-public loc calculateRascalLib() {
-    result = resolveLocation(|std:///|);
-    if (/org.rascalmpl.library.?$/ := result.path) {
-        return result.parent.parent.parent;
+public list[loc] calculateRascalLibs() {
+    rascalLib = resolveLocation(|std:///|);
+    if (/org.rascalmpl.library.?$/ := rascalLib.path) {
+        rascalLib = rascalLib.parent.parent.parent;
     }
-    return result;
+    props = getSystemEnvironment();
+    if (props["ADDITIONAL_TPLS"]?) {
+        loc additionalTpls = readTextValueString(#loc, props["ADDITIONAL_TPLS"]);
+        return [rascalLib, additionalTpls];
+    }
+    return [rascalLib];
 }
 
 
 public PathConfig getTestPathConfig(loc testDir) {
     return pathConfig(
         bin=testDir + "bin",
-        libs=[calculateRascalLib()],
+        libs=calculateRascalLibs(),
         srcs=[testDir + "rascal"]
     );
 }
@@ -379,10 +481,9 @@ private tuple[loc, list[Tree]] findCursor(loc f, str id, int occ) {
 }
 
 private loc storeTestModule(loc dir, str name, str body) {
-    str moduleStr = "
-    'module <name>
-    '<body>
-    ";
+    str moduleStr = "module <trim(name)>
+                    '<trim(body)>
+                    '";
 
     loc moduleFile = dir + "rascal" + (moduleNameToPath(name) + ".rsc");
     writeFile(moduleFile, moduleStr);

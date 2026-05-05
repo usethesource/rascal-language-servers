@@ -14,7 +14,7 @@
     "color": "#ffffff",
     "theme": "light"
   },
-  "version": "0.13.1-head",
+  "version": "0.13.6-head",
   "engines": {
     "vscode": "^1.90.0",
     "node": ">=20.9.0"
@@ -32,6 +32,7 @@
     "url": "https://github.com/sponsors/usethesource/"
   },
   "dependencies": {
+    "jsonc-parser": "3.x",
     "tar": "7.x",
     "vscode-languageclient": "9.x",
     "yauzl": "3.x"
@@ -226,6 +227,8 @@
             "null"
           ],
           "default": null,
+          "minimum": 800,
+          "scope": "machine-overridable",
           "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
         },
         "rascal.interpreter.stackSize": {
@@ -234,7 +237,28 @@
             "null"
           ],
           "default": null,
+          "scope": "machine-overridable",
           "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
+        },
+        "rascal.lSP.maxHeapSize": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 800,
+          "scope": "machine-overridable",
+          "markdownDescription": "Provides the maximum heap space, in MB, for the Rascal LSP server.\n\nNeeds at least 800MB, but runs better with 2GB or more. _Set based on total available memory on machine._"
+        },
+        "rascal.parametric.lSP.maxHeapSize": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 800,
+          "scope": "machine-overridable",
+          "markdownDescription": "Provides the maximum heap space, in MB, for the Parametric LSP server.\n\nNeeds at least 800MB, but runs better with more. 400MB per language is a reasonable estimate, for average-sized languages. _Set based on total available memory on machine._"
         },
         "rascal.terminal.name.originFormat": {
           "type": "string",
@@ -252,7 +276,7 @@
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
     "vscode:prepublish": "npm run lsp4j:package && npm run package",
-    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --packages=bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --packages=bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --main-fields=module,main",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "package": "npm run esbuild-base -- --minify",
@@ -272,7 +296,6 @@
     "@types/chai": "4.x",
     "@types/mocha": "10.x",
     "@types/node": "20.x",
-    "@types/tar": "6.x",
     "@types/vscode": "1.90.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "7.x",
@@ -280,12 +303,12 @@
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "3.x",
     "chai": "4.x",
-    "esbuild": "0.27.x",
+    "esbuild": "0.28.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
     "mocha": "11.x",
-    "typescript": "5.x",
+    "typescript": "6.x",
     "vscode-extension-tester": "8.x"
   }
 }

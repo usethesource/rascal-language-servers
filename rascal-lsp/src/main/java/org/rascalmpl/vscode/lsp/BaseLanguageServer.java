@@ -117,7 +117,7 @@ public abstract class BaseLanguageServer {
             .setRemoteInterface(IBaseLanguageClient.class)
             .setInput(in)
             .setOutput(out)
-            .configureGson(b -> GsonUtils.configureGson(b, GsonUtils.ComplexTypeMode.ENCODE_AS_JSON_OBJECT))
+            .configureGson(GsonUtils.complexAsJsonObject())
             .setExecutorService(threadPool)
             .create();
 
@@ -256,7 +256,7 @@ public abstract class BaseLanguageServer {
                 logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
                 logger.debug("LSP client capabilities: {}", params.getCapabilities());
                 final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
-                lspDocumentService.initializeServerCapabilities(initializeResult.getCapabilities());
+                lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
                 lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
                 logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
                 return initializeResult;

@@ -40,7 +40,7 @@ Language Server Protocol.
 module util::LanguageServer
 
 import util::Reflective;
-import analysis::diff::edits::TextEdits;
+extend analysis::diff::edits::AnnotatedTextEdits;
 import IO;
 import ParseTree;
 import Message;
@@ -94,7 +94,7 @@ alias Summarizer       = Summary (loc _origin, Tree _input);
 @synopsis{A focus provides the currently selected language constructs around the cursor.}
 @description{
 A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if
-the cursor is inside an identifer, and ends with the start non-terminal (the whole tree). Everything
+the cursor is inside an identifier, and ends with the start non-terminal (the whole tree). Everything
 in between is a spine of language constructs ((Library:ParseTree)) nodes between the top and the bottom node.
 
 The location of each element in the focus list is around (inclusive) the current cursor selection.
@@ -156,9 +156,9 @@ alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 @deprecated{Use ((implementation)) instead.}
 alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
-@synopsis{Each kind of service contibutes the implementation of one (or several) IDE features.}
+@synopsis{Each kind of service contributes the implementation of one (or several) IDE features.}
 @description{
-Each LanguageService constructor provides one aspect of definining the language server protocol (LSP).
+Each LanguageService constructor provides one aspect of defining the language server protocol (LSP).
 Their names coincide with the services which are documented [here](https://microsoft.github.io/language-server-protocol/).
 
 * The ((parsing)) service that maps source code strings to a ((ParseTree::Tree)) is essential and non-optional.
@@ -210,16 +210,29 @@ hover documentation, definition with uses, references to declarations, implement
    * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * The ((documentSymbol)) service maps a source file to a pretty hierarchy for visualization in the "outline" view and "symbol search" features.
 * The ((codeLens)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
-* The ((inlayHint)) service discovers plances to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
+* The ((inlayHint)) service discovers places to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
 * The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
 * The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 * The ((util::LanguageServer::rename)) service renames an identifier by collecting the edits required to rename all occurrences of that identifier. It might fail and report why in diagnostics.
-   * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renameing the location is not supported, it should throw an exception.
+   * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renaming the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
 * The ((selectionRange)) service discovers selections around a cursor, that a user might want to select. It expects the list of source locations to be in ascending order of size (each location should be contained by the next) - similar to ((Focus)) trees.
 * The ((callHierarchy)) service discovers callable definitions and call sites. It consists of two subservices.
     1. The first argument, `callableItem`, computes ((CallHierarchyItem))s (definitions) for a given cursor.
     2. The second argument, `calculateCalls`, computes ((incoming)) or ((outgoing)) calls (uses) of a given ((CallHierarchyItem)) `ci`. It returns a list relation of ((CallHierarchyItem))s and the location(s) of the call(s) to `ci` these definitions have.
+* The ((completion)) service is called with the current the focus, the offset of the cursor inside the smallest focus tree (`focus[0]`), and the how the user triggered completion (explicit invocation or by typing a trigger character).
+    It should return a list of completion suggestions.
+    - If a non-empty list is returned the user is asked to select one of the completion suggestions.
+    - If an empty list is returned, an empty list of completions is presented to the user.
+    - When `completionService` throws an exception no completion popup is shown.
+    The optional list of trigger characters can contain a list of extra characters that trigger completion.
+    These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
+
+    We have chosen to support all features of the LSP CompletionItem except:
+    * To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
+    * Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
+
+Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -288,7 +301,106 @@ data LanguageService
     | callHierarchy (
         list[CallHierarchyItem] (Focus _focus) prepareService,
         lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) callsService)
+    | completion(list[CompletionItem] (Focus _focus, int cursorOffset, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = [])
     ;
+
+@description{
+Definition of completion service. Kept separate from the LanguageService for now to allow for easy discussion.
+`completionService`` is called with the current the focus, the offset of the cursor inside the smallest focus tree (`focus[0]`), and the how the user triggered completion (explicit invocation or by typing a trigger character).
+ It should return a list of completion suggestions.
+ - If a non-empty list is returned the user is asked to select one of the completion suggestions.
+ - If an empty list is returned, an empty list of completions is presented to the user.
+ - When `completionService` throws an exception no completion popup is shown.
+ The optional list of trigger characters can contain a list of extra characters that trigger completion.
+ These characters are an addition to the defaults provided by the client (typically [a-zA-Z]). A typical example would be to include "." for languages like Java to start field/method completion.
+
+We have chosen to support all features of the LSP CompletionItem except:
+* To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
+* Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
+
+Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
+}
+
+@synopsis{Represents a concrete completion proposal that the user can select.}
+@description{
+The following fields can be used:
+    * *kind* (required): Used to indicate what kind of completion this is. This is typically used to show an appropriate icon next to the completion item.
+    * *edit* (required): Specification of the edit that will occur if this completion proposal is accepted by the user.
+    * *label* (required): The label shown to identify the completion item. The label should make it clear for the user what the result of the completion will be.
+    * *labelDetail*: Shown directly after the label and can for instance be used to show the function parameters.
+    * *labelDescription*: Shown after the label details. This is typically used to show information about the (return) type when a completion is a function or variable.
+    * *detail*: Text that is shown when the user asks for more information about a particular completion.
+    * *documentation*: Markup that documents the construct that a completion will generate.
+    * *sortText*: Used to sort the list of completions. If not set, completion suggestions will be sorted based on *label*.
+    * *filterText*: Used to filter the list of completions based on user input while selecting a completion item. A known VSCode quirk is that
+        if *completionEdit* starts before the cursor, the text currently before the cursor is included as "user input" for filtering.
+        For example if the user starts completion like this: `pr|i` (where `|` represents the cursor) and you generate the completion edit to
+        replace the whole string `pri` with `print`, *filterText* should be set to `pr` or the completion will not show up in the list.
+        If you leave this blank, the correct filter text will be generated for you. If not, we assume you know what you are doing and use the
+        *filterText* you provide as-is.
+    * *deprecated*: Set this to `true` to mark this completion suggestion as deprecated.
+    * *commitCharacters*: When one of these characters is typed, the completion suggestion is accepted and the character is inserted after the completed text.
+    * *additionalChanges*: Any additional changes anywhere else in the document. This can for instance be used to add imports.
+    * *command*: Command executed after the completion edits are done. For instance, in some cases it might be practical to move the cursor after the edit.
+}
+data CompletionItem = completionItem(
+    CompletionItemKind kind,
+    CompletionEdit edit,
+
+    str label,
+    str labelDetail = "",
+    str labelDescription = "",
+
+    str detail = "",
+    str documentation = "",
+
+    str sortText = "",
+    str filterText = "",
+
+    bool deprecated = false,
+    bool preselect = false,
+
+    list[str] commitCharacters = [],
+
+    list[TextEdit] additionalChanges = [],
+
+    Command command = noop()
+);
+
+@synopsis{Definition of a completion edit}
+@description{
+    * *startColumn (required): The column where the completion edit operation will take place. Must be at or before the cursor position.
+    * *insertEndColumn* (required): End column when the user chooses completion by insertion  (for instance by pressing "Enter" in VSCode).
+    * *replaceEndColumn* (required): End column when the user chooses completion by replacement (for instance by pressing "Shift-Enter" in VSCode).
+        Note: *insertEndColumn* must not be larger than *replaceEndColumn* and both must be at or to the right of the cursor position.
+    * *newText* (required): The text that will be used to perform the completion. Depending on what kind of completion (insertion
+        or replacement) selected by the user, the original text from *startColumn* to either *insertEndColumn* or *replaceEndColumn* will
+        be replaced by *newText*.
+    * *snippet*: Can be set to true to indicate that the replacement text should be interpreted as a snippet.
+        Snippets can contain tabstops, placeholders, choices, and variables. For more information about snippets see the
+        [LSP specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#snippet_syntax).
+        Note that it is the responsibility of the language developer that snippets as presented to the user are syntactically correct to
+        provide a decent user experience.
+}
+data CompletionEdit = completionEdit(
+    int startColumn,
+    int insertEndColumn,
+    int replaceEndColumn,
+    str newText,
+    bool snippet = false
+);
+
+@synopsis{What kind of completion item is returned.}
+@description{
+    In VSCode this is used mainly to display a small icon next to each completion item.
+    The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): `namespace`, `package`, `string`, `number`, `boolean`, `array`, `object`, `key`, `null`.
+}
+alias CompletionItemKind = DocumentSymbolKind;
+
+@synopsis{
+Manual invocation or invocation by trigger characters
+}
+data CompletionTrigger = invoked() | character(str trigger);
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
@@ -535,9 +647,10 @@ data Summary = summary(loc src,
     rel[loc, loc]     implementations = {}
 );
 
-data Completion = completion(str newText, str proposal=newText);
-
 @synopsis{DocumentSymbol encodes a sorted and hierarchical outline of a source file}
+@description{
+    Invalid values for kind are: text, unit, value, keyword, snippet, color, reference, folder. These can only be used as ((CompletionItemKind))
+}
 data DocumentSymbol
     = symbol(
         str name,
@@ -549,6 +662,10 @@ data DocumentSymbol
         set[DocumentSymbolTag] tags = {}
     );
 
+@description{
+    List of types that can be used for DocumentSymbol and CompletionItem.
+    The following ((DocumentSymbolKind)) constructors cannot be used as a ((CompletionItemKind)): `namespace`, `package`, `string`, `number`, `boolean`, `array`, `object`, `key`, `null`.
+}
 data DocumentSymbolKind
 	= \file()
 	| \module()
@@ -576,13 +693,19 @@ data DocumentSymbolKind
 	| \event()
 	| \operator()
 	| \typeParameter()
+    | \text()
+    | \unit()
+    | \value()
+    | \keyword()
+    | \snippet()
+    | \color()
+    | \reference()
+    | \folder()
     ;
 
 data DocumentSymbolTag
     = \deprecated()
     ;
-
-data CompletionProposal = sourceProposal(str newText, str proposal=newText);
 
 @synopsis{Attach any command to a message for it to be exposed as a quick-fix code action automatically.}
 @description{
@@ -603,29 +726,6 @@ the right ((DocumentEdit))s immediately.
 * don't forget to extend ((util::LanguageServer::Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
 }
 data Message(list[CodeAction] fixes = []);
-
-@synopsis{A ((analysis::diff::edits::TextEdits::TextEdit)) with additional context for LSP.}
-@description{
-In LSP, text edits can contain extra information w.r.t. ((analysis::diff::edits::TextEdits::TextEdit)).
-* label: Human-readable string that describes the change.
-* description: Human-readable string that additionally describes the change, rendered less prominently.
-* needsConfirmation: Flags whether the user should confirm this change. By default, this is false, which means that ((util::LanguageServer::TextEdit))s are applied without user confirmation.
-
-Typically, clients provide options to group edits by label/description when showing them to the user.
-See the [LSP documentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#changeAnnotation) for more details.
-
-Note: to easily annotate all text edits in a ((analysis::diff::edits::TextEdits::FileSystemChange)), use the convenience keywords on ((util::LanguageServer::FileSystemChange)).
-}
-@pitfalls{
-When `needsConfirmation = false` for all edits, the client will typically apply them without showing any information from the annotations to the user.
-}
-data TextEdit(str label = "", str description = label, bool needsConfirmation = false);
-
-@synopsis{A ((analysis::diff::edits::TextEdits::FileSystemChange)) with additional context for LSP.}
-@description{
-Provides extra context for all contained ((util::LanguageServer::TextEdit))s at once.
-}
-data FileSystemChange(str label = "", str description = "", bool needsConfirmation = false);
 
 @synopsis{A Command is a parameter to a CommandExecutor function.}
 @description{
@@ -692,7 +792,7 @@ interactive content have to be cleaned or closed in their own respective fashion
 }
 @benefits{
 * CodeActions provide tight integration with the user experience in the IDE. Including sometimes previews, and always the undo stack.
-* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits)) for
+* CodeActions can be implemented "on the language level", abstracting from UI and scheduling details. See also ((analysis::diff::edits::HiFiTreeDiff)) and ((analysis::diff::edits::HiFiLayoutDiff)) for
 tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
 * `edits` are applied on the latest editor content for the current editor; live to the user.
 * ((util::IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
@@ -758,7 +858,7 @@ data RefactorKind
 * `position` where the hint should be placed, by default at the beginning of this location, the `atEnd` can be set to true to change this
 * `label` text that should be printed in the ide, spaces in front and back of the text are trimmed and turned into subtle spacing to the content around it.
 * `kind` his either `type()` or `parameter()` which influences styling in the editor.
-* `toolTip` optionally show extra information when hovering over the inlayhint.
+* `toolTip` optionally show extra information when hovering over the inlay hint.
 * `atEnd` instead of appearing at the beginning of the position, appear at the end.
 }
 data InlayHint
@@ -779,7 +879,7 @@ data InlayKind
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
 @synopsis{Generates and instantiates a new language server for the given language}
 @description{
-We register languages by uploading the meta-data of the implementation to a "lanuage-parametric" language server.
+We register languages by uploading the meta-data of the implementation to a "language-parametric" language server.
 1. The meta-data is used to instantiate a fresh run-time to execute the main-module.
 2. The extension is registered with the IDE to link to this new runtime.
 3. Each specific extension is mapped to a specific part of the language server protocol.
@@ -816,7 +916,7 @@ void unregisterLanguage(str name, str extension, str mainModule = "", str mainFu
 @synopsis{Produce a ((Focus)) for a given tree and cursor position}
 @description{
 This function exists to be able to unit test ((LanguageService))s that
-accept a ((Focus)) parameter, indepently of using ((registerLanguage)).
+accept a ((Focus)) parameter, independently of using ((registerLanguage)).
 
 * `line` is a 1-based indication of what the current line is
 * `column` is a 0-based indication of what the current column is.

@@ -24,8 +24,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.rascal.conversion;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,10 +52,8 @@ import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
 import org.rascalmpl.values.parsetrees.SymbolAdapter;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 
 public class SemanticTokenizer {
@@ -414,10 +414,7 @@ public class SemanticTokenizer {
                 category = TokenTypes.AMBIGUITY;
             }
 
-            IValue catParameter = tree.asWithKeywordParameters().getParameter("category");
-            if (category == null && catParameter != null) {
-                category = ((IString) catParameter).getValue();
-            }
+            category = KeywordParameter.get("category", tree.asWithKeywordParameters(), category);
 
             IConstructor prod = TreeAdapter.getProduction(tree);
             if (category == null && ProductionAdapter.isDefault(prod)) {

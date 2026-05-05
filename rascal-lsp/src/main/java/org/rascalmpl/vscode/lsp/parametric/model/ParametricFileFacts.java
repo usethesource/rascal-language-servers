@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -50,6 +49,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.util.Lists;
@@ -59,7 +59,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
-public class ParametricFileFacts {
+public class ParametricFileFacts implements DiagnosticsReporter {
     private static final Logger logger = LogManager.getLogger(ParametricFileFacts.class);
 
     private final Executor exec;
@@ -109,8 +109,9 @@ public class ParametricFileFacts {
         this.client = client;
     }
 
-    public void reportParseErrors(ISourceLocation file, int version, List<Diagnostic> msgs) {
-        getFile(file).reportParseErrors(version, msgs);
+    @Override
+    public void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
+        getFile(file).reportParseErrors(msgs);
     }
 
     private FileFact getFile(ISourceLocation file) {
@@ -168,11 +169,11 @@ public class ParametricFileFacts {
         void close();
         void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay);
         void calculateBuilder(CompletableFuture<Versioned<ITree>> tree);
-        void reportParseErrors(int version, List<Diagnostic> messages);
+        void reportParseErrors(Versioned<List<Diagnostic>> messages);
         void clearDiagnostics();
         <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor);
     }
-    
+
     @SuppressWarnings("java:S3077") // Reads/writes to fields of this class happen sequentially
     private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
@@ -200,9 +201,8 @@ public class ParametricFileFacts {
             this.file = file;
         }
 
-        private <T> void reportDiagnostics(AtomicReference<Versioned<T>> current, int version, T messages) {
-            var maybeNewer = new Versioned<>(version, messages);
-            if (Versioned.replaceIfNewer(current, maybeNewer)) {
+        private <T> void reportDiagnostics(AtomicReference<Versioned<T>> current, Versioned<T> messages) {
+            if (Versioned.replaceIfNewer(current, messages)) {
                 sendDiagnostics();
             }
         }
@@ -302,7 +302,7 @@ public class ParametricFileFacts {
                     .thenApply(f -> f.createFullSummary(file, tree))
                     .thenCompose(Function.identity());
                 ParametricSummary.getMessages(summary, exec)
-                    .thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
+                    .thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, new Versioned<>(version, ms)));
                 return summary;
             });
         }
@@ -342,13 +342,13 @@ public class ParametricFileFacts {
             var builderMessages = ParametricSummary.getMessages(latestBuilderBuild, exec);
             analyzerMessages.thenAcceptBothIfUninterrupted(builderMessages, (aMessages, bMessages) -> {
                 bMessages.removeAll(aMessages);
-                tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), bMessages));
+                tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, new Versioned<>(t.version(), bMessages)));
             });
         }
 
         @Override
-        public void reportParseErrors(int version, List<Diagnostic> messages) {
-            reportDiagnostics(parserDiagnostics, version, messages);
+        public void reportParseErrors(Versioned<List<Diagnostic>> messages) {
+            reportDiagnostics(parserDiagnostics, messages);
         }
 
         @Override
@@ -469,7 +469,7 @@ public class ParametricFileFacts {
         }
 
         @Override
-        public void reportParseErrors(int version, List<Diagnostic> messages) {
+        public void reportParseErrors(Versioned<List<Diagnostic>> messages) {
             // NOP
         }
 

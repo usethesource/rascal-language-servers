@@ -38,7 +38,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.ideservices.GsonUtils;
-import org.rascalmpl.ideservices.IRemoteIDEServices;
+import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.IDEServicesConfiguration;
 
@@ -69,12 +69,12 @@ public class RemoteIDEServicesThread extends Thread {
                     Socket connection = serverSocket.accept();
                     connection.setTcpNoDelay(true);
 
-                    Launcher<IRemoteIDEServices> remoteIDEServicesLauncher = new Launcher.Builder<IRemoteIDEServices>()
+                    Launcher<IDEServices> remoteIDEServicesLauncher = new Launcher.Builder<IDEServices>()
                         .setLocalService(new RemoteIDEServicesServer(languageClient, docService, exec))
-                        .setRemoteInterface(IRemoteIDEServices.class)
+                        .setRemoteInterface(IDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
-                        .configureGson(GsonUtils::configureGson)
+                        .configureGson(GsonUtils.complexAsBase64String())
                         .setExecutorService(exec)
                         .setExceptionHandler(e -> {
                             logger.error(e);

@@ -29,8 +29,7 @@ package org.rascalmpl.vscode.lsp;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
@@ -38,18 +37,16 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
-import org.rascalmpl.util.locations.ColumnMaps;
-import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
-public interface IBaseTextDocumentService extends TextDocumentService {
+public interface IBaseTextDocumentService extends TextDocumentService, ITextDocumentStateManager {
     static final Duration NO_DEBOUNCE = Duration.ZERO;
     static final Duration NORMAL_DEBOUNCE = Duration.ofMillis(800);
 
-    void initializeServerCapabilities(ServerCapabilities result);
+    void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result);
     void shutdown();
     void connect(LanguageClient client);
     void pair(BaseWorkspaceService workspaceService);
@@ -61,11 +58,6 @@ public interface IBaseTextDocumentService extends TextDocumentService {
     void projectRemoved(String name, ISourceLocation projectRoot);
 
     CompletableFuture<IValue> executeCommand(String languageName, String command);
-    LineColumnOffsetMap getColumnMap(ISourceLocation file);
-    ColumnMaps getColumnMaps();
-    @Nullable TextDocumentState getDocumentState(ISourceLocation file);
-
-    boolean isManagingFile(ISourceLocation file);
 
     void didCreateFiles(CreateFilesParams params);
     void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders);

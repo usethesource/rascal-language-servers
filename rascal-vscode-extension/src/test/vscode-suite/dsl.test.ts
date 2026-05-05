@@ -25,8 +25,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, TextEditor, SideBarView, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
+import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -137,22 +137,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     });
 
     it("has syntax highlighting in documents without extension", async function () {
-        await bench.executeCommand("workbench.action.files.newUntitledFile");
+        const editor = await ide.newUntitledFile(bench, driver, 1);
+        expect(editor).to.not.be.undefined;
+
         await bench.executeCommand("workbench.action.editor.changeLanguageMode");
 
         const inputBox = new InputBox();
         await inputBox.setText("parametric-rascalmpl");
         await inputBox.confirm();
-
-        const file = "Untitled-1";
-        const editor = await driver.wait(async () => {
-            const result = await ignoreFails(new Workbench().getEditorView().openEditor(file)) as TextEditor;
-            if (result && await ignoreFails(result.getTitle()) === file) {
-                return result;
-            }
-            return undefined! as TextEditor;
-        }, Delays.normal, "Could not open file");
-        expect(editor).to.not.be.undefined;
 
         await editor.setText(`begin
   declare
@@ -230,8 +222,7 @@ end
     it("code lens works", async function() {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        const lens = await driver.wait(() => editor.getCodeLens("Rename variables a to b."), Delays.verySlow, "Rename lens should be available");
-        await lens!.click();
+        await ide.clickCodeLens(editor, "Rename variables a to b.", Delays.verySlow, "Rename lens should be available");
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
@@ -256,7 +247,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(5, 6);
 
-        ide.renameSymbol(editor, bench, "z");
+        await ide.renameSymbol(editor, bench, "z");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
@@ -313,5 +304,46 @@ end
             const items = await ignoreFails(incoming!.getVisibleItems());
             return items?.length === 3;
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
+    });
+
+    it("completion works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.setTextAtLine(6, "     aa : natural;");
+
+        await editor.moveCursor(9, 4);
+        await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
+        await expectCompletions(driver, editor, ["a", "aa"]);
+    });
+
+    it("completion by trigger character works", async function() {
+        // We will be typing and introducing parse errors, so this only works with error recovery
+        if (!errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await editor.moveCursor(10, 10);
+        await editor.typeText("  x :=");
+        await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
+    });
+
+    it("serializes Rascal values as expected", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+        const actualJsonUri = "rascal-vscode-test:///test.json";
+
+        // Open an editor with a link to the virtual file, so we can use the `Open Link` command
+        const linkEditor = await ide.newUntitledFile(bench, driver);
+        await linkEditor.setText(actualJsonUri);
+        await ide.hasLink(linkEditor);
+
+        // Open the virtual file with the serialized JSON
+        await bench.executeCommand("editor.action.openLink");
+        const resultEditor = await driver.wait(async () => {
+            const editor = new TextEditor();
+            return (await ignoreFails(editor.getTitle()) === path.basename(actualJsonUri)) ? editor : undefined;
+        }, Delays.normal, "Editor with JSON result should open");
+
+        // Check JSON equivalence
+        const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
+        const actualJson = await resultEditor!.getText();
+        expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
     });
 });

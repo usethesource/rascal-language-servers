@@ -207,7 +207,21 @@ loc targetToProject(loc l) {
 }
 
 @memo
+@synopsis{Infers the root of the project that `member` is in.}
 loc inferProjectRoot(loc member) {
+    parentRoot = member;
+    root = parentRoot;
+
+    do {
+        root = parentRoot;
+        parentRoot = inferDeepestProjectRoot(root.parent);
+    } while (root.parent? && parentRoot != root.parent);
+    return root;
+}
+
+@synopsis{Infers the longest project root-like path that `member` is in.}
+@pitfalls{Might return a sub-directory of `target/`.}
+loc inferDeepestProjectRoot(loc member) {
     current = targetToProject(member);
     if (!isDirectory(current)) {
         current = current.parent;

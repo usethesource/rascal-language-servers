@@ -40,7 +40,10 @@ import util::ParseErrorRecovery;
 import util::Reflective;
 extend lang::pico::\syntax::Main;
 import DateTime;
+import IO;
+import List;
 import Location;
+import String;
 
 // We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
 // For most use-cases, one should not extend the grammar in the language server implementation
@@ -73,7 +76,8 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
-    callHierarchy(picoPrepareCallHierarchy, picoCallsService)
+    callHierarchy(picoPrepareCallHierarchy, picoCallsService),
+    completion(picoCompletionService, additionalTriggerCharacters = ["="])
 };
 
 set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
@@ -174,18 +178,19 @@ set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.s
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
-    = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
+    = [CodeAction::action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
 list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program])
-    = [action(command=removeDecl(program, x, title="remove <x>"))];
+    = [CodeAction::action(command=removeDecl(program, x, title="remove <x>"))];
 
 default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 
-@synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
+@synsopsis{Defines example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
   = renameAtoB(start[Program] program)
   | removeDecl(start[Program] program, IdType toBeRemoved)
+  | testValueEncoding()
   ;
 
 @synopsis{Adds an example lense to the entire program.}
@@ -212,6 +217,19 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
     applyDocumentsEdits(getAtoBEdits(input));
     return ("result": true);
 }
+
+@synopsis{Command handler to test JSON serialization of various Rascal value types.}
+value picoExecutionService(testValueEncoding()) = (
+    "result": [ // list
+        ("a": true), // map, str, bool
+        {8, 1r2, 3.14, 10e3}, // set, int, rat, real
+        char(0), // ADT constructor
+        reposition(parse(#IdType, "x: string"), file = |test:///expectation|), // Tree
+        |memory://authority/file.ext|, // loc
+        $2026-03-19T11:55:54.121+0100$, // datetime
+        <[1..3], #int> // tuple, range, reified type
+    ]
+);
 
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
@@ -294,6 +312,35 @@ lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirectio
     };
 
     return calls;
+}
+
+list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, CompletionTrigger trigger) {
+    t = focus[0];
+    str prefix = "<t>"[..cursorOffset];
+    cc = t.src.begin.column + cursorOffset;
+    list[CompletionItem] items = [];
+
+    isTypingId = false;
+    try {
+        if (prefix != "" && trim(prefix) == prefix) {
+            parse(#Id, prefix);
+            isTypingId = true;
+        }
+    } catch ParseError(_): {;}
+
+    top-down-break visit (focus[-1]) {
+        case IdType def: {
+            name = "<def.id>";
+            if (!isTypingId || startsWith(name, prefix)) {
+                e = isTypingId && !trigger is character
+                    ? completionEdit(t.src.begin.column, cc, t.src.end.column, name)
+                    : completionEdit(cc, cc, cc, name);
+                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeOf(def)>");
+            }
+        }
+    }
+
+    return sort(items, bool(CompletionItem i1, CompletionItem i2) {return i1.label < i2.label; });
 }
 
 @synopsis{The main function registers the Pico language with the IDE}

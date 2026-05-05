@@ -167,7 +167,7 @@ test bool dataTypesInIIModuleStructure() = testRenameOccurrences({
                                                                         'bool func(Foo foo) = foo == g();", {})
 }, oldName = "Foo", newName = "Bar");
 
-test bool asType() = testRenameOccurrences({0, 1}, "
+test bool asRoleType() = testRenameOccurrences({0, 1}, "
     'str s = \"text\";
     'if (t := [Foo] s) {
     '   str u = t;

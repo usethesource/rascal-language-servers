@@ -44,13 +44,8 @@ export class RascalMFValidator implements vscode.Disposable {
         // any new project should be checked
         vscode.workspace.onDidChangeWorkspaceFolders(async ws => {
             for (const added of ws.added) {
-                try {
-                    const mfURI = buildMFChildPath(added.uri);
-                    await vscode.workspace.fs.stat(mfURI);
-                    this.verifyRascalMF(mfURI);
-                }
-                catch (_missingFile) {
-                    // most likely not a rascal project
+                if (await isRascalProject(added.uri)) {
+                    void this.verifyRascalMF(added.uri);
                 }
             }
             for (const rem of ws.removed) {
@@ -62,7 +57,7 @@ export class RascalMFValidator implements vscode.Disposable {
         // also at the start, check the already opened folders
         for (const openProject of vscode.workspace.workspaceFolders || []) {
             const mfURI = buildMFChildPath(openProject.uri);
-            vscode.workspace.fs.stat(mfURI).then(_s => this.verifyRascalMF(mfURI));
+            void vscode.workspace.fs.stat(mfURI).then(_s => void this.verifyRascalMF(mfURI));
         }
 
         // all changed files should be checked on save (for example a git pull)
@@ -115,6 +110,17 @@ enum FixKind {
     missingSpaceAfterSeparator,
     removeInvalidCharsProjectName
 
+}
+
+export async function isRascalProject(projectRoot: vscode.Uri) {
+    try {
+        await vscode.workspace.fs.stat(buildMFChildPath(projectRoot));
+        return true;
+    }
+    catch (_missingFile) {
+        // most likely not a rascal project
+        return false;
+    }
 }
 
 function checkMissingLastLine(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {

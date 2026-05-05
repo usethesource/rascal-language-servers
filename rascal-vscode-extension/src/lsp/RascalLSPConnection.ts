@@ -54,22 +54,22 @@ export async function activateLanguageClient(
 
     await client.start();
     logger.setClient(client);
-    client.sendNotification("rascal/vfs/register", {
+    void client.sendNotification("rascal/vfs/register", {
         port: await vfsServer.serverPort
     });
 
     client.onNotification("rascal/showContent", (uri: string, title: string, viewColumn: integer) => {
-        showContentPanel(uri, title, viewColumn);
+        void showContentPanel(uri, title, viewColumn);
     });
 
 
-    client.onNotification("rascal/editDocument", (uri: string, viewColumn: integer, range: vscode.Range) => {
-        openEditor(uri, range, viewColumn);
+    client.onNotification("rascal/editDocument", (uri: string, range: vscode.Range | undefined, viewColumn: integer) => {
+        void openEditor(uri, range, viewColumn);
     });
 
     const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
 
-    schemesReply.then( schemes => {
+    void schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
         new RascalFileSystemProvider(client, logger).tryRegisterSchemes(schemes);
     });
@@ -111,7 +111,7 @@ async function showContentPanel(url: string, title:string, viewColumn:integer): 
     contentPanels.set(id, panel);
 }
 
-async function openEditor(uriString: string, range:vscode.Range, viewColumn: integer) {
+async function openEditor(uriString: string, range: vscode.Range | undefined, viewColumn: integer) {
     const uri = vscode.Uri.parse(uriString);
 
     const doc = await vscode.workspace.openTextDocument(uri);
@@ -127,9 +127,11 @@ async function openEditor(uriString: string, range:vscode.Range, viewColumn: int
         // don't use the `selection` field here because we can not control scrolling behavior from that with editors which are already open
     });
 
-    // set the primary selection and move it into view (but don't scroll unless necessary)
-    editor.selection = new vscode.Selection(range.start, range.end);
-    editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    if (range !== undefined) {
+        // set the primary selection and move it into view (but don't scroll unless necessary)
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    }
 }
 
 
@@ -194,6 +196,14 @@ function gb(amount: integer) {
 }
 
 function calculateRascalMemoryReservation() {
+    const config = vscode.workspace.getConfiguration('rascal.lSP');
+    if (config.has('maxHeapSize')) {
+        const maxHeapSize = config.get('maxHeapSize');
+        if (maxHeapSize !== null) {
+            return `-Xmx${maxHeapSize}M`;
+        }
+    }
+
     // rascal lsp needs at least 800M but runs better with 2G or even 2.5G (especially the type checker)
     if (os.totalmem() >= gb(32)) {
         return "-Xmx2500M";
@@ -209,6 +219,14 @@ function calculateRascalMemoryReservation() {
 }
 
 function calculateDSLMemoryReservation(_dedicated: boolean) {
+    const config = vscode.workspace.getConfiguration('rascal.parametric.lSP');
+    if (config.has('maxHeapSize')) {
+        const maxHeapSize = config.get('maxHeapSize');
+        if (maxHeapSize !== null) {
+            return `-Xmx${maxHeapSize}M`;
+        }
+    }
+
     // this is a hard one, if you register many DSLs, it can grow quite a bit
     // 400MB per language is a reasonable estimate (for average sized languages)
     if (os.totalmem() >= gb(32)) {

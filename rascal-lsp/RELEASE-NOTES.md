@@ -2,6 +2,74 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.22.5 (VS Code: 0.13.5)
+
+Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0)
+
+* Bug fixes:
+  * `edit` function did not jump to the right offset in a file
+  * a race in the initialization of the LSP server
+
+## Release 2.22.4 (VS Code: 0.13.4)
+
+Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0).
+
+* avoid errors when navigating in rascal files stored in jars, such as libraries or the standard library
+* upgraded to rascal 0.42.2 that fixed a few bugs:
+  * rascal code executing during import are now not hiding overloads anymore
+  * fixed bugs in stored module parsers
+  * fixed a few edge cases in the mvn/jar+file/zip resolvers
+  * fixed a bug where typechecker would sometimes flip between errors and no error on the same file on every save
+  * other typechecker improvements
+
+## Release 2.22.3 (VS Code: 0.13.3)
+
+Works best with rascal 0.42.1 (and rascal-maven-plugin 0.31.0).
+
+* fixed a regession in JSON encoding of rascal action results & parameters
+* fixed the race that sometimes broke go-to definition and other type-checker derived operations
+
+## Release 2.22.2 (VS Code: 0.13.2)
+
+Works best with rascal 0.42.1 (and rascal-maven-plugin 0.31.0).
+
+* upgraded to rascal 0.42.1 which contains a bugfix for missing overloads
+* fixed a bug where `readFile` inside of a repl would fail if the file was open in the IDE
+* fixed issues with language registry for languages that didn't register all supported services and issues specific to deployment mode
+* Fixed an issue where language features would not work if certain arguments were not set.
+  * Parsing would not work for languages without `parsing::useSpecialCaseHighlighting`.
+  * Completion would not work for languages without `completion::additionalTriggerCharacters`.
+* various small fixes
+
+## Release 2.22.1 (VS Code: 0.13.1)
+
+Works best with Rascal 0.42.0 (and rascal-maven-plugin 0.30.7). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
+
+### New Features for Rascal Developers
+
+* Project `target` folders, containing binaries, are now excluded from search results by default to prevent duplicate results. The IDE provides a quick-fix to help configuring existing projects.
+
+### New features for DSL developers
+
+* DSLs can contribute their own code completion using the `LanguageService::completion` contribution.
+
+### Improved features
+
+* There is now a setting to influence how much memory is allocated for the Rascal and Parametric LSP servers (`rascal.lSP.maxHeapSize`).
+* Automatic renaming of module names when moving files have been improved for escaped names.
+* Automatic renaming of module names when moving files is now a lot faster in many cases.
+* Various improvements for multi-project workspaces.
+* Various performance & reliability improvements.
+
+### Rascal 0.42.0 highlights
+
+Below is a summary of the [full release-notes for rascal 0.42.x](https://www.rascal-mpl.org/release-notes/rascal-0-42-x-release-notes/).
+
+* Many improvements to the type-checker and the messages it produces.
+* The interpreter is more robust when importing/extending complex module structures.
+* The REPL betters supports (re)loading of modules.
+* The debugger has gained many new features, improving the debugging experience.
+
 ## Release 2.22.0 (VS Code: 0.13.0)
 
 Works best with rascal 0.41.2 (and rascal-maven-plugin: 0.30.2). Due to changes in the typechecker you will most likely also have to update your library dependencies to the latest release.
