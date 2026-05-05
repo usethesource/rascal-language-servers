@@ -156,13 +156,13 @@ public abstract class BaseLanguageServer {
                     var workerPool = NamedThreadPool.cached(workerPoolName);
 
                     try (Socket clientSocket = serverSocket.accept()) {
+                        logger.info("New client connected to Rascal LSP server (listening on port number: {})", portNumber);
                         var docService = docServiceProvider.apply(workerPool);
                         var wsService = workspaceServiceProvider.apply(workerPool);
                         docService.pair(wsService);
                         wsService.pair(docService);
                         startLSP(constructLSPClient(clientSocket, new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
                     }
-
                     finally {
                         requestPool.shutdown();
                         workerPool.shutdown();
@@ -322,19 +322,31 @@ public abstract class BaseLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            var proxy = proxyLanguageClient(client);
+            var proxy = addShutdownDetectionTo(client);
             lspDocumentService.connect(proxy);
             lspWorkspaceService.connect(proxy);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(proxy, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
 
-        private IBaseLanguageClient proxyLanguageClient(LanguageClient client) {
+        /**
+         * Creates a proxy instance that forwards method calls to the provided
+         * language client only when (the thread pool of) this language server
+         * isn't shutdown yet. Otherwise, the proxy instance throws an
+         * exception.
+         *
+         * This is a workaround for the LSP4J issue that (dis)connection-related
+         * IO exceptions aren't propagated out of LSP4J (but only logged) when
+         * the language client is used after shutdown. Thus, proactive effort is
+         * needed to make sure such usage doesn't happen to begin with
+         * (https://github.com/eclipse-lsp4j/lsp4j/issues/849).
+         */
+        private IBaseLanguageClient addShutdownDetectionTo(LanguageClient client) {
             var loader = IBaseLanguageClient.class.getClassLoader();
             var interfaces = new Class<?>[] { IBaseLanguageClient.class };
             var handler = (InvocationHandler) (Object proxy, Method method, Object[] args) -> {
                 if (this.executor.isShutdown()) {
-                    throw new IllegalStateException("The language client can no longer be used, as its thread pool is shutdown.");
+                    throw new IllegalStateException("The language client can no longer be used, as the server's thread pool is shutdown.");
                 }
                 return method.invoke(client, args);
             };
