@@ -338,9 +338,20 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
+        // This method might also be called when files are deleted that aren't
+        // tracked by this text document service. "Special care" is needed to
+        // silently ignore such files (without throwing exceptions).
         for (var f : params.getFiles()) {
             var loc = Locations.toLoc(f.getUri());
-            facts(loc).remove(loc);
+            // Special care: Cannot use method `language`, because it throws when `safeLanguage` returns an empty optional.
+            var language = safeLanguage(loc);
+            if (language.isPresent()) {
+                // Special care: Cannot use method `facts`, because it throws when `get` returns `null`.
+                var factsOrNull = facts.get(language.get());
+                if (factsOrNull != null) {
+                    factsOrNull.remove(loc);
+                }
+            }
         }
     }
 
