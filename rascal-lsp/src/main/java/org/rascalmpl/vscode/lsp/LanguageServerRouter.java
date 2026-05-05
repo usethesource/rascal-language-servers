@@ -38,6 +38,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +48,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
@@ -101,12 +103,12 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     private static final Logger logger = LogManager.getLogger(LanguageServerRouter.class);
 
-    private final ConcurrentHashMap<String, String> languagesByExtension = new ConcurrentHashMap<>();
+    private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
     // TODO To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
     // Note:
     // 1. This map should only contains running server processes.
     // 2. Upon removal from this map, the process should be killed to avoid resource leaks.
-    private final ConcurrentHashMap<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
 
     private @MonotonicNonNull InitializeParams initializeParams;
 
@@ -366,7 +368,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         // If we do not have a parametric server running for this language, start and initialize it.
-        var server = languageServers.computeIfAbsent(lang.getName(), ignored -> startServer(lang));
+        var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable CompletableFuture<IBaseLanguageServerExtensions>>) ignored -> startServer(lang));
         if (server == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
         }
