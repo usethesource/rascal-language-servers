@@ -334,7 +334,7 @@ public abstract class BaseLanguageServer {
             var interfaces = new Class<?>[] { IBaseLanguageClient.class };
             var handler = (InvocationHandler) (Object proxy, Method method, Object[] args) -> {
                 if (this.executor.isShutdown()) {
-                    throw new IllegalStateException("Its thread pool was shut down, so the language client must no longer be used.");
+                    throw new IllegalStateException("The language client can no longer be used, as its thread pool is shutdown.");
                 }
                 return method.invoke(client, args);
             };
