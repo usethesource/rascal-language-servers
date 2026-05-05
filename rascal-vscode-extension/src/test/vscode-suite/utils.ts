@@ -29,7 +29,7 @@ import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
 import * as os from 'os';
 import { env } from "process";
-import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 import path = require("path");
 
 export async function sleep(ms: number) {
@@ -237,6 +237,12 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
+
+        // There should be no more error diagnostics
+        const bottomBar = new Workbench().getBottomBar();
+        const problemsView = await bottomBar.openProblemsView();
+        const allVisibleMarkers = await problemsView.getAllVisibleMarkers(MarkerType.Error);
+        expect(allVisibleMarkers.length, "Not all error diagnostics have been cleared").to.equal(0);
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
