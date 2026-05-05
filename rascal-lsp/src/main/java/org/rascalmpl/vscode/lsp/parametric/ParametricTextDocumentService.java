@@ -339,12 +339,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
-        exec.submit(() -> {
-            // if a file is deleted, and we were tracking it, we remove our diagnostics
-            for (var f : params.getFiles()) {
-                availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
-            }
-        });
+        for (var f : params.getFiles()) {
+            var loc = Locations.toLoc(f.getUri());
+            facts(loc).remove(loc);
+        }
     }
 
     private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
