@@ -27,27 +27,76 @@
 package org.rascalmpl.vscode.lsp.parametric;
 
 
+import com.google.gson.GsonBuilder;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
-import com.google.gson.GsonBuilder;
-
 public class ParametricLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        LanguageParameter dedicatedLanguage;
-        if (args.length > 0) {
-            dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
-        }
-        else {
-            dedicatedLanguage = null;
-        }
 
+    protected static void startParametric(ServerArgs args) {
         startLanguageServer(NamedThreadPool.single("parametric-lsp")
             , NamedThreadPool.cached("parametric")
-            , threadPool -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
+            , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage(), args.isExitWhenEmpty())
             , ParametricWorkspaceService::new
-            , 9999
+            , args.getPort()
         );
+    }
+
+    public static void main(String[] args) {
+        startParametric(parseArgs(args));
+    }
+
+    public static class ServerArgs {
+        private int port = 9999;
+        private @Nullable LanguageParameter dedicatedLanguage = null;
+        private boolean exitWhenEmpty = false;
+
+        public int getPort() {
+            return port;
+        }
+
+        public void setPort(int port) {
+            this.port = port;
+        }
+
+        public @Nullable LanguageParameter getDedicatedLanguage() {
+            return dedicatedLanguage;
+        }
+
+        public void setDedicatedLanguage(LanguageParameter dedicatedLanguage) {
+            this.dedicatedLanguage = dedicatedLanguage;
+        }
+
+        public boolean isExitWhenEmpty() {
+            return exitWhenEmpty;
+        }
+
+        public void setExitWhenEmpty(boolean exitWhenEmpty) {
+            this.exitWhenEmpty = exitWhenEmpty;
+        }
+
+    }
+
+    @SuppressWarnings("java:S127") // skipping next argument from loop
+    protected static ServerArgs parseArgs(String[] args) {
+        var serverArgs = new ServerArgs();
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--port":
+                    serverArgs.setPort(Integer.parseInt(args[++i]));
+                    break;
+                case "--exitWhenEmpty":
+                    serverArgs.setExitWhenEmpty(true);
+                    break;
+                default:
+                    if (serverArgs.getDedicatedLanguage() == null) {
+                        serverArgs.setDedicatedLanguage(new GsonBuilder().create().fromJson(args[i], LanguageParameter.class));
+                    }
+                    break;
+            }
+        }
+        return serverArgs;
     }
 }

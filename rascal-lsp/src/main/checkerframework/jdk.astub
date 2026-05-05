@@ -61,3 +61,23 @@ public interface Map<K, V> {
             K key,
             BiFunction<? super K, ? super @Nullable V, ? extends @Nullable V> remappingFunction) {}
 }
+
+package java.util.concurrent;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public interface ConcurrentHashMap<K, V> {
+    // Since ConcurrentHashMap does not permit null values, compute functions can only return `null` if the compute function returns null
+
+    public @PolyNull V compute(
+            K key,
+            BiFunction<? super K, ? super @Nullable V, ? extends @PolyNull V> remappingFunction) {}
+
+    public @PolyNull V computeIfAbsent(
+            K key,
+            Function<? super K, ? extends @PolyNull V> computeFunction) {}
+
+    public @PolyNull V computeIfPresent(
+            K key,
+            BiFunction<? super K, ? super V, ? extends @PolyNull V> remappingFunction) {}
+}

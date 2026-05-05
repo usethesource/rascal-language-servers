@@ -24,13 +24,18 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.util.concurrent.ExecutorService;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 
-public class ParametricWorkspaceService extends BaseWorkspaceService {
-    ParametricWorkspaceService(ExecutorService exec) {
+/**
+ * A language-parametric workspace service that routes incoming requests to remote dedicated language servers.
+ */
+public class RoutingWorkspaceService extends BaseWorkspaceService {
+
+    public RoutingWorkspaceService(ExecutorService exec) {
         super(exec);
     }
+
 }

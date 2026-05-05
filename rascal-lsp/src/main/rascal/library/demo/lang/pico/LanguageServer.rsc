@@ -361,9 +361,16 @@ in the presence of error trees. See ((util::LanguageServer)) for more details.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
 void main(bool errorRecovery=false) {
+    loc root;
+    try {
+        root = resolveLocation(|project://rascal-lsp|);
+    } catch SchemeNotSupported(_): {
+        root = resolveLocation(|cwd:///../../../rascal-lsp|);
+    }
+    pcfg = pathConfig(projectRoot = root, bin = root + "target/classes");
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
@@ -372,7 +379,7 @@ void main(bool errorRecovery=false) {
     );
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",

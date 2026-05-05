@@ -1,0 +1,64 @@
+/*
+ * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+package org.rascalmpl.vscode.lsp.util;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.stream.Stream;
+import org.apache.commons.lang3.function.TriConsumer;
+
+/**
+ * A helper interface to support calling functions on values in futures.
+ * @param <T> The type of the value in the futures.
+ */
+public interface FutureCaller<T> {
+
+    default <A, R> CompletableFuture<R> callCompose(CompletableFuture<T> t, BiFunction<T, A, CompletableFuture<R>> func, A arg) {
+        return t.thenCompose(actualT -> func.apply(actualT, arg));
+    }
+
+    default <A, R> CompletableFuture<R> callApply(CompletableFuture<T> t, BiFunction<T, A, R> func, A arg) {
+        return t.thenApply(actualT -> func.apply(actualT, arg));
+    }
+
+    default <A> CompletableFuture<Void> callAccept(CompletableFuture<T> t, BiConsumer<T, A> func, A arg) {
+        return t.thenAccept(actualT -> func.accept(actualT, arg));
+    }
+
+    default <A, B> CompletableFuture<Void> callAccept(CompletableFuture<T> t, TriConsumer<T, A, B> func, A arg1, B arg2) {
+        return t.thenAccept(actualT -> func.accept(actualT, arg1, arg2));
+    }
+
+    default <A> Stream<CompletableFuture<Void>> callAccept(Stream<CompletableFuture<T>> ts, BiConsumer<T, A> func, A arg) {
+        return ts.map(t -> callAccept(t, func, arg));
+    }
+
+    default <A, B> Stream<CompletableFuture<Void>> callAccept(Stream<CompletableFuture<T>> ts, TriConsumer<T, A, B> func, A arg1, B arg2) {
+        return ts.map(t -> callAccept(t, func, arg1, arg2));
+    }
+}
