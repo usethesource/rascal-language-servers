@@ -36,16 +36,16 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
@@ -103,8 +103,10 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     private final ConcurrentHashMap<String, String> languagesByExtension = new ConcurrentHashMap<>();
     // TODO To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
+    // Note:
+    // 1. This map should only contains running server processes.
+    // 2. Upon removal from this map, the process should be killed to avoid resource leaks.
     private final ConcurrentHashMap<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
-    private final Collection<Process> delegateProcesses = new CopyOnWriteArrayList<>();
 
     private @MonotonicNonNull InitializeParams initializeParams;
 
@@ -113,9 +115,6 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
     public LanguageServerRouter(Runnable onExit, ExecutorService exec) {
         super(onExit, exec, new RoutingTextDocumentService(exec), new RoutingWorkspaceService(exec));
-
-        // Shutdown child processes when we exit
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> delegateProcesses.forEach(Process::destroy)));
     }
 
     public CompletableFuture<IBaseLanguageServerExtensions> languageByName(String lang) {
@@ -232,9 +231,6 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                 .redirectError(Redirect.INHERIT) // Show logs in current process
                 .start();
 
-            // Make sure we can clean this process up when we exit
-            delegateProcesses.add(proc);
-
             logger.debug("Launched language server on process {}", proc.pid());
             return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
         } catch (IOException e) {
@@ -304,8 +300,6 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                         for (var ext : lang.getExtensions()) {
                             languagesByExtension.remove(ext, lang.getName());
                         }
-                    } else {
-                        logger.error("Could not remove LSP routing for {}; restart the Rascal extension", lang.getName());
                     }
                 }
             }
@@ -530,6 +524,25 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     @Override
     public CompletableFuture<List<WorkspaceFolder>> workspaceFolders() {
         return availableClient().workspaceFolders();
+    }
+
+    @Override
+    public CompletableFuture<Object> shutdown() {
+        return CompletableFutureUtils.reduce(allRoutes().map(serverFut -> serverFut.thenCompose(IBaseLanguageServerExtensions::shutdown)), getExecutor())
+            .thenCompose(ignored -> super.shutdown());
+    }
+
+    @Override
+    public void exit() {
+        try {
+            CompletableFutureUtils.reduce(allRoutes().map(serverFut -> serverFut.thenAccept(IBaseLanguageServerExtensions::exit)), getExecutor()).get(10, TimeUnit.SECONDS);
+        } catch (ExecutionException | TimeoutException e) {
+            logger.error("Error while exiting child processes", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            super.exit();
+        }
     }
 
 }
