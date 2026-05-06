@@ -347,9 +347,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             var language = safeLanguage(loc);
             if (language.isPresent()) {
                 // Special care: Cannot use method `facts`, because it throws when `get` returns `null`.
-                var factsOrNull = facts.get(language.get());
-                if (factsOrNull != null) {
-                    factsOrNull.remove(loc);
+                var facts = this.facts.get(language.get());
+                if (facts != null) {
+                    facts.remove(loc);
                 }
             }
         }

@@ -253,7 +253,7 @@ public class ParametricFileFacts implements DiagnosticsReporter {
 
         @Override
         public void remove() {
-            this.removed = true;
+            removed = true;
             clearDiagnostics();
         }
 
