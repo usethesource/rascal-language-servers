@@ -95,7 +95,6 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
-import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
@@ -339,12 +338,21 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
-        exec.submit(() -> {
-            // if a file is deleted, and we were tracking it, we remove our diagnostics
-            for (var f : params.getFiles()) {
-                availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
+        // This method might also be called when files are deleted that aren't
+        // tracked by this text document service. "Special care" is needed to
+        // silently ignore such files (without throwing exceptions).
+        for (var f : params.getFiles()) {
+            var loc = Locations.toLoc(f.getUri());
+            // Special care: Cannot use method `language`, because it throws when `safeLanguage` returns an empty optional.
+            var language = safeLanguage(loc);
+            if (language.isPresent()) {
+                // Special care: Cannot use method `facts`, because it throws when `get` returns `null`.
+                var facts = this.facts.get(language.get());
+                if (facts != null) {
+                    facts.remove(loc);
+                }
             }
-        });
+        }
     }
 
     private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
