@@ -1,13 +1,12 @@
-begin 
-declare 
-  input : natural,  
-  output : natural;
-  
-   input := 0;
-   output := 1;
-   if input then
-     output := 1
-   else
-     output := 2
-   fi
+begin
+  declare
+    input : natural, output : natural
+  ;
+  input := 0;
+  output := 1;
+  if input then
+    output := 1
+  else
+    output := 2
+  fi
 end
