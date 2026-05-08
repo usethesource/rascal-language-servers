@@ -362,6 +362,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
 
         // Our child needs us, but we cannot set this in the constructor, so we set it here.
         getTextDocumentService().setParentServer(this);
+        getWorkspaceService().setParentServer(this);
 
         return super.initialize(params);
     }

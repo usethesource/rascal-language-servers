@@ -26,16 +26,47 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import com.google.gson.JsonPrimitive;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.LanguageServerRouter;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
  * A language-parametric workspace service that routes incoming requests to remote dedicated language servers.
  */
 public class RoutingWorkspaceService extends BaseWorkspaceService {
 
+    private @MonotonicNonNull LanguageServerRouter parentServer;
+
     public RoutingWorkspaceService(ExecutorService exec) {
         super(exec);
     }
+
+    public void setParentServer(LanguageServerRouter server) {
+        this.parentServer = server;
+    }
+
+    private LanguageServerRouter availableServer() {
+        if (parentServer == null) {
+            throw new IllegalStateException("Server not connected yet.");
+        }
+        return parentServer;
+    }
+
+    @Override
+    public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
+        if (commandParams.getCommand().startsWith(RASCAL_META_COMMAND) || commandParams.getCommand().startsWith(RASCAL_COMMAND)) {
+            var languageName = ((JsonPrimitive) commandParams.getArguments().get(0)).getAsString();
+            return availableServer().languageByName(languageName)
+                .thenCompose(s -> s.getWorkspaceService().executeCommand(commandParams));
+        }
+
+        return CompletableFutureUtils.completedFuture(commandParams.getCommand() + " was ignored.", getExecutor());
+    }
+
 
 }
