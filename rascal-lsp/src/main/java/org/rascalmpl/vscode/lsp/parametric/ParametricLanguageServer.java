@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.parametric;
 
 import com.google.gson.GsonBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.ideservices.GsonUtils.ComplexTypeMode;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
@@ -41,6 +42,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
             , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage(), args.isExitWhenEmpty())
             , ParametricWorkspaceService::new
             , args.getPort()
+            , args.getComplexTypeMode()
         );
     }
 
@@ -52,6 +54,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
         private int port = 9999;
         private @Nullable LanguageParameter dedicatedLanguage = null;
         private boolean exitWhenEmpty = false;
+        private ComplexTypeMode complexTypeMode = ComplexTypeMode.ENCODE_AS_JSON_OBJECT;
 
         public int getPort() {
             return port;
@@ -77,9 +80,17 @@ public class ParametricLanguageServer extends BaseLanguageServer {
             this.exitWhenEmpty = exitWhenEmpty;
         }
 
+        public ComplexTypeMode getComplexTypeMode() {
+            return complexTypeMode;
+        }
+
+        public void setComplexTypeMode(ComplexTypeMode complexTypeMode) {
+            this.complexTypeMode = complexTypeMode;
+        }
+
     }
 
-    @SuppressWarnings("java:S127") // skipping next argument from loop
+    @SuppressWarnings("java:S127") // skipping next argument in loop
     protected static ServerArgs parseArgs(String[] args) {
         var serverArgs = new ServerArgs();
         for (int i = 0; i < args.length; i++) {
@@ -90,7 +101,23 @@ public class ParametricLanguageServer extends BaseLanguageServer {
                 case "--exitWhenEmpty":
                     serverArgs.setExitWhenEmpty(true);
                     break;
+                case "--complexTypeMode": {
+                    switch (args[++i].toLowerCase()) {
+                        case "json":
+                            serverArgs.setComplexTypeMode(ComplexTypeMode.ENCODE_AS_JSON_OBJECT);
+                            break;
+                        case "base64":
+                            serverArgs.setComplexTypeMode(ComplexTypeMode.ENCODE_AS_BASE64_STRING);
+                            break;
+                        case "string":
+                            serverArgs.setComplexTypeMode(ComplexTypeMode.ENCODE_AS_STRING);
+                            break;
+                        default: // do nothing - we already have a default value
+                    }
+                    break;
+                }
                 default:
+                    // 'Positional' argument (for backwards compatibility)
                     if (serverArgs.getDedicatedLanguage() == null) {
                         serverArgs.setDedicatedLanguage(new GsonBuilder().create().fromJson(args[i], LanguageParameter.class));
                     }

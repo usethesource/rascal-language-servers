@@ -32,6 +32,7 @@ import java.net.ServerSocket;
 import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.rascalmpl.ideservices.GsonUtils.ComplexTypeMode;
 import org.rascalmpl.vscode.lsp.LanguageServerRouter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
@@ -45,18 +46,18 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
     private static final Logger logger = LogManager.getLogger(RoutingLanguageServer.class);
 
     @SuppressWarnings("java:S2189") // endless loop is fine for the development server
-    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, int portNumber) {
+    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, int portNumber, ComplexTypeMode complexTypeMode) {
         logger.info("Starting Rascal Language Server Router: {}", getVersion());
         printClassPath();
 
         if (DEPLOY_MODE) {
-            startLSP(constructLSPClient(capturedIn, capturedOut, new LanguageServerRouter(() -> System.exit(0), workerPool), requestPool));
+            startLSP(constructLSPClient(capturedIn, capturedOut, new LanguageServerRouter(() -> System.exit(0), workerPool), requestPool, complexTypeMode));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server router listens on port number: {}", portNumber);
                 while (true) {
-                    startLSP(constructLSPClient(serverSocket.accept(), new LanguageServerRouter(() -> {}, workerPool), requestPool));
+                    startLSP(constructLSPClient(serverSocket.accept(), new LanguageServerRouter(() -> {}, workerPool), requestPool, complexTypeMode));
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server on port {}", portNumber, e);
@@ -73,6 +74,7 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
             startLanguageServer(NamedThreadPool.single("parametric-lsp-router")
                 , NamedThreadPool.cached("parametric-router")
                 , serverArgs.getPort()
+                , serverArgs.getComplexTypeMode()
             );
         }
     }

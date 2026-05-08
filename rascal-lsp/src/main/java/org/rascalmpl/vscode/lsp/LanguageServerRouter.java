@@ -85,6 +85,7 @@ import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.util.maven.MavenParser;
 import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.util.maven.Scope;
+import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
@@ -229,6 +230,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
                     , "--exitWhenEmpty"
+                    , "--complexTypeMode", "base64"
                     // , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"") // escape JSON string on command line
                 )
                 .redirectError(Redirect.INHERIT) // Show logs in current process
@@ -278,7 +280,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             .setLocalService(this)
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
-            .configureGson(GsonUtils.complexAsJsonObject()) // Only needed if we want to communicate IValues
+            .configureGson(GsonUtils.complexAsBase64String(RascalValueFactory.getStore()))
             .setExecutorService(getExecutor())
             .create();
 
