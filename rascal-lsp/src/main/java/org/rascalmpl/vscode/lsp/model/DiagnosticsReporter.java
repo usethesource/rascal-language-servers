@@ -24,30 +24,21 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp.model;
 
+import java.util.List;
+import org.eclipse.lsp4j.Diagnostic;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
+import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 
-import org.rascalmpl.util.NamedThreadPool;
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
-import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import io.usethesource.vallang.ISourceLocation;
 
-import com.google.gson.GsonBuilder;
-
-public class ParametricLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        LanguageParameter dedicatedLanguage;
-        if (args.length > 0) {
-            dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
-        }
-        else {
-            dedicatedLanguage = null;
-        }
-
-        startLanguageServer("parametric-lsp"
-            , "parametric"
-            , threadPool -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
-            , ParametricWorkspaceService::new
-            , 9999
-        );
-    }
+/**
+ * Interface for objects that can report diagnostics on files.
+ *
+ * Encapsulates common behavior of {@link FileFacts} and {@link ParametricFileFacts}.
+ */
+public interface DiagnosticsReporter {
+    void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs);
 }

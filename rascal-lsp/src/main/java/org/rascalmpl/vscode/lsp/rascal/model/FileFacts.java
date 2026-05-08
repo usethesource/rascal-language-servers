@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -41,9 +42,11 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lists;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
@@ -53,7 +56,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 
-public class FileFacts {
+public class FileFacts implements DiagnosticsReporter {
     private static final Logger logger = LogManager.getLogger(FileFacts.class);
     private final Executor exec;
     private final RascalLanguageServices rascal;
@@ -70,7 +73,7 @@ public class FileFacts {
         this.cm = cm;
         this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
         this.nopFact = new FileFact() {
-            @Override public void reportParseErrors(List<Diagnostic> msgs) { /* NOP */}
+            @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
@@ -95,7 +98,8 @@ public class FileFacts {
         return getFile(file).getSummary();
     }
 
-    public void reportParseErrors(ISourceLocation file, List<Diagnostic> msgs) {
+    @Override
+    public void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
         getFile(file).reportParseErrors(msgs);
     }
 
@@ -134,7 +138,7 @@ public class FileFacts {
     }
 
     private interface FileFact {
-        void reportParseErrors(List<Diagnostic> msgs);
+        void reportParseErrors(Versioned<List<Diagnostic>> msgs);
         void reportTypeCheckerErrors(List<Diagnostic> msgs);
         CompletableFuture<@Nullable SummaryBridge> getSummary();
         void invalidate();
@@ -145,7 +149,7 @@ public class FileFacts {
     private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
         private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
-        private volatile List<Diagnostic> parseMessages = Collections.emptyList();
+        private AtomicReference<Versioned<List<Diagnostic>>> parseMessages = Versioned.atomic(-1, Collections.emptyList());
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
@@ -165,9 +169,10 @@ public class FileFacts {
         }
 
         @Override
-        public void reportParseErrors(List<Diagnostic> msgs) {
-            parseMessages = msgs;
-            sendDiagnostics();
+        public void reportParseErrors(Versioned<List<Diagnostic>> msgs) {
+            if (Versioned.replaceIfNewer(parseMessages, msgs)) {
+                sendDiagnostics();
+            }
         }
 
         @Override
@@ -184,7 +189,7 @@ public class FileFacts {
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 Locations.toUri(file).toString(),
-                Lists.union(typeCheckerMessages, parseMessages)));
+                Lists.union(typeCheckerMessages, parseMessages.get().get())));
         }
 
         @Override
@@ -204,7 +209,7 @@ public class FileFacts {
 
         @Override
         public void close() {
-            if ((parseMessages.isEmpty() && typeCheckerMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
+            if ((parseMessages.get().get().isEmpty() && typeCheckerMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
                 // If there are no messages for this file or the file has been deleted, can we remove it
                 // else VS Code comes back and we've dropped the messages in our internal data
                 files.remove(file);

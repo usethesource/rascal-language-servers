@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.uri;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -87,10 +88,9 @@ public class LSPOpenFileRedirector {
 
     public TextDocumentState getDocumentState(ISourceLocation file) throws IOException {
         for (var service : textDocumentServices) {
-            var state = service.getDocumentState(file);
-            if (state != null) {
-                return state;
-            }
+            try {
+                return service.getEditorState(file);
+            } catch (FileNotFoundException ignored) { /* try the next service */}
         }
         throw new IOException("File is not managed by lsp");
     }

@@ -24,30 +24,17 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric;
+package org.rascalmpl.vscode.lsp;
 
+import java.io.FileNotFoundException;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
 
-import org.rascalmpl.util.NamedThreadPool;
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
-import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import io.usethesource.vallang.ISourceLocation;
 
-import com.google.gson.GsonBuilder;
-
-public class ParametricLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        LanguageParameter dedicatedLanguage;
-        if (args.length > 0) {
-            dedicatedLanguage = new GsonBuilder().create().fromJson(args[0], LanguageParameter.class);
-        }
-        else {
-            dedicatedLanguage = null;
-        }
-
-        startLanguageServer("parametric-lsp"
-            , "parametric"
-            , threadPool -> new ParametricTextDocumentService(threadPool, dedicatedLanguage)
-            , ParametricWorkspaceService::new
-            , 9999
-        );
-    }
+public interface ITextDocumentStateManager {
+    LineColumnOffsetMap getColumnMap(ISourceLocation file);
+    ColumnMaps getColumnMaps();
+    TextDocumentState getEditorState(ISourceLocation file) throws FileNotFoundException;
+    boolean isManagingFile(ISourceLocation file);
 }

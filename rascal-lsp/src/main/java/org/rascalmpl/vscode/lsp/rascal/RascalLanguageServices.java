@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.rascal;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
@@ -240,11 +241,11 @@ public class RascalLanguageServices {
             ISourceLocation resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
             try {
                 // although we cannot type-check modules with errors, we prefer to get the errors here instead of retrying the parse and still failing after this try-block
-                var tree = rascalTextDocumentService.getFile(resolvedLocation).getCurrentTreeAsync(true).get();
+                var tree = rascalTextDocumentService.getEditorState(resolvedLocation).getCurrentTreeAsync(true).get();
                 if (tree != null) {
                     return tree.get();
                 }
-            } catch (ResponseErrorException | ExecutionException e1) {
+            } catch (FileNotFoundException | ExecutionException e1) {
                 // File is not open in the IDE | Parse threw an exception
                 // In either case, fall through and try a direct parse
             } catch (InterruptedException e1) {

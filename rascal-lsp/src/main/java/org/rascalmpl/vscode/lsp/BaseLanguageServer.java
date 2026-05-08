@@ -31,6 +31,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -41,7 +44,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.Level;
@@ -64,6 +66,7 @@ import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
@@ -141,24 +144,44 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, BiFunction<ExecutorService, IBaseTextDocumentService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    public static void startLanguageServer(String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
         if (DEPLOY_MODE) {
-            var docService = docServiceProvider.apply(workerPool);
-            var wsService = workspaceServiceProvider.apply(workerPool, docService);
-            docService.pair(wsService);
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
+            var requestPool = NamedThreadPool.single(requestPoolName);
+            var workerPool = NamedThreadPool.cached(workerPoolName);
+
+            try {
+                var docService = docServiceProvider.apply(workerPool);
+                var wsService = workspaceServiceProvider.apply(workerPool);
+                docService.pair(wsService);
+                wsService.pair(docService);
+                startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
+            } finally {
+                requestPool.shutdown();
+                workerPool.shutdown();
+            }
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server listens on port number: {}", portNumber);
                 while (true) {
-                    var docService = docServiceProvider.apply(workerPool);
-                    var wsService = workspaceServiceProvider.apply(workerPool, docService);
-                    docService.pair(wsService);
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
+                    var requestPool = NamedThreadPool.single(requestPoolName);
+                    var workerPool = NamedThreadPool.cached(workerPoolName);
+
+                    try (Socket clientSocket = serverSocket.accept()) {
+                        logger.info("New client connected to Rascal LSP server (listening on port number: {})", portNumber);
+                        var docService = docServiceProvider.apply(workerPool);
+                        var wsService = workspaceServiceProvider.apply(workerPool);
+                        docService.pair(wsService);
+                        wsService.pair(docService);
+                        startLSP(constructLSPClient(clientSocket, new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
+                    }
+                    finally {
+                        requestPool.shutdown();
+                        workerPool.shutdown();
+                    }
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server on port {}", portNumber, e);
@@ -314,12 +337,37 @@ public abstract class BaseLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            var actualClient = (IBaseLanguageClient) client;
-            lspDocumentService.connect(actualClient);
-            lspWorkspaceService.connect(actualClient);
-            this.client = actualClient;
-            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(client, lspDocumentService, executor);
+            var proxy = addShutdownDetectionTo(client);
+            lspDocumentService.connect(proxy);
+            lspWorkspaceService.connect(proxy);
+            this.client = proxy;
+            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(proxy, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
+        }
+
+        /**
+         * Creates a proxy instance that forwards method calls to the provided
+         * language client only when (the thread pool of) this language server
+         * isn't shutdown yet. Otherwise, the proxy instance throws an
+         * exception.
+         *
+         * This is a workaround for the LSP4J issue that (dis)connection-related
+         * IO exceptions aren't propagated out of LSP4J (but only logged) when
+         * the language client is used after shutdown. Thus, proactive effort is
+         * needed to make sure such usage doesn't happen to begin with
+         * (https://github.com/eclipse-lsp4j/lsp4j/issues/849).
+         */
+        private IBaseLanguageClient addShutdownDetectionTo(LanguageClient client) {
+            var loader = IBaseLanguageClient.class.getClassLoader();
+            var interfaces = new Class<?>[] { IBaseLanguageClient.class };
+            var handler = (InvocationHandler) (Object proxy, Method method, Object[] args) -> {
+                if (this.executor.isShutdown()) {
+                    throw new IllegalStateException("The language client can no longer be used, as the server's thread pool is shutdown.");
+                }
+                return method.invoke(client, args);
+            };
+
+            return (IBaseLanguageClient) Proxy.newProxyInstance(loader, interfaces, handler);
         }
 
         @Override
