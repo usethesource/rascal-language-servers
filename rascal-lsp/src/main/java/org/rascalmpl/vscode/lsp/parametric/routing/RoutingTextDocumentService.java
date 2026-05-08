@@ -259,6 +259,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
         return availableServer().languageByName(languageName)
+            // TODO Go via workspace service instead
             .thenCompose(s -> s.getIBaseTextDocumentService().executeCommand(languageName, command));
     }
 
