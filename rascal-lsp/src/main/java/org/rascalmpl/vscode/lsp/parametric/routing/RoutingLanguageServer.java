@@ -49,13 +49,13 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
         printClassPath();
 
         if (DEPLOY_MODE) {
-            startLSP(constructLSPClient(capturedIn, capturedOut, new LanguageServerRouter(() -> System.exit(0), workerPool), requestPool));
+            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualRoutingLanguageServer(() -> System.exit(0), workerPool), requestPool));
         }
         else {
             try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
                 logger.info("Rascal LSP server router listens on port number: {}", portNumber);
                 while (true) {
-                    startLSP(constructLSPClient(serverSocket.accept(), new LanguageServerRouter(() -> {}, workerPool), requestPool));
+                    startLSP(constructLSPClient(serverSocket.accept(), new ActualRoutingLanguageServer(() -> {}, workerPool), requestPool));
                 }
             } catch (IOException e) {
                 logger.fatal("Failure to start TCP server on port {}", portNumber, e);

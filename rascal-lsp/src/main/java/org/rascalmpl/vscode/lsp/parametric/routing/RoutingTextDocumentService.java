@@ -118,7 +118,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
 
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService wsService;
-    private @MonotonicNonNull LanguageServerRouter parentServer;
+    private @MonotonicNonNull ActualRoutingLanguageServer parentServer;
 
     @SuppressWarnings("unused")
     private final ExecutorService exec;
@@ -127,7 +127,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
         this.exec = exec;
     }
 
-    public void setParentServer(LanguageServerRouter server) {
+    public void setParentServer(ActualRoutingLanguageServer server) {
         this.parentServer = server;
     }
 
@@ -153,7 +153,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
         return client;
     }
 
-    private LanguageServerRouter availableServer() {
+    private ActualRoutingLanguageServer availableServer() {
         if (parentServer == null) {
             throw new IllegalStateException("Server not connected yet.");
         }
@@ -288,7 +288,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     public void didCreateFiles(CreateFilesParams params) {
         // TODO Mimick VS given certain file operation filters (capabilities)
         var filesByExt = params.getFiles().stream()
-            .collect(Collectors.toMap(f -> LanguageServerRouter.extension(Locations.toLoc(f.getUri())), List::of, Lists::union));
+            .collect(Collectors.toMap(f -> ActualRoutingLanguageServer.extension(Locations.toLoc(f.getUri())), List::of, Lists::union));
 
         for (var e : filesByExt.entrySet()) {
             availableServer().route(e.getKey()).thenAccept(s ->

@@ -101,9 +101,9 @@ import io.usethesource.vallang.IString;
 /**
  * A language server implementation that routes LSP requests to dedicated remote language servers.
  */
-public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServer implements IBaseLanguageClient, DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> {
+public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements IBaseLanguageClient, DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> {
 
-    private static final Logger logger = LogManager.getLogger(LanguageServerRouter.class);
+    private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
     private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
     // TODO To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
@@ -117,7 +117,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     private static final int REMOTE_BASE_PORT = 9990;
     private AtomicInteger remotePortOffset = new AtomicInteger(0);
 
-    public LanguageServerRouter(Runnable onExit, ExecutorService exec) {
+    public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec) {
         super(onExit, exec, new RoutingTextDocumentService(exec), new RoutingWorkspaceService(exec));
     }
 
@@ -308,7 +308,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             .setLocalService(this)
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
-            .configureGson(LanguageServerRouter::configureProxyGson)
+            .configureGson(ActualRoutingLanguageServer::configureProxyGson)
             .setExecutorService(getExecutor())
             .create();
 

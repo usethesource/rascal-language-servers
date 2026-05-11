@@ -39,17 +39,17 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
  */
 public class RoutingWorkspaceService extends BaseWorkspaceService {
 
-    private @MonotonicNonNull LanguageServerRouter parentServer;
+    private @MonotonicNonNull ActualRoutingLanguageServer parentServer;
 
     public RoutingWorkspaceService(ExecutorService exec) {
         super(exec);
     }
 
-    public void setParentServer(LanguageServerRouter server) {
+    public void setParentServer(ActualRoutingLanguageServer server) {
         this.parentServer = server;
     }
 
-    private LanguageServerRouter availableServer() {
+    private ActualRoutingLanguageServer availableServer() {
         if (parentServer == null) {
             throw new IllegalStateException("Server not connected yet.");
         }
