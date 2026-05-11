@@ -79,6 +79,7 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
@@ -112,6 +113,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     // 2. Upon removal from this map, the process should be killed to avoid resource leaks.
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
 
+    private @MonotonicNonNull IBaseLanguageClient client;
     private @MonotonicNonNull InitializeParams initializeParams;
 
     private static final int REMOTE_BASE_PORT = 9990;
@@ -137,6 +139,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation file) {
         return route(extension(file));
+    }
+
+    @Override
+    public void connect(LanguageClient client) {
+        this.client = (IBaseLanguageClient) client;
+        super.connect(client);
     }
 
     public CompletableFuture<IBaseLanguageServerExtensions> route(String extension) {
@@ -429,6 +437,13 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         }
 
         return super.sendUnregisterLanguage(lang);
+    }
+
+    private IBaseLanguageClient availableClient() {
+        if (client == null) {
+            throw new IllegalStateException("Client not connected");
+        }
+        return client;
     }
 
     @Override

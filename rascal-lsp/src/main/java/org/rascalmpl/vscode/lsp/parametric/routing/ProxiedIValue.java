@@ -39,7 +39,7 @@ import io.usethesource.vallang.type.Type;
  *
  * This class allows passing IValues through JSON-RPC-enabled servers without requiring to decode/encode them.
  */
-public class ProxiedIValue implements IExternalValue {
+class ProxiedIValue implements IExternalValue {
 
     private String contents;
 

@@ -35,13 +35,13 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
- * A router of document-like inputs to outputs of {{@link T}}.
+ * A router of document-like inputs to outputs of {@link T}.
  * @param <T> The type of the mapped value.
  */
 public interface DocumentRouter<T> {
 
     /**
-     * Map an {{@link ISourceLocation}} to a {{@link T}}.
+     * Map an {@link ISourceLocation} to a {@link T}.
      * @param loc The input location.
      * @return The mapped value.
      */
