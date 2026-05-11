@@ -32,10 +32,7 @@
       "name": "Delegate Parametric Server [1]",
       "request": "launch",
       "mainClass": "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer",
-      "args": [
-        "--port", "9990",
-        "--complexTypeMode", "base64",
-      ],
+      "args": ["--port", "9990"],
       "projectName": "rascal-lsp",
       "console": "internalConsole",
       "vmArgs": [
@@ -49,10 +46,7 @@
       "name": "Delegate Parametric Server [2]",
       "request": "launch",
       "mainClass": "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer",
-      "args": [
-        "--port", "9991",
-        "--complexTypeMode", "base64",
-      ],
+      "args": ["--port", "9991"],
       "projectName": "rascal-lsp",
       "console": "internalConsole",
       "vmArgs": [

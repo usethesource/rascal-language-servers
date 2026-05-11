@@ -29,14 +29,13 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.rascalmpl.ideservices.GsonUtils.ComplexTypeMode;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 public class RascalLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
         try {
-            startLanguageServer(NamedThreadPool.single("rascal-lsp"), NamedThreadPool.cached("rascal"), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888, ComplexTypeMode.ENCODE_AS_JSON_OBJECT);
+            startLanguageServer(NamedThreadPool.single("rascal-lsp"), NamedThreadPool.cached("rascal"), RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
         }
         catch (Throwable e) {
             final Logger logger = LogManager.getLogger(RascalLanguageServer.class);

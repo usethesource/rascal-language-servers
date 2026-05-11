@@ -26,6 +26,10 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import com.google.gson.GsonBuilder;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -76,14 +80,12 @@ import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageServer;
-import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.util.maven.MavenParser;
 import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.util.maven.Scope;
-import org.rascalmpl.values.RascalValueFactory;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
@@ -229,7 +231,6 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
                     , "--exitWhenEmpty"
-                    , "--complexTypeMode", "base64"
                     // , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"") // escape JSON string on command line
                 )
                 .redirectError(Redirect.INHERIT) // Show logs in current process
@@ -264,6 +265,34 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
         }
     }
 
+    /**
+     * Special GSON configuration that (un)wraps IValues as-is.
+     *
+     * Encoding and decoding an IValues loses type information, we cannot properly encode a decoded value again.
+     * `encode(decode(encode(v))) != v`
+     * Since the router should just proxy values passed from remote servers, without changing them, it uses a special encoder/decoder.
+     *
+     */
+    private static void configureProxyGson(GsonBuilder builder) {
+        // Special encoding/decoding of IValues to/from a string
+        builder.registerTypeAdapter(ProxiedIValue.class, new TypeAdapter<ProxiedIValue>() {
+
+            @Override
+            public ProxiedIValue read(JsonReader reader) throws IOException {
+                return ProxiedIValue.fromJson(reader);
+            }
+
+            @Override
+            public void write(JsonWriter writer, ProxiedIValue proxiedValue) throws IOException {
+                ProxiedIValue.toJson(writer, proxiedValue);
+            }
+
+        });
+
+        // TODO Support creating 'regular' IValues in the routing server
+        // For non-proxy values, register JSON encoding (but not decoding)
+    }
+
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
         var serverParams = BaseLanguageServer.DEPLOY_MODE
             ? startServerProcess(lang)
@@ -279,7 +308,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
             .setLocalService(this)
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
-            .configureGson(GsonUtils.complexAsBase64String(RascalValueFactory.getStore()))
+            .configureGson(LanguageServerRouter::configureProxyGson)
             .setExecutorService(getExecutor())
             .create();
 
