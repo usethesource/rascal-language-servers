@@ -582,8 +582,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         // No need to do anything
     }
 
-    @Override
-    public void projectRemoved(String name, ISourceLocation projectRoot) {
+    /*package*/ void projectRemoved(String name, ISourceLocation projectRoot) {
         if (facts != null) {
             facts.projectRemoved(projectRoot);
         }

@@ -54,7 +54,6 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     void unregisterLanguage(LanguageParameter lang);
 
     void projectAdded(String name, ISourceLocation projectRoot);
-    void projectRemoved(String name, ISourceLocation projectRoot);
 
     CompletableFuture<IValue> executeCommand(String languageName, String command);
 
