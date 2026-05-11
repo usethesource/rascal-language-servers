@@ -439,13 +439,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return super.sendUnregisterLanguage(lang);
     }
 
-    private IBaseLanguageClient availableClient() {
-        if (client == null) {
-            throw new IllegalStateException("Client not connected");
-        }
-        return client;
-    }
-
     @Override
     public void telemetryEvent(Object object) {
         availableClient().telemetryEvent(object);

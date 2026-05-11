@@ -224,6 +224,7 @@ public abstract class BaseLanguageServer {
         private final ExecutorService executor;
 
         private @MonotonicNonNull IDEServicesConfiguration remoteIDEServicesConfiguration;
+        private @MonotonicNonNull IBaseLanguageClient client;
 
         protected ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
@@ -337,11 +338,18 @@ public abstract class BaseLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            var proxy = addShutdownDetectionTo(client);
-            lspDocumentService.connect(proxy);
-            lspWorkspaceService.connect(proxy);
-            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(proxy, lspDocumentService, executor);
+            this.client = addShutdownDetectionTo(client);
+            lspDocumentService.connect(this.client);
+            lspWorkspaceService.connect(this.client);
+            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(this.client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
+        }
+
+        protected IBaseLanguageClient availableClient() {
+            if (client == null) {
+                throw new IllegalStateException("Language Client has not been connected yet");
+            }
+            return client;
         }
 
         /**
