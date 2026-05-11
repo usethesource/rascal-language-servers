@@ -77,15 +77,15 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         this.exec = exec;
     }
 
-    public void pair(IBaseTextDocumentService documentService) {
-        this.documentService = documentService;
-    }
-
     private IBaseTextDocumentService availableDocumentService() {
         if (documentService == null) {
-            throw new IllegalStateException("Document Service has not been paired");
+            throw new IllegalStateException("Document service has not been constructed yet");
         }
         return documentService;
+    }
+
+    public void pair(IBaseTextDocumentService documentService) {
+        this.documentService = documentService;
     }
 
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders, ServerCapabilities capabilities) {

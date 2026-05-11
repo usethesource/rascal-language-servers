@@ -23,6 +23,14 @@ public class AccessibleObject implements AnnotatedElement {
   public final boolean canAccess(@Nullable Object obj) { }
 }
 
+package java.lang.reflect;
+
+import org.checkerframework.checker.nullness.qual.Nullable;
+
+interface InvocationHandler {
+    @Nullable Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args);
+}
+
 
 package java.lang;
 

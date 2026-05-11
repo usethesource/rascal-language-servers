@@ -31,13 +31,12 @@ import com.google.gson.GsonBuilder;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 public class ParametricLanguageServer extends BaseLanguageServer {
 
     protected static void startParametric(ServerArgs args) {
-        startLanguageServer(NamedThreadPool.single("parametric-lsp")
-            , NamedThreadPool.cached("parametric")
+        startLanguageServer("parametric-lsp"
+            , "parametric"
             , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage(), args.isExitWhenEmpty())
             , ParametricWorkspaceService::new
             , args.getPort()

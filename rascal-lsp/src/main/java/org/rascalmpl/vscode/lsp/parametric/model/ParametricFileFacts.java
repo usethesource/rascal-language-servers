@@ -163,10 +163,18 @@ public class ParametricFileFacts implements DiagnosticsReporter {
         getFile(file).close();
     }
 
+    public void remove(ISourceLocation file) {
+        var fact = files.remove(file);
+        if (fact != null) {
+            fact.remove();
+        }
+    }
+
     private interface FileFact {
         void invalidateAnalyzer(boolean isClosing);
         void invalidateBuilder(boolean isClosing);
         void close();
+        void remove();
         void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay);
         void calculateBuilder(CompletableFuture<Versioned<ITree>> tree);
         void reportParseErrors(Versioned<List<Diagnostic>> messages);
@@ -177,6 +185,7 @@ public class ParametricFileFacts implements DiagnosticsReporter {
     @SuppressWarnings("java:S3077") // Reads/writes to fields of this class happen sequentially
     private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
+        private volatile boolean removed = false;
 
         // To replace old diagnostics when new diagnostics become available in a
         // thread-safe way, we need to atomically: (1) check if the version of
@@ -237,17 +246,15 @@ public class ParametricFileFacts implements DiagnosticsReporter {
                 if ((aMessages.isEmpty() && bMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
                     // If there are no messages for this file or the file has been deleted, can we remove it
                     // else VS Code comes back and we've dropped the messages in our internal data
-                    remove(file);
+                    ParametricFileFacts.this.remove(file);
                 }
             });
         }
 
-        private @Nullable FileFact remove(ISourceLocation file) {
-            var removed = files.remove(file.top());
-            if (removed != null) {
-                removed.clearDiagnostics();
-            }
-            return removed;
+        @Override
+        public void remove() {
+            removed = true;
+            clearDiagnostics();
         }
 
         /**
@@ -363,6 +370,10 @@ public class ParametricFileFacts implements DiagnosticsReporter {
         }
 
         private void sendDiagnostics() {
+            if (removed) {
+                logger.debug("Will not send diagnostics since the file has been removed");
+                return;
+            }
             if (client == null) {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
                 return;
@@ -383,9 +394,17 @@ public class ParametricFileFacts implements DiagnosticsReporter {
                 "Sending {} diagnostic(s) for {} (parser: v{}; analyzer: v{}; builder: v{})",
                 diagnostics.size(), file, fromParser.version(), fromAnalyzer.version(), fromBuilder.version());
 
-            client.publishDiagnostics(new PublishDiagnosticsParams(
-                Locations.toUri(file).toString(),
-                diagnostics));
+            var uri = Locations.toUri(file).toString();
+            client.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
+
+            // The file for which diagnostics have just been sent, may have been
+            // deleted concurrently (i.e., after the `removed` check at the
+            // start of this method, but before the `publishDiagnostics` call).
+            // The resulting race may have caused the send to have accidentally
+            // overwritten the clear, so an additional clear might be needed.
+            if (removed) {
+                client.publishDiagnostics(new PublishDiagnosticsParams(uri, Collections.emptyList()));
+            }
         }
 
         /**
@@ -455,6 +474,11 @@ public class ParametricFileFacts implements DiagnosticsReporter {
 
         @Override
         public void close() {
+            // NOP
+        }
+
+        @Override
+        public void remove() {
             // NOP
         }
 

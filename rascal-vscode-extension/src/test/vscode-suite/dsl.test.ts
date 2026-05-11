@@ -310,11 +310,16 @@ end
     // TODO Implement this test in a later PR
     it.skip("completion works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.setTextAtLine(6, "     aa : natural;");
+        try {
+            await editor.setTextAtLine(6, "     aa : natural;");
 
-        await editor.moveCursor(9, 4);
-        await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
-        await expectCompletions(driver, editor, ["a", "aa"]);
+            await editor.moveCursor(9, 4);
+            await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
+            await expectCompletions(driver, editor, ["a", "aa"]);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 
     // TODO Implement this test in a later PR
@@ -323,9 +328,14 @@ end
         if (!errorRecovery) { this.skip(); }
 
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.moveCursor(10, 10);
-        await editor.typeText("  x :=");
-        await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
+        try {
+            await editor.moveCursor(10, 10);
+            await editor.typeText("  x :=");
+            await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 
     it("serializes Rascal values as expected", async function() {
