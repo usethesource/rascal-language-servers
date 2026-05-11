@@ -80,7 +80,7 @@ import io.usethesource.vallang.ISourceLocation;
 public abstract class BaseLanguageServer {
     protected static final PrintStream capturedOut;
     protected static final InputStream capturedIn;
-    protected static final boolean DEPLOY_MODE;
+    public static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
 
     static {
@@ -192,7 +192,7 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    protected static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
+    public static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;

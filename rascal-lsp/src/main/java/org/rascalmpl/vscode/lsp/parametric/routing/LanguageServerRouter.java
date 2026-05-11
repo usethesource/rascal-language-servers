@@ -24,9 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp;
-
-import static org.rascalmpl.vscode.lsp.BaseLanguageServer.DEPLOY_MODE;
+package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -86,9 +84,10 @@ import org.rascalmpl.util.maven.MavenParser;
 import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.util.maven.Scope;
 import org.rascalmpl.values.RascalValueFactory;
+import org.rascalmpl.vscode.lsp.BaseLanguageServer;
+import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
+import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
-import org.rascalmpl.vscode.lsp.parametric.routing.RoutingTextDocumentService;
-import org.rascalmpl.vscode.lsp.parametric.routing.RoutingWorkspaceService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -266,7 +265,7 @@ public class LanguageServerRouter extends BaseLanguageServer.ActualLanguageServe
     }
 
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
-        var serverParams = DEPLOY_MODE
+        var serverParams = BaseLanguageServer.DEPLOY_MODE
             ? startServerProcess(lang)
             : connectToServer(lang)
             ;

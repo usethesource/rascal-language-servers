@@ -33,7 +33,6 @@ import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.rascalmpl.ideservices.GsonUtils.ComplexTypeMode;
-import org.rascalmpl.vscode.lsp.LanguageServerRouter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer;
 import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
