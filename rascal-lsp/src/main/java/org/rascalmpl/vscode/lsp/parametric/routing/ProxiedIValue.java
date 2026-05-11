@@ -128,13 +128,17 @@ class ProxiedIValue implements IExternalValue {
     private static void readNumber(JsonReader reader, StringBuilder sb) throws IOException {
         try {
             sb.append(reader.nextInt());
-        } catch (NumberFormatException e) {}
+            return;
+        } catch (NumberFormatException e) {/* try the next number type */}
         try {
             sb.append(reader.nextLong());
-        } catch (NumberFormatException e) {}
+            return;
+        } catch (NumberFormatException e) {/* try the next number type */}
         try {
             sb.append(reader.nextDouble());
-        } catch (NumberFormatException e) {}
+        } catch (NumberFormatException e) {
+            throw new IOException("Could not parse number in JSON object: " + reader.getPath(), e);
+        }
     }
 
     private static void readNull(JsonReader reader, StringBuilder sb) throws IOException {
