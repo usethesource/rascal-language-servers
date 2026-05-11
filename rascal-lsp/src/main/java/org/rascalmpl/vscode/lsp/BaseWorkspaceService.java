@@ -145,9 +145,6 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         var added = params.getEvent().getAdded();
         if (added != null) {
             workspaceFolders.addAll(added);
-            for (WorkspaceFolder folder : added) {
-                availableDocumentService().projectAdded(folder.getName(), Locations.toLoc(folder.getUri()));
-            }
         }
     }
 

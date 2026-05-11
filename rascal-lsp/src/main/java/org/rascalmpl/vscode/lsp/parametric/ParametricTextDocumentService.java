@@ -1034,11 +1034,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     @Override
-    public void projectAdded(String name, ISourceLocation projectRoot) {
-        // No need to do anything
-    }
-
-    @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
         ILanguageContributions contribs = contributions.get(languageName);
 
