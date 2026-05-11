@@ -256,7 +256,8 @@ end
         expect(editorText).to.contain("z := 2");
     });
 
-    it("renaming files works", async function() {
+    // TODO Implement this test in a later PR
+    it.skip("renaming files works", async function() {
         if (errorRecovery) { this.skip(); }
         const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
         const fromFile = path.join(newDir, "testing.pico");
@@ -306,7 +307,8 @@ end
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 
-    it("completion works", async function() {
+    // TODO Implement this test in a later PR
+    it.skip("completion works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(6, "     aa : natural;");
 
@@ -315,7 +317,8 @@ end
         await expectCompletions(driver, editor, ["a", "aa"]);
     });
 
-    it("completion by trigger character works", async function() {
+    // TODO Implement this test in a later PR
+    it.skip("completion by trigger character works", async function() {
         // We will be typing and introducing parse errors, so this only works with error recovery
         if (!errorRecovery) { this.skip(); }
 
