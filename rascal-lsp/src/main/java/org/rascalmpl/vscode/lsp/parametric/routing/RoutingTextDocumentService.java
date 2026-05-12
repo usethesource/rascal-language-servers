@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -33,7 +34,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -92,7 +92,6 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.services.LanguageClient;
-import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -102,7 +101,6 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
-import org.rascalmpl.vscode.lsp.util.FutureCaller;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -112,7 +110,7 @@ import io.usethesource.vallang.IValue;
 /**
  * A language-parametric text document service that routes incoming requests to remote dedicated language servers.
  */
-public class RoutingTextDocumentService implements IBaseTextDocumentService, FutureCaller<IBaseTextDocumentService>, DocumentRouter<CompletableFuture<IBaseTextDocumentService>> {
+public class RoutingTextDocumentService implements IBaseTextDocumentService, DocumentRouter<CompletableFuture<IBaseTextDocumentService>> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
@@ -132,10 +130,12 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     }
 
     @Override
-    public Stream<CompletableFuture<IBaseTextDocumentService>> allRoutes() {
+    public Collection<CompletableFuture<IBaseTextDocumentService>> allRoutes() {
         return availableServer()
             .allRoutes()
-            .map(server -> server.thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService));
+            .stream()
+            .map(server -> server.thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService))
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -163,25 +163,25 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         // Note: floating future
-        callAccept(route(params.getTextDocument()), TextDocumentService::didOpen, params);
+        route(params.getTextDocument()).thenAccept(s -> s.didOpen(params));
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         // Note: floating future
-        callAccept(route(params.getTextDocument()), TextDocumentService::didChange, params);
+        route(params.getTextDocument()).thenAccept(s -> s.didChange(params));
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
         // Note: floating future
-        callAccept(route(params.getTextDocument()), TextDocumentService::didClose, params);
+        route(params.getTextDocument()).thenAccept(s -> s.didClose(params));
     }
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
         // Note: floating future
-        callAccept(route(params.getTextDocument()), TextDocumentService::didSave, params);
+        route(params.getTextDocument()).thenAccept(s -> s.didSave(params));
     }
 
     @Override
@@ -247,12 +247,16 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
 
     @Override
     public void projectAdded(String name, ISourceLocation projectRoot) {
-        callAccept(allRoutes(), IBaseTextDocumentService::projectAdded, name, projectRoot);
+        for (var r : allRoutes()) {
+            r.thenAccept(s -> s.projectAdded(name, projectRoot));
+        }
     }
 
     @Override
     public void projectRemoved(String name, ISourceLocation projectRoot) {
-        callAccept(allRoutes(), IBaseTextDocumentService::projectRemoved, name, projectRoot);
+        for (var r : allRoutes()) {
+            r.thenAccept(s -> s.projectRemoved(name, projectRoot));
+        }
     }
 
     @Override
@@ -310,111 +314,111 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
     @Override
     public void cancelProgress(String progressId) {
         // Note: floating futures
-        callAccept(allRoutes(), IBaseTextDocumentService::cancelProgress, progressId);
+        for (var r : allRoutes()) {
+            r.thenAccept(s -> s.cancelProgress(progressId));
+        }
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(
             CallHierarchyIncomingCallsParams params) {
-        return callCompose(route(Locations.toLoc(params.getItem().getUri())), TextDocumentService::callHierarchyIncomingCalls, params);
+        return route(Locations.toLoc(params.getItem().getUri())).thenCompose(s -> s.callHierarchyIncomingCalls(params));
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(
             CallHierarchyOutgoingCallsParams params) {
-        return callCompose(route(Locations.toLoc(params.getItem().getUri())), TextDocumentService::callHierarchyOutgoingCalls, params);
+        return route(Locations.toLoc(params.getItem().getUri())).thenCompose(s -> s.callHierarchyOutgoingCalls(params));
     }
 
     @Override
     public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams position) {
-        return callCompose(route(position.getTextDocument()), TextDocumentService::completion, position);
+        return route(position.getTextDocument()).thenCompose(s -> s.completion(position));
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
             DefinitionParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::definition, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.definition(params));
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::prepareCallHierarchy, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.prepareCallHierarchy(params));
     }
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::semanticTokensFull, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.semanticTokensFull(params));
     }
 
     @Override
     public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
             SemanticTokensDeltaParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::semanticTokensFullDelta, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.semanticTokensFullDelta(params));
     }
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::semanticTokensRange, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.semanticTokensRange(params));
     }
 
     @Override
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::codeLens, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.codeLens(params));
     }
 
     @Override
     public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
             PrepareRenameParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::prepareRename, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.prepareRename(params));
     }
 
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::rename, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.rename(params));
     }
 
     @Override
     public CompletableFuture<List<InlayHint>> inlayHint(InlayHintParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::inlayHint, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.inlayHint(params));
     }
 
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::codeAction, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.codeAction(params));
     }
 
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
             DocumentSymbolParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::documentSymbol, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.documentSymbol(params));
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(
             ImplementationParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::implementation, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.implementation(params));
     }
 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::references, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.references(params));
     }
 
     @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::foldingRange, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.foldingRange(params));
     }
 
     @Override
     public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
-        return this.<HoverParams, @Nullable Hover>callCompose(route(params.getTextDocument()), TextDocumentService::hover, params);
+        return route(params.getTextDocument()).<@Nullable Hover>thenCompose(s -> s.hover(params));
     }
 
     @Override
     public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
-        return callCompose(route(params.getTextDocument()), TextDocumentService::selectionRange, params);
+        return route(params.getTextDocument()).thenCompose(s -> s.selectionRange(params));
     }
-
-
 
 }

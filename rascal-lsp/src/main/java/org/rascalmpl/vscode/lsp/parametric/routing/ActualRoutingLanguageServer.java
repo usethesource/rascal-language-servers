@@ -38,6 +38,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +52,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -132,8 +132,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @Override
-    public Stream<CompletableFuture<IBaseLanguageServerExtensions>> allRoutes() {
-        return languageServers.values().stream();
+    public Collection<CompletableFuture<IBaseLanguageServerExtensions>> allRoutes() {
+        return languageServers.values();
     }
 
     @Override
@@ -572,14 +572,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public CompletableFuture<Object> shutdown() {
-        return CompletableFutureUtils.reduce(allRoutes().map(serverFut -> serverFut.thenCompose(IBaseLanguageServerExtensions::shutdown)), getExecutor())
+        return CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenCompose(IBaseLanguageServerExtensions::shutdown)), getExecutor())
             .thenCompose(ignored -> super.shutdown());
     }
 
     @Override
     public void exit() {
         try {
-            CompletableFutureUtils.reduce(allRoutes().map(serverFut -> serverFut.thenAccept(IBaseLanguageServerExtensions::exit)), getExecutor()).get(10, TimeUnit.SECONDS);
+            CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenAccept(IBaseLanguageServerExtensions::exit)), getExecutor()).get(10, TimeUnit.SECONDS);
         } catch (ExecutionException | TimeoutException e) {
             logger.error("Error while exiting child processes", e);
         } catch (InterruptedException e) {
