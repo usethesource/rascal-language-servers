@@ -33,7 +33,10 @@ import Node;
 
 // JSON serialization
 
-data Command = testValueEncoding();
+data Command
+  = testValueEncoding()
+  | browseRascalSite()
+  ;
 
 @synopsis{Command handler to test JSON serialization of various Rascal value types.}
 value testingExecutionService(testValueEncoding()) = (
@@ -48,6 +51,18 @@ value testingExecutionService(testValueEncoding()) = (
     ]
 );
 
+@synopsis{Command handler from the ((browseRascal)) command}
+value testingExecutionService(browseRascalSite()) {
+    browse(|https://www.rascal-mpl.org|, title="Rascal MPL");
+    return ("result": true);
+}
+
+lrel[loc, Command] testingCodeLensService(start[Program] input)
+    = picoCodeLenseService(input)
+    + [
+        <input.src, browseRascalSite(title="Browse Rascal site")>
+    ];
+
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)
     = replacements + {c | c <- contributions, getName(c) notin byName}
     when byName := {getName(r) | r <- replacements};
@@ -55,7 +70,8 @@ private set[LanguageService] amendContributions(set[LanguageService] contributio
 set[LanguageService] testingLanguageServer(bool allowRecovery)
     = amendContributions(picoLanguageServer(), {
         parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
-        execution(picoExecutionService + testingExecutionService)
+        execution(picoExecutionService + testingExecutionService),
+        codeLens(testingCodeLensService)
     });
 
 set[LanguageService] testingLanguageServerSlowSummary(bool allowRecovery)
