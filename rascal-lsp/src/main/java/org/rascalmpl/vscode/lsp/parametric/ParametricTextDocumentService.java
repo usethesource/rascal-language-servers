@@ -655,6 +655,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return URIUtil.getExtension(doc);
     }
 
+    @Override
+    public Collection<String> extensions() {
+        return (Collection<String>) registeredExtensions.keySet();
+    }
+
     private ParametricFileFacts facts(ISourceLocation doc) {
         ParametricFileFacts fact = facts.get(language(doc));
 

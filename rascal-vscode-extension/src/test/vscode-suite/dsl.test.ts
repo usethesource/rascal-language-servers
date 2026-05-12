@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
+import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -367,6 +367,20 @@ end
             const view = new WebView();
             return (await ignoreFails(view.getTitle()) === "Rascal MPL") ? editor : undefined;
         }, Delays.normal, "Browser for rascal-mpl.org should open");
+    });
+
+    it("registers diagnostics", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Register TODO");
+        await driver.wait(async () => {
+            const bottomBar = new Workbench().getBottomBar();
+            const problemsView = await bottomBar.openProblemsView();
+            const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
+            const labels = await Promise.all(markers.map(async m => await m.getLabel()));
+            return labels.includes("TODO");
+        }, Delays.normal, "TODO should be registered");
     });
 
 });

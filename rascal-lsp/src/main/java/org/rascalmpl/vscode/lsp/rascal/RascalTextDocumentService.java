@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -214,6 +215,11 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public void initialized() {
         // reserved for future use
         // e.g. dynamic registration of capabilities
+    }
+
+    @Override
+    public Collection<String> extensions() {
+        return Set.of("rsc");
     }
 
     // LSP interface methods

@@ -36,6 +36,7 @@ import Node;
 data Command
   = testValueEncoding()
   | browseRascalSite()
+  | addTodo(loc at)
   ;
 
 @synopsis{Command handler to test JSON serialization of various Rascal value types.}
@@ -57,10 +58,17 @@ value testingExecutionService(browseRascalSite()) {
     return ("result": true);
 }
 
+@synopsis{Command handler from the ((registerDiagnostics)) command}
+value testingExecutionService(addTodo(loc at)) {
+    registerDiagnostics([info("TODO", at)]);
+    return ("result": true);
+}
+
 lrel[loc, Command] testingCodeLensService(start[Program] input)
     = picoCodeLenseService(input)
     + [
-        <input.src, browseRascalSite(title="Browse Rascal site")>
+        <input.src, browseRascalSite(title="Browse Rascal site")>,
+        <input.src, addTodo(input.src, title="Register TODO")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)
