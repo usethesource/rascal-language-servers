@@ -262,25 +262,25 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Fut
 
     @Override
     public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
-        // TODO Auto-generated method stub
+        // TODO Implement in a follow-up PR
         throw new UnsupportedOperationException("Unimplemented method 'getColumnMap'");
     }
 
     @Override
     public ColumnMaps getColumnMaps() {
-        // TODO Auto-generated method stub
+        // TODO Implement in a follow-up PR
         throw new UnsupportedOperationException("Unimplemented method 'getColumnMaps'");
     }
 
     @Override
     public TextDocumentState getEditorState(ISourceLocation file) {
-        // TODO Auto-generated method stub
+        // TODO Implement in a follow-up PR
         throw new UnsupportedOperationException("Unimplemented method 'getDocumentState'");
     }
 
     @Override
     public boolean isManagingFile(ISourceLocation file) {
-        // TODO Auto-generated method stub
+        // TODO Implement in a follow-up PR
         throw new UnsupportedOperationException("Unimplemented method 'isManagingFile'");
     }
 

@@ -107,10 +107,10 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
     private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
-    // TODO To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
-    // Note:
+    // NOTE
     // 1. This map should only contains running server processes.
     // 2. Upon removal from this map, the process should be killed to avoid resource leaks.
+    // NOTE To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
 
     private @MonotonicNonNull IBaseLanguageClient client;
@@ -297,8 +297,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         });
 
-        // TODO Support creating 'regular' IValues in the routing server
-        // For non-proxy values, register JSON encoding (but not decoding)
+        // If support for creating (instead of forwaring) IValues in the routing server is required,
+        // register JSON encoding (but not decoding) for regular (non-rpoxy) IValues here
     }
 
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
@@ -373,10 +373,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         params.setClientInfo(clientParams.getClientInfo());
         params.setInitializationOptions(clientParams.getInitializationOptions());
         params.setLocale(clientParams.getLocale());
+        params.setTrace(clientParams.getTrace());
+        // TODO Set open workspace folders at the time of starting the server
         try {
             params.setProcessId((int) ProcessHandle.current().pid());
         } catch (UnsupportedOperationException | SecurityException e) {
-            logger.debug("Cannot set process ID", e);
+            logger.debug("Cannot set delegate server parent process ID", e);
         }
         return params;
     }
