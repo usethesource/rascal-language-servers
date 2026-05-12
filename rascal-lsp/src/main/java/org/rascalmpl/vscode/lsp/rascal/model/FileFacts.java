@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.rascal.model;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -203,7 +204,7 @@ public class FileFacts implements DiagnosticsReporter {
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
                 rascal.compileFile(file, confs.lookupConfig(file), exec)
-                    .thenApply(m -> Diagnostics.translateMessages(m, cm))
+                    .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
         }
 

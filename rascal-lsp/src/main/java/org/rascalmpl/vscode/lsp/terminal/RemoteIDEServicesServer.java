@@ -120,7 +120,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     public CompletableFuture<Void> registerDiagnostics(RegisterDiagnosticsParameters param) {
         logger.trace("registerDiagnostics({})", param);
         return CompletableFuture.runAsync(() -> {
-            Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.getColumnMaps());
+            Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(param.getMessages(), docService.extensions(), docService.getColumnMaps());
 
             for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
                 languageClient.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(entry.getKey()).toString(), entry.getValue()));
