@@ -577,7 +577,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
     }
 
-    /*package*/ void projectRemoved(String name, ISourceLocation projectRoot) {
+    /*package*/ void projectRemoved(ISourceLocation projectRoot) {
         if (facts != null) {
             facts.projectRemoved(projectRoot);
         }

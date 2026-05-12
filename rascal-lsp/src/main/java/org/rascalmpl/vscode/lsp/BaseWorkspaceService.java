@@ -138,7 +138,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (removed != null) {
             workspaceFolders.removeAll(removed);
             for (WorkspaceFolder folder : removed) {
-                projectRemoved(folder.getName(), Locations.toLoc(folder.getUri()));
+                projectRemoved(Locations.toLoc(folder.getUri()));
             }
         }
 
@@ -148,7 +148,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         }
     }
 
-    protected void projectRemoved(String name, ISourceLocation loc) {
+    protected void projectRemoved(ISourceLocation loc) {
         // Nothing to do by default
     }
 

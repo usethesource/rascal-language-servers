@@ -79,8 +79,8 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     }
 
     @Override
-    protected void projectRemoved(String name, ISourceLocation loc) {
-        ((RascalTextDocumentService) availableDocumentService()).projectRemoved(name, loc);
+    protected void projectRemoved(ISourceLocation loc) {
+        ((RascalTextDocumentService) availableDocumentService()).projectRemoved(loc);
     }
 
 }
