@@ -363,11 +363,13 @@ Any feedback (errors and exceptions) is faster and more clearly printed in the t
 void main(bool errorRecovery=false) {
     loc root;
     try {
+        // Try to resolve the LSP project.
         root = resolveLocation(|project://rascal-lsp|);
     } catch SchemeNotSupported(_): {
+        // Otherwise, we are in the nested pico workspace. Resolve the LSP project from there.
         root = resolveLocation(|cwd:///../../../rascal-lsp|);
     }
-    pcfg = pathConfig(projectRoot = root, bin = root + "target/classes");
+    pcfg = getProjectPathConfig(root, mode=interpreter());
     registerLanguage(
         language(
             pcfg,
