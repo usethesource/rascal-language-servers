@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -118,11 +117,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     private @MonotonicNonNull BaseWorkspaceService wsService;
     private @MonotonicNonNull ActualRoutingLanguageServer parentServer;
 
-    @SuppressWarnings("unused")
-    private final ExecutorService exec;
-
-    public RoutingTextDocumentService(ExecutorService exec) {
-        this.exec = exec;
+    public RoutingTextDocumentService() {
     }
 
     public void setParentServer(ActualRoutingLanguageServer server) {

@@ -120,7 +120,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private AtomicInteger remotePortOffset = new AtomicInteger(0);
 
     public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec) {
-        super(onExit, exec, new RoutingTextDocumentService(exec), new RoutingWorkspaceService(exec));
+        super(onExit, exec, new RoutingTextDocumentService(), new RoutingWorkspaceService(exec));
     }
 
     public CompletableFuture<IBaseLanguageServerExtensions> languageByName(String lang) {
