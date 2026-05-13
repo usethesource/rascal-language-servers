@@ -89,8 +89,7 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
             return route(languageName).thenCompose(s -> s.executeCommand(commandParams));
         }
 
-        return CompletableFutureUtils.completedFuture(commandParams.getCommand() + " was ignored.", getExecutor());
+        return CompletableFutureUtils.completedFuture(commandParams.getCommand() + " was ignored, since it is not a Rascal LSP command.", getExecutor());
     }
-
 
 }
