@@ -140,7 +140,6 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
             .thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService);
     }
 
-    @SuppressWarnings("unused")
     private LanguageClient availableClient() {
         if (client == null) {
             throw new IllegalStateException("Client not connected yet.");
