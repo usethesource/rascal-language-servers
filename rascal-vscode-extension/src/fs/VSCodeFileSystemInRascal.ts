@@ -73,7 +73,13 @@ function connectInputHandler(connection: rpc.MessageConnection, handler: ISource
     req<NumberResponse>("size", handler.size);
     req<FileAttributes>("stat", handler.fileStat);
     req<BooleanResponse>("isReadable", handler.isReadable);
-    req<StringResponse>("getCharset", handler.getCharset);
+}
+
+function connectGetCharset(connection: rpc.MessageConnection, handler: ISourceLocationInput, toClear: Disposable[]) {
+    toClear.push(connection.onRequest(
+        new rpc.RequestType1<ISourceLocationRequest, Promise<StringResponse>, void>("rascal/vfs/getCharset"),
+        handler.getCharset.bind(handler)
+    ));
 }
 
 // Rascal's interface reduced to a subset we can support
@@ -86,7 +92,6 @@ interface ISourceLocationOutput {
     isWritable(req: ISourceLocationRequest): Promise<BooleanResponse>;
     supportsCopy(req: JsonRpcRequest): Promise<BooleanResponse>;
     setLastModified(req: SetLastModifiedRequest): Promise<void>;
-    getCharset(req: ISourceLocationRequest): Promise<StringResponse>;
 }
 
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
@@ -104,7 +109,6 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req("isWritable", handler.isWritable);
     req("supportsCopy", handler.supportsCopy);
     req("setLastModified", handler.setLastModified);
-    req("getCharset", handler.getCharset);
 }
 
 // Rascal's interface reduced to a subset we can support
@@ -174,6 +178,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
         this.watchListener = buildWatchReceiver(connection);
         connectInputHandler(connection, this, this.disposables);
+        connectGetCharset(connection, this, this.disposables);
         connectOutputHandler(connection, this, this.disposables);
         connectWatchHandler(connection, this, this.disposables);
         connectLogicalResolver(connection, this, this.disposables);
