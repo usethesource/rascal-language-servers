@@ -26,6 +26,9 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
@@ -35,20 +38,18 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.type.Type;
 
 /**
- * Wraps a JSON string representing an IValue as an IValue.
+ * Wraps a JSON element representing an IValue as an IValue.
  *
  * This class allows passing IValues through JSON-RPC-enabled servers without requiring to decode/encode them.
  */
 class ProxiedIValue implements IExternalValue {
 
-    private String contents;
+    private static final Gson gson = new Gson();
 
-    /*package*/ ProxiedIValue(String json) {
-        this.contents = json;
-    }
+    private final JsonElement element;
 
-    /*package*/ String getContents() {
-        return this.contents;
+    private ProxiedIValue(JsonElement element) {
+        this.element = element;
     }
 
     @Override
@@ -67,123 +68,17 @@ class ProxiedIValue implements IExternalValue {
      * @param value the value to proxy
      * @throws IOException if an unexpected input occurs
      */
-    /*package*/ static void toJson(JsonWriter writer, ProxiedIValue value) throws IOException {
-        writer.jsonValue(value.getContents());
+    /*package*/ static void toJson(JsonWriter writer, ProxiedIValue value) {
+        gson.toJson(value.element, writer);
     }
 
     /**
      * Wrap the {@link IValue}'s JSON representation.
      * @param reader the reader to read the JSON from
      * @return the JSON as an {@link IValue}
-     * @throws IOException if an unexpected input occurs
      */
-    /*package*/ static ProxiedIValue fromJson(JsonReader reader) throws IOException {
-        var sb = new StringBuilder();
-        readValue(reader, sb);
-        return new ProxiedIValue(sb.toString());
-    }
-
-    /**
-     * Recursively build a JSON string given a tokenized input.
-     * @param reader a tokenized JSON reader
-     * @param sb a builder to which to append the result string
-     * @throws IOException if an unexpected input occurs
-     */
-    private static void readValue(JsonReader reader, StringBuilder sb) throws IOException {
-        switch (reader.peek()) {
-            case BEGIN_ARRAY:
-                readArray(reader, sb);
-                break;
-            case BEGIN_OBJECT:
-                readObject(reader, sb);
-                break;
-            case BOOLEAN:
-                readBoolean(reader, sb);
-                break;
-            case NULL:
-                readNull(reader, sb);
-                break;
-            case NUMBER:
-                readNumber(reader, sb);
-                break;
-            case STRING:
-                readString(reader, sb);
-                break;
-            case NAME: // fall-through
-            case END_ARRAY: // fall-through
-            case END_DOCUMENT: // fall-through
-            case END_OBJECT: // fall-through
-                throw new IOException("Malformed JSON");
-            default:
-                throw new IOException("Unknown JSON token");
-        }
-    }
-
-    private static void readString(JsonReader reader, StringBuilder sb) throws IOException {
-        sb.append('"');
-        sb.append(reader.nextString());
-        sb.append('"');
-    }
-
-    private static void readNumber(JsonReader reader, StringBuilder sb) throws IOException {
-        try {
-            sb.append(reader.nextInt());
-            return;
-        } catch (NumberFormatException e) {/* try the next number type */}
-        try {
-            sb.append(reader.nextLong());
-            return;
-        } catch (NumberFormatException e) {/* try the next number type */}
-        try {
-            sb.append(reader.nextDouble());
-        } catch (NumberFormatException e) {
-            throw new IOException("Could not parse number in JSON object: " + reader.getPath(), e);
-        }
-    }
-
-    private static void readNull(JsonReader reader, StringBuilder sb) throws IOException {
-        reader.nextNull();
-        sb.append("null");
-    }
-
-    private static void readBoolean(JsonReader reader, StringBuilder sb) throws IOException {
-        sb.append(reader.nextBoolean());
-    }
-
-    private static void readArray(JsonReader reader, StringBuilder sb) throws IOException {
-        reader.beginArray();
-        sb.append('[');
-        boolean hasNext = reader.hasNext();
-        while (hasNext) {
-            readValue(reader, sb);
-            hasNext = reader.hasNext();
-            if (hasNext) {
-                sb.append(',');
-            }
-        }
-        reader.endArray();
-        sb.append(']');
-    }
-
-    private static void readObject(JsonReader reader, StringBuilder sb) throws IOException {
-        reader.beginObject();
-        sb.append('{');
-
-        boolean hasNext = reader.hasNext();
-        while (hasNext) {
-            sb.append('"');
-            sb.append(reader.nextName());
-            sb.append('"');
-            sb.append(':');
-            readValue(reader, sb);
-
-            hasNext = reader.hasNext();
-            if (hasNext) {
-                sb.append(',');
-            }
-        }
-        reader.endObject();
-        sb.append('}');
+    /*package*/ static ProxiedIValue fromJson(JsonReader reader) {
+        return new ProxiedIValue(JsonParser.parseReader(reader));
     }
 
 }
