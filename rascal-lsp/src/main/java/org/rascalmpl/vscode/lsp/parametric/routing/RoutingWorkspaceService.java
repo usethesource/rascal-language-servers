@@ -27,41 +27,66 @@
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import com.google.gson.JsonPrimitive;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.services.LanguageServer;
+import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
+import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
+import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+
+import io.usethesource.vallang.ISourceLocation;
 
 /**
  * A language-parametric workspace service that routes incoming requests to remote dedicated language servers.
  */
-public class RoutingWorkspaceService extends BaseWorkspaceService {
+public class RoutingWorkspaceService extends BaseWorkspaceService implements DocumentRouter<CompletableFuture<WorkspaceService>> {
 
-    private @MonotonicNonNull ActualRoutingLanguageServer parentServer;
+    private @MonotonicNonNull DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter;
 
     public RoutingWorkspaceService(ExecutorService exec) {
         super(exec);
     }
 
-    public void setParentServer(ActualRoutingLanguageServer server) {
-        this.parentServer = server;
+    /*package*/ void setServerRouter(DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> server) {
+        this.serverRouter = server;
     }
 
-    private ActualRoutingLanguageServer availableServer() {
-        if (parentServer == null) {
-            throw new IllegalStateException("Server not connected yet.");
+    private DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> availableServerRouter() {
+        if (serverRouter == null) {
+            // This should only happen if we forgot to call `setServerRouter` before finishing initialization
+            throw new IllegalStateException("No server router available");
         }
-        return parentServer;
+        return serverRouter;
+    }
+
+    @Override
+    public Collection<CompletableFuture<WorkspaceService>> allRoutes() {
+        return availableServerRouter().allRoutes().stream()
+            .map(server -> server.thenApply(LanguageServer::getWorkspaceService))
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public CompletableFuture<WorkspaceService> route(ISourceLocation loc) {
+        return availableServerRouter().route(loc).thenApply(LanguageServer::getWorkspaceService);
+    }
+
+    @Override
+    public CompletableFuture<WorkspaceService> route(String languageName) {
+        return availableServerRouter().route(languageName).thenApply(LanguageServer::getWorkspaceService);
     }
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
         if (commandParams.getCommand().startsWith(RASCAL_META_COMMAND) || commandParams.getCommand().startsWith(RASCAL_COMMAND)) {
             var languageName = ((JsonPrimitive) commandParams.getArguments().get(0)).getAsString();
-            return availableServer().languageByName(languageName)
-                .thenCompose(s -> s.getWorkspaceService().executeCommand(commandParams));
+            return route(languageName).thenCompose(s -> s.executeCommand(commandParams));
         }
 
         return CompletableFutureUtils.completedFuture(commandParams.getCommand() + " was ignored.", getExecutor());

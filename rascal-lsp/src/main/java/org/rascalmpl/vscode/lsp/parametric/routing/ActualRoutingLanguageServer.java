@@ -123,7 +123,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         super(onExit, exec, new RoutingTextDocumentService(), new RoutingWorkspaceService(exec));
     }
 
-    public CompletableFuture<IBaseLanguageServerExtensions> languageByName(String lang) {
+    @Override
+    public CompletableFuture<IBaseLanguageServerExtensions> route(String lang) {
         var service = languageServers.get(lang);
         if (service == null) {
             throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
@@ -138,19 +139,16 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation file) {
-        return route(extension(file));
+        var ext = extension(file);
+        return safeLanguage(ext).map(this::route).orElseThrow(() -> {
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", ext));
+        });
     }
 
     @Override
     public void connect(LanguageClient client) {
         this.client = (IBaseLanguageClient) client;
         super.connect(client);
-    }
-
-    public CompletableFuture<IBaseLanguageServerExtensions> route(String extension) {
-        return safeLanguage(extension).map(this::languageByName).orElseThrow(() -> {
-            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension));
-        });
     }
 
     private Optional<String> safeLanguage(String extension) {
@@ -399,8 +397,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         this.initializeParams = params;
 
         // Our child needs us, but we cannot set this in the constructor, so we set it here.
-        getTextDocumentService().setParentServer(this);
-        getWorkspaceService().setParentServer(this);
+        getTextDocumentService().setServerRouter(this);
+        getWorkspaceService().setServerRouter(this);
 
         return super.initialize(params);
     }
@@ -416,12 +414,15 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         for (var ext : lang.getExtensions()) {
             languagesByExtension.put(ext, lang.getName());
         }
-        return super.sendRegisterLanguage(lang);
+        return server.thenCompose(s -> s.sendRegisterLanguage(lang));
     }
 
     @Override
     public synchronized CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
+
+        var work = route(lang.getName())
+            .thenCompose(s -> s.sendUnregisterLanguage(lang));
 
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (removeAll) {
@@ -433,12 +434,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             }
             var removed = languageServers.remove(lang.getName());
             if (removed != null) {
-                removed.thenCompose(server -> server.shutdown().thenApply(o -> server))
+                work = work
+                    .thenCompose(ignored -> removed)
+                    .thenCompose(server -> server.shutdown().thenApply(o -> server))
                     .thenAccept(LanguageServer::exit);
             }
         }
 
-        return super.sendUnregisterLanguage(lang);
+        return work;
     }
 
     @Override

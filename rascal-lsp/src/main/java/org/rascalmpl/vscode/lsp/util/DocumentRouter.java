@@ -47,6 +47,13 @@ public interface DocumentRouter<T> {
      */
     T route(ISourceLocation loc);
 
+    /**
+     * Map a {@link String} name to a {@link T}.
+     * @param doc The name key.
+     * @return The mapped value.
+     */
+    T route(String name);
+
     default T route(TextDocumentItem doc) {
         return route(Locations.toLoc(doc.getUri()));
     }

@@ -29,9 +29,6 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -100,7 +97,6 @@ import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
-import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -114,30 +110,35 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
     private @MonotonicNonNull LanguageClient client;
-    private @MonotonicNonNull BaseWorkspaceService wsService;
-    private @MonotonicNonNull ActualRoutingLanguageServer parentServer;
+    private @MonotonicNonNull DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter;
 
-    public RoutingTextDocumentService() {
+    /*package*/ void setServerRouter(DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter) {
+        this.serverRouter = serverRouter;
     }
 
-    public void setParentServer(ActualRoutingLanguageServer server) {
-        this.parentServer = server;
+    private DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> availableServerRouter() {
+        if (serverRouter == null) {
+            // This should only happen if we forgot to call `setServerRouter` before finishing initialization
+            throw new IllegalStateException("No server router available");
+        }
+        return serverRouter;
     }
 
     @Override
     public Collection<CompletableFuture<IBaseTextDocumentService>> allRoutes() {
-        return availableServer()
-            .allRoutes()
-            .stream()
+        return availableServerRouter().allRoutes().stream()
             .map(server -> server.thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService))
             .collect(Collectors.toList());
     }
 
     @Override
     public CompletableFuture<IBaseTextDocumentService> route(ISourceLocation loc) {
-        return availableServer()
-            .route(loc)
-            .thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService);
+        return availableServerRouter().route(loc).thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService);
+    }
+
+    @Override
+    public CompletableFuture<IBaseTextDocumentService> route(String language) {
+        return availableServerRouter().route(language).thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService);
     }
 
     private LanguageClient availableClient() {
@@ -145,13 +146,6 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
             throw new IllegalStateException("Client not connected yet.");
         }
         return client;
-    }
-
-    private ActualRoutingLanguageServer availableServer() {
-        if (parentServer == null) {
-            throw new IllegalStateException("Server not connected yet.");
-        }
-        return parentServer;
     }
 
     @Override
@@ -185,7 +179,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
 
     @Override
     public void shutdown() {
-        availableServer().shutdown();
+        // reserved for future use
     }
 
     @Override
@@ -196,7 +190,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
 
     @Override
     public void pair(BaseWorkspaceService workspaceService) {
-        this.wsService = workspaceService;
+        // reserved for future use
     }
 
     @Override
@@ -206,37 +200,12 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        logger.debug("textDocument/registerLanguage({}, {})", lang.getName(), lang.getMainFunction());
-        try {
-            availableServer().languageByName(lang.getName())
-                .thenCompose(server -> server.sendRegisterLanguage(lang)).get(1, TimeUnit.MINUTES);
-        } catch (UnsupportedOperationException e) {
-            // Strange, since we just registered this language and should have a server for it
-            logger.error("Language registration for unknown language {}", lang.getName());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException e ) {
-            logger.error("Registration of language {} failed due to unexpected error", lang.getName(), e);
-        } catch (TimeoutException e) {
-            logger.error("Registration of language {} timed out", lang.getName(), e);
-        }
+        // Nothing to do here
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        logger.debug("textDocument/unregisterLanguage({})", lang.getName());
-        try {
-            availableServer().languageByName(lang.getName())
-                .thenCompose(s -> s.sendUnregisterLanguage(lang)).get(1, TimeUnit.MINUTES);
-        } catch (UnsupportedOperationException e) {
-            logger.debug("Ignored language unregistration for unknown language {}", lang.getName());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException e ) {
-            logger.error("Unregistration of language {} failed due to unexpected error", lang.getName(), e);
-        } catch (TimeoutException e) {
-            logger.error("Unregistration of language {} timed out", lang.getName(), e);
-        }
+        // Nothing to do here
     }
 
     @Override
@@ -285,14 +254,6 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     @Override
     public void didCreateFiles(CreateFilesParams params) {
         // TODO Mimick VS given certain file operation filters (capabilities)
-        var filesByExt = params.getFiles().stream()
-            .collect(Collectors.toMap(f -> ActualRoutingLanguageServer.extension(Locations.toLoc(f.getUri())), List::of, Lists::union));
-
-        for (var e : filesByExt.entrySet()) {
-            availableServer().route(e.getKey()).thenAccept(s ->
-                s.getWorkspaceService().didCreateFiles(new CreateFilesParams(e.getValue()))
-            );
-        }
     }
 
     @Override

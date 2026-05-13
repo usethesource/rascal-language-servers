@@ -67,4 +67,5 @@ public interface IBaseLanguageServerExtensions extends LanguageServer, IRascalFi
 
     @JsonDelegate
     IBaseTextDocumentService getIBaseTextDocumentService();
+
 }
