@@ -234,6 +234,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
         );
         setStaticServerCapabilities(dedicatedLanguageName, result);
+        dynamicCapabilities.registerStaticCapabilities(result);
     }
 
     public static void setStaticServerCapabilities(ServerCapabilities result) {
