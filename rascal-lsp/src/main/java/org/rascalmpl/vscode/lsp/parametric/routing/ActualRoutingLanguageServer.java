@@ -264,13 +264,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     /**
      * Special GSON configuration that (un)wraps IValues as-is.
      *
-     * Encoding and decoding an IValues loses type information, we cannot properly encode a decoded value again.
-     * `encode(decode(encode(v))) != v`
+     * Encoding and decoding an {@link IValue} loses dynamic type information, hance a decoded value can not be encoded properly again.
+     * `encode(decode(encode(v))) != encode(v)`
      * Since the router should just proxy values passed from remote servers, without changing them, it uses a special encoder/decoder.
      *
      */
     private static void configureProxyGson(GsonBuilder builder) {
-        // Special encoding/decoding of IValues to/from a string
         builder.registerTypeAdapter(ProxiedIValue.class, new TypeAdapter<ProxiedIValue>() {
 
             @Override
@@ -286,7 +285,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         });
 
         // If support for creating (instead of forwaring) IValues in the routing server is required,
-        // register JSON encoding (but not decoding) for regular (non-rpoxy) IValues here
+        // register JSON encoding (but not decoding) for regular (non-proxy) IValues here.
     }
 
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
@@ -313,7 +312,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         var initializedServer = CompletableFutureUtils.completedFuture(delegateInitializationParams(), getExecutor())
             .thenCompose(server::initialize)
-            .thenApply(ignored -> server); // ignore initialized static server capabilities, since ours are the same
+            // TODO Handle static server capabilities that are different than ours (because the remote has a different Rascal-LSP version)
+            .thenApply(ignored -> server);
 
         getExecutor().execute(() -> {
             try {
@@ -414,6 +414,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var work = route(lang.getName())
             .thenCompose(s -> s.sendUnregisterLanguage(lang));
 
+        // Note: this should be handled for the deployed scenario by the process onExit hook.
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (removeAll) {
             // clear the whole language
