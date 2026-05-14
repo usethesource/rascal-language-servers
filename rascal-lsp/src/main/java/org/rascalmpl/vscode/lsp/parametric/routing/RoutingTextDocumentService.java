@@ -88,6 +88,8 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.services.LanguageClient;
+import org.eclipse.lsp4j.services.LanguageServer;
+import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -105,7 +107,7 @@ import io.usethesource.vallang.IValue;
 /**
  * A language-parametric text document service that routes incoming requests to remote dedicated language servers.
  */
-public class RoutingTextDocumentService implements IBaseTextDocumentService, DocumentRouter<CompletableFuture<IBaseTextDocumentService>> {
+public class RoutingTextDocumentService implements IBaseTextDocumentService, DocumentRouter<CompletableFuture<TextDocumentService>> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
@@ -125,20 +127,20 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     }
 
     @Override
-    public Collection<CompletableFuture<IBaseTextDocumentService>> allRoutes() {
+    public Collection<CompletableFuture<TextDocumentService>> allRoutes() {
         return availableServerRouter().allRoutes().stream()
-            .map(server -> server.thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService))
+            .map(server -> server.thenApply(LanguageServer::getTextDocumentService))
             .collect(Collectors.toList());
     }
 
     @Override
-    public CompletableFuture<IBaseTextDocumentService> route(ISourceLocation loc) {
-        return availableServerRouter().route(loc).thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService);
+    public CompletableFuture<TextDocumentService> route(ISourceLocation loc) {
+        return availableServerRouter().route(loc).thenApply(LanguageServer::getTextDocumentService);
     }
 
     @Override
-    public CompletableFuture<IBaseTextDocumentService> route(String language) {
-        return availableServerRouter().route(language).thenApply(IBaseLanguageServerExtensions::getIBaseTextDocumentService);
+    public CompletableFuture<TextDocumentService> route(String language) {
+        return availableServerRouter().route(language).thenApply(LanguageServer::getTextDocumentService);
     }
 
     private LanguageClient availableClient() {
@@ -210,16 +212,17 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
 
     @Override
     public void projectAdded(String name, ISourceLocation projectRoot) {
-        for (var r : allRoutes()) {
-            r.thenAccept(s -> s.projectAdded(name, projectRoot));
-        }
+        // Nothing to do here
     }
 
     @Override
     public void projectRemoved(String name, ISourceLocation projectRoot) {
-        for (var r : allRoutes()) {
-            r.thenAccept(s -> s.projectRemoved(name, projectRoot));
-        }
+        // Nothing to do here
+    }
+
+    @Override
+    public void cancelProgress(String progressId) {
+        // Nothing to do here
     }
 
     @Override
@@ -264,14 +267,6 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         // TODO Mimick VS given certain file operation filters (capabilities)
-    }
-
-    @Override
-    public void cancelProgress(String progressId) {
-        // Note: floating futures
-        for (var r : allRoutes()) {
-            r.thenAccept(s -> s.cancelProgress(progressId));
-        }
     }
 
     @Override

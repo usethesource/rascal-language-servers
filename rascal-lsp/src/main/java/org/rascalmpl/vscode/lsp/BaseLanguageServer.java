@@ -321,11 +321,6 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public IBaseTextDocumentService getIBaseTextDocumentService() {
-            return getTextDocumentService();
-        }
-
-        @Override
         public BaseWorkspaceService getWorkspaceService() {
             return lspWorkspaceService;
         }

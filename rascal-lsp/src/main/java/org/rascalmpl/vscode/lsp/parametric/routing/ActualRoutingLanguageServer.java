@@ -61,6 +61,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -439,6 +440,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         } finally {
             super.exit();
         }
+    }
+
+    @Override
+    public void cancelProgress(WorkDoneProgressCancelParams params) {
+        // Forward to everyone
+        allRoutes().forEach(r -> r.thenAccept(s -> s.cancelProgress(params)));
     }
 
 }
