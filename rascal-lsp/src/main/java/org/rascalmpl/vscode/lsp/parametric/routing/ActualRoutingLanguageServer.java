@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -88,12 +89,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
-    private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
+
     // NOTE
     // 1. This map should only contains running server processes.
     // 2. Upon removal from this map, the process should be killed to avoid resource leaks.
     // NOTE To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
+    private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
+    private final Collection<Process> childProcesses = new CopyOnWriteArrayList<>();
 
     private final MultipleClientProxy client = new MultipleClientProxy();
     private @MonotonicNonNull InitializeParams initializeParams;
@@ -103,6 +106,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec) {
         super(onExit, exec, new RoutingTextDocumentService(), new RoutingWorkspaceService(exec));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> childProcesses.forEach(Process::destroy)));
     }
 
     @Override
@@ -225,6 +229,9 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 .redirectError(Redirect.INHERIT) // Show logs in current process
                 .start();
 
+            childProcesses.add(proc);
+            proc.onExit().thenAcceptAsync(p -> childProcesses.remove(p), getExecutor());
+
             logger.debug("Launched language server on process {}", proc.pid());
             return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
         } catch (IOException e) {
@@ -311,7 +318,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         getExecutor().execute(() -> {
             try {
                 runner.get();
-                logger.info("Language server for {} terminated gracefully", lang.getName());
+                logger.info("Language server for {} terminated", lang.getName());
             } catch (CancellationException | ExecutionException e) {
                 logger.error("Language server for {} terminated with an exception", lang.getName(), e);
             } catch (InterruptedException e) {
