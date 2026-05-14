@@ -107,11 +107,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public CompletableFuture<IBaseLanguageServerExtensions> route(String lang) {
-        var service = languageServers.get(lang);
-        if (service == null) {
-            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
-        }
-        return service;
+        return CompletableFutureUtils.completedFuture(languageServers.get(lang), getExecutor())
+            .thenApply(service -> {
+                if (service == null) {
+                    throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
+                }
+                return service;
+            })
+            .thenCompose(Function.identity());
     }
 
     @Override
@@ -122,9 +125,10 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation file) {
         var ext = extension(file);
-        return safeLanguage(ext).map(this::route).orElseThrow(() -> {
-            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", ext));
-        });
+        return CompletableFutureUtils.completedFuture(ext, getExecutor())
+            .thenApply(this::safeLanguage)
+            .thenApply(lang -> lang.orElseThrow(() -> new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", ext))))
+            .thenCompose(this::route);
     }
 
     @Override
