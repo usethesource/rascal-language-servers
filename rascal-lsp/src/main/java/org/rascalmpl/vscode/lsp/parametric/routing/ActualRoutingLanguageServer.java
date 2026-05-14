@@ -41,7 +41,6 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
@@ -60,24 +59,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
-import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
-import org.eclipse.lsp4j.ConfigurationParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
-import org.eclipse.lsp4j.LogTraceParams;
-import org.eclipse.lsp4j.MessageActionItem;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.ProgressParams;
-import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.Range;
-import org.eclipse.lsp4j.RegistrationParams;
-import org.eclipse.lsp4j.ShowDocumentParams;
-import org.eclipse.lsp4j.ShowDocumentResult;
-import org.eclipse.lsp4j.ShowMessageRequestParams;
-import org.eclipse.lsp4j.UnregistrationParams;
-import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
-import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -88,21 +71,19 @@ import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.maven.MavenSettings;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
-import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
+import io.usethesource.vallang.IValue;
 
 /**
  * A language server implementation that routes LSP requests to dedicated remote language servers.
  */
-public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements IBaseLanguageClient, DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> {
+public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> {
 
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
@@ -113,7 +94,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     // NOTE To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
 
-    private @MonotonicNonNull IBaseLanguageClient client;
+    private final MultipleClientProxy client = new MultipleClientProxy();
     private @MonotonicNonNull InitializeParams initializeParams;
 
     private static final int REMOTE_BASE_PORT = 9990;
@@ -147,8 +128,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public void connect(LanguageClient client) {
-        this.client = (IBaseLanguageClient) client;
-        super.connect(client);
+        super.connect(client); // first let the super class proxy the client
+        this.client.connect(availableClient());
     }
 
     private Optional<String> safeLanguage(String extension) {
@@ -308,7 +289,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         var serverLauncher = new Launcher.Builder<IBaseLanguageServerExtensions>()
             .setRemoteInterface(IBaseLanguageServerExtensions.class)
-            .setLocalService(this)
+            .setLocalService(client)
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
             .configureGson(ActualRoutingLanguageServer::configureProxyGson)
@@ -439,135 +420,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         }
 
         return work;
-    }
-
-    @Override
-    public void telemetryEvent(Object object) {
-        availableClient().telemetryEvent(object);
-    }
-
-    @Override
-    public void publishDiagnostics(PublishDiagnosticsParams diagnostics) {
-        availableClient().publishDiagnostics(diagnostics);
-    }
-
-    @Override
-    public void showMessage(MessageParams messageParams) {
-        availableClient().showMessage(messageParams);
-    }
-
-    @Override
-    public CompletableFuture<MessageActionItem> showMessageRequest(ShowMessageRequestParams requestParams) {
-        return availableClient().showMessageRequest(requestParams);
-    }
-
-    @Override
-    public void logMessage(MessageParams message) {
-        availableClient().logMessage(message);
-    }
-
-    @Override
-    public void showContent(URI uri, IString title, IInteger viewColumn) {
-        availableClient().showContent(uri, title, viewColumn);
-    }
-
-    @Override
-    public void receiveRegisterLanguage(LanguageParameter lang) {
-        logger.debug("rascal/receiveRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
-        availableClient().receiveRegisterLanguage(lang);
-    }
-
-    @Override
-    public void receiveUnregisterLanguage(LanguageParameter lang) {
-        logger.debug("rascal/receiveUnregisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
-        availableClient().receiveUnregisterLanguage(lang);
-    }
-
-    @Override
-    public void editDocument(URI uri, @Nullable Range range, int viewColumn) {
-        availableClient().editDocument(uri, range, viewColumn);
-    }
-
-    @Override
-    public void startDebuggingSession(int serverPort) {
-        availableClient().startDebuggingSession(serverPort);
-    }
-
-    @Override
-    public void registerDebugServerPort(int processID, int serverPort) {
-        availableClient().registerDebugServerPort(processID, serverPort);
-    }
-
-    @Override
-    public CompletableFuture<Void> createProgress(WorkDoneProgressCreateParams params) {
-        return availableClient().createProgress(params);
-    }
-
-    @Override
-    public void notifyProgress(ProgressParams params) {
-        availableClient().notifyProgress(params);
-    }
-
-    @Override
-    public CompletableFuture<ApplyWorkspaceEditResponse> applyEdit(ApplyWorkspaceEditParams params) {
-        return availableClient().applyEdit(params);
-    }
-
-    @Override
-    public CompletableFuture<List<Object>> configuration(ConfigurationParams configurationParams) {
-        return availableClient().configuration(configurationParams);
-    }
-
-    @Override
-    public void logTrace(LogTraceParams params) {
-        availableClient().logTrace(params);
-    }
-
-    @Override
-    public CompletableFuture<Void> refreshCodeLenses() {
-        return availableClient().refreshCodeLenses();
-    }
-
-    @Override
-    public CompletableFuture<Void> refreshDiagnostics() {
-        return availableClient().refreshDiagnostics();
-    }
-
-    @Override
-    public CompletableFuture<Void> refreshInlayHints() {
-        return availableClient().refreshInlayHints();
-    }
-
-    @Override
-    public CompletableFuture<Void> refreshInlineValues() {
-        return availableClient().refreshInlineValues();
-    }
-
-    @Override
-    public CompletableFuture<Void> refreshSemanticTokens() {
-        return availableClient().refreshSemanticTokens();
-    }
-
-    @Override
-    public CompletableFuture<ShowDocumentResult> showDocument(ShowDocumentParams params) {
-        return availableClient().showDocument(params);
-    }
-
-    @Override
-    public CompletableFuture<Void> registerCapability(RegistrationParams params) {
-        // TODO Collect/maintain capabilities of all delegate servers, combine, and unregister capabilities if necessary based on that.
-        return availableClient().registerCapability(params);
-    }
-
-    @Override
-    public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
-        // TODO Collect/maintain capabilities of all delegate servers, combine, and unregister capabilities if necessary based on that.
-        return availableClient().unregisterCapability(params);
-    }
-
-    @Override
-    public CompletableFuture<List<WorkspaceFolder>> workspaceFolders() {
-        return availableClient().workspaceFolders();
     }
 
     @Override
