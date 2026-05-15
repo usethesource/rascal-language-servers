@@ -26,15 +26,21 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.lang.ProcessBuilder.Redirect;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
@@ -91,6 +97,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
+    private final Gson gson = new Gson();
 
     // NOTE
     // 1. This map should only contains running server processes.
@@ -102,12 +109,15 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     private final MultipleClientProxy client = new MultipleClientProxy();
     private @MonotonicNonNull InitializeParams initializeParams;
+    private final JsonWriter logForwarder;
 
     private static final int REMOTE_BASE_PORT = 9990;
     private AtomicInteger remotePortOffset = new AtomicInteger(0);
 
     public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
         super(onExit, exec, lspDocumentService, lspWorkspaceService);
+        logForwarder = new JsonWriter(new PrintWriter(System.out, false));
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> childProcesses.forEach(Process::destroy)));
     }
 
@@ -228,11 +238,46 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     , "--exitWhenEmpty"
                     // , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"") // escape JSON string on command line
                 )
-                .redirectError(Redirect.INHERIT) // Show logs in current process
                 .start();
 
             childProcesses.add(proc);
-            proc.onExit().thenAcceptAsync(p -> childProcesses.remove(p), getExecutor());
+
+            // Pipe logs from error stream
+            getExecutor().execute(() -> {
+                var reader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
+                var line = "";
+                var threadNamePrefix = lang.getName() + ": ";
+                while (proc.isAlive()) {
+                    synchronized (System.out) { // Read/write a block of JSON objects, so messages from distinct servers are not interleaved.
+                        while (true) {
+                            try {
+                                line = reader.readLine();
+                                if (line == null) {
+                                    break;
+                                }
+                                var json = JsonParser.parseString(line);
+                                try {
+                                    json = json.getAsJsonObject();
+                                    var threadName = ((JsonObject) json).getAsJsonPrimitive("threadName").getAsString();
+                                    ((JsonObject) json).addProperty("threadName", threadNamePrefix + threadName);
+                                } catch (Exception e) { /* ignored */ }
+                                gson.toJson(json, logForwarder);
+                                logForwarder.flush();
+                                // One object per line; this is what log4j does as well.
+                                System.out.println();
+                            } catch (JsonSyntaxException e) {
+                                // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
+                                // In this case, just forward the raw line.
+                                if (!(line == null || line.isBlank())) {
+                                    System.out.println(line);
+                                }
+                            } catch (IOException e) {
+                                logger.catching(e);
+                            }
+                        }
+                    }
+                }
+            });
 
             logger.debug("Launched language server on process {}", proc.pid());
             return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});

@@ -80,8 +80,8 @@ import io.usethesource.vallang.ISourceLocation;
 */
 @SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public abstract class BaseLanguageServer {
-    protected static final PrintStream capturedOut;
-    protected static final InputStream capturedIn;
+    private static final PrintStream capturedOut;
+    private static final InputStream capturedIn;
     public static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
 
