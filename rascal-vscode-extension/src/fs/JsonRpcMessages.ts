@@ -66,8 +66,8 @@ export interface WatchRequest extends ISourceLocationRequest {
      * subscription id, this helps the calling in linking up to the original request
      * as the watches are recursive
      */
-    watchId: string;
     recursive: boolean;
+    watchId: string;
 }
 
 export interface FileAttributes {
