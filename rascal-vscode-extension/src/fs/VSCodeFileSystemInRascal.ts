@@ -144,9 +144,10 @@ export interface WatchEventReceiver {
     emitWatch(event: ISourceLocationChanged): void;
 }
 
-function buildWatchReceiver(connection: rpc.MessageConnection): WatchEventReceiver {
+function buildWatchReceiver(connection: rpc.MessageConnection, logger: vscode.LogOutputChannel): WatchEventReceiver {
     return {
         emitWatch: (e) => {
+            logger.trace("[VSCodeFileSystemInRascal] Watch callback: sourceLocationChanged {} {} {}", e.root, e.type, e.watchId);
             void connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/sourceLocationChanged"), e);
         }
     };
@@ -176,7 +177,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
                 }
             });
         }
-        this.watchListener = buildWatchReceiver(connection);
+        this.watchListener = buildWatchReceiver(connection, logger);
         connectInputHandler(connection, this, this.disposables);
         connectGetCharset(connection, this, this.disposables);
         connectOutputHandler(connection, this, this.disposables);
@@ -377,7 +378,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         if (this.activeWatches.has(watchKey)) {
             throw new rpc.ResponseError(RemoteIOError.watchAlreadyDefined, `Watch already defined: ${newWatch.loc}`);
         }
-        const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watchId);
+        const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watchId, this.logger);
         this.activeWatches.set(watchKey, watcher);
         this.disposables.push(watcher);
     }
@@ -421,20 +422,29 @@ class WatcherCallbacks implements Disposable {
     private readonly watchId: string;
     private readonly toClear: Disposable[] = [];
     private readonly watchListener: WatchEventReceiver;
-    constructor(uri: vscode.Uri, recursive: boolean, watchListener: WatchEventReceiver, watchId: string) {
+    constructor(uri: vscode.Uri, recursive: boolean, watchListener: WatchEventReceiver, watchId: string, private readonly logger: vscode.LogOutputChannel) {
         this.watchId = watchId;
         this.watchListener = watchListener;
         const newWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(uri, recursive ? '**/*' : '*')
         );
         this.toClear.push(newWatcher);
-        newWatcher.onDidCreate(e => this.sendWatchEvent(e, ISourceLocationChangeType.created), this.toClear);
-        newWatcher.onDidChange(e => this.sendWatchEvent(e, ISourceLocationChangeType.modified), this.toClear);
-        newWatcher.onDidDelete(e => this.sendWatchEvent(e, ISourceLocationChangeType.deleted), this.toClear);
-
+        newWatcher.onDidCreate(e => {
+            logger.trace("this.sendWatchEvent onDidCreate");
+            return this.sendWatchEvent(e, ISourceLocationChangeType.created);
+        }, this.toClear);
+        newWatcher.onDidChange(e => {
+            logger.trace("this.sendWatchEvent onDidChange");
+            return this.sendWatchEvent(e, ISourceLocationChangeType.modified);
+        }, this.toClear);
+        newWatcher.onDidDelete(e => {
+            logger.trace("this.sendWatchEvent onDidDelete");
+            return this.sendWatchEvent(e, ISourceLocationChangeType.deleted);
+        }, this.toClear);
     }
 
     private async sendWatchEvent(uri: vscode.Uri, changeType: ISourceLocationChangeType) {
+        this.logger.trace("sendWatchEvent {}", uri);
         this.watchListener.emitWatch({
             root: uri.toString(),
             type: changeType,
