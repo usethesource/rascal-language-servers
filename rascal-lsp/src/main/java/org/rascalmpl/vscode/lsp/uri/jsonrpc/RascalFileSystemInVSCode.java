@@ -95,12 +95,6 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     }
 
     @Override
-    public CompletableFuture<BooleanResponse> supportsRecursiveWatch() {
-        logger.trace("supportsRecursiveWatch");
-        return super.supportsRecursiveWatch();
-    }
-
-    @Override
     public CompletableFuture<FileAttributes> stat(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("stat: {}", loc);
