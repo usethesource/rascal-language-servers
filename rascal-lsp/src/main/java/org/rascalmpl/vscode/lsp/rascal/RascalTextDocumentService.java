@@ -157,7 +157,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         FallbackResolver.getInstance().registerTextDocumentService(this);
     }
 
-
     private LanguageClient availableClient() {
         if (client == null) {
             throw new IllegalStateException("Client has not been connected yet");

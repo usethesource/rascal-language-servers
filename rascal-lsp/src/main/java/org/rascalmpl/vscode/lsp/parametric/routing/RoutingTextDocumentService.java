@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -113,6 +114,9 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
 
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter;
+
+    @SuppressWarnings("unused")
+    /*package*/ RoutingTextDocumentService(ExecutorService exec) {}
 
     /*package*/ void setServerRouter(DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter) {
         this.serverRouter = serverRouter;

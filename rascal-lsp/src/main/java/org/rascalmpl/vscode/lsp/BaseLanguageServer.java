@@ -133,8 +133,17 @@ public abstract class BaseLanguageServer {
         logger.trace("Started with classpath: {}", () -> System.getProperty("java.class.path"));
     }
 
+    @FunctionalInterface
+    protected interface ServerConstructor<A, B, C, D, E> {
+        E apply(A a, B b, C c, D d);
+    }
+
+    protected static void startLanguageServer(String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+        startLanguageServer(ActualLanguageServer::new, requestPoolName, workerPoolName, docServiceProvider, workspaceServiceProvider, portNumber);
+    }
+
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    protected static void startLanguageServer(ServerConstructor<Runnable, ExecutorService, IBaseTextDocumentService, BaseWorkspaceService, ActualLanguageServer> serverBuilder, String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
@@ -145,9 +154,7 @@ public abstract class BaseLanguageServer {
             try {
                 var docService = docServiceProvider.apply(workerPool);
                 var wsService = workspaceServiceProvider.apply(workerPool);
-                docService.pair(wsService);
-                wsService.pair(docService);
-                startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
+                startLSP(constructLSPClient(capturedIn, capturedOut, serverBuilder.apply(() -> System.exit(0), workerPool, docService, wsService), requestPool));
             } finally {
                 requestPool.shutdown();
                 workerPool.shutdown();
@@ -164,9 +171,7 @@ public abstract class BaseLanguageServer {
                         logger.info("New client connected to Rascal LSP server (listening on port number: {})", portNumber);
                         var docService = docServiceProvider.apply(workerPool);
                         var wsService = workspaceServiceProvider.apply(workerPool);
-                        docService.pair(wsService);
-                        wsService.pair(docService);
-                        startLSP(constructLSPClient(clientSocket, new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
+                        startLSP(constructLSPClient(clientSocket, serverBuilder.apply(() -> {}, workerPool, docService, wsService), requestPool));
                     }
                     finally {
                         requestPool.shutdown();

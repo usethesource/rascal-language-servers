@@ -26,14 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.util.concurrent.ExecutorService;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
 
 /**
  * A language-parametric server that assigns a dedicated server to each language.
@@ -41,37 +34,19 @@ import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
  */
 public class RoutingLanguageServer extends ParametricLanguageServer {
 
-    private static final Logger logger = LogManager.getLogger(RoutingLanguageServer.class);
-
-    @SuppressWarnings("java:S2189") // endless loop is fine for the development server
-    public static void startLanguageServer(ExecutorService requestPool, ExecutorService workerPool, int portNumber) {
-        logger.info("Starting Rascal Language Server Router: {}", getVersion());
-        printClassPath();
-
-        if (DEPLOY_MODE) {
-            startLSP(constructLSPClient(capturedIn, capturedOut, new ActualRoutingLanguageServer(() -> System.exit(0), workerPool), requestPool));
-        }
-        else {
-            try (ServerSocket serverSocket = new ServerSocket(portNumber, 0, InetAddress.getByName("127.0.0.1"))) {
-                logger.info("Rascal LSP server router listens on port number: {}", portNumber);
-                while (true) {
-                    startLSP(constructLSPClient(serverSocket.accept(), new ActualRoutingLanguageServer(() -> {}, workerPool), requestPool));
-                }
-            } catch (IOException e) {
-                logger.fatal("Failure to start TCP server on port {}", portNumber, e);
-            }
-        }
-    }
-
     public static void main(String[] args) {
         var serverArgs = parseArgs(args);
         if (serverArgs.getDedicatedLanguage() != null) {
             // If we get a dedicated language argument, we just start a single parametric server
             startParametric(serverArgs);
         } else {
-            startLanguageServer(NamedThreadPool.single("parametric-lsp-router")
-                , NamedThreadPool.cached("parametric-router")
-                , serverArgs.getPort()
+            startLanguageServer(
+                ActualRoutingLanguageServer::new
+              , "parametric-lsp-router"
+              , "parametric-router"
+              , RoutingTextDocumentService::new
+              , RoutingWorkspaceService::new
+              , serverArgs.getPort()
             );
         }
     }

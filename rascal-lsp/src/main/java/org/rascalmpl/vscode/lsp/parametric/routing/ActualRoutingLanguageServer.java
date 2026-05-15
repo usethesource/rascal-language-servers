@@ -73,7 +73,9 @@ import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.maven.MavenSettings;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
+import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
+import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -104,8 +106,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private static final int REMOTE_BASE_PORT = 9990;
     private AtomicInteger remotePortOffset = new AtomicInteger(0);
 
-    public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec) {
-        super(onExit, exec, new RoutingTextDocumentService(), new RoutingWorkspaceService(exec));
+    public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
+        super(onExit, exec, lspDocumentService, lspWorkspaceService);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> childProcesses.forEach(Process::destroy)));
     }
 
