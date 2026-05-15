@@ -33,6 +33,7 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.rascalmpl.uri.FileAttributes;
+import org.rascalmpl.uri.SourceLocationTransformer;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.remote.RascalFileSystemServices;
@@ -40,7 +41,6 @@ import org.rascalmpl.uri.remote.jsonrpc.BooleanResponse;
 import org.rascalmpl.uri.remote.jsonrpc.CopyRequest;
 import org.rascalmpl.uri.remote.jsonrpc.DirectoryListingResponse;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
-import org.rascalmpl.uri.remote.jsonrpc.JsonRpcRequest;
 import org.rascalmpl.uri.remote.jsonrpc.LocationContentResponse;
 import org.rascalmpl.uri.remote.jsonrpc.NumberResponse;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
@@ -63,7 +63,7 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
-    private <T extends JsonRpcRequest> T transformLocations(T req) {
+    private <T extends SourceLocationTransformer> T transformLocations(T req) {
         return req.transformLocations(RascalFileSystemInVSCode::toRascalLocation);
     }
 
