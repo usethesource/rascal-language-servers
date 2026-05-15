@@ -195,7 +195,7 @@ data Command
 
 @synopsis{Adds an example lense to the entire program.}
 lrel[loc,Command] picoCodeLenseService(start[Program] input)
-    = [<input@\loc, renameAtoB(input, title="Rename variables a to b.")>];
+    = [<input.src, renameAtoB(input, title="Rename variables a to b.")>];
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
 list[InlayHint] picoInlayHintService(start[Program] input) {
@@ -210,7 +210,7 @@ list[InlayHint] picoInlayHintService(start[Program] input) {
 
 @synopsis{Helper function to generate actual edit actions for the renameAtoB command}
 list[DocumentEdit] getAtoBEdits(start[Program] input)
-   = [changed(input@\loc.top, [replace(id@\loc, "b") | /id:(Id) `a` := input])];
+   = [changed(input.src.top, [replace(id.src, "b") | /id:(Id) `a` := input])];
 
 @synopsis{Command handler for the renameAtoB command}
 value picoExecutionService(renameAtoB(start[Program] input)) {
@@ -233,7 +233,7 @@ value picoExecutionService(testValueEncoding()) = (
 
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
-    applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
+    applyDocumentsEdits([changed(program.src.top, [replace(toBeRemoved.src, "")])]);
     return ("result": true);
 }
 
@@ -270,7 +270,7 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 }
 
 list[loc] picoSelectionRangeService(Focus focus)
-    = dup([t@\loc | t <- focus]);
+    = dup([t.src | t <- focus]);
 
 list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression) `<Id callId>(<{Expression ","}* _>)`, *_, start[Program] prog]) {
     s = picoSummaryService(prog.src.top, prog, analyze());
