@@ -184,11 +184,6 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     }
 
     @Override
-    public void shutdown() {
-        // reserved for future use
-    }
-
-    @Override
     public void connect(LanguageClient client) {
         logger.debug("Connecting client {}", client);
         this.client = client;

@@ -52,7 +52,6 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -105,7 +104,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     // NOTE To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
     private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
-    private final Collection<Process> childProcesses = new CopyOnWriteArrayList<>();
 
     private final MultipleClientProxy client = new MultipleClientProxy();
     private @MonotonicNonNull InitializeParams initializeParams;
@@ -118,7 +116,15 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         super(onExit, exec, lspDocumentService, lspWorkspaceService);
         logForwarder = new JsonWriter(new PrintWriter(System.out, false));
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> childProcesses.forEach(Process::destroy)));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> destroyChildProcesses()));
+    }
+
+    private static void destroyChildProcesses() {
+        ProcessHandle.current().children().forEach(p -> {
+            if (p.isAlive() && !p.destroy()) {
+                p.destroyForcibly();
+            }
+        });
     }
 
     @Override
@@ -239,8 +245,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     // , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"") // escape JSON string on command line
                 )
                 .start();
-
-            childProcesses.add(proc);
 
             // Pipe logs from error stream
             getExecutor().execute(() -> {
@@ -474,8 +478,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             if (removed != null) {
                 work = work
                     .thenCompose(ignored -> removed)
-                    .thenCompose(server -> server.shutdown().thenApply(o -> server))
-                    .thenAccept(LanguageServer::exit);
+                    .thenCompose(server -> server.shutdown().thenAccept(ignored -> server.exit()));
             }
         }
 
@@ -484,19 +487,20 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public CompletableFuture<Object> shutdown() {
-        return CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenCompose(IBaseLanguageServerExtensions::shutdown)), getExecutor())
+        return CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenCompose(LanguageServer::shutdown)), getExecutor())
             .thenCompose(ignored -> super.shutdown());
     }
 
     @Override
     public void exit() {
         try {
-            CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenAccept(IBaseLanguageServerExtensions::exit)), getExecutor()).get(10, TimeUnit.SECONDS);
+            CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor()).get(10, TimeUnit.SECONDS);
         } catch (ExecutionException | TimeoutException e) {
             logger.error("Error while exiting child processes", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
+            destroyChildProcesses();
             super.exit();
         }
     }

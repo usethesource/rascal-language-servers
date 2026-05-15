@@ -286,6 +286,9 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
+            // Exit when our parent process exits
+            executor.submit(() -> ProcessHandle.of(params.getProcessId()).ifPresent(p -> p.onExit().thenAccept(ignored -> this.exit())));
+
             return CompletableFuture.supplyAsync(() -> {
                 logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
                 logger.debug("LSP client capabilities: {}", params.getCapabilities());
@@ -309,10 +312,7 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<Object> shutdown() {
-            return CompletableFuture.supplyAsync(() -> {
-                lspDocumentService.shutdown();
-                return true;
-            }, executor);
+            return CompletableFuture.completedFuture(new Object());
         }
 
         @Override
