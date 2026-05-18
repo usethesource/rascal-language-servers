@@ -242,7 +242,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
                     , "--exitWhenEmpty"
-                    // , new GsonBuilder().create().toJson(lang, LanguageParameter.class).replace("\"", "\\\"") // escape JSON string on command line
                 )
                 .start();
 
