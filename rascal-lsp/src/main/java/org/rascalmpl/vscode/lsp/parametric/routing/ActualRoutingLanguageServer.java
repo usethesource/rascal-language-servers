@@ -43,10 +43,10 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.URI;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
@@ -59,7 +59,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -76,7 +75,10 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.util.maven.MavenSettings;
+import org.rascalmpl.util.maven.Artifact;
+import org.rascalmpl.util.maven.MavenParser;
+import org.rascalmpl.util.maven.ModelResolutionError;
+import org.rascalmpl.util.maven.Scope;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
@@ -177,51 +179,45 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return URIUtil.getExtension(doc);
     }
 
-    private static Path resolveUri(URI uri) {
-        if (!uri.getScheme().equals("mvn")) {
-            return Path.of(uri);
-        }
-
-        if (uri.getAuthority().isEmpty()) {
-            throw new IllegalArgumentException("Invalid Maven URI (no authority): " + uri.toString());
-        }
-
-        var parts = uri.getAuthority().split("--");
-        if (parts.length != 3) {
-            throw new IllegalArgumentException("Invalid Maven URI (expected 2 '--' separators): " + uri.toString());
-        }
-
-        var group = parts[0];
-        var name = parts[1];
-        var version = parts[2];
-        var jarPath = group.replaceAll("\\.", "/")
-            + "/"
-            + name
-            + "/"
-            + version
-            + "/"
-            + name
-            + "-"
-            + version
-            + ".jar"
-            ;
-
-        return MavenSettings.mavenRepository().resolve(jarPath);
+    private static boolean isRascal(Artifact art) {
+        return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal".equals(art.getCoordinate().getArtifactId());
     }
 
-    private static String classPath(LanguageParameter lang) throws IOException {
+    private static boolean isRascalLsp(Artifact art) {
+        return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal-lsp".equals(art.getCoordinate().getArtifactId());
+    }
+
+    private static String classPath(LanguageParameter lang) throws IOException, ModelResolutionError {
         var pcfg = PathConfig.parse(lang.getPathConfig());
-        var libs = pcfg.getLibs().stream().map(ISourceLocation.class::cast);
-        var bins = Stream.of(pcfg.getBin());
+        var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
+        var maven = new MavenParser(Path.of(pom.getURI()));
 
-        var classPath = Stream.concat(bins, libs) // project target folder first
-            .map(Locations::toPhysicalIfPossible)
-            .map(Locations::toUri)
-            .map(ActualRoutingLanguageServer::resolveUri)
-            .map(Path::toString)
-            .collect(Collectors.toList());
+        var project = maven.parseProject();
+        var deps = project.resolveDependencies(Scope.COMPILE, maven);
 
-        return String.join(File.pathSeparator, classPath);
+        var classPath = new LinkedList<Path>();
+        if (isRascalLsp(project)) {
+            // We add our bin directory and all of our dependencies
+            classPath.add(Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin()))));
+            for (var dep : deps) {
+                var res = dep.getResolved();
+                if (res != null) {
+                    classPath.add(res);
+                }
+            }
+        } else {
+            // Add Rascal/LSP JARs
+            for (var dep : deps) {
+                if (isRascal(dep) || isRascalLsp(dep)) {
+                    var res = dep.getResolved();
+                    if (res != null) {
+                        classPath.add(res);
+                    }
+                }
+            }
+        }
+
+        return String.join(File.pathSeparator, classPath.stream().map(Path::toString).collect(Collectors.toList()));
     }
 
     private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) {
@@ -284,7 +280,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
             logger.debug("Launched language server on process {}", proc.pid());
             return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
-        } catch (IOException e) {
+        } catch (IOException | ModelResolutionError e) {
             logger.error("Starting language server process for {} failed", lang.getName(), e);
             return null;
         }
