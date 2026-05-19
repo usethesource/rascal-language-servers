@@ -28,7 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
@@ -114,6 +114,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private static final int REMOTE_BASE_PORT = 9990;
     private AtomicInteger remotePortOffset = new AtomicInteger(0);
 
+    @SuppressWarnings("java:S106") // System.out
     public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
         super(onExit, exec, lspDocumentService, lspWorkspaceService);
         logForwarder = new JsonWriter(new PrintWriter(System.out, false));
@@ -220,6 +221,15 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return String.join(File.pathSeparator, classPath.stream().map(Path::toString).collect(Collectors.toList()));
     }
 
+    private static JsonElement prependThreadName(String threadNamePrefix, JsonElement json) {
+        try {
+            var obj = json.getAsJsonObject();
+            var threadName = obj.getAsJsonPrimitive("threadName").getAsString();
+            obj.addProperty("threadName", threadNamePrefix + threadName);
+        } catch (Exception e) { /* ignored */ }
+        return json;
+    }
+
     private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) {
         logger.info("Starting LSP process for {}", lang.getName());
 
@@ -245,7 +255,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             getExecutor().execute(() -> {
                 var reader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
                 var line = "";
-                var threadNamePrefix = lang.getName() + ": ";
                 while (proc.isAlive()) {
                     synchronized (System.out) { // Read/write a block of JSON objects, so messages from distinct servers are not interleaved.
                         while (true) {
@@ -255,12 +264,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                                     break;
                                 }
                                 var json = JsonParser.parseString(line);
-                                try {
-                                    json = json.getAsJsonObject();
-                                    var threadName = ((JsonObject) json).getAsJsonPrimitive("threadName").getAsString();
-                                    ((JsonObject) json).addProperty("threadName", threadNamePrefix + threadName);
-                                } catch (Exception e) { /* ignored */ }
-                                gson.toJson(json, logForwarder);
+                                gson.toJson(prependThreadName(lang.getName() + " ", json), logForwarder);
                                 logForwarder.flush();
                                 // One object per line; this is what log4j does as well.
                                 System.out.println();
