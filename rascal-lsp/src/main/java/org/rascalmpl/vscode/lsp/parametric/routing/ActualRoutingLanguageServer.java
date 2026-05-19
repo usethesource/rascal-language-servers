@@ -176,7 +176,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return Optional.ofNullable(languagesByExtension.get(extension));
     }
 
-    public static String extension(ISourceLocation doc) {
+    private static String extension(ISourceLocation doc) {
         return URIUtil.getExtension(doc);
     }
 
