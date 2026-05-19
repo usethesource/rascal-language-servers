@@ -259,6 +259,7 @@ end
     it("renaming files works", async function() {
         if (errorRecovery) { this.skip(); }
         const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
+        await fs.rm(newDir, {recursive: true, force: true});
         const fromFile = path.join(newDir, "testing.pico");
         const toDir = path.join(newDir, "dest");
         await fs.mkdir(toDir, {recursive: true});
