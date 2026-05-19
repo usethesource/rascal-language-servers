@@ -41,12 +41,12 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
             startParametric(serverArgs);
         } else {
             startLanguageServer(
-                ActualRoutingLanguageServer::new
-              , "parametric-lsp-router"
-              , "parametric-router"
-              , RoutingTextDocumentService::new
-              , RoutingWorkspaceService::new
-              , serverArgs.getPort()
+                ActualRoutingLanguageServer::new,
+                "parametric-lsp-router",
+                "parametric-router",
+                RoutingTextDocumentService::new,
+                RoutingWorkspaceService::new,
+                serverArgs.getPort()
             );
         }
     }
