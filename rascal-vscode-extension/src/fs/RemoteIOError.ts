@@ -80,11 +80,11 @@ export class RemoteIOError {
                 case "FileNotFound":
                 case "EntryNotFound":
                     return new rpc.ResponseError(RemoteIOError.fileNotFound, e.message);
-                case "FileNotADirectory":
-                case "EntryNotADirectory":
-                    return new rpc.ResponseError(RemoteIOError.isADirectory, e.message);
                 case "FileIsADirectory":
                 case "EntryIsADirectory":
+                    return new rpc.ResponseError(RemoteIOError.isADirectory, e.message);
+                case "FileNotADirectory":
+                case "EntryNotADirectory":
                     return new rpc.ResponseError(RemoteIOError.isNotADirectory, e.message);
                 case "NoPermissions":
                     return new rpc.ResponseError(RemoteIOError.permissionDenied, e.message);
