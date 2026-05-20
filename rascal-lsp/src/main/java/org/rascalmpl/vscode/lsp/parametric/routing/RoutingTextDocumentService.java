@@ -29,7 +29,10 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -156,26 +159,66 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
-        // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didOpen(params));
+        try {
+            route(params.getTextDocument()).thenAccept(s -> s.didOpen(params)).get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.catching(e);
+            if (e.getCause() != null && e.getCause() instanceof RuntimeException) {
+                throw (RuntimeException) e.getCause();
+            }
+        } catch (TimeoutException e) {
+            logger.error("didOpen timed out", e);
+        }
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
-        // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didChange(params));
+        try {
+            route(params.getTextDocument()).thenAccept(s -> s.didChange(params)).get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.catching(e);
+            if (e.getCause() != null && e.getCause() instanceof RuntimeException) {
+                throw (RuntimeException) e.getCause();
+            }
+        } catch (TimeoutException e) {
+            logger.error("didChange timed out", e);
+        }
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
-        // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didClose(params));
+        try {
+            route(params.getTextDocument()).thenAccept(s -> s.didClose(params)).get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.catching(e);
+            if (e.getCause() != null && e.getCause() instanceof RuntimeException) {
+                throw (RuntimeException) e.getCause();
+            }
+        } catch (TimeoutException e) {
+            logger.error("didClose timed out", e);
+        }
     }
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
-        // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didSave(params));
+        try {
+            route(params.getTextDocument()).thenAccept(s -> s.didSave(params)).get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.catching(e);
+            if (e.getCause() != null && e.getCause() instanceof RuntimeException) {
+                throw (RuntimeException) e.getCause();
+            }
+        } catch (TimeoutException e) {
+            logger.error("didSave timed out", e);
+        }
     }
 
     @Override
