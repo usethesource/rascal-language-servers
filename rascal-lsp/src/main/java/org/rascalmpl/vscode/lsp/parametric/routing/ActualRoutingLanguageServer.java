@@ -46,7 +46,7 @@ import java.net.Socket;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
@@ -59,6 +59,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -85,6 +86,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -188,7 +190,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal-lsp".equals(art.getCoordinate().getArtifactId());
     }
 
-    private static String classPath(LanguageParameter lang) throws IOException, ModelResolutionError {
+    private static List<Path> classPath(LanguageParameter lang) throws IOException, ModelResolutionError {
         var pcfg = PathConfig.parse(lang.getPathConfig());
         var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
         var maven = new MavenParser(Path.of(pom.getURI()));
@@ -196,38 +198,61 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var project = maven.parseProject();
         var deps = project.resolveDependencies(Scope.COMPILE, maven);
 
-        var classPath = new LinkedList<Path>();
         if (isRascalLsp(project)) {
             // We add our bin directory and all of our dependencies
-            classPath.add(Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin()))));
-            for (var dep : deps) {
-                var res = dep.getResolved();
-                if (res != null) {
-                    classPath.add(res);
-                }
-            }
-        } else {
-            // Add Rascal/LSP JARs
-            for (var dep : deps) {
-                if (isRascal(dep) || isRascalLsp(dep)) {
-                    var res = dep.getResolved();
-                    if (res != null) {
-                        classPath.add(res);
-                    }
-                }
-            }
+            var target = Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin())));
+            var depPaths = deps.stream()
+                .flatMap(a -> {
+                    var r = a.getResolved();
+                    return r == null ? Stream.of() : Stream.of(r);
+                }).collect(Collectors.toList());
+            return Lists.union(List.of(target), depPaths);
         }
 
-        return String.join(File.pathSeparator, classPath.stream().map(Path::toString).collect(Collectors.toList()));
+        return deps.stream()
+            .filter(d -> isRascal(d) || isRascalLsp(d))
+            .flatMap(a -> {
+                var r = a.getResolved();
+                return r == null ? Stream.of() : Stream.of(r);
+            })
+            .collect(Collectors.toList());
     }
 
-    private static JsonElement prependThreadName(String threadNamePrefix, JsonElement json) {
+    private static void prependThreadName(String prefix, JsonElement json) {
         try {
             var obj = json.getAsJsonObject();
             var threadName = obj.getAsJsonPrimitive("threadName").getAsString();
-            obj.addProperty("threadName", threadNamePrefix + threadName);
+            obj.addProperty("threadName", prefix + threadName);
         } catch (Exception e) { /* ignored */ }
-        return json;
+    }
+
+    @SuppressWarnings("java:S106") // System.out
+    private void forwardLogs(BufferedReader reader, String threadPrefix) {
+        synchronized (System.out) { // Read/write a block of JSON objects, so messages from distinct servers are not interleaved.
+            var line = "";
+            while (true) {
+                try {
+                    line = reader.readLine();
+                    if (line == null) {
+                        break;
+                    }
+                    var json = JsonParser.parseString(line);
+                    prependThreadName(threadPrefix, json);
+                    gson.toJson(json, logForwarder);
+                    logForwarder.flush();
+                    // One object per line; this is what log4j does as well.
+                    System.out.println();
+                } catch (JsonSyntaxException e) {
+                    // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
+                    // In this case, just forward the raw line.
+                    if (!(line == null || line.isBlank())) {
+                        System.out.println(line);
+                    }
+                } catch (IOException e) {
+                    logger.catching(e);
+                }
+            }
+        }
     }
 
     private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) {
@@ -235,7 +260,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         // In deployment, we start a process and connect to it via input/output streams
         try {
-            var classPath = classPath(lang);
+            var classPath = String.join(File.pathSeparator, classPath(lang).stream().map(Path::toString).collect(Collectors.toList()));
             logger.debug("{} runs with class path {}", lang.getName(), classPath);
 
             var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
@@ -254,31 +279,9 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             // Pipe logs from error stream
             getExecutor().execute(() -> {
                 var reader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
-                var line = "";
+                var threadPrefix = lang.getName() + " ";
                 while (proc.isAlive()) {
-                    synchronized (System.out) { // Read/write a block of JSON objects, so messages from distinct servers are not interleaved.
-                        while (true) {
-                            try {
-                                line = reader.readLine();
-                                if (line == null) {
-                                    break;
-                                }
-                                var json = JsonParser.parseString(line);
-                                gson.toJson(prependThreadName(lang.getName() + " ", json), logForwarder);
-                                logForwarder.flush();
-                                // One object per line; this is what log4j does as well.
-                                System.out.println();
-                            } catch (JsonSyntaxException e) {
-                                // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
-                                // In this case, just forward the raw line.
-                                if (!(line == null || line.isBlank())) {
-                                    System.out.println(line);
-                                }
-                            } catch (IOException e) {
-                                logger.catching(e);
-                            }
-                        }
-                    }
+                    forwardLogs(reader, threadPrefix);
                 }
             });
 
