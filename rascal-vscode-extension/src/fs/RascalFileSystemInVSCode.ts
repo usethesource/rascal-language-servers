@@ -24,6 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+import { randomUUID } from 'crypto';
 import path from 'path';
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
@@ -35,6 +36,10 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly protectedSchemes: string[] = ["file", "http", "https", "unknown"];
     private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], string[]> = new Map();
+
+    // Unique identifier for the current file system instance. It's fine to reuse this uuid for
+    // all watches, since VS Code groups watches by [uri, recursive] already.
+    private readonly watchId = randomUUID();
 
     /**
      * Registers a single FileSystemProvider for every URI scheme that Rascal supports, except
@@ -158,7 +163,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         this.logger.trace("[RascalFileSystemInVSCode] watch: ", uri);
         void this.sendRequest("rascal/vfs/watcher/watch", <WatchRequest>{
             loc: RascalFileSystemInVSCode.toRascalUri(uri),
-            recursive: options.recursive
+            recursive: options.recursive,
+            watchId: this.watchId
         }).then(_v => {
             this.activeWatches.set([uri, options.recursive], options.excludes);
         }).catch(r => {
@@ -168,7 +174,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return new vscode.Disposable(async () => {
             await this.sendRequest("rascal/vfs/watcher/unwatch", <WatchRequest>{
                 loc: RascalFileSystemInVSCode.toRascalUri(uri),
-                recursive: options.recursive
+                recursive: options.recursive,
+                watchId: this.watchId
             });
             this.activeWatches.delete([uri, options.recursive]);
         });
