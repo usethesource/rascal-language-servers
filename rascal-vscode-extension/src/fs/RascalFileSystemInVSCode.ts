@@ -43,7 +43,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
      * @param client to use as a server for the file system provider methods
      */
     constructor (private readonly client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
-        client.onNotification("rascal/vfs/watcher/fileChanged", (event: vscode.FileChangeEvent) => {
+        client.onNotification("rascal/vfs/watcher/sourceLocationChanged", (event: FileChangeEvent) => {
             // Iterating over all active watches
             for (const [[uri, recursive], excludes] of this.activeWatches) {
                 if (!recursive && uri !== event.uri || recursive && !path.relative(uri.toString(), event.uri.toString())) {
