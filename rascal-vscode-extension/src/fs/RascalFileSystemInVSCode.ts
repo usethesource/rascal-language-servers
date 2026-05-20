@@ -27,7 +27,7 @@
 import path from 'path';
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
-import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
+import { CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, RemoveRequest, RenameRequest, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
@@ -43,10 +43,11 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
      * @param client to use as a server for the file system provider methods
      */
     constructor (private readonly client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
-        client.onNotification("rascal/vfs/watcher/sourceLocationChanged", (event: FileChangeEvent) => {
+        client.onNotification("rascal/vfs/watcher/sourceLocationChanged", (event: ISourceLocationChanged) => {
+            const eventUri = vscode.Uri.parse(event.root);
             // Iterating over all active watches
             for (const [[uri, recursive], excludes] of this.activeWatches) {
-                if (!recursive && uri !== event.uri || recursive && !path.relative(uri.toString(), event.uri.toString())) {
+                if (!recursive && uri !== eventUri || recursive && !path.relative(uri.toString(), eventUri.toString())) {
                     // Current watch does not apply to the event uri
                     continue;
                 }
@@ -55,18 +56,27 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                 for (const exclude of excludes) {
                     const isAbsolute = path.isAbsolute(exclude);
                     const isGlob = exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
-                    if (isAbsolute && this.excludeMatchesUri(event.uri.path, exclude, isGlob)
-                        || !isAbsolute && this.excludeMatchesUri(event.uri.path, path.join(uri.path, exclude), isGlob)) {
+                    if (isAbsolute && this.excludeMatchesUri(eventUri.path, exclude, isGlob)
+                        || !isAbsolute && this.excludeMatchesUri(eventUri.path, path.join(uri.path, exclude), isGlob)) {
                         // Event uri was excluded in current watch
                         continue;
                     }
                 }
 
                 // Current watch applies to the event uri and no exclude matches
-                this._emitter.fire([event]);
+                this._emitter.fire([<vscode.FileChangeEvent>{type: this.translateFileChangeType(event.type.valueOf()), uri: eventUri}]);
                 return;
             }
         });
+    }
+
+    private translateFileChangeType(rascalFileChangeType: number): vscode.FileChangeType {
+        switch (rascalFileChangeType) {
+            case 1: return vscode.FileChangeType.Created;
+            case 2: return vscode.FileChangeType.Deleted;
+            case 3: return vscode.FileChangeType.Changed;
+        }
+        throw new Error(`Unexpected FileChangeType ${rascalFileChangeType}`);
     }
 
     private excludeMatchesUri(uri: string, exclude: string, isGlob: boolean) {
