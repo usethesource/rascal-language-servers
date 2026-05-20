@@ -228,7 +228,27 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
-        await assureDebugLevelLoggingIsEnabled();
+        await this.assureDebugLevelLoggingIsEnabled();
+    }
+
+    private async assureDebugLevelLoggingIsEnabled() {
+        if (alreadySetup) {
+            return;
+        }
+        alreadySetup = true; // to avoid doing this twice/parallel
+        await this.driver.wait(async () => {
+            try {
+                const prompt = await new Workbench().openCommandPrompt();
+                await prompt.setText(">workbench.action.setLogLevel");
+                await prompt.confirm();
+                await prompt.setText("Debug");
+                await prompt.confirm();
+                return true;
+            } catch (e) {
+                console.error("Setting log level failed: ", e);
+                return false;
+            }
+        });
     }
 
     async cleanup() {
@@ -290,7 +310,7 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                const title = await ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
                 await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
@@ -493,18 +513,6 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
 }
 
 let alreadySetup = false;
-
-async function assureDebugLevelLoggingIsEnabled() {
-    if (alreadySetup) {
-        return;
-    }
-    alreadySetup = true; // to avoid doing this twice/parallel
-    const prompt = await new Workbench().openCommandPrompt();
-    await prompt.setText(">workbench.action.setLogLevel");
-    await prompt.confirm();
-    await prompt.setText("Debug");
-    await prompt.confirm();
-}
 
 export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
 
