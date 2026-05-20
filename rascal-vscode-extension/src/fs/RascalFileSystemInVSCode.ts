@@ -49,6 +49,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
      */
     constructor (private readonly client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
         client.onNotification("rascal/vfs/watcher/sourceLocationChanged", (event: ISourceLocationChanged) => {
+            logger.trace("[RascalFileSystemInVSCode] sourceLocationChanged", event.root, event.type);
             const eventUri = vscode.Uri.parse(event.root);
             // Iterating over all active watches
             for (const [[uri, recursive], excludes] of this.activeWatches) {
@@ -69,6 +70,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                 }
 
                 // Current watch applies to the event uri and no exclude matches
+                logger.trace("[RascalFileSystemInVSCode] watch callback event", <vscode.FileChangeEvent>{type: <number>event.type, uri: eventUri});
                 this._emitter.fire([<vscode.FileChangeEvent>{type: this.translateFileChangeType(event.type.valueOf()), uri: eventUri}]);
                 return;
             }
@@ -172,6 +174,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         });
 
         return new vscode.Disposable(async () => {
+            this.logger.trace("[RascalFileSystemInVSCode] unwatch: ", uri);
             await this.sendRequest("rascal/vfs/watcher/unwatch", <WatchRequest>{
                 loc: RascalFileSystemInVSCode.toRascalUri(uri),
                 recursive: options.recursive,
