@@ -47,6 +47,7 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     static final Duration NORMAL_DEBOUNCE = Duration.ofMillis(800);
 
     void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result);
+    void shutdown();
     void connect(LanguageClient client);
     void pair(BaseWorkspaceService workspaceService);
     void initialized();
