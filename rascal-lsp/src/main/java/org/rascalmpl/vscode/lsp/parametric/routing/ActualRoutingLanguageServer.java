@@ -131,8 +131,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     private static void destroyChildProcesses() {
         ProcessHandle.current().children().forEach(p -> {
-            if (p.isAlive() && !p.destroy()) {
-                p.destroyForcibly();
+            try {
+                if (p.isAlive() && !p.destroy()) {
+                    p.destroyForcibly();
+                }
+            } catch (Exception e) {
+                logger.error("Error while destroying process {}", p.pid(), e);
             }
         });
     }
@@ -231,10 +235,9 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @SuppressWarnings("java:S106") // System.err
     private void forwardLogs(InputStream logStream, String langName) {
         getExecutor().execute(() -> {
-            var line = "";
             var threadPrefix = langName + " | ";
-            var reader = new BufferedReader(new InputStreamReader(logStream));
-            try {
+            try (var reader = new BufferedReader(new InputStreamReader(logStream))) {
+                String line;
                 while ((line = reader.readLine()) != null) {
                     try {
                         var json = JsonParser.parseString(line);
@@ -384,11 +387,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                         }
                     }
                 }
-            }
-            try {
-                serverParams.getRight().run();
-            } catch (Exception e) {
-                logger.error("Unexpected error while cleaning up connection to language server for {}", lang.getName(), e);
+                try {
+                    // Run exit hook
+                    serverParams.getRight().run();
+                } catch (Exception e) {
+                    logger.error("Unexpected error while cleaning up connection to language server for {}", lang.getName(), e);
+                }
             }
         });
 
@@ -490,13 +494,28 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public CompletableFuture<Object> shutdown() {
         return CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenCompose(LanguageServer::shutdown)), getExecutor())
-            .thenCompose(ignored -> super.shutdown());
+            .thenCompose(ignored -> super.shutdown())
+            .whenComplete((v, t) -> {
+                try {
+                    logForwarder.flush();
+                } catch (IOException e) {
+                    logger.catching(e);
+                }
+            });
     }
 
     @Override
     public void exit() {
         try {
-            CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor()).get(10, TimeUnit.SECONDS);
+            CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor())
+                .whenComplete((v, t) -> {
+                    try {
+                        logForwarder.close();
+                    } catch (IOException e) {
+                        logger.catching(e);
+                    }
+                })
+                .get(10, TimeUnit.SECONDS);
         } catch (ExecutionException | TimeoutException e) {
             logger.error("Error while exiting child processes", e);
         } catch (InterruptedException e) {
