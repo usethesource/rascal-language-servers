@@ -165,7 +165,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
             logger.catching(e);
-            if (e.getCause() != null && e.getCause() instanceof RuntimeException) {
+            if (e.getCause() instanceof RuntimeException) {
                 throw (RuntimeException) e.getCause();
             }
         } catch (TimeoutException e) {
@@ -181,7 +181,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
             logger.catching(e);
-            if (e.getCause() != null && e.getCause() instanceof RuntimeException) {
+            if (e.getCause() instanceof RuntimeException) {
                 throw (RuntimeException) e.getCause();
             }
         } catch (TimeoutException e) {
@@ -197,7 +197,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
             logger.catching(e);
-            if (e.getCause() != null && e.getCause() instanceof RuntimeException) {
+            if (e.getCause() instanceof RuntimeException) {
                 throw (RuntimeException) e.getCause();
             }
         } catch (TimeoutException e) {
@@ -213,7 +213,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
             logger.catching(e);
-            if (e.getCause() != null && e.getCause() instanceof RuntimeException) {
+            if (e.getCause() instanceof RuntimeException) {
                 throw (RuntimeException) e.getCause();
             }
         } catch (TimeoutException e) {
