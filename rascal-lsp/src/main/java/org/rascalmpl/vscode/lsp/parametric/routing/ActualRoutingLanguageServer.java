@@ -35,12 +35,13 @@ import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.file.Path;
@@ -119,7 +120,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @SuppressWarnings("java:S106") // System.out
     public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
         super(onExit, exec, lspDocumentService, lspWorkspaceService);
-        logForwarder = new JsonWriter(new PrintWriter(System.out, false));
+        logForwarder = new JsonWriter(new BufferedWriter(new OutputStreamWriter(System.out)));
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> destroyChildProcesses()));
     }
@@ -222,7 +223,9 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         try {
             var obj = json.getAsJsonObject();
             var threadName = obj.getAsJsonPrimitive("threadName").getAsString();
-            obj.addProperty("threadName", prefix + threadName);
+            if (threadName != null) {
+                obj.addProperty("threadName", prefix + threadName);
+            }
         } catch (Exception e) { /* ignored */ }
     }
 
@@ -246,7 +249,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     } catch (JsonSyntaxException e) {
                         // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
                         // In this case, just forward the raw line.
-                        if (!(line == null || line.isBlank())) {
+                        if (!line.isBlank()) {
                             System.out.println(line);
                         }
                     }
