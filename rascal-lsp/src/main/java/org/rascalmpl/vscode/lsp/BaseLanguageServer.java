@@ -312,10 +312,7 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<Object> shutdown() {
-            return CompletableFuture.supplyAsync(() -> {
-                lspDocumentService.shutdown();
-                return true;
-            }, executor);
+            return CompletableFuture.completedFuture(new Object());
         }
 
         @Override
