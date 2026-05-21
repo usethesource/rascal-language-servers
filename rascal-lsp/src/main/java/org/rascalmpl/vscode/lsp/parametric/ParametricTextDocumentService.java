@@ -638,17 +638,22 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private Optional<String> safeLanguage(ISourceLocation loc) {
+        return languageByExtension(loc, registeredExtensions);
+    }
+
+    public static Optional<String> languageByExtension(ISourceLocation loc, Map<String, String> languagesByExtension) {
         var ext = extension(loc);
+        var languages = languagesByExtension.values().stream().collect(Collectors.toSet());
         if ("".equals(ext)) {
-            if (contributions.size() == 1) {
+            if (languages.size() == 1) {
                 logger.trace("file was opened without an extension; falling back to the single registered language for: {}", loc);
-                return contributions.keySet().stream().findFirst();
+                return languages.stream().findFirst();
             } else {
                 logger.error("file was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
                 return Optional.empty();
             }
         }
-        return Optional.ofNullable(registeredExtensions.get(ext));
+        return Optional.ofNullable(languagesByExtension.get(ext));
     }
 
     private String language(ISourceLocation loc) {

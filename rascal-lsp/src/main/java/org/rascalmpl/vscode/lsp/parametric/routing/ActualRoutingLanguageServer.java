@@ -46,11 +46,9 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -88,6 +86,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.log.LogJsonConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -156,32 +155,18 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @Override
-    public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation file) {
-        var ext = extension(file);
-        return CompletableFutureUtils.completedFuture(ext, getExecutor())
-            .thenApply(this::safeLanguage)
-            .thenApply(lang -> lang.orElseThrow(() -> new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", ext))))
-            .thenCompose(this::route);
+    public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation loc) {
+        var lang = ParametricTextDocumentService.languageByExtension(loc, languagesByExtension);
+        if (lang.isEmpty()) {
+            return CompletableFuture.failedFuture(new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension(loc))));
+        }
+        return route(lang.get());
     }
 
     @Override
     public void connect(LanguageClient client) {
         super.connect(client); // first let the super class proxy the client
         this.client.connect(availableClient());
-    }
-
-    private Optional<String> safeLanguage(String extension) {
-        if ("".equals(extension)) {
-            var languages = new HashSet<>(languagesByExtension.values());
-            if (languages.size() == 1) {
-                logger.trace("File was opened without an extension; falling back to the single registered language for extension '{}'", extension);
-                return languages.stream().findFirst();
-            } else {
-                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for extension '{}'", extension);
-                return Optional.empty();
-            }
-        }
-        return Optional.ofNullable(languagesByExtension.get(extension));
     }
 
     private static String extension(ISourceLocation doc) {
