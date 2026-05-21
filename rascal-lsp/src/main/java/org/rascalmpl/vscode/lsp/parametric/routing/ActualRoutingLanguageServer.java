@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -60,11 +61,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
@@ -138,14 +139,11 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public CompletableFuture<IBaseLanguageServerExtensions> route(String lang) {
-        return CompletableFutureUtils.completedFuture(languageServers.get(lang), getExecutor())
-            .thenApply(service -> {
-                if (service == null) {
-                    throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
-                }
-                return service;
-            })
-            .thenCompose(Function.identity());
+        var service = languageServers.get(lang);
+        if (service == null) {
+            return CompletableFuture.failedFuture(new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang)));
+        }
+        return service;
     }
 
     @Override
@@ -203,22 +201,20 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var deps = project.resolveDependencies(Scope.COMPILE, maven);
 
         if (isRascalLsp(project)) {
-            // We add our bin directory and all of our dependencies
+            // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
+            // Instead, we use its compiled classes and the JARs of all its dependencies.
             var target = Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin())));
             var depPaths = deps.stream()
-                .flatMap(a -> {
-                    var r = a.getResolved();
-                    return r == null ? Stream.of() : Stream.of(r);
-                }).collect(Collectors.toList());
+                .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
+                .filter(Objects::nonNull)
+                .collect(Collectors.<@NonNull Path>toList());
             return Lists.union(List.of(target), depPaths);
         }
 
         return deps.stream()
             .filter(d -> isRascal(d) || isRascalLsp(d))
-            .flatMap(a -> {
-                var r = a.getResolved();
-                return r == null ? Stream.of() : Stream.of(r);
-            })
+            .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
     }
 
