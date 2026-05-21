@@ -48,15 +48,16 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Triple;
@@ -116,7 +117,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private final JsonWriter logForwarder;
 
     private static final int REMOTE_BASE_PORT = 9990;
-    private AtomicInteger remotePortOffset = new AtomicInteger(0);
+    private static final int PORT_POOL_SIZE = 9;
+    private NavigableSet<Integer> portPool = new ConcurrentSkipListSet<>();
 
     @SuppressWarnings("java:S106") // System.err
     public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
@@ -124,6 +126,10 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         // log4j loggers write to stderr. We wrap the same stream, so we can directly pipe log messages from our child processes to it.
         logForwarder = new JsonWriter(new BufferedWriter(new OutputStreamWriter(System.err)));
+
+        for (int i = 0; i < PORT_POOL_SIZE; i++) {
+            portPool.add(REMOTE_BASE_PORT + i);
+        }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> destroyChildProcesses()));
     }
@@ -283,7 +289,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     private @Nullable Triple<InputStream, OutputStream, Runnable> connectToServer(LanguageParameter lang) {
         // In development, we expect the server to have been launched on a pre-agreed port
-        int port = getNextPort();
+        int port = portPool.pollFirst();
         try {
             @SuppressWarnings("java:S2095") // no need to close the socket here - we close it on server shutdown
             Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
@@ -294,6 +300,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     socket.close();
                 } catch (IOException e) {
                     logger.error("Closing socket for {} on port {} failed", lang.getName(), port);
+                } finally {
+                    portPool.add(port); // Re-use the port
                 }
             });
         } catch (IOException e) {
@@ -382,10 +390,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         });
 
         return initializedServer; // When initialization is done, we can use the server
-    }
-
-    private int getNextPort() {
-        return REMOTE_BASE_PORT + remotePortOffset.getAndIncrement();
     }
 
     private InitializeParams availableInitializeParams() {
