@@ -134,8 +134,8 @@ public abstract class BaseLanguageServer {
     }
 
     @FunctionalInterface
-    protected interface ServerConstructor<A, B, C, D, E> {
-        E apply(A a, B b, C c, D d);
+    protected interface ServerBuilder {
+        ActualLanguageServer apply(Runnable a, ExecutorService b, IBaseTextDocumentService c, BaseWorkspaceService d);
     }
 
     protected static void startLanguageServer(String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
@@ -143,7 +143,7 @@ public abstract class BaseLanguageServer {
     }
 
     @SuppressWarnings({"java:S2189", "java:S106"})
-    protected static void startLanguageServer(ServerConstructor<Runnable, ExecutorService, IBaseTextDocumentService, BaseWorkspaceService, ActualLanguageServer> serverBuilder, String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    protected static void startLanguageServer(ServerBuilder serverBuilder, String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
