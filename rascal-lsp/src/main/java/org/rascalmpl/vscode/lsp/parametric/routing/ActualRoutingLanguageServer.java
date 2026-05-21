@@ -227,32 +227,34 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @SuppressWarnings("java:S106") // System.out
-    private void forwardLogs(BufferedReader reader, String threadPrefix) {
-        synchronized (System.out) { // Read/write a block of JSON objects, so messages from distinct servers are not interleaved.
+    private void forwardLogs(InputStream logStream, String langName) {
+        getExecutor().execute(() -> {
             var line = "";
-            while (true) {
-                try {
-                    line = reader.readLine();
-                    if (line == null) {
-                        break;
+            var threadPrefix = langName + " | ";
+            var reader = new BufferedReader(new InputStreamReader(logStream));
+            try {
+                while ((line = reader.readLine()) != null) {
+                    try {
+                        var json = JsonParser.parseString(line);
+                        prependThreadName(threadPrefix, json);
+                        synchronized (System.out) { // Lock, so we can make sure our JSON is followed by a newline.
+                            gson.toJson(json, logForwarder);
+                            logForwarder.flush();
+                            // One object per line; this is what log4j does as well.
+                            System.out.println();
+                        }
+                    } catch (JsonSyntaxException e) {
+                        // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
+                        // In this case, just forward the raw line.
+                        if (!(line == null || line.isBlank())) {
+                            System.out.println(line);
+                        }
                     }
-                    var json = JsonParser.parseString(line);
-                    prependThreadName(threadPrefix, json);
-                    gson.toJson(json, logForwarder);
-                    logForwarder.flush();
-                    // One object per line; this is what log4j does as well.
-                    System.out.println();
-                } catch (JsonSyntaxException e) {
-                    // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
-                    // In this case, just forward the raw line.
-                    if (!(line == null || line.isBlank())) {
-                        System.out.println(line);
-                    }
-                } catch (IOException e) {
-                    logger.catching(e);
                 }
+            } catch (IOException e) {
+                logger.error("Error while reading logs for {}", langName, e);
             }
-        }
+        });
     }
 
     private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) {
@@ -277,13 +279,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 .start();
 
             // Pipe logs from error stream
-            getExecutor().execute(() -> {
-                var reader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
-                var threadPrefix = lang.getName() + " ";
-                while (proc.isAlive()) {
-                    forwardLogs(reader, threadPrefix);
-                }
-            });
+            forwardLogs(proc.getErrorStream(), lang.getName());
 
             logger.debug("Launched language server on process {}", proc.pid());
             return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
