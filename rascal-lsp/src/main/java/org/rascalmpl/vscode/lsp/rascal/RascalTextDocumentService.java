@@ -501,10 +501,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         return getFile(Locations.toLoc(doc));
     }
 
-    public void shutdown() {
-        // Don't shutdown the thread pool; its lifecycle is managed outside this object.
-    }
-
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return recoverExceptions(getFile(doc).getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
