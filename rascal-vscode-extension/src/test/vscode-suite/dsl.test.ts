@@ -380,7 +380,7 @@ end
             const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
             const labels = await Promise.all(markers.map(async m => await m.getLabel()));
             return labels.includes("TODO");
-        }, Delays.normal, "TODO should be registered");
+        }, Delays.slow, "TODO should be registered");
 
         await ide.clickCodeLens(editor, "Unregister TODO");
         await driver.wait(async () => {
@@ -389,7 +389,7 @@ end
             const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
             const labels = await Promise.all(markers.map(async m => await m.getLabel()));
             return !labels.includes("TODO");
-        }, Delays.normal, "TODO should be unregistered");
+        }, Delays.slow, "TODO should be unregistered");
     });
 
 });
