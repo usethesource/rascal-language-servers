@@ -289,7 +289,10 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     private @Nullable Triple<InputStream, OutputStream, Runnable> connectToServer(LanguageParameter lang) {
         // In development, we expect the server to have been launched on a pre-agreed port
-        int port = portPool.pollFirst();
+        var port = portPool.pollFirst();
+        if (port == null) {
+            throw new IllegalStateException("Pool of dev ports is exhausted. Stop some unused servers or increase the size of the pool.");
+        }
         try {
             @SuppressWarnings("java:S2095") // no need to close the socket here - we close it on server shutdown
             Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
