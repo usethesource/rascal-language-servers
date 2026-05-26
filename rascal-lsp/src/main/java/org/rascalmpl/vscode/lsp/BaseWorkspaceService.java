@@ -58,6 +58,8 @@ import org.rascalmpl.vscode.lsp.util.Nullables;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.ISourceLocation;
+
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
 
@@ -77,7 +79,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         this.exec = exec;
     }
 
-    private IBaseTextDocumentService availableDocumentService() {
+    protected IBaseTextDocumentService availableDocumentService() {
         if (documentService == null) {
             throw new IllegalStateException("Document service has not been constructed yet");
         }
@@ -136,17 +138,18 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (removed != null) {
             workspaceFolders.removeAll(removed);
             for (WorkspaceFolder folder : removed) {
-                availableDocumentService().projectRemoved(folder.getName(), Locations.toLoc(folder.getUri()));
+                projectRemoved(Locations.toLoc(folder.getUri()));
             }
         }
 
         var added = params.getEvent().getAdded();
         if (added != null) {
             workspaceFolders.addAll(added);
-            for (WorkspaceFolder folder : added) {
-                availableDocumentService().projectAdded(folder.getName(), Locations.toLoc(folder.getUri()));
-            }
         }
+    }
+
+    protected void projectRemoved(ISourceLocation loc) {
+        // Nothing to do by default
     }
 
     @Override
