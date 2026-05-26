@@ -213,26 +213,22 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             .collect(Collectors.toList());
     }
 
-    private static void prependThreadName(String prefix, JsonElement json) {
+    private static void prependThreadName(String langName, JsonElement json) {
         try {
             var obj = json.getAsJsonObject();
-            var threadName = obj.getAsJsonPrimitive("threadName").getAsString();
-            if (threadName != null) {
-                obj.addProperty("threadName", prefix + threadName);
-            }
+            obj.addProperty("threadName", langName + (obj.has("threadName") ? " | " + obj.getAsJsonPrimitive("threadName").getAsString() : ""));
         } catch (Exception e) { /* ignored */ }
     }
 
     @SuppressWarnings("java:S106") // System.err
     private void forwardLogs(InputStream logStream, String langName) {
         getExecutor().execute(() -> {
-            var threadPrefix = langName + " | ";
             try (var reader = new BufferedReader(new InputStreamReader(logStream))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     try {
                         var json = JsonParser.parseString(line);
-                        prependThreadName(threadPrefix, json);
+                        prependThreadName(langName, json);
                         // Lock, so we can make sure our JSON is followed by a newline.
                         synchronized (System.err) {
                             gson.toJson(json, logForwarder);
