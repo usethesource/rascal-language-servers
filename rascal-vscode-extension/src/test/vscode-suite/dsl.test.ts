@@ -52,7 +52,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import demo::lang::pico::LanguageServer;");
+        await repl.execute("import testing::lang::pico::LanguageServer;");
 
         // If Pico was registered before as part of another series of tests,
         // then it needs to be unregistered first (because error recovery
@@ -65,7 +65,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
         await sleep(Delays.normal);
 
-        const replExecuteMain = repl.execute(`main(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
+        const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
