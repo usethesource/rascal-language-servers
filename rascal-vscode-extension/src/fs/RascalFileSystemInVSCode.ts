@@ -37,9 +37,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     private readonly protectedSchemes: string[] = ["file", "http", "https", "unknown"];
     private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], string[]> = new Map();
 
-    // Unique identifier for the current file system instance. It's fine to reuse this uuid for
-    // all watches, since VS Code groups watches by [uri, recursive] already.
-    private readonly watchId = randomUUID();
+    // Unique identifier for the current file system instance
+    private readonly vfsWatchId = randomUUID();
 
     /**
      * Registers a single FileSystemProvider for every URI scheme that Rascal supports, except
@@ -50,8 +49,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     constructor (private readonly client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
         client.onNotification("rascal/vfs/watcher/sourceLocationChanged", (event: ISourceLocationChanged) => {
             logger.debug("[RascalFileSystemInVSCode] sourceLocationChanged", event.root, event.type);
-            if (event.watchId !== this.watchId) {
-                // Watch id does not match our global watch Id; this notification is not for us
+            if (event.watchId.slice(-this.vfsWatchId.length) !== this.vfsWatchId) {
+                // Watch id does not match our instance watch id; this notification is not for us
                 return;
             }
 
@@ -189,10 +188,11 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
         this.logger.debug("[RascalFileSystemInVSCode] watch: ", uri);
         const watchKey: [vscode.Uri, boolean] = [uri, options.recursive];
+        const watchId = `${uri}-${options.recursive}-${this.vfsWatchId}`;
         void this.sendRequest("rascal/vfs/watcher/watch", <WatchRequest>{
             loc: RascalFileSystemInVSCode.toRascalUri(uri),
             recursive: options.recursive,
-            watchId: this.watchId
+            watchId: watchId
         }).then(_v => {
             this.activeWatches.set(watchKey, options.excludes);
         }).catch(r => {
@@ -204,7 +204,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             await this.sendRequest("rascal/vfs/watcher/unwatch", <WatchRequest>{
                 loc: RascalFileSystemInVSCode.toRascalUri(uri),
                 recursive: options.recursive,
-                watchId: this.watchId
+                watchId: watchId
             });
             this.activeWatches.delete(watchKey);
         });
