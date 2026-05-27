@@ -48,9 +48,11 @@ import org.rascalmpl.uri.remote.jsonrpc.RemoveRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RenameRequest;
 import org.rascalmpl.uri.remote.jsonrpc.SetLastModifiedRequest;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
+import org.rascalmpl.uri.remote.jsonrpc.StringResponse;
 import org.rascalmpl.uri.remote.jsonrpc.TimestampResponse;
 import org.rascalmpl.uri.remote.jsonrpc.WatchRequest;
 import org.rascalmpl.uri.remote.jsonrpc.WriteFileRequest;
+import org.rascalmpl.uri.vfs.IRemoteResolverRegistryServer;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -59,9 +61,10 @@ import io.usethesource.vallang.ISourceLocation;
  * Wrapper for RascalFileSystemServices handling LSP-specifics.
  * In particular, locations from LSP are mapped to Rascal-friendly locations.
  */
-public class RascalFileSystemInVSCode extends RascalFileSystemServices {
+public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
     private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
+    private final RascalFileSystemServices fileSystemServices = new RascalFileSystemServices();
 
     private <T extends SourceLocationTransformer> T transformLocations(T req) {
         return req.transformLocations(RascalFileSystemInVSCode::toRascalLocation);
@@ -77,48 +80,48 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
     @Override
     public CompletableFuture<SourceLocationResponse> resolveLocation(ISourceLocationRequest req) {
         logger.trace("resolveLocation: {}", req.getLocation());
-        return super.resolveLocation(transformLocations(req));
+        return fileSystemServices.resolveLocation(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> watch(WatchRequest req) {
         var loc = req.getLocation();
         logger.trace("watch: {}", loc);
-        return super.watch(transformLocations(req));
+        return fileSystemServices.watch(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> unwatch(WatchRequest req) {
         var loc = req.getLocation();
         logger.trace("unwatch: {}", loc);
-        return super.unwatch(transformLocations(req));
+        return fileSystemServices.unwatch(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<FileAttributes> stat(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("stat: {}", loc);
-        return super.stat(transformLocations(req));
+        return fileSystemServices.stat(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<DirectoryListingResponse> list(ISourceLocationRequest req) {
         logger.trace("list: {}", req.getLocation());
-        return super.list(transformLocations(req));
+        return fileSystemServices.list(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> mkDirectory(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("mkDirectory: {}", loc);
-        return super.mkDirectory(transformLocations(req));
+        return fileSystemServices.mkDirectory(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<LocationContentResponse> readFile(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("readFile: {}", loc);
-        return super.readFile(transformLocations(req));
+        return fileSystemServices.readFile(transformLocations(req));
     }
 
     @Override
@@ -128,88 +131,95 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
         if (reg.exists(loc) && reg.isDirectory(loc)) {
             throw new ResponseErrorException(new ResponseError(RemoteIOError.IsADirectory.code, "Is a directory: " + loc, req));
         }
-        return super.writeFile(transformLocations(req));
+        return fileSystemServices.writeFile(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> remove(RemoveRequest req) {
         var loc = req.getLocation();
         logger.trace("remove: {}", loc);
-        return super.remove(transformLocations(req));
+        return fileSystemServices.remove(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> rename(RenameRequest req) {
         logger.trace("rename: {} to {}", req.getFrom(), req.getTo());
-        return super.rename(transformLocations(req));
+        return fileSystemServices.rename(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> copy(CopyRequest req) {
         logger.trace("copy: {} to {}", req.getFrom(), req.getTo());
-        return super.copy(transformLocations(req));
+        return fileSystemServices.copy(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<BooleanResponse> exists(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("exists: {}", loc);
-        return super.exists(transformLocations(req));
+        return fileSystemServices.exists(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<TimestampResponse> lastModified(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("lastModified: {}", loc);
-        return super.lastModified(transformLocations(req));
+        return fileSystemServices.lastModified(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<TimestampResponse> created(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("created: {}", loc);
-        return super.created(transformLocations(req));
+        return fileSystemServices.created(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<BooleanResponse> isDirectory(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("isDirectory: {}", loc);
-        return super.isDirectory(transformLocations(req));
+        return fileSystemServices.isDirectory(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<BooleanResponse> isFile(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("isFile: {}", loc);
-        return super.isFile(transformLocations(req));
+        return fileSystemServices.isFile(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<NumberResponse> size(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("size: {}", loc);
-        return super.size(transformLocations(req));
+        return fileSystemServices.size(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<BooleanResponse> isReadable(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("isReadable: {}", loc);
-        return super.isReadable(transformLocations(req));
+        return fileSystemServices.isReadable(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<Void> setLastModified(SetLastModifiedRequest req) {
         var loc = req.getLocation();
         logger.trace("setLastModified: {}", loc);
-        return super.setLastModified(transformLocations(req));
+        return fileSystemServices.setLastModified(transformLocations(req));
     }
 
     @Override
     public CompletableFuture<BooleanResponse> isWritable(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("isWritable: {}", loc);
-        return super.isWritable(transformLocations(req));
+        return fileSystemServices.isWritable(transformLocations(req));
+    }
+
+    @Override
+    public CompletableFuture<StringResponse> getCharset(ISourceLocationRequest req) {
+        var loc = req.getLocation();
+        logger.trace("getCharset: {}", loc);
+        return fileSystemServices.getCharset(transformLocations(req));
     }
 }
