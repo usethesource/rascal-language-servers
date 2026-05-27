@@ -27,6 +27,7 @@
 
 import path from 'path/posix';
 import * as vscode from 'vscode';
+import { RascalFileSystemInVSCode } from './RascalFileSystemInVSCode';
 
 /* This class is used to testing purposes of the VFS forwarding to rascal */
 export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.Disposable {
@@ -157,46 +158,8 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     notifyWatchers(targetUri: vscode.Uri, type: vscode.FileChangeType) {
         this.logger.debug("[TVFS] notifyWatchers ", targetUri);
-        // Iterating over all active watches
-        watches: for (const [[uri, recursive], excludes] of this.activeWatches) {
-            if (targetUri.scheme !== uri.scheme || targetUri.authority !== uri.authority) {
-                continue;
-            }
-
-            if (!recursive && uri.path !== targetUri.path && this.ensureTrailingSlash(uri.path) !== this.ensureTrailingSlash(path.dirname(targetUri.path))) {
-                continue;
-            }
-
-            if (recursive && !targetUri.path.startsWith(this.ensureTrailingSlash(uri.path))) {
-                // Current watch does not apply to the event uri
-                continue;
-            }
-
-            // Current watch does apply to the event uri; checking whether it is excluded in this watch
-            for (const exclude of excludes) {
-                const isAbsolute = path.isAbsolute(exclude);
-                const isGlob = exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
-                if (isAbsolute && this.excludeMatchesUri(targetUri.path, exclude, isGlob)
-                    || !isAbsolute && this.excludeMatchesUri(targetUri.path, path.join(uri.path, exclude), isGlob)) {
-                    // Event uri was excluded in current watch
-                    continue watches;
-                }
-            }
-
-            // Current watch applies to the event uri and no exclude matches
-            const callbackEvent = <vscode.FileChangeEvent>{ type: type, uri: targetUri };
-            this.logger.debug("[TVFS] watch callback event", callbackEvent);
-            this._emitter.fire([callbackEvent]);
-            break;
-        }
-    }
-
-    private ensureTrailingSlash(path: string): string {
-        return path.endsWith("/") ? path : path + "/";
-    }
-
-    private excludeMatchesUri(uri: string, exclude: string, isGlob: boolean) {
-        return (isGlob && path.matchesGlob(uri, exclude)) || (!isGlob && exclude === uri);
+        // Reusing the notification logic from RascalFileSystemInVSCode
+        RascalFileSystemInVSCode.notifyWatchers(targetUri, type, this.activeWatches, this._emitter, "TVFS", this.logger);
     }
 
     stat(uri: vscode.Uri): vscode.FileStat {

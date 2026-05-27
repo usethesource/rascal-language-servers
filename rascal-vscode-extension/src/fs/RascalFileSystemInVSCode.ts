@@ -55,44 +55,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                 return;
             }
 
-            const eventUri = vscode.Uri.parse(event.root);
-
-            // Iterating over all active watches
-            watches: for (const [[uri, recursive], excludes] of this.activeWatches) {
-                if (eventUri.scheme !== uri.scheme || eventUri.authority !== uri.authority) {
-                    // Scheme or authority does not match
-                    continue;
-                }
-
-                // A non-recursive watch applies to a file, or a directory's direct children
-                if (!recursive && uri.path !== eventUri.path && this.ensureTrailingSlash(uri.path) !== this.ensureTrailingSlash(path.dirname(eventUri.path))) {
-                    // Current watch does not apply to the event uri
-                    continue;
-                }
-
-                // A recursive watch applies to a directory's children at arbitrary depth
-                if (recursive && !eventUri.path.startsWith(this.ensureTrailingSlash(uri.path))) {
-                    // Current watch does not apply to the event uri
-                    continue;
-                }
-
-                // Current watch does apply to the event uri; checking whether it is excluded in this watch
-                for (const exclude of excludes) {
-                    const isAbsolute = path.isAbsolute(exclude);
-                    const isGlob = exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
-                    if (isAbsolute && this.excludeMatchesUri(eventUri.path, exclude, isGlob)
-                        || !isAbsolute && this.excludeMatchesUri(eventUri.path, path.join(uri.path, exclude), isGlob)) {
-                        // Event uri was excluded in current watch
-                        continue watches;
-                    }
-                }
-
-                // Current watch applies to the event uri and no exclude matches
-                const callbackEvent = <vscode.FileChangeEvent>{ type: this.translateFileChangeType(event.type.valueOf()), uri: eventUri };
-                logger.debug("[RascalFileSystemInVSCode] Emitting watch callback event", callbackEvent);
-                this._emitter.fire([callbackEvent]);
-                break;
-            }
+            RascalFileSystemInVSCode.notifyWatchers(vscode.Uri.parse(event.root), this.translateFileChangeType(event.type.valueOf()), this.activeWatches, this._emitter, "RascalFileSystemInVSCode", this.logger);
         });
     }
 
@@ -105,11 +68,50 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         throw new Error(`Unexpected FileChangeType ${rascalFileChangeType}`);
     }
 
-    private ensureTrailingSlash(path: string): string {
+    static notifyWatchers(eventUri: vscode.Uri, type: vscode.FileChangeType, activeWatches: Map<[vscode.Uri, boolean], readonly string[]>, emitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, logPrefix: string, logger: vscode.LogOutputChannel): void {
+        // Iterating over all active watches
+        watches: for (const [[uri, recursive], excludes] of activeWatches) {
+            if (eventUri.scheme !== uri.scheme || eventUri.authority !== uri.authority) {
+                // Scheme or authority does not match
+                continue;
+            }
+
+            // A non-recursive watch applies to a file, or a directory's direct children
+            if (!recursive && uri.path !== eventUri.path && this.ensureTrailingSlash(uri.path) !== this.ensureTrailingSlash(path.dirname(eventUri.path))) {
+                // Current watch does not apply to the event uri
+                continue;
+            }
+
+            // A recursive watch applies to a directory's children at arbitrary depth
+            if (recursive && !eventUri.path.startsWith(this.ensureTrailingSlash(uri.path))) {
+                // Current watch does not apply to the event uri
+                continue;
+            }
+
+            // Current watch does apply to the event uri; checking whether it is excluded in this watch
+            for (const exclude of excludes) {
+                const isAbsolute = path.isAbsolute(exclude);
+                const isGlob = exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
+                if (isAbsolute && this.excludeMatchesUri(eventUri.path, exclude, isGlob)
+                    || !isAbsolute && this.excludeMatchesUri(eventUri.path, path.join(uri.path, exclude), isGlob)) {
+                    // Event uri was excluded in current watch
+                    continue watches;
+                }
+            }
+
+            // Current watch applies to the event uri and no exclude matches
+            const callbackEvent = <vscode.FileChangeEvent>{ type: type, uri: eventUri };
+            logger.debug(`[${logPrefix}] Emitting watch callback event`, callbackEvent);
+            emitter.fire([callbackEvent]);
+            break;
+        }
+    }
+
+    static ensureTrailingSlash(path: string): string {
         return path.endsWith("/") ? path : path + "/";
     }
 
-    private excludeMatchesUri(uri: string, exclude: string, isGlob: boolean) {
+    static excludeMatchesUri(uri: string, exclude: string, isGlob: boolean) {
         return (isGlob && path.matchesGlob(uri, exclude)) || (!isGlob && exclude === uri);
     }
 
