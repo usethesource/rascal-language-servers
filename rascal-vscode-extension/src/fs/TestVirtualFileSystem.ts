@@ -35,6 +35,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly root = new DirEntry(TestVirtualFileSystem.rootScheme);
     private readonly fs : vscode.Disposable;
+    private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], readonly string[]> = new Map();
 
     constructor(private readonly logger: vscode.LogOutputChannel) {
         this.fs = vscode.workspace.registerFileSystemProvider(TestVirtualFileSystem.rootScheme.scheme, this, {isCaseSensitive: true});
@@ -90,9 +91,62 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     }
 
-    watch(_uri: vscode.Uri, _options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
-        throw new Error("Not supported yet");
+    watch(uri: vscode.Uri, options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
+        this.logger.info("[TVFS] watch ", uri);
+        const watchKey: [vscode.Uri, boolean] = [uri, options.recursive];
+        this.activeWatches.set(watchKey, options.excludes);
+
+        return new vscode.Disposable(async () => {
+            this.logger.info("[TVFS] Watch disposed");
+            this.activeWatches.delete(watchKey);
+        });
     }
+
+    notifyWatchers(targetUri: vscode.Uri, type: vscode.FileChangeType) {
+        this.logger.info("[TVFS] notifyWatchers ", targetUri);
+        // Iterating over all active watches
+        watches: for (const [[uri, recursive], excludes] of this.activeWatches) {
+            if (targetUri.scheme !== uri.scheme || targetUri.authority !== uri.authority) {
+                continue;
+            }
+
+            if (!recursive && uri.path !== targetUri.path && this.ensureTrailingSlash(uri.path) !== this.ensureTrailingSlash(path.dirname(targetUri.path))) {
+                continue;
+            }
+
+            if (recursive && !targetUri.path.startsWith(this.ensureTrailingSlash(uri.path))) {
+                // Current watch does not apply to the event uri
+                continue;
+            }
+
+            // Current watch does apply to the event uri; checking whether it is excluded in this watch
+            for (const exclude of excludes) {
+                this.logger.info(`Exclude ${exclude}`);
+                const isAbsolute = path.isAbsolute(exclude);
+                const isGlob = exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
+                if (isAbsolute && this.excludeMatchesUri(targetUri.path, exclude, isGlob)
+                    || !isAbsolute && this.excludeMatchesUri(targetUri.path, path.join(uri.path, exclude), isGlob)) {
+                    // Event uri was excluded in current watch
+                    this.logger.info(`Excluded, continue to next watch`);
+                    continue watches;
+                }
+            }
+
+            // Current watch applies to the event uri and no exclude matches
+            const callbackEvent = <vscode.FileChangeEvent>{ type: type, uri: targetUri };
+            this.logger.trace("[TVFS] watch callback event", callbackEvent);
+            this._emitter.fire([callbackEvent]);
+        }
+    }
+
+    private ensureTrailingSlash(path: string): string {
+        return path.endsWith("/") ? path : path + "/";
+    }
+
+    private excludeMatchesUri(uri: string, exclude: string, isGlob: boolean) {
+        return (isGlob && path.matchesGlob(uri, exclude)) || (!isGlob && exclude === uri);
+    }
+
     stat(uri: vscode.Uri): vscode.FileStat {
         this.logger.debug("[TVFS] stat: ", uri);
         return this.locate(uri).stat();
@@ -113,6 +167,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     createDirectory(uri: vscode.Uri) {
         this.logger.debug("[TVFS] createDirectory: ", uri);
+        this.notifyWatchers(uri, vscode.FileChangeType.Created);
         const [parent, self] = this.locateWithParent(uri);
         if (!parent.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
@@ -134,6 +189,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
         this.logger.debug("[TVFS] writeFile: ", uri, options);
+        this.notifyWatchers(uri, vscode.FileChangeType.Changed);
         const [parent, childConst] = this.locateWithParent(uri);
         let child = childConst;
         if (!parent.isDir()) {
@@ -155,6 +211,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     private writeDynamicFile(uri: vscode.Uri, contentReader: () => Promise<Uint8Array>, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
         this.logger.debug("[TVFS] writeDynamicFile: ", uri, options);
+        this.notifyWatchers(uri, vscode.FileChangeType.Changed);
         const [parent, childConst] = this.locateWithParent(uri);
         let child = childConst;
         if (!parent.isDir()) {
@@ -175,6 +232,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     delete(uri: vscode.Uri, options: { readonly recursive: boolean; }) {
         this.logger.debug("[TVFS] delete: ", uri);
+        this.notifyWatchers(uri, vscode.FileChangeType.Deleted);
         if (uri.path === "/") {
             throw vscode.FileSystemError.NoPermissions(uri);
         }
@@ -195,12 +253,15 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
         this.logger.debug("[TVFS] rename: ", oldUri, newUri);
+        this.notifyWatchers(newUri, vscode.FileChangeType.Created);
+        this.notifyWatchers(oldUri, vscode.FileChangeType.Deleted);
         this.copy(oldUri, newUri, options);
         this.delete(oldUri, { recursive: true });
     }
 
     copy(sourceUri: vscode.Uri, destinationUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
         this.logger.debug("[TVFS] copy: ", sourceUri, destinationUri);
+        this.notifyWatchers(destinationUri, vscode.FileChangeType.Created);
         const [sourceParent, source] = this.locateWithParent(sourceUri);
         if (!sourceParent.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(this.parentUri(sourceUri));
