@@ -35,7 +35,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly protectedSchemes: string[] = ["file", "http", "https", "unknown"];
-    private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], string[]> = new Map();
+    private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], [string, boolean][]> = new Map();
 
     // Unique identifier for the current file system instance
     private readonly vfsWatchId = randomUUID();
@@ -67,7 +67,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         throw new Error(`Unexpected FileChangeType ${rascalFileChangeType}`);
     }
 
-    static notifyWatchers(eventUri: vscode.Uri, type: vscode.FileChangeType, activeWatches: Map<[vscode.Uri, boolean], readonly string[]>, emitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, logPrefix: string, logger: vscode.LogOutputChannel): void {
+    static notifyWatchers(eventUri: vscode.Uri, type: vscode.FileChangeType, activeWatches: Map<[vscode.Uri, boolean], readonly [string, boolean][]>, emitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, logPrefix: string, logger: vscode.LogOutputChannel): void {
         // Iterating over all active watches
         watches: for (const [[uri, recursive], excludes] of activeWatches) {
             if (eventUri.scheme !== uri.scheme || eventUri.authority !== uri.authority) {
@@ -88,9 +88,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             }
 
             // Current watch does apply to the event uri; checking whether it is excluded in this watch
-            for (const exclude of excludes) {
+            for (const [exclude, isGlob] of excludes) {
                 const isAbsolute = path.isAbsolute(exclude);
-                const isGlob = exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
                 if (isAbsolute && this.excludeMatchesUri(eventUri.path, exclude, isGlob)
                     || !isAbsolute && this.excludeMatchesUri(eventUri.path, path.join(uri.path, exclude), isGlob)) {
                     // Event uri was excluded in current watch
@@ -194,7 +193,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             recursive: options.recursive,
             watchId: watchId
         }).then(_v => {
-            this.activeWatches.set(watchKey, options.excludes);
+            this.activeWatches.set(watchKey, options.excludes.map(e => [e, RascalFileSystemInVSCode.isGlob(e)]));
         }).catch(r => {
             throw RemoteIOError.translateResponseError(<ResponseError>r, uri, this.logger);
         });
@@ -208,6 +207,10 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             });
             this.activeWatches.delete(watchKey);
         });
+    }
+
+    static isGlob(exclude: string): boolean {
+        return exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
     }
 
     async stat(uri: vscode.Uri): Promise<vscode.FileStat> {

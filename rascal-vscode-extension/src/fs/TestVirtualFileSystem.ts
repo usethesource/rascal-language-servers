@@ -38,7 +38,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     private readonly fs : vscode.Disposable;
     private testFileWriteCounter: number = 0;
     private testFileWatcher: vscode.FileSystemWatcher | undefined = undefined;
-    private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], readonly string[]> = new Map();
+    private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], readonly [string, boolean][]> = new Map();
 
     constructor(private readonly logger: vscode.LogOutputChannel) {
         this.fs = vscode.workspace.registerFileSystemProvider(TestVirtualFileSystem.rootScheme.scheme, this, {isCaseSensitive: true});
@@ -148,7 +148,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     watch(uri: vscode.Uri, options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
         this.logger.debug("[TVFS] watch ", uri);
         const watchKey: [vscode.Uri, boolean] = [uri, options.recursive];
-        this.activeWatches.set(watchKey, options.excludes);
+        this.activeWatches.set(watchKey, options.excludes.map(e => [e, RascalFileSystemInVSCode.isGlob(e)]));
 
         return new vscode.Disposable(async () => {
             this.logger.debug("[TVFS] Watch disposed");
