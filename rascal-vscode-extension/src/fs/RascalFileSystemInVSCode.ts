@@ -163,24 +163,25 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
     watch(uri: vscode.Uri, options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
         this.logger.trace("[RascalFileSystemInVSCode] watch: ", uri);
+        const watchKey: [vscode.Uri, boolean] = [uri, options.recursive];
         void this.sendRequest("rascal/vfs/watcher/watch", <WatchRequest>{
             loc: RascalFileSystemInVSCode.toRascalUri(uri),
             recursive: options.recursive,
             watchId: this.watchId
         }).then(_v => {
-            this.activeWatches.set([uri, options.recursive], options.excludes);
+            this.activeWatches.set(watchKey, options.excludes);
         }).catch(r => {
             throw RemoteIOError.translateResponseError(<ResponseError>r, uri, this.logger);
         });
 
         return new vscode.Disposable(async () => {
-            this.logger.trace("[RascalFileSystemInVSCode] unwatch: ", uri);
+            this.logger.trace("[RascalFileSystemInVSCode] unwatch: ", uri, options.recursive);
             await this.sendRequest("rascal/vfs/watcher/unwatch", <WatchRequest>{
                 loc: RascalFileSystemInVSCode.toRascalUri(uri),
                 recursive: options.recursive,
                 watchId: this.watchId
             });
-            this.activeWatches.delete([uri, options.recursive]);
+            this.activeWatches.delete(watchKey);
         });
     }
 
