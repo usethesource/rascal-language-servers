@@ -498,10 +498,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         return getFile(Locations.toLoc(doc));
     }
 
-    public void shutdown() {
-        // Don't shutdown the thread pool; its lifecycle is managed outside this object.
-    }
-
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         return recoverExceptions(getFile(doc).getCurrentTreeAsync(true)
                 .thenApply(Versioned::get)
@@ -578,13 +574,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
     }
 
-    @Override
-    public void projectAdded(String name, ISourceLocation projectRoot) {
-        // No need to do anything
-    }
-
-    @Override
-    public void projectRemoved(String name, ISourceLocation projectRoot) {
+    /*package*/ void projectRemoved(ISourceLocation projectRoot) {
         if (facts != null) {
             facts.projectRemoved(projectRoot);
         }

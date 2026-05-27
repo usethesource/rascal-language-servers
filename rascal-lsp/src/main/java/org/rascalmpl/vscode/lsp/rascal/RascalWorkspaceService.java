@@ -45,6 +45,8 @@ import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.util.Nullables;
 
+import io.usethesource.vallang.ISourceLocation;
+
 public class RascalWorkspaceService extends BaseWorkspaceService {
 
     RascalWorkspaceService(ExecutorService exec) {
@@ -74,6 +76,11 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         if (Nullables.has(clientCap.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDidDelete)) {
             fileOperationCapabilities.setDidDelete(whichFiles);
         }
+    }
+
+    @Override
+    protected void projectRemoved(ISourceLocation loc) {
+        ((RascalTextDocumentService) availableDocumentService()).projectRemoved(loc);
     }
 
 }

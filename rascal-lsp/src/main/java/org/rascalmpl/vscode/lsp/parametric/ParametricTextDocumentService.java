@@ -669,10 +669,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return openFile(doc, l -> contributions(l)::parsing, timestamp, exec);
     }
 
-    public void shutdown() {
-        // Don't shutdown the thread pool; its lifecycle is managed outside this object.
-    }
-
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
         var loc = Locations.toLoc(doc);
         var specialCaseHighlighting = contributions(loc).specialCaseHighlighting();
@@ -1032,16 +1028,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
 
         availableCapabilities().update(buildLanguageParams());
-    }
-
-    @Override
-    public void projectAdded(String name, ISourceLocation projectRoot) {
-        // No need to do anything
-    }
-
-    @Override
-    public void projectRemoved(String name, ISourceLocation projectRoot) {
-        // No need to do anything
     }
 
     @Override

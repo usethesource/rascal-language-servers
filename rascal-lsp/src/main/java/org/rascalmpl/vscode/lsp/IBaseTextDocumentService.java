@@ -39,7 +39,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
-import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 public interface IBaseTextDocumentService extends TextDocumentService, ITextDocumentStateManager {
@@ -47,15 +46,11 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     static final Duration NORMAL_DEBOUNCE = Duration.ofMillis(800);
 
     void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result);
-    void shutdown();
     void connect(LanguageClient client);
     void pair(BaseWorkspaceService workspaceService);
     void initialized();
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
-
-    void projectAdded(String name, ISourceLocation projectRoot);
-    void projectRemoved(String name, ISourceLocation projectRoot);
 
     CompletableFuture<IValue> executeCommand(String languageName, String command);
 
