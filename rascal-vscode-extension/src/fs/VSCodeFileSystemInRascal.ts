@@ -375,22 +375,11 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     async unwatch(req: WatchRequest): Promise<void> {
         this.logger.debug("[VSCodeFileSystemInRascal] unwatch: ", req.loc);
-        this.logger.info("Active watches:");
-        for (const watch of this.activeWatches) {
-            this.logger.info(`${watch}`);
-        }
         const watcher = this.activeWatches.get(req.watchId);
-        this.logger.info(`watcher: ${watcher}`);
         if (watcher === undefined) {
-            this.logger.info("UNWATCH: undefined watcher");
             throw new rpc.ResponseError(RemoteIOError.watchNotDefined, `Watch not defined: ${req.loc}`);
         }
         this.activeWatches.delete(req.watchId);
-        this.logger.info("Deleted");
-        this.logger.info("Active watches:");
-        for (const watch of this.activeWatches) {
-            this.logger.info(`${watch}`);
-        }
         watcher.dispose();
         const index = this.disposables.indexOf(watcher);
         if (index >= 0) {

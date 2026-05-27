@@ -174,13 +174,11 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
             // Current watch does apply to the event uri; checking whether it is excluded in this watch
             for (const exclude of excludes) {
-                this.logger.info(`Exclude ${exclude}`);
                 const isAbsolute = path.isAbsolute(exclude);
                 const isGlob = exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
                 if (isAbsolute && this.excludeMatchesUri(targetUri.path, exclude, isGlob)
                     || !isAbsolute && this.excludeMatchesUri(targetUri.path, path.join(uri.path, exclude), isGlob)) {
                     // Event uri was excluded in current watch
-                    this.logger.info(`Excluded, continue to next watch`);
                     continue watches;
                 }
             }
