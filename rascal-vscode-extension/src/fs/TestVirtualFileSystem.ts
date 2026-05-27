@@ -30,7 +30,7 @@ import * as vscode from 'vscode';
 
 /* This class is used to testing purposes of the VFS forwarding to rascal */
 export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.Disposable {
-    public static readonly rootScheme = vscode.Uri.from({scheme: "rascal-vscode-test"});
+    public static readonly rootScheme = vscode.Uri.from({scheme: "rascal-vscode-test", path: "/"});
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly root = new DirEntry(TestVirtualFileSystem.rootScheme);
