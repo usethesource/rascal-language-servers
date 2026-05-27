@@ -219,7 +219,6 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     createDirectory(uri: vscode.Uri) {
         this.logger.debug("[TVFS] createDirectory: ", uri);
-        this.notifyWatchers(uri, vscode.FileChangeType.Created);
         const [parent, self] = this.locateWithParent(uri);
         if (!parent.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(this.parentUri(uri));
@@ -228,6 +227,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             throw vscode.FileSystemError.FileExists(uri);
         }
         parent.putEntry(uri, new DirEntry(uri));
+        this.notifyWatchers(uri, vscode.FileChangeType.Created);
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Promise<Uint8Array> {
@@ -241,7 +241,6 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
         this.logger.debug("[TVFS] writeFile: ", uri, options);
-        this.notifyWatchers(uri, vscode.FileChangeType.Changed);
         const [parent, childConst] = this.locateWithParent(uri);
         let child = childConst;
         if (!parent.isDir()) {
@@ -259,11 +258,11 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             throw vscode.FileSystemError.FileIsADirectory(uri);
         }
         child.write(content);
+        this.notifyWatchers(uri, vscode.FileChangeType.Changed);
     }
 
     private writeDynamicFile(uri: vscode.Uri, contentReader: () => Promise<Uint8Array>, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
         this.logger.debug("[TVFS] writeDynamicFile: ", uri, options);
-        this.notifyWatchers(uri, vscode.FileChangeType.Changed);
         const [parent, childConst] = this.locateWithParent(uri);
         let child = childConst;
         if (!parent.isDir()) {
@@ -280,11 +279,11 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
         if (!child.isFile()) {
             throw vscode.FileSystemError.FileIsADirectory(uri);
         }
+        this.notifyWatchers(uri, vscode.FileChangeType.Changed);
     }
 
     delete(uri: vscode.Uri, options: { readonly recursive: boolean; }) {
         this.logger.debug("[TVFS] delete: ", uri);
-        this.notifyWatchers(uri, vscode.FileChangeType.Deleted);
         if (uri.path === "/") {
             throw vscode.FileSystemError.NoPermissions(uri);
         }
@@ -301,6 +300,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             }
         }
         parent.deleteEntry(uri);
+        this.notifyWatchers(uri, vscode.FileChangeType.Deleted);
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
@@ -311,7 +311,6 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     copy(sourceUri: vscode.Uri, destinationUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
         this.logger.debug("[TVFS] copy: ", sourceUri, destinationUri);
-        this.notifyWatchers(destinationUri, vscode.FileChangeType.Created);
         const [sourceParent, source] = this.locateWithParent(sourceUri);
         if (!sourceParent.isDir()) {
             throw vscode.FileSystemError.FileNotADirectory(this.parentUri(sourceUri));
@@ -327,6 +326,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             throw vscode.FileSystemError.NoPermissions(destinationUri);
         }
         destinationParent.putEntry(destinationUri, source.clone(destinationUri));
+        this.notifyWatchers(destinationUri, vscode.FileChangeType.Created);
     }
 }
 
