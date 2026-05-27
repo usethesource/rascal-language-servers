@@ -119,6 +119,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
@@ -389,7 +390,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private void showMessages(ISet messages) {
         exec.submit(() -> {
             for (var msg : messages) {
-                availableClient().showMessage(setMessageParams((IConstructor) msg));
+                availableClient().showMessage(Message.toMessageParams((IConstructor) msg));
             }
         });
     }
