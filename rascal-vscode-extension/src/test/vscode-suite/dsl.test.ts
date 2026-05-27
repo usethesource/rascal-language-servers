@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
+import { InputBox, MarkerType, NotificationType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -404,8 +404,21 @@ end
         }, Delays.slow, "TODO should be unregistered");
     });
 
+    it("shows messages", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show warning");
+
+        await driver.wait(async () => {
+            const center = await bench.openNotificationsCenter();
+            const notifications = await center.getNotifications(NotificationType.Warning);
+            const messages = await Promise.all(notifications.map(n => n.getMessage()));
+            return messages.find(m => m.startsWith("Test warning"));
+        }, Delays.normal, "Test warning dialog should show");
+    });
+
     // TODO showInteractiveContent
-    // TODO showMessage
     // TODO logMessage
 
 });

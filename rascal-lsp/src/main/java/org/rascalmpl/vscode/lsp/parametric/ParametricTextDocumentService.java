@@ -148,6 +148,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
@@ -466,33 +467,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
 
         for (var msg : messages) {
-            client.showMessage(setMessageParams((IConstructor) msg));
+            client.showMessage(Message.toMessageParams((IConstructor) msg));
         }
-    }
-
-    private static MessageParams setMessageParams(IConstructor message) {
-        var params = new MessageParams();
-        switch (message.getName()) {
-            case "warning": {
-                params.setType(MessageType.Warning);
-                break;
-            }
-            case "info": {
-                params.setType(MessageType.Info);
-                break;
-            }
-            default: params.setType(MessageType.Log);
-        }
-
-        var msgText = ((IString) message.get("msg")).getValue();
-        if (message.has("at")) {
-            var at = Locations.toUri((ISourceLocation) message.get("at"));
-            params.setMessage(String.format("%s (at %s)", msgText, at));
-        } else {
-            params.setMessage(msgText);
-        }
-
-        return params;
     }
 
     @Override
