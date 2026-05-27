@@ -251,6 +251,10 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         });
     }
 
+    /**
+     * Starts a language server (dedicated to a single language) in a child process.
+     * Returns an pair of streams of bi-directional communication, and a runnable to clean up after the server terminates.
+     */
     private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) {
         logger.info("Starting LSP process for {}", lang.getName());
 
@@ -283,6 +287,10 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         }
     }
 
+    /**
+     * Connects to a language server in a separate process, for debugging.
+     * Returns an pair of streams of bi-directional communication, and a runnable to clean up after the server terminates.
+     */
     private @Nullable Triple<InputStream, OutputStream, Runnable> connectToServer(LanguageParameter lang) {
         // In development, we expect the server to have been launched on a pre-agreed port
         var port = portPool.pollFirst();
@@ -295,6 +303,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             socket.setTcpNoDelay(true);
             return Triple.of(socket.getInputStream(), socket.getOutputStream(), () -> {
                 try {
+                    // After the JSON-RPC connection terminates, close the socket
                     logger.debug("Closing socket for language {} on port {}", lang.getName(), port);
                     socket.close();
                 } catch (IOException e) {
