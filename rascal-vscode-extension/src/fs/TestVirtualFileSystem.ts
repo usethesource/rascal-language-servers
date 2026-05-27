@@ -48,7 +48,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     }
 
     private initializeTestFiles() {
-        // Write JSON file that is filled with Pico command contents/
+        // Write JSON file that is filled with Pico command contents.
         // Reading the file requires registration of the Pico language first.
         this.writeDynamicFile(vscode.Uri.from({scheme: TestVirtualFileSystem.rootScheme.scheme, path: "test.json"}), async () => {
             const result = await vscode.commands.executeCommand<object>("rascal-meta-command", "Pico", "testValueEncoding()");
