@@ -187,6 +187,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             const callbackEvent = <vscode.FileChangeEvent>{ type: type, uri: targetUri };
             this.logger.debug("[TVFS] watch callback event", callbackEvent);
             this._emitter.fire([callbackEvent]);
+            break;
         }
     }
 

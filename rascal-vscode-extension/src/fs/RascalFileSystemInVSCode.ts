@@ -91,6 +91,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                 const callbackEvent = <vscode.FileChangeEvent>{ type: this.translateFileChangeType(event.type.valueOf()), uri: eventUri };
                 logger.debug("[RascalFileSystemInVSCode] Emitting watch callback event", callbackEvent);
                 this._emitter.fire([callbackEvent]);
+                break;
             }
         });
     }
