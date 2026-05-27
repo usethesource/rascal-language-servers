@@ -52,6 +52,7 @@ import org.rascalmpl.uri.remote.jsonrpc.StringResponse;
 import org.rascalmpl.uri.remote.jsonrpc.TimestampResponse;
 import org.rascalmpl.uri.remote.jsonrpc.WatchRequest;
 import org.rascalmpl.uri.remote.jsonrpc.WriteFileRequest;
+import org.rascalmpl.uri.vfs.IRemoteResolverRegistryClient;
 import org.rascalmpl.uri.vfs.IRemoteResolverRegistryServer;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -68,6 +69,10 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
 
     private <T extends SourceLocationTransformer> T transformLocations(T req) {
         return req.transformLocations(RascalFileSystemInVSCode::toRascalLocation);
+    }
+
+    public void setLanguageClient(IRemoteResolverRegistryClient client) {
+        fileSystemServices.setRemoteResolverRegistryClient(client);
     }
 
     private static ISourceLocation toRascalLocation(ISourceLocation loc) {

@@ -337,7 +337,7 @@ public abstract class BaseLanguageServer {
             var proxy = addShutdownDetectionTo(client);
             lspDocumentService.connect(proxy);
             lspWorkspaceService.connect(proxy);
-            this.client = proxy;
+            setLanguageClient(proxy);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(proxy, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
