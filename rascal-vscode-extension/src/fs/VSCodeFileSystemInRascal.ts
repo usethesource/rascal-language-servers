@@ -272,25 +272,25 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.numberResult(req.loc, f => f.size);
     }
 
-    private async boolResult(loc: ISourceLocation, mapper: (s: vscode.FileStat) => boolean): Promise<BooleanResponse> {
+    private async boolResultFromStat(loc: ISourceLocation, mapper: (s: vscode.FileStat) => boolean): Promise<BooleanResponse> {
         return this.asyncCatcher(async () => <BooleanResponse>{ value: mapper((await this.stat(loc))) });
     }
 
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] isDirectory: ", req.loc);
-        return this.boolResult(req.loc, f => (f.type & vscode.FileType.Directory) !== 0);
+        return this.boolResultFromStat(req.loc, f => (f.type & vscode.FileType.Directory) !== 0);
     }
 
     isFile(req: ISourceLocationRequest): Promise<BooleanResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] isFile: ", req.loc);
         // TODO: figure out how to handle vscode.FileType.Symlink
-        return this.boolResult(req.loc, f => (f.type & vscode.FileType.File) !== 0);
+        return this.boolResultFromStat(req.loc, f => (f.type & vscode.FileType.File) !== 0);
     }
 
     isReadable(req: ISourceLocationRequest): Promise<BooleanResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] isReadable: ", req.loc);
         // if we can do a stat, we can read
-        return this.boolResult(req.loc, _ => true);
+        return this.boolResultFromStat(req.loc, _ => true);
     }
 
     async isWritable(req: ISourceLocationRequest): Promise<BooleanResponse> {
@@ -304,7 +304,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             // not a writable file system, so no need to check the uri
             return { value: false };
         }
-        return this.boolResult(req.loc, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
+        return this.boolResultFromStat(req.loc, f => f.permissions === undefined || (f.permissions & vscode.FilePermission.Readonly) === 0);
     }
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResponse> {
