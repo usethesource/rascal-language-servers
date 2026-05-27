@@ -28,7 +28,7 @@ import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { JsonRpcServer } from "../util/JsonRpcServer";
-import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, JsonRpcRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, StringResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
+import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, StringResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
 
 /**
@@ -90,7 +90,6 @@ interface ISourceLocationOutput {
     rename(req: RenameRequest): Promise<void>;
     copy(req: CopyRequest): Promise<void>;
     isWritable(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    supportsCopy(req: JsonRpcRequest): Promise<BooleanResponse>;
     setLastModified(req: SetLastModifiedRequest): Promise<void>;
 }
 
@@ -107,7 +106,6 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req("rename", handler.rename);
     req("copy", handler.copy);
     req("isWritable", handler.isWritable);
-    req("supportsCopy", handler.supportsCopy);
     req("setLastModified", handler.setLastModified);
 }
 
@@ -115,7 +113,6 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
 interface ISourceLocationWatcher {
     watch(newWatch: WatchRequest): Promise<void>;
     unwatch(removeWatch: WatchRequest): Promise<void>;
-    supportsRecursiveWatch(req: JsonRpcRequest): Promise<BooleanResponse>;
 }
 
 function connectWatchHandler(connection: rpc.MessageConnection, handler: ISourceLocationWatcher, toClear: Disposable[]) {
@@ -126,7 +123,6 @@ function connectWatchHandler(connection: rpc.MessageConnection, handler: ISource
     }
     req("watch", handler.watch);
     req("unwatch", handler.unwatch);
-    req("supportsRecursiveWatch", handler.supportsRecursiveWatch);
 }
 
 interface ILogicalSourceLocationResolver {
@@ -147,7 +143,7 @@ export interface WatchEventReceiver {
 function buildWatchReceiver(connection: rpc.MessageConnection, logger: vscode.LogOutputChannel): WatchEventReceiver {
     return {
         emitWatch: (e) => {
-            logger.trace("[VSCodeFileSystemInRascal] Watch callback: sourceLocationChanged {} {} {}", e.root, e.type, e.watchId);
+            logger.info("[VSCodeFileSystemInRascal] Watch callback: sourceLocationChanged {} {} {}", e.root, e.type, e.watchId);
             void connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/sourceLocationChanged"), e);
         }
     };
@@ -361,45 +357,45 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         return this.asyncVoidCatcher(this.fs.copy(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
     }
 
-    async supportsCopy(_req: JsonRpcRequest): Promise<BooleanResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] supportsCopy");
-        return <BooleanResponse>{ value: true };
-    }
-
     async setLastModified(req: SetLastModifiedRequest): Promise<void> {
         throw new rpc.ResponseError(RemoteIOError.notSupported, 'setLastModified is not supported by VS Code', req);
     }
 
     private readonly activeWatches = new Map<string, WatcherCallbacks>();
 
-    async watch(newWatch: WatchRequest): Promise<void> {
-        this.logger.trace("[VSCodeFileSystemInRascal] watch: ", newWatch.loc);
-        const watchKey = newWatch.loc + newWatch.recursive;
-        if (this.activeWatches.has(watchKey)) {
-            throw new rpc.ResponseError(RemoteIOError.watchAlreadyDefined, `Watch already defined: ${newWatch.loc}`);
+    async watch(req: WatchRequest): Promise<void> {
+        this.logger.info("[VSCodeFileSystemInRascal] watch: ", req.loc);
+        if (this.activeWatches.has(req.watchId)) {
+            throw new rpc.ResponseError(RemoteIOError.watchAlreadyDefined, `Watch already defined: ${req.loc}`);
         }
-        const watcher = new WatcherCallbacks(this.toUri(newWatch.loc), newWatch.recursive, this.watchListener, newWatch.watchId, this.logger);
-        this.activeWatches.set(watchKey, watcher);
+        const watcher = new WatcherCallbacks(this.toUri(req.loc), req.recursive, this.watchListener, req.watchId, this.logger);
+        this.activeWatches.set(req.watchId, watcher);
         this.disposables.push(watcher);
     }
 
-    async unwatch(removeWatch: WatchRequest): Promise<void> {
-        this.logger.trace("[VSCodeFileSystemInRascal] unwatch: ", removeWatch.loc);
-        const watchKey = removeWatch.loc + removeWatch.recursive;
-        const watcher = this.activeWatches.get(watchKey);
-        if (watcher === undefined) {
-            throw new rpc.ResponseError(RemoteIOError.watchNotDefined, `Watch not defined: ${removeWatch.loc}`);
+    async unwatch(req: WatchRequest): Promise<void> {
+        this.logger.info("[VSCodeFileSystemInRascal] unwatch: ", req.loc);
+        this.logger.info("Active watches:");
+        for (const watch of this.activeWatches) {
+            this.logger.info(`${watch}`);
         }
-        this.activeWatches.delete(watchKey);
+        const watcher = this.activeWatches.get(req.watchId);
+        this.logger.info(`watcher: ${watcher}`);
+        if (watcher === undefined) {
+            this.logger.info("UNWATCH: undefined watcher");
+            throw new rpc.ResponseError(RemoteIOError.watchNotDefined, `Watch not defined: ${req.loc}`);
+        }
+        this.activeWatches.delete(req.watchId);
+        this.logger.info("Deleted");
+        this.logger.info("Active watches:");
+        for (const watch of this.activeWatches) {
+            this.logger.info(`${watch}`);
+        }
         watcher.dispose();
         const index = this.disposables.indexOf(watcher);
         if (index >= 0) {
             this.disposables.splice(index, 1);
         }
-    }
-
-    async supportsRecursiveWatch(_req: JsonRpcRequest): Promise<BooleanResponse> {
-        return <BooleanResponse>{ value: true };
     }
 
     async resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
@@ -430,21 +426,21 @@ class WatcherCallbacks implements Disposable {
         );
         this.toClear.push(newWatcher);
         newWatcher.onDidCreate(e => {
-            logger.trace("this.sendWatchEvent onDidCreate");
+            logger.info("this.sendWatchEvent onDidCreate");
             return this.sendWatchEvent(e, ISourceLocationChangeType.created);
         }, this.toClear);
         newWatcher.onDidChange(e => {
-            logger.trace("this.sendWatchEvent onDidChange");
+            logger.info("this.sendWatchEvent onDidChange");
             return this.sendWatchEvent(e, ISourceLocationChangeType.modified);
         }, this.toClear);
         newWatcher.onDidDelete(e => {
-            logger.trace("this.sendWatchEvent onDidDelete");
+            logger.info("this.sendWatchEvent onDidDelete");
             return this.sendWatchEvent(e, ISourceLocationChangeType.deleted);
         }, this.toClear);
     }
 
     private async sendWatchEvent(uri: vscode.Uri, changeType: ISourceLocationChangeType) {
-        this.logger.trace("sendWatchEvent {}", uri);
+        this.logger.info("sendWatchEvent {}", uri);
         this.watchListener.emitWatch({
             root: uri.toString(),
             type: changeType,
@@ -453,6 +449,7 @@ class WatcherCallbacks implements Disposable {
     }
 
     dispose() {
+        this.logger.info("WatcherCallbacks disposed");
         this.toClear.forEach(c => c.dispose());
         this.toClear.splice(0);
     }

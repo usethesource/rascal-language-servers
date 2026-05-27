@@ -154,7 +154,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     }
 
     private writeDynamicFile(uri: vscode.Uri, contentReader: () => Promise<Uint8Array>, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
-        this.logger.debug("[TVFS] writeVirtualFile: ", uri, options);
+        this.logger.debug("[TVFS] writeDynamicFile: ", uri, options);
         const [parent, childConst] = this.locateWithParent(uri);
         let child = childConst;
         if (!parent.isDir()) {
