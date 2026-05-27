@@ -50,10 +50,28 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     constructor (private readonly client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
         client.onNotification("rascal/vfs/watcher/sourceLocationChanged", (event: ISourceLocationChanged) => {
             logger.trace("[RascalFileSystemInVSCode] sourceLocationChanged", event.root, event.type);
+            if (event.watchId !== this.watchId) {
+                // Watch id does not match our global watch Id; this notification is not for us
+                return;
+            }
+
             const eventUri = vscode.Uri.parse(event.root);
+
             // Iterating over all active watches
-            for (const [[uri, recursive], excludes] of this.activeWatches) {
-                if (!recursive && uri !== eventUri || recursive && !path.relative(uri.toString(), eventUri.toString())) {
+            watches: for (const [[uri, recursive], excludes] of this.activeWatches) {
+                if (eventUri.scheme !== uri.scheme || eventUri.authority !== uri.authority) {
+                    // Scheme or authority does not match
+                    continue;
+                }
+
+                // A non-recursive watch applies to a file, or a directory's direct children
+                if (!recursive && uri.path !== eventUri.path && this.ensureTrailingSlash(uri.path) !== this.ensureTrailingSlash(path.dirname(eventUri.path))) {
+                    // Current watch does not apply to the event uri
+                    continue;
+                }
+
+                // A recursive watch applies to a directory's children at arbitrary depth
+                if (recursive && !eventUri.path.startsWith(this.ensureTrailingSlash(uri.path))) {
                     // Current watch does not apply to the event uri
                     continue;
                 }
@@ -65,14 +83,14 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                     if (isAbsolute && this.excludeMatchesUri(eventUri.path, exclude, isGlob)
                         || !isAbsolute && this.excludeMatchesUri(eventUri.path, path.join(uri.path, exclude), isGlob)) {
                         // Event uri was excluded in current watch
-                        continue;
+                        continue watches;
                     }
                 }
 
                 // Current watch applies to the event uri and no exclude matches
-                logger.trace("[RascalFileSystemInVSCode] watch callback event", <vscode.FileChangeEvent>{type: <number>event.type, uri: eventUri});
-                this._emitter.fire([<vscode.FileChangeEvent>{type: this.translateFileChangeType(event.type.valueOf()), uri: eventUri}]);
-                return;
+                const callbackEvent = <vscode.FileChangeEvent>{ type: this.translateFileChangeType(event.type.valueOf()), uri: eventUri };
+                logger.trace("[RascalFileSystemInVSCode] Emitting watch callback event", callbackEvent);
+                this._emitter.fire([callbackEvent]);
             }
         });
     }
@@ -84,6 +102,10 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             case 3: return vscode.FileChangeType.Changed;
         }
         throw new Error(`Unexpected FileChangeType ${rascalFileChangeType}`);
+    }
+
+    private ensureTrailingSlash(path: string): string {
+        return path.endsWith("/") ? path : path + "/";
     }
 
     private excludeMatchesUri(uri: string, exclude: string, isGlob: boolean) {
