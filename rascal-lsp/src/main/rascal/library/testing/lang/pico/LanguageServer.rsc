@@ -27,22 +27,9 @@ POSSIBILITY OF SUCH DAMAGE.
 module testing::lang::pico::LanguageServer
 
 extend demo::lang::pico::LanguageServer;
-extend lang::pico::\syntax::Main;
 
 import Node;
 
-// We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
-// For most use-cases, one should not extend the grammar in the language server implementation
-syntax IdType
-    = function: Id id "(" {IdType ","}* args ")" ":" Type retType ":=" Expression body
-    ;
-
-syntax Expression
-    = call: Id id "(" {Expression ","}* args ")"
-    ;
-
-str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
-    = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
 
 // JSON serialization
 

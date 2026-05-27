@@ -38,7 +38,7 @@ import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
-import lang::pico::\syntax::Main;
+extend demo::lang::pico::Extensions;
 import DateTime;
 import IO;
 import List;
