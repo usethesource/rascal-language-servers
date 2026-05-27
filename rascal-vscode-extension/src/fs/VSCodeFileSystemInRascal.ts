@@ -143,7 +143,7 @@ export interface WatchEventReceiver {
 function buildWatchReceiver(connection: rpc.MessageConnection, logger: vscode.LogOutputChannel): WatchEventReceiver {
     return {
         emitWatch: (e) => {
-            logger.info("[VSCodeFileSystemInRascal] Watch callback: sourceLocationChanged {} {} {}", e.root, e.type, e.watchId);
+            logger.debug("[VSCodeFileSystemInRascal] Watch callback: sourceLocationChanged", e.root, e.type, e.watchId);
             void connection.sendNotification(new rpc.NotificationType1<ISourceLocationChanged>("rascal/vfs/watcher/sourceLocationChanged"), e);
         }
     };
@@ -210,7 +210,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async readFile(req: ISourceLocationRequest): Promise<LocationContentResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] readFile: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] readFile: ", req.loc);
         return this.asyncCatcher(async () => <LocationContentResponse>{
             content: Buffer.from(await this.fs.readFile(this.toUri(req.loc))).toString("base64")
         });
@@ -223,7 +223,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async exists(req: ISourceLocationRequest): Promise<BooleanResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] exists: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] exists: ", req.loc);
         try {
             await this.stat(req.loc);
             return { value: true };
@@ -249,7 +249,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     private async stat(loc: ISourceLocation): Promise<vscode.FileStat> {
-        this.logger.trace("[VSCodeFileSystemInRascal] stat: ", loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] stat: ", loc);
         return this.fs.stat(this.toUri(loc));
     }
 
@@ -258,17 +258,17 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     lastModified(req: ISourceLocationRequest): Promise<TimestampResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] lastModified: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] lastModified: ", req.loc);
         return this.numberResult(req.loc, f => f.mtime);
     }
 
     created(req: ISourceLocationRequest): Promise<TimestampResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] created: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] created: ", req.loc);
         return this.numberResult(req.loc, f => f.ctime);
     }
 
     size(req: ISourceLocationRequest): Promise<NumberResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] size: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] size: ", req.loc);
         return this.numberResult(req.loc, f => f.size);
     }
 
@@ -277,24 +277,24 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] isDirectory: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] isDirectory: ", req.loc);
         return this.boolResult(req.loc, f => (f.type & vscode.FileType.Directory) !== 0);
     }
 
     isFile(req: ISourceLocationRequest): Promise<BooleanResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] isFile: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] isFile: ", req.loc);
         // TODO: figure out how to handle vscode.FileType.Symlink
         return this.boolResult(req.loc, f => (f.type & vscode.FileType.File) !== 0);
     }
 
     isReadable(req: ISourceLocationRequest): Promise<BooleanResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] isReadable: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] isReadable: ", req.loc);
         // if we can do a stat, we can read
         return this.boolResult(req.loc, _ => true);
     }
 
     async isWritable(req: ISourceLocationRequest): Promise<BooleanResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] isWritable: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] isWritable: ", req.loc);
         const scheme = this.toUri(req.loc).scheme;
         const writable = this.fs.isWritableFileSystem(scheme);
         if (writable === undefined) {
@@ -308,7 +308,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] list: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] list: ", req.loc);
         return this.asyncCatcher(async () => <DirectoryListingResponse>{ entries:
             (await this.fs.readDirectory(this.toUri(req.loc))).map(entry => <DirectoryEntry>{ name: entry[0], types: this.decodeFileTypeBitmask(entry[1]) })
         });
@@ -323,7 +323,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async writeFile(req: WriteFileRequest): Promise<void> {
-        this.logger.trace("[VSCodeFileSystemInRascal] writeFile: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] writeFile: ", req.loc);
         const loc = this.toUri(req.loc);
         let prefix: Buffer<ArrayBuffer> = Buffer.of();
         if (req.append && await this.exists(req)) {
@@ -335,22 +335,22 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async mkDirectory(req: ISourceLocationRequest): Promise<void> {
-        this.logger.trace("[VSCodeFileSystemInRascal] mkDirectory: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] mkDirectory: ", req.loc);
         return this.asyncVoidCatcher(this.fs.createDirectory(this.toUri(req.loc)));
     }
 
     async remove(req: RemoveRequest): Promise<void> {
-        this.logger.trace("[VSCodeFileSystemInRascal] remove: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] remove: ", req.loc);
         return this.asyncVoidCatcher(this.fs.delete(this.toUri(req.loc), { recursive: req.recursive }));
     }
 
     async rename(req: RenameRequest): Promise<void> {
-        this.logger.trace("[VSCodeFileSystemInRascal] rename: ", req.from, req.to);
+        this.logger.debug("[VSCodeFileSystemInRascal] rename: ", req.from, req.to);
         return this.asyncVoidCatcher(this.fs.rename(this.toUri(req.from), this.toUri(req.to), { overwrite: req.overwrite }));
     }
 
     async copy(req: CopyRequest): Promise<void> {
-        this.logger.trace("[VSCodeFileSystemInRascal] copy: ", req.from, req.to);
+        this.logger.debug("[VSCodeFileSystemInRascal] copy: ", req.from, req.to);
         if (!req.recursive && await this.isDirectory({ loc: req.from })) {
             throw new rpc.ResponseError(RemoteIOError.isADirectory, 'Non-recursive copy requested on a directory', req);
         }
@@ -364,7 +364,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly activeWatches = new Map<string, WatcherCallbacks>();
 
     async watch(req: WatchRequest): Promise<void> {
-        this.logger.info("[VSCodeFileSystemInRascal] watch: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] watch: ", req.loc);
         if (this.activeWatches.has(req.watchId)) {
             throw new rpc.ResponseError(RemoteIOError.watchAlreadyDefined, `Watch already defined: ${req.loc}`);
         }
@@ -374,7 +374,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async unwatch(req: WatchRequest): Promise<void> {
-        this.logger.info("[VSCodeFileSystemInRascal] unwatch: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] unwatch: ", req.loc);
         this.logger.info("Active watches:");
         for (const watch of this.activeWatches) {
             this.logger.info(`${watch}`);
@@ -399,7 +399,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
-        this.logger.trace("[VSCodeFileSystemInRascal] resolve: ", req.loc);
+        this.logger.debug("[VSCodeFileSystemInRascal] resolve: ", req.loc);
         return <SourceLocationResponse>{ loc: undefined };
     }
 
@@ -425,18 +425,9 @@ class WatcherCallbacks implements Disposable {
             new vscode.RelativePattern(uri, recursive ? '**/*' : '*')
         );
         this.toClear.push(newWatcher);
-        newWatcher.onDidCreate(e => {
-            logger.info("this.sendWatchEvent onDidCreate");
-            return this.sendWatchEvent(e, ISourceLocationChangeType.created);
-        }, this.toClear);
-        newWatcher.onDidChange(e => {
-            logger.info("this.sendWatchEvent onDidChange");
-            return this.sendWatchEvent(e, ISourceLocationChangeType.modified);
-        }, this.toClear);
-        newWatcher.onDidDelete(e => {
-            logger.info("this.sendWatchEvent onDidDelete");
-            return this.sendWatchEvent(e, ISourceLocationChangeType.deleted);
-        }, this.toClear);
+        newWatcher.onDidCreate(e => this.sendWatchEvent(e, ISourceLocationChangeType.created), this.toClear);
+        newWatcher.onDidChange(e => this.sendWatchEvent(e, ISourceLocationChangeType.modified), this.toClear);
+        newWatcher.onDidDelete(e => this.sendWatchEvent(e, ISourceLocationChangeType.deleted), this.toClear);
     }
 
     private async sendWatchEvent(uri: vscode.Uri, changeType: ISourceLocationChangeType) {
