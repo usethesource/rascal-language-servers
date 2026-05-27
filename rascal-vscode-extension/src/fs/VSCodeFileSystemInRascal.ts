@@ -389,6 +389,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     async resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] resolve: ", req.loc);
+        // There is currently no logical resolution of locations in VS Code
         return <SourceLocationResponse>{ loc: undefined };
     }
 
