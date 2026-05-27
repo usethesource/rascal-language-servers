@@ -305,8 +305,6 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
         this.logger.debug("[TVFS] rename: ", oldUri, newUri);
-        this.notifyWatchers(newUri, vscode.FileChangeType.Created);
-        this.notifyWatchers(oldUri, vscode.FileChangeType.Deleted);
         this.copy(oldUri, newUri, options);
         this.delete(oldUri, { recursive: true });
     }
