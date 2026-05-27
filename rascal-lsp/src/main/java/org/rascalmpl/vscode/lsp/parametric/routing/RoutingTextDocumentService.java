@@ -210,16 +210,6 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     }
 
     @Override
-    public void projectAdded(String name, ISourceLocation projectRoot) {
-        // Nothing to do here
-    }
-
-    @Override
-    public void projectRemoved(String name, ISourceLocation projectRoot) {
-        // Nothing to do here
-    }
-
-    @Override
     public void cancelProgress(String progressId) {
         // Nothing to do here
     }
