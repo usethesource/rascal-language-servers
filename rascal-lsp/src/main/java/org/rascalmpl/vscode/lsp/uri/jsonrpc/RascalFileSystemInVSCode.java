@@ -212,6 +212,4 @@ public class RascalFileSystemInVSCode extends RascalFileSystemServices {
         logger.trace("isWritable: {}", loc);
         return super.isWritable(transformLocations(req));
     }
-    
-
 }
