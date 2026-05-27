@@ -36,6 +36,9 @@ export interface ISourceLocationRequest extends JsonRpcRequest {
 }
 
 export interface WriteFileRequest extends ISourceLocationRequest {
+    /**
+     * Base64-encoded content
+     */
     content: string;
     append: boolean;
 }
