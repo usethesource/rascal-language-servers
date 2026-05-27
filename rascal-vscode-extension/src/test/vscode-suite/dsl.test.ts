@@ -369,6 +369,18 @@ end
         }, Delays.normal, "Browser for rascal-mpl.org should open");
     });
 
+    it("opens editors", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        const initialTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
+        await ide.clickCodeLens(editor, "Edit another file");
+        await driver.wait(async () => {
+            const currentTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
+            return currentTitle === initialTitle;
+        }, Delays.normal, "Another editor should open");
+    });
+
     it("(un)registers diagnostics", async function() {
         if (errorRecovery) { this.skip(); } // this does not depend on error recovery
 

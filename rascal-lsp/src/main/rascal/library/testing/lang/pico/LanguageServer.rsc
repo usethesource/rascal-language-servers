@@ -36,6 +36,7 @@ import Node;
 data Command
   = testValueEncoding()
   | browseRascalSite()
+  | editPico(loc uri)
   | addTodo(loc at)
   | removeTodo(loc at)
   ;
@@ -59,6 +60,12 @@ value testingExecutionService(browseRascalSite()) {
     return ("result": true);
 }
 
+@synopsis{Command handler from the ((editPico)) command}
+value picoExecutionService(editPico(loc uri)) {
+    edit(uri[file = uri.file == "calls.pico" ? "testing.pico" : "calls.pico"]);
+    return ("result": true);
+}
+
 @synopsis{Command handler from the ((registerDiagnostics)) command}
 value testingExecutionService(addTodo(loc at)) {
     registerDiagnostics([info("TODO", at)]);
@@ -75,6 +82,7 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
     = picoCodeLenseService(input)
     + [
         <input.src, browseRascalSite(title="Browse Rascal site")>,
+        <input.src, editPico(input.src.top, title="Edit another file")>,
         <input.src, addTodo(input.src, title="Register TODO")>,
         <input.src, removeTodo(input.src, title="Unregister TODO")>
     ];
