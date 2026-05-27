@@ -35,6 +35,8 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly root = new DirEntry(TestVirtualFileSystem.rootScheme);
     private readonly fs : vscode.Disposable;
+    private testFileWriteCounter: number = 0;
+    private testFileWatcher: vscode.FileSystemWatcher | undefined = undefined;
     private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], readonly string[]> = new Map();
 
     constructor(private readonly logger: vscode.LogOutputChannel) {
@@ -46,6 +48,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     dispose() {
         this._emitter.dispose();
         this.fs.dispose();
+        this.testFileWatcher?.dispose();
     }
 
     private initializeTestFiles() {
@@ -54,6 +57,56 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
         this.writeDynamicFile(vscode.Uri.from({scheme: TestVirtualFileSystem.rootScheme.scheme, path: "test.json"}), async () => {
             const result = await vscode.commands.executeCommand<object>("rascal-meta-command", "Pico", "testValueEncoding()");
             return Buffer.from(JSON.stringify(result, null, 2));
+        }, {create: true, overwrite: true});
+
+        this.initializeRemoteFsTestFiles();
+    }
+
+    private initializeRemoteFsTestFiles() {
+        // The following files play a role in the remote file system UI tests (see `remotefs.test.ts`).
+        // Reading these files has side effects.
+
+        const remotefsApiTestRoot = vscode.Uri.joinPath(TestVirtualFileSystem.rootScheme, "remotefs-api-test");
+        this.createDirectory(remotefsApiTestRoot);
+
+        const rascalfsTestTmpDir = vscode.Uri.from({scheme: "tmp", path: "/rascal-remotefs-test/"});
+
+        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-initiate-watch"), async () => {
+            this.logger.trace("[TVFS] Creating test watch");
+            const watchPattern = new vscode.RelativePattern(rascalfsTestTmpDir, "rascalfs-watch-test");
+            this.logger.info(`starting watch on ${watchPattern.toString()}`);
+            this.testFileWatcher = vscode.workspace.createFileSystemWatcher(watchPattern);
+            this.testFileWatcher.onDidChange(_e => {
+                this.logger.trace(`[TVFS] onDidChange triggered on test file`);
+                this.testFileWriteCounter += 1;
+            });
+            this.testFileWatcher.onDidCreate(_e => {
+                this.logger.trace(`[TVFS] onDidCreate triggered on test file`);
+                this.testFileWriteCounter += 1;
+            });
+            this.testFileWatcher.onDidDelete(_e => {
+                this.logger.trace(`[TVFS] onDidDelete triggered on test file`);
+                this.testFileWriteCounter += 1;
+            });
+            return Buffer.from("Started watch");
+        }, {create: true, overwrite: true});
+
+        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-counter"), async () => {
+            return Buffer.from(`${this.testFileWriteCounter}`);
+        }, {create: true, overwrite: true});
+
+        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-end-watch"), async () => {
+            this.logger.trace("[TVFS] Ending test watch");
+            await this.testFileWatcher?.dispose();
+            this.testFileWatcher = undefined;
+            return Buffer.from("Disposed of watch");
+        }, {create: true, overwrite: true});
+
+        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-write"), async () => {
+            const rascalTestFile = vscode.Uri.joinPath(rascalfsTestTmpDir, "rascal-test-file");
+            this.logger.trace("[TVFS] Writing test file");
+            await vscode.workspace.fs.writeFile(rascalTestFile, Buffer.from("hi"));
+            return Buffer.from("File written");
         }, {create: true, overwrite: true});
     }
 
