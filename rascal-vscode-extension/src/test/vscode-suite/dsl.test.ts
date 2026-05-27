@@ -52,7 +52,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import testing::lang::pico::LanguageServer;");
+        await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
 
         // If Pico was registered before as part of another series of tests,
         // then it needs to be unregistered first (because error recovery
