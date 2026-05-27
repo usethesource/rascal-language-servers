@@ -82,7 +82,7 @@ import io.usethesource.vallang.ISourceLocation;
 public abstract class BaseLanguageServer {
     private static final PrintStream capturedOut;
     private static final InputStream capturedIn;
-    private static final boolean DEPLOY_MODE;
+    public static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
 
     static {
@@ -108,13 +108,13 @@ public abstract class BaseLanguageServer {
 
     private static final Logger logger = LogManager.getLogger(BaseLanguageServer.class);
 
-    private static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server, ExecutorService threadPool)
+    protected static Launcher<IBaseLanguageClient> constructLSPClient(Socket client, ActualLanguageServer server, ExecutorService threadPool)
         throws IOException {
         client.setTcpNoDelay(true);
         return constructLSPClient(client.getInputStream(), client.getOutputStream(), server, threadPool);
     }
 
-    private static Launcher<IBaseLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server, ExecutorService threadPool) {
+    protected static Launcher<IBaseLanguageClient> constructLSPClient(InputStream in, OutputStream out, ActualLanguageServer server, ExecutorService threadPool) {
         Launcher<IBaseLanguageClient> clientLauncher = new Launcher.Builder<IBaseLanguageClient>()
             .setLocalService(server)
             .setRemoteInterface(IBaseLanguageClient.class)
@@ -129,12 +129,21 @@ public abstract class BaseLanguageServer {
         return clientLauncher;
     }
 
-    private static void printClassPath() {
+    protected static void printClassPath() {
         logger.trace("Started with classpath: {}", () -> System.getProperty("java.class.path"));
     }
 
+    @FunctionalInterface
+    protected interface ServerBuilder {
+        ActualLanguageServer apply(Runnable a, ExecutorService b, IBaseTextDocumentService c, BaseWorkspaceService d);
+    }
+
+    protected static void startLanguageServer(String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+        startLanguageServer(ActualLanguageServer::new, requestPoolName, workerPoolName, docServiceProvider, workspaceServiceProvider, portNumber);
+    }
+
     @SuppressWarnings({"java:S2189", "java:S106"})
-    public static void startLanguageServer(String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
+    protected static void startLanguageServer(ServerBuilder serverBuilder, String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {
         logger.info("Starting Rascal Language Server: {}", getVersion());
         printClassPath();
 
@@ -145,9 +154,7 @@ public abstract class BaseLanguageServer {
             try {
                 var docService = docServiceProvider.apply(workerPool);
                 var wsService = workspaceServiceProvider.apply(workerPool);
-                docService.pair(wsService);
-                wsService.pair(docService);
-                startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
+                startLSP(constructLSPClient(capturedIn, capturedOut, serverBuilder.apply(() -> System.exit(0), workerPool, docService, wsService), requestPool));
             } finally {
                 requestPool.shutdown();
                 workerPool.shutdown();
@@ -164,9 +171,7 @@ public abstract class BaseLanguageServer {
                         logger.info("New client connected to Rascal LSP server (listening on port number: {})", portNumber);
                         var docService = docServiceProvider.apply(workerPool);
                         var wsService = workspaceServiceProvider.apply(workerPool);
-                        docService.pair(wsService);
-                        wsService.pair(docService);
-                        startLSP(constructLSPClient(clientSocket, new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
+                        startLSP(constructLSPClient(clientSocket, serverBuilder.apply(() -> {}, workerPool, docService, wsService), requestPool));
                     }
                     finally {
                         requestPool.shutdown();
@@ -181,7 +186,7 @@ public abstract class BaseLanguageServer {
 
     private static final String DEFAULT_VERSION = "unknown";
 
-    private static String getVersion() {
+    protected static String getVersion() {
         try (InputStream prop =  ActualLanguageServer.class.getClassLoader().getResourceAsStream("project.properties")) {
             if (prop == null) {
                 logger.error("Could not find project.properties file");
@@ -198,7 +203,7 @@ public abstract class BaseLanguageServer {
         }
     }
 
-    private static void startLSP(Launcher<IBaseLanguageClient> server) {
+    protected static void startLSP(Launcher<IBaseLanguageClient> server) {
         try {
             server.startListening().get();
         } catch (InterruptedException e) {
@@ -216,19 +221,23 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
+    public static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
         private final Runnable onExit;
         private final ExecutorService executor;
-        private @MonotonicNonNull IDEServicesConfiguration remoteIDEServicesConfiguration;
 
-        private ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
+        private @MonotonicNonNull IDEServicesConfiguration remoteIDEServicesConfiguration;
+        private @MonotonicNonNull IBaseLanguageClient client;
+
+        protected ActualLanguageServer(Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.onExit = onExit;
             this.executor = executor;
             this.lspDocumentService = lspDocumentService;
             this.lspWorkspaceService = lspWorkspaceService;
+            lspDocumentService.pair(lspWorkspaceService);
+            lspWorkspaceService.pair(lspDocumentService);
         }
 
         @Override
@@ -266,15 +275,20 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+            logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
             return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang), executor);
         }
         @Override
         public CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
+            logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
             return CompletableFuture.runAsync(() -> lspDocumentService.unregisterLanguage(lang), executor);
         }
 
         @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
+            // Exit when our parent process exits
+            executor.submit(() -> ProcessHandle.of(params.getProcessId()).ifPresent(p -> p.onExit().thenAccept(ignored -> this.exit())));
+
             return CompletableFuture.supplyAsync(() -> {
                 logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
                 logger.debug("LSP client capabilities: {}", params.getCapabilities());
@@ -324,11 +338,18 @@ public abstract class BaseLanguageServer {
 
         @Override
         public void connect(LanguageClient client) {
-            var proxy = addShutdownDetectionTo(client);
-            lspDocumentService.connect(proxy);
-            lspWorkspaceService.connect(proxy);
-            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(proxy, lspDocumentService, executor);
+            this.client = addShutdownDetectionTo(client);
+            lspDocumentService.connect(this.client);
+            lspWorkspaceService.connect(this.client);
+            remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(this.client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
+        }
+
+        protected IBaseLanguageClient availableClient() {
+            if (client == null) {
+                throw new IllegalStateException("Language Client has not been connected yet");
+            }
+            return client;
         }
 
         /**
@@ -371,5 +392,10 @@ public abstract class BaseLanguageServer {
             final var l = Level.toLevel(level, Level.DEBUG); // fall back to debug when the string cannot be mapped
             Configurator.setRootLevel(l);
         }
+
+        protected ExecutorService getExecutor() {
+            return executor;
+        }
+
     }
 }

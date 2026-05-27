@@ -168,7 +168,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
     ];
     let mainClass: string;
     if (isParametricServer) {
-        mainClass = 'org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer';
+        mainClass = 'org.rascalmpl.vscode.lsp.parametric.routing.RoutingLanguageServer';
         commandArgs.push(calculateDSLMemoryReservation(dedicated));
     }
     else {
