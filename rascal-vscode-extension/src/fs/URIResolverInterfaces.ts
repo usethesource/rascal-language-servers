@@ -35,7 +35,7 @@ export interface ISourceLocationInput {
     isFile(req: ISourceLocationRequest): Promise<BooleanResponse>;
     list(req: ISourceLocationRequest): Promise<DirectoryListingResponse>;
     size(req: ISourceLocationRequest): Promise<NumberResponse>;
-    fileStat(req: ISourceLocationRequest): Promise<FileAttributes>;
+    stat(req: ISourceLocationRequest): Promise<FileAttributes>;
     isReadable(req: ISourceLocationRequest): Promise<BooleanResponse>;
     getCharset(req: ISourceLocationRequest): Promise<StringResponse>;
 }
@@ -56,5 +56,5 @@ export interface ISourceLocationWatcher {
 }
 
 export interface ILogicalSourceLocationResolver {
-    resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse>
+    resolveLocation(req: ISourceLocationRequest): Promise<SourceLocationResponse>
 }
