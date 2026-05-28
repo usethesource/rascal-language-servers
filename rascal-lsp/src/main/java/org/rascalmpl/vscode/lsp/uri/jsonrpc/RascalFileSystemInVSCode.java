@@ -65,14 +65,14 @@ import io.usethesource.vallang.ISourceLocation;
 public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
     private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
-    private final RascalFileSystemServices fileSystemServices = new RascalFileSystemServices();
+    private volatile RascalFileSystemServices fileSystemServices = null;
 
     private <T extends SourceLocationTransformer> T transformLocations(T req) {
         return req.transformLocations(RascalFileSystemInVSCode::toRascalLocation);
     }
 
-    public void setLanguageClient(IRemoteResolverRegistryClient client) {
-        fileSystemServices.setRemoteResolverRegistryClient(client);
+    public void connectRemoteRegistryClient(IRemoteResolverRegistryClient client) {
+        fileSystemServices = new RascalFileSystemServices(client);
     }
 
     private static ISourceLocation toRascalLocation(ISourceLocation loc) {
