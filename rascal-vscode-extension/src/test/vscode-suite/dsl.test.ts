@@ -377,7 +377,7 @@ end
         await ide.clickCodeLens(editor, "Edit another file");
         await driver.wait(async () => {
             const currentTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
-            return currentTitle === initialTitle;
+            return currentTitle !== initialTitle;
         }, Delays.normal, "Another editor should open");
     });
 
