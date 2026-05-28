@@ -30,6 +30,7 @@ import * as rpc from 'vscode-jsonrpc/node';
 import { JsonRpcServer } from "../util/JsonRpcServer";
 import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, StringResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
+import { ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver } from './URIResolverInterfaces';
 
 /**
  * VS Code implements this and offers it to the rascal-lsp server
@@ -40,22 +41,6 @@ interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutp
  * Rascal side should implement this on the other side of the stream
  */
 //interface VSCodeResolverClient extends WatchEventReceiver {}
-
-
-// Rascal's interface reduced to a subset we can support
-interface ISourceLocationInput {
-    readFile(req: ISourceLocationRequest): Promise<LocationContentResponse>;
-    exists(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    lastModified(req: ISourceLocationRequest): Promise<TimestampResponse>;
-    created(req: ISourceLocationRequest): Promise<TimestampResponse>;
-    isDirectory(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    isFile(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    list(req: ISourceLocationRequest): Promise<DirectoryListingResponse>;
-    size(req: ISourceLocationRequest): Promise<NumberResponse>;
-    fileStat(req: ISourceLocationRequest): Promise<FileAttributes>;
-    isReadable(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    getCharset(req: ISourceLocationRequest): Promise<StringResponse>;
-}
 
 function connectInputHandler(connection: rpc.MessageConnection, handler: ISourceLocationInput, toClear: Disposable[]) {
     function req<T> (method: string, h: rpc.RequestHandler1<ISourceLocationRequest, T, void>) {
@@ -82,17 +67,6 @@ function connectGetCharset(connection: rpc.MessageConnection, handler: ISourceLo
     ));
 }
 
-// Rascal's interface reduced to a subset we can support
-interface ISourceLocationOutput {
-    writeFile(req: WriteFileRequest): Promise<void>;
-    mkDirectory(req: ISourceLocationRequest): Promise<void>;
-    remove(req: RemoveRequest): Promise<void>;
-    rename(req: RenameRequest): Promise<void>;
-    copy(req: CopyRequest): Promise<void>;
-    isWritable(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    setLastModified(req: SetLastModifiedRequest): Promise<void>;
-}
-
 function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
     function req<Arg, ReturnT> (method: string, h: rpc.RequestHandler1<Arg, ReturnT, void>) {
         toClear.push(connection.onRequest(
@@ -109,12 +83,6 @@ function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourc
     req("setLastModified", handler.setLastModified);
 }
 
-// Rascal's interface reduced to a subset we can support
-interface ISourceLocationWatcher {
-    watch(newWatch: WatchRequest): Promise<void>;
-    unwatch(removeWatch: WatchRequest): Promise<void>;
-}
-
 function connectWatchHandler(connection: rpc.MessageConnection, handler: ISourceLocationWatcher, toClear: Disposable[]) {
     function req<T> (method: string, h: rpc.RequestHandler1<WatchRequest, T, void>) {
         toClear.push(connection.onRequest(
@@ -123,10 +91,6 @@ function connectWatchHandler(connection: rpc.MessageConnection, handler: ISource
     }
     req("watch", handler.watch);
     req("unwatch", handler.unwatch);
-}
-
-interface ILogicalSourceLocationResolver {
-    resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse>
 }
 
 function connectLogicalResolver(connection: rpc.MessageConnection, handler: ILogicalSourceLocationResolver, toClear: Disposable[]) {
