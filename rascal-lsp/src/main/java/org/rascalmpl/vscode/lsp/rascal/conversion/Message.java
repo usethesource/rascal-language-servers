@@ -44,6 +44,10 @@ public class Message {
     public static MessageParams toMessageParams(IConstructor message) {
         var params = new MessageParams();
         switch (message.getName()) {
+            case "error": {
+                params.setType(MessageType.Error);
+                break;
+            }
             case "warning": {
                 params.setType(MessageType.Warning);
                 break;

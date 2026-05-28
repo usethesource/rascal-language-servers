@@ -186,4 +186,9 @@ public class LSPIDEServices implements IDEServices {
         languageClient.showMessage(Message.toMessageParams(message));
     }
 
+    @Override
+    public void logMessage(IConstructor msg) {
+        languageClient.logMessage(Message.toMessageParams(msg));
+    }
+
 }

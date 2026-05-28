@@ -418,7 +418,19 @@ end
         }, Delays.normal, "Test warning dialog should show");
     });
 
+    it("logs messages", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show warning");
+        await driver.wait(async () => {
+            const output = await bench.getBottomBar().openOutputView();
+            await output.selectChannel("Language Parametric Rascal Language Server");
+            const contents = await output.getText();
+            return contents.split("\n")[-1]?.indexOf("LOG") !== -1;
+        }, Delays.normal, "Line should be logged");
+    });
+
     // TODO showInteractiveContent
-    // TODO logMessage
 
 });
