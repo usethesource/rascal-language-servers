@@ -55,7 +55,7 @@ Each ((LanguageService)) for pico is implemented as a function.
 Here we group all services such that the LSP server can link them
 with the ((LanguageServer-Language)) definition later.
 }
-set[LanguageService] picoLanguageServer(bool allowRecovery) = {
+private set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
     documentSymbol(picoDocumentSymbolService),
     codeLens(picoCodeLenseService),
@@ -70,8 +70,7 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     completion(picoCompletionService, additionalTriggerCharacters = ["="])
 };
 
-set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
-set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
+set[LanguageService] picoLanguageServer() = picoLanguageServer(true);
 
 @synopsis{This set of contributions runs slower but provides more detail.}
 @description{
@@ -85,8 +84,7 @@ set[LanguageService] picoLanguageServerSlowSummary(bool allowRecovery) = {
     build(picoBuildService)
 };
 
-set[LanguageService] picoLanguageServerSlowSummary() = picoLanguageServerSlowSummary(false);
-set[LanguageService] picoLanguageServerSlowSummaryWithRecovery() = picoLanguageServerSlowSummary(true);
+set[LanguageService] picoLanguageServerSlowSummary() = picoLanguageServerSlowSummary(true);
 
 @synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
 @description{
@@ -334,14 +332,14 @@ in the presence of error trees. See ((util::LanguageServer)) for more details.
 * You can run each contribution on an example in the terminal to test it first.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
-void main(bool errorRecovery=false) {
+void main() {
     registerLanguage(
         language(
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
-            errorRecovery ? "picoLanguageServerWithRecovery" : "picoLanguageServer"
+            "picoLanguageServer"
         )
     );
     registerLanguage(
@@ -350,7 +348,7 @@ void main(bool errorRecovery=false) {
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
-            errorRecovery ? "picoLanguageServerSlowSummaryWithRecovery" : "picoLanguageServerSlowSummary"
+            "picoLanguageServerSlowSummary"
         )
     );
 }
