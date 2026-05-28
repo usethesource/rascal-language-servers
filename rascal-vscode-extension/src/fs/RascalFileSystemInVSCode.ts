@@ -132,16 +132,16 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
 
     static getLocation(arg: vscode.Uri | JsonRpcRequest): ISourceLocation {
         if (arg instanceof vscode.Uri) {
-            return RascalFileSystemInVSCode.toRascalUri(<vscode.Uri>arg);
+            return RascalFileSystemInVSCode.toRascalUri(arg);
         }
         if ("loc" in arg) {
-            return <ISourceLocation>arg.loc;
+            return arg.loc as ISourceLocation;
         }
         if ("from" in arg) {
-            return <ISourceLocation>arg.from;
+            return arg.from as ISourceLocation;
         }
         if ("root" in arg) {
-            return <ISourceLocation>arg.root;
+            return arg.root as ISourceLocation;
         }
         return "unknown";
     }
@@ -187,7 +187,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         }).then(_v => {
             this.activeWatches.set(watchKey, options.excludes.map(e => [e, RascalFileSystemInVSCode.isGlob(e)]));
         }).catch(r => {
-            throw RemoteIOError.translateResponseError(<ResponseError>r, uri, this.logger);
+            throw RemoteIOError.translateResponseError(r as ResponseError, uri, this.logger);
         });
 
         return new vscode.Disposable(async () => {
