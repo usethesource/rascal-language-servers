@@ -53,12 +53,15 @@ private set[LanguageService] amendContributions(set[LanguageService] contributio
     when byName := {getName(r) | r <- replacements};
 
 set[LanguageService] testingLanguageServer(bool allowRecovery)
-    = amendContributions(picoLanguageServer(allowRecovery), {
+    = amendContributions(picoLanguageServer(), {
+        parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
         execution(picoExecutionService + testingExecutionService)
     });
 
 set[LanguageService] testingLanguageServerSlowSummary(bool allowRecovery)
-    = /* amendContributions( */ picoLanguageServerSlowSummary(allowRecovery) /*, {})*/;
+    = amendContributions(picoLanguageServerSlowSummary(), {
+        parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false)
+    });
 
 set[LanguageService] testingLanguageServer() = testingLanguageServer(false);
 set[LanguageService] testingLanguageServerWithRecovery() = testingLanguageServer(true);

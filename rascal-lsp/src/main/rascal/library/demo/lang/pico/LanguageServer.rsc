@@ -55,8 +55,8 @@ Each ((LanguageService)) for pico is implemented as a function.
 Here we group all services such that the LSP server can link them
 with the ((LanguageServer-Language)) definition later.
 }
-private set[LanguageService] picoLanguageServer(bool allowRecovery) = {
-    parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
+set[LanguageService] picoLanguageServer() = {
+    parsing(picoParser(true), usesSpecialCaseHighlighting = false),
     documentSymbol(picoDocumentSymbolService),
     codeLens(picoCodeLenseService),
     execution(picoExecutionService),
@@ -70,21 +70,17 @@ private set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     completion(picoCompletionService, additionalTriggerCharacters = ["="])
 };
 
-set[LanguageService] picoLanguageServer() = picoLanguageServer(true);
-
 @synopsis{This set of contributions runs slower but provides more detail.}
 @description{
 ((LanguageService))s can be registered asynchronously and incrementally,
 such that quicky loaded features can be made available while slower to load
 tools come in later.
 }
-set[LanguageService] picoLanguageServerSlowSummary(bool allowRecovery) = {
-    parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
+set[LanguageService] picoLanguageServerSlowSummary() = {
+    parsing(picoParser(true), usesSpecialCaseHighlighting = false),
     analysis(picoAnalysisService, providesImplementations = false),
     build(picoBuildService)
 };
-
-set[LanguageService] picoLanguageServerSlowSummary() = picoLanguageServerSlowSummary(true);
 
 @synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
 @description{
