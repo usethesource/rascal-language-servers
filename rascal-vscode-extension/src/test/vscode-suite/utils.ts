@@ -164,6 +164,9 @@ export class RascalREPL {
         }
     }
 
+    /**
+     * WARNING: This will give the last output as expected **ONLY** if the last Rascal prompt fitted on a single line
+     */
     get lastOutput() { return this.lastReplOutput; }
 
     async terminate() {

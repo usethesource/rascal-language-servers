@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.rascal;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 
 public class RascalLanguageServer extends BaseLanguageServer {
