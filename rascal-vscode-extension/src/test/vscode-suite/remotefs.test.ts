@@ -105,6 +105,8 @@ Hello world!
         await repl.execute('writeFile(l, "")');
         await repl.execute("readFile(|rascal-vscode-test:///remotefs-api-test/test-rascalfs-initiate-watch|)");
         await repl.execute('readFile(|rascal-vscode-test:///remotefs-api-test/test-rascalfs-counter|) == "0"');
+        await repl.execute('readFile(|rascal-vscode-test:///remotefs-api-test/test-rascalfs-counter|)');
+        await ide.screenshot("COUNTER0");
         expect(repl.lastOutput).is.equal("bool: true", "Callback counter not at 0");
 
         await repl.execute('writeFile(l, "aa")');
