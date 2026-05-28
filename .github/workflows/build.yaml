@@ -50,7 +50,7 @@ jobs:
     strategy:
       matrix:
         os: [ubicloud-standard-4, windows-latest, macos-latest]
-      fail-fast: true
+      fail-fast: false
     env:
       CODE_VERSION: "1.100.0"
     runs-on:  ${{ matrix.os }}
