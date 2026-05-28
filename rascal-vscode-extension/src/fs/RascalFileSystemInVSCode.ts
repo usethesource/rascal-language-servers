@@ -104,7 +104,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             }
 
             // Current watch applies to the event uri and no exclude matches
-            const callbackEvent = <vscode.FileChangeEvent>{ type: type, uri: eventUri };
+            const callbackEvent: vscode.FileChangeEvent = { type: type, uri: eventUri };
             logger.debug(`[${logPrefix}] Emitting watch callback event`, callbackEvent);
             emitter.fire([callbackEvent]);
             break;
@@ -208,13 +208,16 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
         this.logger.debug("[RascalFileSystemInVSCode] stat: ", uri);
         const stat = await this.inputClient.stat(uriToRequest(uri));
-        return <vscode.FileStat>{
+        const result: vscode.FileStat = {
             type: stat.isFile ? vscode.FileType.File : vscode.FileType.Directory,
             ctime: stat.created,
             mtime: stat.lastModified,
-            size: stat.size,
-            permissions: stat.isWritable ? undefined : vscode.FilePermission.Readonly
+            size: stat.size
         };
+        if (!stat.isWritable) {
+            result.permissions = vscode.FilePermission.Readonly;
+        }
+        return result;
     }
 
     async readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {

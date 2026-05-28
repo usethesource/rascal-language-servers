@@ -29,9 +29,9 @@ import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { JsonRpcServer } from "../util/JsonRpcServer";
-import { BooleanResponse, CopyRequest, DirectoryEntry, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, StringResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
+import { BooleanResponse, CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, StringResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
-import { ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver } from './URIResolverInterfaces';
+import { ILogicalSourceLocationResolver, ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher } from './URIResolverInterfaces';
 
 /**
  * VS Code implements this and offers it to the rascal-lsp server
@@ -186,9 +186,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     async readFile(req: ISourceLocationRequest): Promise<LocationContentResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] readFile: ", req.loc);
-        return this.asyncCatcher(async () => <LocationContentResponse>{
+        return this.asyncCatcher(async () => ({
             content: Buffer.from(await this.fs.readFile(this.toUri(req.loc))).toString("base64")
-        });
+        }));
     }
 
     isRascalNative(loc: ISourceLocation | vscode.Uri): boolean {
@@ -229,7 +229,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     private async numberResult(loc: ISourceLocation, mapper: (s: vscode.FileStat) => number): Promise<NumberResponse> {
-        return this.asyncCatcher(async () => <NumberResponse>{ value: mapper((await this.internalStat(loc))) });
+        return this.asyncCatcher(async () => ({ value: mapper((await this.internalStat(loc))) }));
     }
 
     lastModified(req: ISourceLocationRequest): Promise<TimestampResponse> {
@@ -248,7 +248,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     private async boolResultFromStat(loc: ISourceLocation, mapper: (s: vscode.FileStat) => boolean): Promise<BooleanResponse> {
-        return this.asyncCatcher(async () => <BooleanResponse>{ value: mapper((await this.internalStat(loc))) });
+        return this.asyncCatcher(async () => ({ value: mapper(await this.internalStat(loc)) }));
     }
 
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResponse> {
@@ -284,9 +284,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
 
     async list(req: ISourceLocationRequest): Promise<DirectoryListingResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] list: ", req.loc);
-        return this.asyncCatcher(async () => <DirectoryListingResponse>{ entries:
-            (await this.fs.readDirectory(this.toUri(req.loc))).map(entry => <DirectoryEntry>{ name: entry[0], types: this.decodeFileTypeBitmask(entry[1]) })
-        });
+        return this.asyncCatcher(async () => ({ entries:
+            (await this.fs.readDirectory(this.toUri(req.loc))).map(entry => ({ name: entry[0], types: this.decodeFileTypeBitmask(entry[1]) }))
+        }));
     }
 
     decodeFileTypeBitmask(input: number): vscode.FileType[] {
@@ -294,7 +294,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     async getCharset(req: ISourceLocationRequest): Promise<StringResponse> {
-        return <StringResponse>{ value: (await vscode.workspace.openTextDocument(req.loc)).encoding };
+        return { value: (await vscode.workspace.openTextDocument(req.loc)).encoding };
     }
 
     async writeFile(req: WriteFileRequest): Promise<void> {
@@ -365,7 +365,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     async resolveLocation(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] resolve: ", req.loc);
         // There is currently no logical resolution of locations in VS Code
-        return <SourceLocationResponse>{ loc: undefined };
+        return { loc: undefined };
     }
 
     dispose() {
