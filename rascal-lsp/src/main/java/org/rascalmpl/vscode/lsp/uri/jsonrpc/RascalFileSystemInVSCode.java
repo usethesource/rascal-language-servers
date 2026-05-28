@@ -64,7 +64,7 @@ import io.usethesource.vallang.ISourceLocation;
  * In particular, locations from LSP are mapped to Rascal-friendly locations.
  */
 public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
-    private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
+    private static final Logger logger = LogManager.getLogger(RascalFileSystemInVSCode.class);
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
     @MonotonicNonNull
