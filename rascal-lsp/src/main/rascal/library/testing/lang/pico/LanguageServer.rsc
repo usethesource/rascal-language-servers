@@ -58,7 +58,7 @@ set[LanguageService] testingLanguageServer(bool allowRecovery)
     });
 
 set[LanguageService] testingLanguageServerSlowSummary(bool allowRecovery)
-    = amendContributions(picoLanguageServerSlowSummary(allowRecovery), {});
+    = /* amendContributions( */ picoLanguageServerSlowSummary(allowRecovery) /*, {})*/;
 
 set[LanguageService] testingLanguageServer() = testingLanguageServer(false);
 set[LanguageService] testingLanguageServerWithRecovery() = testingLanguageServer(true);
