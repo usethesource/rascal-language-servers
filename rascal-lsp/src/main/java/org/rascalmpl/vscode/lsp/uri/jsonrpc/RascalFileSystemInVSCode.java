@@ -68,7 +68,7 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
 
     @MonotonicNonNull
-    private volatile RascalFileSystemServices fileSystemServices = null;
+    private RascalFileSystemServices fileSystemServices = null;
 
     private <T extends SourceLocationTransformer> T transformLocations(T req) {
         return req.transformLocations(RascalFileSystemInVSCode::toRascalLocation);
