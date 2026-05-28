@@ -134,7 +134,6 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
@@ -393,34 +392,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
                 availableClient().showMessage(Message.toMessageParams((IConstructor) msg));
             }
         });
-    }
-
-    private MessageParams setMessageParams(IConstructor message) {
-        var params = new MessageParams();
-        switch (message.getName()) {
-            case "error": {
-                params.setType(MessageType.Error);
-                break;
-            }
-            case "warning": {
-                params.setType(MessageType.Warning);
-                break;
-            }
-            case "info": {
-                params.setType(MessageType.Info);
-                break;
-            }
-            default: params.setType(MessageType.Log);
-        }
-
-        var msgText = ((IString) message.get("msg")).getValue();
-        if (message.has("at")) {
-            var at = Locations.toUri((ISourceLocation) message.get("at"));
-            params.setMessage(String.format("%s (at %s)", msgText, at));
-        } else {
-            params.setMessage(msgText);
-        }
-        return params;
     }
 
     @Override
