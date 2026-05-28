@@ -64,14 +64,11 @@ describe('RemoteFS', function () {
         await repl.start();
         await repl.execute("import IO;");
         await repl.execute("l = |rascal-vscode-test:///test|;");
-        await repl.execute("writeFile(l, \"Hello world!\")");
+        await repl.execute('writeFile(l, "Hello world!")');
         await repl.execute("exists(l)");
         expect(repl.lastOutput).is.equal("bool: true", "Exists on VS Code fs works");
-        await repl.execute("readFile(l)");
-        expect(repl.lastOutput).is.equal(`str: "Hello world!"
-───
-Hello world!
-───`, "Writing + reading VS Code fs works");
+        await repl.execute('readFile(l) == "Hello world!"');
+        expect(repl.lastOutput).is.equal("bool: true", "Writing + reading VS Code fs works");
     });
 
     it("Watch operations in Rascal REPL on VS Code file system", async () => {
