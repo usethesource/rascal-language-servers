@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /*
  * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.
@@ -35,68 +36,82 @@ import { ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher, IL
 /**
  * VS Code implements this and offers it to the rascal-lsp server
  */
-interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher { }
+interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver { }
 
 /**
  * Rascal side should implement this on the other side of the stream
  */
 //interface VSCodeResolverClient extends WatchEventReceiver {}
 
-function connectInputHandler(connection: rpc.MessageConnection, handler: ISourceLocationInput, toClear: Disposable[]) {
-    function req<T> (method: string, h: rpc.RequestHandler1<ISourceLocationRequest, T, void>) {
-        toClear.push(connection.onRequest(
-            new rpc.RequestType1<ISourceLocationRequest, T, void>("rascal/vfs/input/" + method),
-            h.bind(handler)));
+function connectHandlers(connection: rpc.MessageConnection, handler: VSCodeResolverServer, disposables: Disposable[], logger: vscode.LogOutputChannel) {
+    disposables.push(connection.onRequest((request, arg, _token) => {
+        const [rascal, vfs, direction, method] = request.split("/");
+        if (rascal !== "rascal" || vfs !== "vfs" || !direction || !method) {
+            logger.error(`[VSCodeFileSystemInRascal] Incorrect request: [${rascal},${vfs},${direction},${method}]`);
+            throw new rpc.ResponseError(RemoteIOError.unknown, `Unknown request ${request}`);
+        }
+        if (typeof arg !== "object") {
+            logger.error(`[VSCodeFileSystemInRascal] Incorrect argument type: ${typeof arg}`);
+            throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected argument type ${typeof arg}`);
+        }
+        switch (direction) {
+            case "input":
+                return handleInputRequest(method, handler, arg);
+            case "output":
+                return handleOutputRequest(method, handler, arg);
+            case "watcher":
+                return handleWatchRequest(method, handler, arg);
+            case "logical":
+                return handleLogicalRequest(method, handler, arg);
+        }
+        logger.error(`[VSCodeFileSystemInRascal] Unexpected interface ${direction}`);
+        throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected interface ${direction}`);
+    }));
+}
+
+function handleInputRequest(method: string, handler: ISourceLocationInput, arg: object) {
+    if (!(method in handler)) {
+        throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected method ${method}`);
     }
-    req<LocationContentResponse>("readFile", handler.readFile);
-    req<BooleanResponse>("exists", handler.exists);
-    req<TimestampResponse>("lastModified", handler.lastModified);
-    req<TimestampResponse>("created", handler.created);
-    req<BooleanResponse>("isDirectory", handler.isDirectory);
-    req<BooleanResponse>("isFile", handler.isFile);
-    req<DirectoryListingResponse>("list", handler.list);
-    req<NumberResponse>("size", handler.size);
-    req<FileAttributes>("stat", handler.fileStat);
-    req<BooleanResponse>("isReadable", handler.isReadable);
+    return handler[method as keyof ISourceLocationInput](arg as ISourceLocationRequest);
 }
 
-function connectGetCharset(connection: rpc.MessageConnection, handler: ISourceLocationInput, toClear: Disposable[]) {
-    toClear.push(connection.onRequest(
-        new rpc.RequestType1<ISourceLocationRequest, Promise<StringResponse>, void>("rascal/vfs/getCharset"),
-        handler.getCharset.bind(handler)
-    ));
-}
-
-function connectOutputHandler(connection: rpc.MessageConnection, handler: ISourceLocationOutput, toClear: Disposable[]) {
-    function req<Arg, ReturnT> (method: string, h: rpc.RequestHandler1<Arg, ReturnT, void>) {
-        toClear.push(connection.onRequest(
-            new rpc.RequestType1<Arg, ReturnT, void>("rascal/vfs/output/" + method),
-            h.bind(handler)));
+function handleOutputRequest(method: string, handler: ISourceLocationOutput, arg: object): Promise<object | void> {
+    if (!(method in handler)) {
+        throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected method ${method}`);
     }
-
-    req("writeFile", handler.writeFile);
-    req("mkDirectory", handler.mkDirectory);
-    req("remove", handler.remove);
-    req("rename", handler.rename);
-    req("copy", handler.copy);
-    req("isWritable", handler.isWritable);
-    req("setLastModified", handler.setLastModified);
-}
-
-function connectWatchHandler(connection: rpc.MessageConnection, handler: ISourceLocationWatcher, toClear: Disposable[]) {
-    function req<T> (method: string, h: rpc.RequestHandler1<WatchRequest, T, void>) {
-        toClear.push(connection.onRequest(
-            new rpc.RequestType1<WatchRequest, T, void>("rascal/vfs/watcher/" + method),
-            h.bind(handler)));
+    const actualMethod = method as keyof ISourceLocationOutput;
+    // As the functions of ISourceLocationOutput do not share their argument type,
+    // this switch is necessary
+    switch (actualMethod) {
+        case 'writeFile':
+            return handler[actualMethod](arg as WriteFileRequest);
+        case 'mkDirectory':
+        case 'isWritable':
+            return handler[actualMethod](arg as ISourceLocationRequest);
+        case 'remove':
+            return handler[actualMethod](arg as RemoveRequest);
+        case 'rename':
+            return handler[actualMethod](arg as RenameRequest);
+        case 'copy':
+            return handler[actualMethod](arg as CopyRequest);
+        case 'setLastModified':
+            return handler[actualMethod](arg as SetLastModifiedRequest);
     }
-    req("watch", handler.watch);
-    req("unwatch", handler.unwatch);
 }
 
-function connectLogicalResolver(connection: rpc.MessageConnection, handler: ILogicalSourceLocationResolver, toClear: Disposable[]) {
-    toClear.push(connection.onRequest(
-        new rpc.RequestType1<ISourceLocationRequest, SourceLocationResponse, void>("rascal/vfs/logical/resolveLocation"), handler.resolve.bind(handler)
-    ));
+function handleWatchRequest(method: string, handler: ISourceLocationWatcher, arg: object) {
+    if (!(method in handler)) {
+        throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected method ${method}`);
+    }
+    return handler[method as keyof ISourceLocationWatcher](arg as WatchRequest);
+}
+
+function handleLogicalRequest(method: string, handler: ILogicalSourceLocationResolver, arg: object) {
+    if (!(method in handler)) {
+        throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected method ${method}`);
+    }
+    return handler[method as keyof ILogicalSourceLocationResolver](arg as ISourceLocationRequest);
 }
 
 // client side implementation receiving watch events
@@ -138,11 +153,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
             });
         }
         this.watchListener = buildWatchReceiver(connection, logger);
-        connectInputHandler(connection, this, this.disposables);
-        connectGetCharset(connection, this, this.disposables);
-        connectOutputHandler(connection, this, this.disposables);
-        connectWatchHandler(connection, this, this.disposables);
-        connectLogicalResolver(connection, this, this.disposables);
+        connectHandlers(connection, this, this.disposables, logger);
     }
 
     async asyncCatcher<T>(build: () => Thenable<T>): Promise<T> {
@@ -189,7 +200,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     async exists(req: ISourceLocationRequest): Promise<BooleanResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] exists: ", req.loc);
         try {
-            await this.stat(req.loc);
+            await this.internalStat(req.loc);
             return { value: true };
         }
         catch (_e) {
@@ -197,9 +208,9 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
     }
 
-    async fileStat(req: ISourceLocationRequest): Promise<FileAttributes> {
+    async stat(req: ISourceLocationRequest): Promise<FileAttributes> {
         return this.asyncCatcher(async () => {
-            const fileInfo = await this.stat(req.loc);
+            const fileInfo = await this.internalStat(req.loc);
             return {
                 exists: true,
                 isFile: (fileInfo.type | vscode.FileType.File) === vscode.FileType.File,
@@ -212,13 +223,13 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         });
     }
 
-    private async stat(loc: ISourceLocation): Promise<vscode.FileStat> {
+    private async internalStat(loc: ISourceLocation): Promise<vscode.FileStat> {
         this.logger.debug("[VSCodeFileSystemInRascal] stat: ", loc);
         return this.fs.stat(this.toUri(loc));
     }
 
     private async numberResult(loc: ISourceLocation, mapper: (s: vscode.FileStat) => number): Promise<NumberResponse> {
-        return this.asyncCatcher(async () => <NumberResponse>{ value: mapper((await this.stat(loc))) });
+        return this.asyncCatcher(async () => <NumberResponse>{ value: mapper((await this.internalStat(loc))) });
     }
 
     lastModified(req: ISourceLocationRequest): Promise<TimestampResponse> {
@@ -237,7 +248,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
     }
 
     private async boolResultFromStat(loc: ISourceLocation, mapper: (s: vscode.FileStat) => boolean): Promise<BooleanResponse> {
-        return this.asyncCatcher(async () => <BooleanResponse>{ value: mapper((await this.stat(loc))) });
+        return this.asyncCatcher(async () => <BooleanResponse>{ value: mapper((await this.internalStat(loc))) });
     }
 
     isDirectory(req: ISourceLocationRequest): Promise<BooleanResponse> {
@@ -351,7 +362,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
     }
 
-    async resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
+    async resolveLocation(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
         this.logger.debug("[VSCodeFileSystemInRascal] resolve: ", req.loc);
         // There is currently no logical resolution of locations in VS Code
         return <SourceLocationResponse>{ loc: undefined };
