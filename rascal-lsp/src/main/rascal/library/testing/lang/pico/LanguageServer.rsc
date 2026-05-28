@@ -81,6 +81,7 @@ value picoExecutionService(removeTodo(loc at)) {
 
 value picoExecutionService(showWarning(str msg, loc at)) {
     showMessage(warning(msg, at));
+    logMessage(error("LOG " + msg, at));
     return ("result": true);
 }
 
