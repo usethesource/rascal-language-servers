@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.rascalmpl.uri.FileAttributes;
@@ -65,6 +66,8 @@ import io.usethesource.vallang.ISourceLocation;
 public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
     private static final Logger logger = LogManager.getLogger(RascalFileSystemServices.class);
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
+
+    @MonotonicNonNull
     private volatile RascalFileSystemServices fileSystemServices = null;
 
     private <T extends SourceLocationTransformer> T transformLocations(T req) {
