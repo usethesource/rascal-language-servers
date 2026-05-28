@@ -133,6 +133,14 @@ Hello world!
         }, Delays.slow, "Callback counter changed after watch ended", Delays.fast);
     });
 
+    it("Just to get the value of the counter", async () => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import IO;");
+        await repl.execute('readFile(|rascal-vscode-test:///remotefs-api-test/test-rascalfs-counter|)');
+        await ide.screenshot('COUNTER');
+    });
+
     it("IO operations on Rascal locations from VS Code", async () => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
