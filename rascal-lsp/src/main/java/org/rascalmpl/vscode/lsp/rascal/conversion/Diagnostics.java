@@ -31,9 +31,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -75,12 +73,6 @@ public class Diagnostics {
     }
 
     private Diagnostics() {/* hide implicit public constructor */ }
-
-    public static <K, V> Map<K, List<V>> groupByKey(Stream<Entry<K, V>> diagnostics) {
-        return diagnostics.collect(
-            Collectors.groupingBy(Entry::getKey,
-                Collectors.mapping(Entry::getValue, Collectors.toCollection(ArrayList::new))));
-    }
 
     /**
      * Template for a diagnostic, to be instantiated using column maps. This
@@ -209,7 +201,7 @@ public class Diagnostics {
         return result;
     }
 
-    public static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
+    private static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(translateSeverity(d));
         result.setMessage(getMessageString(d));
