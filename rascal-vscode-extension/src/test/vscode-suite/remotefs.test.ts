@@ -102,7 +102,7 @@ Hello world!
         await repl.start();
         await repl.execute("import IO;");
         await repl.execute("l = |tmp:///rascal-remotefs-test/rascalfs-watch-test|;");
-        await repl.execute("testRoot = |rascal-vscode-test:///remotefs-api-test/;");
+        await repl.execute("testRoot = |rascal-vscode-test:///remotefs-api-test/|;");
         await repl.execute('counterFile = testRoot + "test-rascalfs-counter";');
         await repl.execute('writeFile(l, "")');
         await repl.execute('readFile(testRoot + "test-rascalfs-initiate-watch")');
