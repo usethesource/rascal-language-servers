@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.io.IOException;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -41,7 +43,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -52,9 +53,6 @@ import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -70,10 +68,11 @@ public class PathConfigs {
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private final Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
+    private final Projects projects = new Projects();
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
         Caffeine.newBuilder()
             .expireAfterAccess(Duration.ofMinutes(20))
-            .build(PathConfigs::inferProjectRoot);
+            .build(projects::inferRoot);
 
     private final Executor executor;
     private final PathConfigDiagnostics diagnostics;
@@ -86,7 +85,7 @@ public class PathConfigs {
     }
 
     public void expungePathConfig(ISourceLocation project) {
-        var projectRoot = inferProjectRoot(project);
+        var projectRoot = projects.inferRoot(project);
         try {
             updater.unregisterProject(project);
         } catch (IOException e) {
@@ -262,42 +261,4 @@ public class PathConfigs {
         }
     }
 
-    /**
-     * Infers the root of the project that `member` is in.
-     */
-    private static ISourceLocation inferProjectRoot(ISourceLocation member) {
-        ISourceLocation lastRoot = member;
-        ISourceLocation root;
-        do {
-            root = lastRoot;
-            lastRoot = inferDeepestProjectRoot(URIUtil.getParentLocation(root));
-        } while (!lastRoot.equals(URIUtil.getParentLocation(root)));
-        return root;
-    }
-
-    /**
-     * Infers the longest project root-like path that `member` is in. Might return a sub-directory of `target/`.
-     */
-    private static ISourceLocation inferDeepestProjectRoot(ISourceLocation member) {
-        ISourceLocation current = member;
-        URIResolverRegistry reg = URIResolverRegistry.getInstance();
-        if (!reg.isDirectory(current)) {
-            current = URIUtil.getParentLocation(current);
-        }
-
-        while (current != null && reg.exists(current) && reg.isDirectory(current)) {
-            if (reg.exists(URIUtil.getChildLocation(current, "META-INF/RASCAL.MF"))) {
-                return current;
-            }
-            var parent = URIUtil.getParentLocation(current);
-            if (parent.equals(current)) {
-                // we went all the way up to the root
-                return reg.isDirectory(member) ? member : URIUtil.getParentLocation(member);
-            }
-
-            current = parent;
-        }
-
-        return current;
-    }
 }
