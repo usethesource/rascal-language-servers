@@ -70,9 +70,10 @@ set[LanguageService] testingLanguageServerSlowSummary() = testingLanguageServerS
 set[LanguageService] testingLanguageServerSlowSummaryWithRecovery() = testingLanguageServerSlowSummary(true);
 
 void register(bool errorRecovery=false) {
+    pcfg = picoProjectConfig();
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "testing::lang::pico::LanguageServer",
@@ -81,7 +82,7 @@ void register(bool errorRecovery=false) {
     );
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "testing::lang::pico::LanguageServer",
