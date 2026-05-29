@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 public class Versioned<T> {
@@ -76,5 +77,9 @@ public class Versioned<T> {
                 return false;
             }
         }
+    }
+
+    public <U> Versioned<U> map(Function<? super T, ? extends U> func) {
+        return new Versioned<>(this.version, func.apply(this.object), this.timestamp);
     }
 }

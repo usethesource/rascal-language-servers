@@ -24,22 +24,17 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc;
+package org.rascalmpl.vscode.lsp;
 
-import java.io.IOException;
-import java.util.function.Consumer;
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
-import org.rascalmpl.uri.ISourceLocationWatcher;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
+import java.io.FileNotFoundException;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
+
 import io.usethesource.vallang.ISourceLocation;
 
-@JsonSegment("rascal/vfs/watcher")
-public interface VSCodeUriResolverClient {
-
-    @JsonNotification
-    void emitWatch(ISourceLocationChanged event);
-
-    void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
-    void removeWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
+public interface ITextDocumentStateManager {
+    LineColumnOffsetMap getColumnMap(ISourceLocation file);
+    ColumnMaps getColumnMaps();
+    TextDocumentState getEditorState(ISourceLocation file) throws FileNotFoundException;
+    boolean isManagingFile(ISourceLocation file);
 }

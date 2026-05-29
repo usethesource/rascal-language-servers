@@ -190,7 +190,7 @@ async function downloadJDK(): Promise<string> {
     }
 
     const result = await downloadJDKWithProgress(choice);
-    vscode.window.showInformationMessage(`Finished downloading ${choice} JDK, Rascal will now start`);
+    void vscode.window.showInformationMessage(`Finished downloading ${choice} JDK, Rascal will now start`);
     return result;
 }
 
@@ -229,7 +229,7 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                     const latest = await dl.identifyLatestTemurinLTSRelease(currentPreferredJVMEngine, dl.mapTemuringCorrettoArch(), dl.mapTemurinPlatform());
                     const currentVersion = "jdk-"+releaseInfo.java_runtime_version;
                     if(currentVersion !== latest){
-                        askUserForJVMUpdate(temurin, latest, currentVersion);
+                        void askUserForJVMUpdate(temurin, latest, currentVersion);
                     }
                     return;
                 }
@@ -239,7 +239,7 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                     }
                     const latest = await dl.identifyLatestMicrofotJDKRelease(currentPreferredJVMEngine, dl.mapMSArchitectures(), dl.mapMSPlatforms());
                     if(releaseInfo.java_version !== latest){
-                        askUserForJVMUpdate(msJava, latest, releaseInfo.java_version);
+                        void askUserForJVMUpdate(msJava, latest, releaseInfo.java_version);
                     }
                     return;
                 }
@@ -250,7 +250,7 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
                     const latest = await dl.identifyLatestCorrettoRelease(currentPreferredJVMEngine, dl.mapTemuringCorrettoArch(), dl.mapCorrettoPlatform());
                     const currentVersion = releaseInfo.implementor_version.slice(9);
                     if(currentVersion !== latest){
-                        askUserForJVMUpdate(amazon, latest, currentVersion);
+                        void askUserForJVMUpdate(amazon, latest, currentVersion);
                     }
                     return;
                 }
@@ -259,11 +259,11 @@ export async function checkForJVMUpdate(mainJVMsPath:string = mainJVMPath){
     }
 }
 
-export function askUserForJVMUpdate(jdktype: string, newVersion: string, currentVersion: string){
-    vscode.window.showInformationMessage(`Rascal VS Code extension has previously downloaded a ${jdktype} distribution of the OpenJDK (${currentVersion}). There is a new update (${newVersion}). In general the update contains bugfixes and security patches. Should we install the update?`, ...["Install update", "Do not update"]).then(async ans => {
+export async function askUserForJVMUpdate(jdktype: string, newVersion: string, currentVersion: string){
+    await vscode.window.showInformationMessage(`Rascal VS Code extension has previously downloaded a ${jdktype} distribution of the OpenJDK (${currentVersion}). There is a new update (${newVersion}). In general the update contains bugfixes and security patches. Should we install the update?`, ...["Install update", "Do not update"]).then(async ans => {
         if(ans === "Install update"){
             await downloadJDKWithProgress(jdktype);
-            vscode.window.showInformationMessage(`Finished updating ${jdktype} JDK. The new version will be used for the next VS Code session.`);
+            await vscode.window.showInformationMessage(`Finished updating ${jdktype} JDK. The new version will be used for the next VS Code session.`);
         }
     });
 }

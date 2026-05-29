@@ -79,7 +79,7 @@ list[CodeAction] addLicenseAction(start[Module] \module, PathConfig pcfg) {
             license = "@license{
                       '<license>
                       '}\n";
-            return [action(edits=[makeLicenseEdit(\module@\loc, license)], title="Add missing license header")];
+            return [action(edits=[makeLicenseEdit(\module.src, license)], title="Add missing license header")];
         }
     }
 
@@ -119,7 +119,7 @@ list[CodeAction] toplevelCodeActions(Toplevel t:
     result = (Toplevel) `<Tags tags>
                         '<Visibility visibility> <Signature signature> = <Expression e>;`;
 
-    edits=[changed(t@\loc.top, [replace(t@\loc, trim("<result>"))])];
+    edits=[changed(t.src.top, [replace(t.src, trim("<result>"))])];
 
     return [action(edits=edits, title="Rewrite block return to simpler rewrite rule.", kind=refactor())];
 }
@@ -151,6 +151,6 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
                 '
                 '<}>"[..-2];
 
-    applyDocumentsEdits([changed(h@\loc.top, [replace(h.imports@\loc, newHeader)])]);
+    applyDocumentsEdits([changed(h.src.top, [replace(h.imports.src, newHeader)])]);
     return ("result":true);
 }

@@ -27,7 +27,7 @@
 import * as vscode from 'vscode';
 
 import { BaseLanguageClient } from 'vscode-languageclient';
-import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
+import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
@@ -41,7 +41,7 @@ export class RascalLanguageServer implements vscode.Disposable {
 
     constructor(
         _context: vscode.ExtensionContext,
-        vfsServer: VSCodeUriResolverServer,
+        vfsServer: VSCodeFileSystemInRascal,
         absoluteJarPath: string,
         dslLSP: ParameterizedLanguageServer,
         logger: vscode.LogOutputChannel,
@@ -62,9 +62,9 @@ export class RascalLanguageServer implements vscode.Disposable {
 
         this.languageRegistry = new LanguageRegistry(dslLSP, logger);
 
-        this.rascalClient.then(client => {
+        void this.rascalClient.then(client => {
             client.onNotification("rascal/startDebuggingSession", (serverPort:number) => {
-                this.rascalDebugClient.startDebuggingSession(serverPort);
+                void this.rascalDebugClient.startDebuggingSession(serverPort);
             });
             client.onNotification("rascal/registerDebugServerPort", (processID:number, serverPort:number) => {
                 this.rascalDebugClient.registerDebugServerPort(processID, serverPort);
@@ -72,7 +72,7 @@ export class RascalLanguageServer implements vscode.Disposable {
         });
     }
     dispose() {
-        this.rascalClient.then(c => c.dispose());
+        void this.rascalClient.then(c => c.dispose());
         this.languageRegistry.dispose();
     }
 }

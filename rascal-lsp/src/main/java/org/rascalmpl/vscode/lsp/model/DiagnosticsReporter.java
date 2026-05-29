@@ -24,27 +24,21 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.model;
 
-import java.util.function.Supplier;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import java.util.List;
+import org.eclipse.lsp4j.Diagnostic;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
+import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 
-public interface Lazy<T extends @NonNull Object> extends Supplier<T> {
-    public static <T extends @NonNull Object> Lazy<T> defer(Supplier<T> generator) {
-        return new Lazy<T>(){
-            private volatile @MonotonicNonNull T result = null;
+import io.usethesource.vallang.ISourceLocation;
 
-            @Override
-            public T get() {
-                if (result == null) {
-                    result = generator.get();
-                }
-                return result;
-            }
-
-        };
-
-    }
-
+/**
+ * Interface for objects that can report diagnostics on files.
+ *
+ * Encapsulates common behavior of {@link FileFacts} and {@link ParametricFileFacts}.
+ */
+public interface DiagnosticsReporter {
+    void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs);
 }

@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -50,6 +49,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
 import org.rascalmpl.vscode.lsp.util.Lists;
@@ -59,7 +59,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
-public class ParametricFileFacts {
+public class ParametricFileFacts implements DiagnosticsReporter {
     private static final Logger logger = LogManager.getLogger(ParametricFileFacts.class);
 
     private final Executor exec;
@@ -109,8 +109,9 @@ public class ParametricFileFacts {
         this.client = client;
     }
 
-    public void reportParseErrors(ISourceLocation file, int version, List<Diagnostic> msgs) {
-        getFile(file).reportParseErrors(version, msgs);
+    @Override
+    public void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
+        getFile(file).reportParseErrors(msgs);
     }
 
     private FileFact getFile(ISourceLocation file) {
@@ -162,20 +163,29 @@ public class ParametricFileFacts {
         getFile(file).close();
     }
 
+    public void remove(ISourceLocation file) {
+        var fact = files.remove(file);
+        if (fact != null) {
+            fact.remove();
+        }
+    }
+
     private interface FileFact {
         void invalidateAnalyzer(boolean isClosing);
         void invalidateBuilder(boolean isClosing);
         void close();
+        void remove();
         void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay);
         void calculateBuilder(CompletableFuture<Versioned<ITree>> tree);
-        void reportParseErrors(int version, List<Diagnostic> messages);
+        void reportParseErrors(Versioned<List<Diagnostic>> messages);
         void clearDiagnostics();
         <T> CompletableFuture<List<T>> lookupInSummaries(SummaryLookup<T> lookup, Versioned<ITree> tree, Position cursor);
     }
-    
+
     @SuppressWarnings("java:S3077") // Reads/writes to fields of this class happen sequentially
     private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
+        private volatile boolean removed = false;
 
         // To replace old diagnostics when new diagnostics become available in a
         // thread-safe way, we need to atomically: (1) check if the version of
@@ -200,9 +210,8 @@ public class ParametricFileFacts {
             this.file = file;
         }
 
-        private <T> void reportDiagnostics(AtomicReference<Versioned<T>> current, int version, T messages) {
-            var maybeNewer = new Versioned<>(version, messages);
-            if (Versioned.replaceIfNewer(current, maybeNewer)) {
+        private <T> void reportDiagnostics(AtomicReference<Versioned<T>> current, Versioned<T> messages) {
+            if (Versioned.replaceIfNewer(current, messages)) {
                 sendDiagnostics();
             }
         }
@@ -237,17 +246,15 @@ public class ParametricFileFacts {
                 if ((aMessages.isEmpty() && bMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
                     // If there are no messages for this file or the file has been deleted, can we remove it
                     // else VS Code comes back and we've dropped the messages in our internal data
-                    remove(file);
+                    ParametricFileFacts.this.remove(file);
                 }
             });
         }
 
-        private @Nullable FileFact remove(ISourceLocation file) {
-            var removed = files.remove(file.top());
-            if (removed != null) {
-                removed.clearDiagnostics();
-            }
-            return removed;
+        @Override
+        public void remove() {
+            removed = true;
+            clearDiagnostics();
         }
 
         /**
@@ -302,7 +309,7 @@ public class ParametricFileFacts {
                     .thenApply(f -> f.createFullSummary(file, tree))
                     .thenCompose(Function.identity());
                 ParametricSummary.getMessages(summary, exec)
-                    .thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, version, ms));
+                    .thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, new Versioned<>(version, ms)));
                 return summary;
             });
         }
@@ -342,13 +349,13 @@ public class ParametricFileFacts {
             var builderMessages = ParametricSummary.getMessages(latestBuilderBuild, exec);
             analyzerMessages.thenAcceptBothIfUninterrupted(builderMessages, (aMessages, bMessages) -> {
                 bMessages.removeAll(aMessages);
-                tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, t.version(), bMessages));
+                tree.thenAccept(t -> reportDiagnostics(builderDiagnostics, new Versioned<>(t.version(), bMessages)));
             });
         }
 
         @Override
-        public void reportParseErrors(int version, List<Diagnostic> messages) {
-            reportDiagnostics(parserDiagnostics, version, messages);
+        public void reportParseErrors(Versioned<List<Diagnostic>> messages) {
+            reportDiagnostics(parserDiagnostics, messages);
         }
 
         @Override
@@ -363,6 +370,10 @@ public class ParametricFileFacts {
         }
 
         private void sendDiagnostics() {
+            if (removed) {
+                logger.debug("Will not send diagnostics since the file has been removed");
+                return;
+            }
             if (client == null) {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
                 return;
@@ -383,9 +394,17 @@ public class ParametricFileFacts {
                 "Sending {} diagnostic(s) for {} (parser: v{}; analyzer: v{}; builder: v{})",
                 diagnostics.size(), file, fromParser.version(), fromAnalyzer.version(), fromBuilder.version());
 
-            client.publishDiagnostics(new PublishDiagnosticsParams(
-                Locations.toUri(file).toString(),
-                diagnostics));
+            var uri = Locations.toUri(file).toString();
+            client.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
+
+            // The file for which diagnostics have just been sent, may have been
+            // deleted concurrently (i.e., after the `removed` check at the
+            // start of this method, but before the `publishDiagnostics` call).
+            // The resulting race may have caused the send to have accidentally
+            // overwritten the clear, so an additional clear might be needed.
+            if (removed) {
+                client.publishDiagnostics(new PublishDiagnosticsParams(uri, Collections.emptyList()));
+            }
         }
 
         /**
@@ -459,6 +478,11 @@ public class ParametricFileFacts {
         }
 
         @Override
+        public void remove() {
+            // NOP
+        }
+
+        @Override
         public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
             // NOP
         }
@@ -469,7 +493,7 @@ public class ParametricFileFacts {
         }
 
         @Override
-        public void reportParseErrors(int version, List<Diagnostic> messages) {
+        public void reportParseErrors(Versioned<List<Diagnostic>> messages) {
             // NOP
         }
 

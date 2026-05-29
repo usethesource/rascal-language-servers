@@ -28,7 +28,6 @@ package org.rascalmpl.vscode.lsp;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
-
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
@@ -36,10 +35,9 @@ import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
 
 @JsonSegment("rascal")
-public interface IBaseLanguageServerExtensions extends LanguageServer, IRascalFileSystemServices {
+public interface IBaseLanguageServerExtensions extends LanguageServer {
     @JsonNotification
     default CompletableFuture<IDEServicesConfiguration> supplyRemoteIDEServicesConfiguration() {
         throw new UnsupportedOperationException();
@@ -60,9 +58,9 @@ public interface IBaseLanguageServerExtensions extends LanguageServer, IRascalFi
         throw new UnsupportedOperationException();
     }
 
-    @JsonNotification("vfs/register")
-    void registerVFS(VFSRegister registration);
-
-    @JsonNotification("logLevel")
+    @JsonNotification
     void setMinimumLogLevel(String level);
+
+    @JsonRequest("vfs/schemes")
+    CompletableFuture<String[]> fileSystemSchemes();
 }
