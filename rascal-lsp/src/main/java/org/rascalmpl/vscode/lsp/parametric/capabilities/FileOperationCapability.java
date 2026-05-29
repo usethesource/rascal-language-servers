@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -80,11 +81,29 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
             .map(FileOperationCapability::extensionFilter)
             .collect(Collectors.toList());
 
-        var anyFolder = new FileOperationPattern("**/*");
-        anyFolder.setMatches(FileOperationPatternKind.Folder);
-        patterns.add(new FileOperationFilter(anyFolder));
+        for (var glob : folderOperationGlobs()) {
+            var pattern = new FileOperationPattern(glob);
+            pattern.setMatches(FileOperationPatternKind.Folder);
+            patterns.add(new FileOperationFilter(pattern));
+        }
+
+        for (var glob : fileOperationGlobs()) {
+            var pattern = new FileOperationPattern(glob);
+            pattern.setMatches(FileOperationPatternKind.File);
+            patterns.add(new FileOperationFilter(pattern));
+        }
 
         return CompletableFutureUtils.completedFuture(new FileOperationOptions(patterns), exec);
+    }
+
+    protected List<String> folderOperationGlobs() {
+        // By default, do receive notifications about each folder
+        return List.of("**/*");
+    }
+
+    protected List<String> fileOperationGlobs() {
+        // By default, don't receive notifications about any file
+        return Collections.emptyList();
     }
 
     /**
@@ -141,6 +160,12 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
             fileOperationCapabilities(result).setDidDelete(staticOptions());
         }
 
+        @Override
+        protected List<String> fileOperationGlobs() {
+            // Receiving notifications about extension-less files would be enough, but it seems "extension-less file"
+            // cannot be expressed using LSP's glob patterns.
+            return List.of("**/*");
+        }
     }
 
     /**

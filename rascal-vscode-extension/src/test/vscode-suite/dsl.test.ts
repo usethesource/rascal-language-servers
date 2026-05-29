@@ -52,7 +52,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import demo::lang::pico::LanguageServer;");
+        await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
 
         // If Pico was registered before as part of another series of tests,
         // then it needs to be unregistered first (because error recovery
@@ -65,7 +65,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
         await sleep(Delays.normal);
 
-        const replExecuteMain = repl.execute(`main(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
+        const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
@@ -222,8 +222,7 @@ end
     it("code lens works", async function() {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        const lens = await driver.wait(() => editor.getCodeLens("Rename variables a to b."), Delays.verySlow, "Rename lens should be available");
-        await lens!.click();
+        await ide.clickCodeLens(editor, "Rename variables a to b.", Delays.verySlow, "Rename lens should be available");
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
@@ -248,7 +247,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.moveCursor(5, 6);
 
-        ide.renameSymbol(editor, bench, "z");
+        await ide.renameSymbol(editor, bench, "z");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
@@ -309,11 +308,16 @@ end
 
     it("completion works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.setTextAtLine(6, "     aa : natural;");
+        try {
+            await editor.setTextAtLine(6, "     aa : natural;");
 
-        await editor.moveCursor(9, 4);
-        await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
-        expectCompletions(editor, ["a", "aa"]);
+            await editor.moveCursor(9, 4);
+            await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
+            await expectCompletions(driver, editor, ["a", "aa"]);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 
     it("completion by trigger character works", async function() {
@@ -321,9 +325,14 @@ end
         if (!errorRecovery) { this.skip(); }
 
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.moveCursor(10, 10);
-        await editor.typeText("  x :=");
-        expectCompletions(editor, ["x", "n", "a", "b"]);
+        try {
+            await editor.moveCursor(10, 10);
+            await editor.typeText("  x :=");
+            await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 
     it("serializes Rascal values as expected", async function() {

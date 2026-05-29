@@ -24,20 +24,21 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc;
+package org.rascalmpl.vscode.lsp.model;
 
-import java.io.IOException;
-import java.util.function.Consumer;
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.rascalmpl.uri.ISourceLocationWatcher;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
+import java.util.List;
+import org.eclipse.lsp4j.Diagnostic;
+import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
+import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
+import org.rascalmpl.vscode.lsp.util.Versioned;
+
 import io.usethesource.vallang.ISourceLocation;
 
-public interface VSCodeUriResolverClient {
-
-    @JsonNotification("rascal/vfs/watcher/emitWatch")
-    void emitWatch(ISourceLocationChanged event);
-
-    void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
-    void removeWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
+/**
+ * Interface for objects that can report diagnostics on files.
+ *
+ * Encapsulates common behavior of {@link FileFacts} and {@link ParametricFileFacts}.
+ */
+public interface DiagnosticsReporter {
+    void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs);
 }

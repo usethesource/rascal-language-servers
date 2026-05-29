@@ -29,7 +29,7 @@ import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
 import * as os from 'os';
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 import path = require("path");
 
 export async function sleep(ms: number) {
@@ -164,6 +164,9 @@ export class RascalREPL {
         }
     }
 
+    /**
+     * WARNING: This will give the last output as expected **ONLY** if the last Rascal prompt fitted on a single line
+     */
     get lastOutput() { return this.lastReplOutput; }
 
     async terminate() {
@@ -237,6 +240,12 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
+
+        // There should be no more error diagnostics
+        const bottomBar = new Workbench().getBottomBar();
+        const problemsView = await bottomBar.openProblemsView();
+        const allVisibleMarkers = await problemsView.getAllVisibleMarkers(MarkerType.Error);
+        expect(allVisibleMarkers.length, "Not all error diagnostics have been cleared").to.equal(0);
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
@@ -283,7 +292,7 @@ export class IDEOperations {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
                 const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
-                this.screenshot(`revert of ${title} failed ` + tryCount);
+                await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
             try {
@@ -299,7 +308,7 @@ export class IDEOperations {
                 return !(await new TextEditor().isDirty());
             }
             catch (ignored) {
-                this.screenshot("open editor check failed " + tryCount);
+                await this.screenshot("open editor check failed " + tryCount);
                 console.log("Open editor dirty check failed: ", ignored);
                 return false;
 
@@ -428,10 +437,16 @@ export class IDEOperations {
         }
     }
 
-
-    findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
-        return this.driver.wait(() => ignoreFails(editor.getCodeLens(name)), timeout, message);
-
+    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
+        await this.driver.wait(async () => {
+            try {
+                const lens = await editor.getCodeLens(name);
+                await lens!.click();
+                return true;
+            } catch (_e) {
+                return false;
+            }
+        }, timeout, message);
     }
 
     statusContains(needle: string): () => Promise<boolean> {
@@ -532,10 +547,13 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
     });
 }
 
-export async function expectCompletions(editor: TextEditor, expectedLabels: string[]) {
-    const completionMenu = new ContentAssist(editor);
-    const completions = await completionMenu.getItems();
+export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
+    const completions = await driver.wait(async () => {
+        const completionMenu = new ContentAssist(editor);
+        return await ignoreFails(completionMenu.getItems());
+    }, Delays.fast, "Completion items not found");
+
     expect(completions).to.have.length(expectedLabels.length);
-    const labels: string[] = await Promise.all(completions.map(c => c.getLabel()));
-    expect(labels).to.deep.equal(expectedLabels);
+    const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
+    expect(labels).deep.equal(expectedLabels);
 }

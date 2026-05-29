@@ -196,7 +196,7 @@ describe('IDE', function () {
         const checkRascalStatus = ide.statusContains("Loading Rascal");
         await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
-        ide.renameSymbol(editor, bench, "i");
+        await ide.renameSymbol(editor, bench, "i");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
@@ -251,11 +251,17 @@ describe('IDE', function () {
         const importerEditor = await ide.openModule(TestWorkspace.importerFile);
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
 
+        // Add type error
         await importeeEditor.typeTextAt(3, 1, "public str foo;");
         await ide.openModule(TestWorkspace.importerFile);
-
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
+
+        // Remove type error (absence of error diagnostics is checked as part of the `cleanup` call in `afterEach`)
+        await ide.openModule(TestWorkspace.importeeFile);
+        await importeeEditor.setTextAtLine(3, "public int foo;");
+        await ide.openModule(TestWorkspace.importerFile);
+        await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
     });
 
     it("errors in manifest detected", async() => {

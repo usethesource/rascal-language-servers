@@ -39,27 +39,15 @@ import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
-extend lang::pico::\syntax::Main;
+extend demo::lang::pico::Extensions;
 import lang::pico::format::Formatting;
-import DateTime;
-import IO;
-import Location;
-import String;
-
-import lang::box::\syntax::Box;
-extend lang::box::util::Tree2Box;
 import lang::box::util::Box2Text;
 import analysis::diff::edits::HiFiLayoutDiff;
-
-// We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
-// For most use-cases, one should not extend the grammar in the language server implementation
-syntax IdType
-    = function: Id id "(" {IdType ","}* args ")" ":" Type retType ":=" Expression body
-    ;
-
-syntax Expression
-    = call: Id id "(" {Expression ","}* args ")"
-    ;
+import DateTime;
+import IO;
+import List;
+import Location;
+import String;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -71,8 +59,8 @@ Each ((LanguageService)) for pico is implemented as a function.
 Here we group all services such that the LSP server can link them
 with the ((LanguageServer-Language)) definition later.
 }
-set[LanguageService] picoLanguageServer(bool allowRecovery) = {
-    parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
+set[LanguageService] picoLanguageServer() = {
+    parsing(picoParser(true), usesSpecialCaseHighlighting = false),
     documentSymbol(picoDocumentSymbolService),
     codeLens(picoCodeLenseService),
     execution(picoExecutionService),
@@ -87,59 +75,17 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     formatting(picoFormattingService)
 };
 
-list[TextEdit] picoFormattingService(Focus input, FormattingOptions opts) {
-    str original = "<input[-1]>";
-    box = toBox(input[-1]);
-    box = visit (box) { case i:I(_) => i[is=opts.tabSize] }
-    formatted = format(box);
-
-    if (!opts.trimTrailingWhitespace) {
-        // restore trailing whitespace that was lost during tree->box->text, or find a way to not lose it
-        println("The Pico formatter does not support maintaining trailing whitespace.");
-    }
-
-    if (!opts.insertSpaces) {
-        // replace indentation spaces with tabs
-        formatted = perLine(formatted, indentSpacesAsTabs(opts.tabSize));
-    }
-
-    if (/^.*[^\n]<newlines:\n*>$/s := original) {
-        // replace original final newlines or remove the one introduced by ((format)) (`Box2Text`)
-        formatted = replaceLast(formatted, "\n", opts.trimFinalNewlines ? "" : newlines);
-    }
-
-    if (opts.insertFinalNewline) {
-        // ensure presence of final newline
-        formatted = insertFinalNewline(formatted);
-    }
-
-    // compute layout differences as edits, and restore comments
-    edits = layoutDiff(input[-1], parse(#start[Program], formatted, input[-1]@\loc.top));
-
-    // instead of computing all edits and filtering, we can be more efficient by only formatting certain trees.
-    loc range = input[0]@\loc;
-    filteredEdits = [e | e <- edits, isContainedIn(e.range, range)];
-
-    return filteredEdits;
-}
-
-set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
-set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
-
 @synopsis{This set of contributions runs slower but provides more detail.}
 @description{
 ((LanguageService))s can be registered asynchronously and incrementally,
 such that quicky loaded features can be made available while slower to load
 tools come in later.
 }
-set[LanguageService] picoLanguageServerSlowSummary(bool allowRecovery) = {
-    parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
+set[LanguageService] picoLanguageServerSlowSummary() = {
+    parsing(picoParser(true), usesSpecialCaseHighlighting = false),
     analysis(picoAnalysisService, providesImplementations = false),
     build(picoBuildService)
 };
-
-set[LanguageService] picoLanguageServerSlowSummary() = picoLanguageServerSlowSummary(false);
-set[LanguageService] picoLanguageServerSlowSummaryWithRecovery() = picoLanguageServerSlowSummary(true);
 
 @synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
 @description{
@@ -166,9 +112,9 @@ data PicoSummarizerMode
 rel[DocumentSymbolKind, loc, Id, str] findDefinitions(Tree input, bool funcScope = false) {
     rel[DocumentSymbolKind, loc, Id, str] defs = {};
     top-down-break visit (input) {
-        case var:(IdType) `<Id id>: <Type _>`: defs += <funcScope ? constant() : variable(), var.src, id, typeOf(var)>;
+        case var:(IdType) `<Id id>: <Type _>`: defs += <funcScope ? constant() : variable(), var.src, id, typeName(var)>;
         case func:(IdType) `<Id id>(<{IdType ","}* args>): <Type _> := <Expression _>`: {
-            defs += <function(), func.src, id, typeOf(func)>;
+            defs += <function(), func.src, id, typeName(func)>;
             defs += findDefinitions(args, funcScope = true);
         }
     }
@@ -233,12 +179,11 @@ default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 data Command
   = renameAtoB(start[Program] program)
   | removeDecl(start[Program] program, IdType toBeRemoved)
-  | testValueEncoding()
   ;
 
 @synopsis{Adds an example lense to the entire program.}
 lrel[loc,Command] picoCodeLenseService(start[Program] input)
-    = [<input@\loc, renameAtoB(input, title="Rename variables a to b.")>];
+    = [<input.src, renameAtoB(input, title="Rename variables a to b.")>];
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
 list[InlayHint] picoInlayHintService(start[Program] input) {
@@ -253,7 +198,7 @@ list[InlayHint] picoInlayHintService(start[Program] input) {
 
 @synopsis{Helper function to generate actual edit actions for the renameAtoB command}
 list[DocumentEdit] getAtoBEdits(start[Program] input)
-   = [changed(input@\loc.top, [replace(id@\loc, "b") | /id:(Id) `a` := input])];
+   = [changed(input.src.top, [replace(id.src, "b") | /id:(Id) `a` := input])];
 
 @synopsis{Command handler for the renameAtoB command}
 value picoExecutionService(renameAtoB(start[Program] input)) {
@@ -261,22 +206,9 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
     return ("result": true);
 }
 
-@synopsis{Command handler to test JSON serialization of various Rascal value types.}
-value picoExecutionService(testValueEncoding()) = (
-    "result": [ // list
-        ("a": true), // map, str, bool
-        {8, 1r2, 3.14, 10e3}, // set, int, rat, real
-        char(0), // ADT constructor
-        reposition(parse(#IdType, "x: string"), file = |test:///expectation|), // Tree
-        |memory://authority/file.ext|, // loc
-        $2026-03-19T11:55:54.121+0100$, // datetime
-        <[1..3], #int> // tuple, range, reified type
-    ]
-);
-
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
-    applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
+    applyDocumentsEdits([changed(program.src.top, [replace(toBeRemoved.src, "")])]);
     return ("result": true);
 }
 
@@ -313,7 +245,7 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 }
 
 list[loc] picoSelectionRangeService(Focus focus)
-    = dup([t@\loc | t <- focus]);
+    = dup([t.src | t <- focus]);
 
 list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression) `<Id callId>(<{Expression ","}* _>)`, *_, start[Program] prog]) {
     s = picoSummaryService(prog.src.top, prog, analyze());
@@ -332,13 +264,11 @@ CallHierarchyItem callHierarchyItem(start[Program] prog, Id id, loc decl, str tp
     = callHierarchyItem("<id>", function(), decl, id.src, detail = tp, \data = \data(prog));
 
 CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* _>): <Type _> := <Expression _>`)
-    = callHierarchyItem("<id>", function(), d.src, id.src, detail = typeOf(d), \data = \data(prog));
+    = callHierarchyItem("<id>", function(), d.src, id.src, detail = typeName(d), \data = \data(prog));
 
 data CallHierarchyData = \data(start[Program] prog);
 
-str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
-str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
-    = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
+str typeName((IdType) `<Id _>: <Type t>`) = "<t>";
 
 lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirection dir) {
     s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
@@ -361,7 +291,7 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
     t = focus[0];
     str prefix = "<t>"[..cursorOffset];
     cc = t.src.begin.column + cursorOffset;
-    items = [];
+    list[CompletionItem] items = [];
 
     isTypingId = false;
     try {
@@ -378,12 +308,20 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
                 e = isTypingId && !trigger is character
                     ? completionEdit(t.src.begin.column, cc, t.src.end.column, name)
                     : completionEdit(cc, cc, cc, name);
-                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeOf(def)>");
+                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeName(def)>");
             }
         }
     }
 
-    return items;
+    return sort(items, bool(CompletionItem i1, CompletionItem i2) {return i1.label < i2.label; });
+}
+
+list[TextEdit] picoFormattingService(Focus focus, FormattingOptions opts) {
+    tr = focus[0];
+    if (type[&T <: Tree] treeType := type(typeOf(tr), grammar(#start[Program]).rules)) {
+        formatted = format(toBox(tr));
+        return layoutDiff(tr, parse(treeType, formatted, tr.src.top));
+    }
 }
 
 @synopsis{The main function registers the Pico language with the IDE}
@@ -403,14 +341,14 @@ in the presence of error trees. See ((util::LanguageServer)) for more details.
 * You can run each contribution on an example in the terminal to test it first.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
-void main(bool errorRecovery=false) {
+void main() {
     registerLanguage(
         language(
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
-            errorRecovery ? "picoLanguageServerWithRecovery" : "picoLanguageServer"
+            "picoLanguageServer"
         )
     );
     registerLanguage(
@@ -419,7 +357,7 @@ void main(bool errorRecovery=false) {
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
-            errorRecovery ? "picoLanguageServerSlowSummaryWithRecovery" : "picoLanguageServerSlowSummary"
+            "picoLanguageServerSlowSummary"
         )
     );
 }

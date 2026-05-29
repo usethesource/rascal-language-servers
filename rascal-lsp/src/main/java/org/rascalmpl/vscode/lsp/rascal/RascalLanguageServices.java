@@ -29,8 +29,10 @@ package org.rascalmpl.vscode.lsp.rascal;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.makeFutureEvaluator;
 import static org.rascalmpl.vscode.lsp.util.EvaluatorUtil.runEvaluator;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -40,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -130,17 +133,92 @@ public class RascalLanguageServices {
         this.workspaceService = workspaceService;
     }
 
-    public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, PathConfig pcfg) {
-        try {
-            IString moduleName = VF.string(pcfg.getModuleName(occ));
-            return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
-                IConstructor result = (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
-                return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
-            }, null, exec, false, client);
-        } catch (IOException e) {
-            logger.error("Error looking up module name from source location {}", occ, e);
-            return InterruptibleFuture.completedFuture(null, exec);
+    static String pathToModuleName(ISourceLocation l) {
+        var p = l.getPath();
+        if (isInsideJar(l)) {
+            p = jarFilePath(l);
         }
+        return p.substring(1, p.lastIndexOf('.')).replace("/", "::");
+    }
+
+    private static boolean isInsideJar(ISourceLocation l) {
+        return l.getScheme().startsWith("jar+");
+    }
+
+    static @Nullable ISourceLocation libraryTplLocation(ISourceLocation modPath) {
+        try {
+            var tplFolder = libraryTplRoot(modPath);
+            if (tplFolder != null) {
+                var modPrefix = libraryModulePrefix(modPath);
+                var tplFileName = "$" + URIUtil.getLocationName(URIUtil.changeExtension(modPath, "tpl"));
+                return URIUtil.getChildLocation(URIUtil.getChildLocation(tplFolder, modPrefix), tplFileName);
+            }
+        } catch (URISyntaxException e) {
+            logger.error("Error while finding TPL for {}", modPath, e);
+        }
+        return null;
+    }
+
+    private static @Nullable ISourceLocation libraryTplRoot(ISourceLocation modPath) throws URISyntaxException {
+        modPath = Locations.toPhysicalIfPossible(modPath); // resolve logical paths like `std:///`
+        if (isInsideJar(modPath)) {
+            return URIUtil.getChildLocation(jarBasePath(modPath), "rascal");
+        } else if ("mvn".equals(modPath.getScheme())) {
+            return URIUtil.changePath(modPath, "rascal");
+        }
+        return null;
+    }
+
+    private static String libraryModulePrefix(ISourceLocation modPath) {
+        modPath = URIUtil.getParentLocation(modPath);
+        if (isInsideJar(modPath)) {
+            // For a file within a JAR, return the sub-path within the JAR
+            return jarFilePath(modPath);
+        }
+        // Otherwise, return just the sub-path
+        return modPath.getPath();
+    }
+
+    private static ISourceLocation jarBasePath(ISourceLocation l) throws URISyntaxException {
+        if (!isInsideJar(l)) {
+            throw new IllegalArgumentException("Location should have scheme jar+...: " + l);
+        }
+
+        var path = l.getPath();
+        return URIUtil.changePath(l, path.substring(0, path.lastIndexOf('!') + 1));
+    }
+
+    private static String jarFilePath(ISourceLocation l) {
+        if (!isInsideJar(l)) {
+            throw new IllegalArgumentException("Location should have scheme jar+...: " + l);
+        }
+
+        var path = l.getPath();
+        return path.substring(path.lastIndexOf('!') + 1);
+    }
+
+    public InterruptibleFuture<@Nullable IConstructor> getSummary(ISourceLocation occ, Function<ISourceLocation, PathConfig> computePathConfig) {
+        Function<Evaluator, @Nullable IConstructor> computeSummary;
+        var tplLoc = libraryTplLocation(occ);
+        if (tplLoc != null) {
+            computeSummary = eval -> (IConstructor) eval.call("makeSummary", VF.string(pathToModuleName(occ)), tplLoc);
+        } else {
+            computeSummary = eval -> {
+                try {
+                    var pcfg = computePathConfig.apply(occ);
+                    var moduleName = VF.string(pcfg.getModuleName(occ));
+                    return (IConstructor) eval.call("makeSummary", moduleName, pcfg.asConstructor());
+                } catch (IOException e) {
+                    logger.error("Error looking up module name for source location {}", occ, e);
+                    return null;
+                }
+            };
+        }
+
+        return runEvaluator("Rascal makeSummary", semanticEvaluator, eval -> {
+            var result = computeSummary.apply(eval);
+            return result != null && result.asWithKeywordParameters().hasParameters() ? result : null;
+        }, null, exec, false, client);
     }
 
     private static Map<ISourceLocation, ISet> translateCheckResults(IMap messages) {
@@ -163,11 +241,11 @@ public class RascalLanguageServices {
             ISourceLocation resolvedLocation = Locations.toClientLocation((ISourceLocation) t[0]);
             try {
                 // although we cannot type-check modules with errors, we prefer to get the errors here instead of retrying the parse and still failing after this try-block
-                var tree = rascalTextDocumentService.getFile(resolvedLocation).getCurrentTreeAsync(true).get();
+                var tree = rascalTextDocumentService.getEditorState(resolvedLocation).getCurrentTreeAsync(true).get();
                 if (tree != null) {
                     return tree.get();
                 }
-            } catch (ResponseErrorException | ExecutionException e1) {
+            } catch (FileNotFoundException | ExecutionException e1) {
                 // File is not open in the IDE | Parse threw an exception
                 // In either case, fall through and try a direct parse
             } catch (InterruptedException e1) {

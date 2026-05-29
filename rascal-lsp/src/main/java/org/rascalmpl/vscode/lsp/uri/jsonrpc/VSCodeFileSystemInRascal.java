@@ -24,39 +24,27 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import java.io.IOException;
 
-public class ReadFileResult {
+import org.rascalmpl.uri.remote.RemoteExternalResolverRegistry;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 
-    @NonNull private String contents;
+import io.usethesource.vallang.ISourceLocation;
 
-    public ReadFileResult(@NonNull String contents) {
-        this.contents = contents;
-    }
-
-    public String getContents() {
-        return contents;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object obj) {
-        if (obj instanceof ReadFileResult) {
-            return contents.equals(((ReadFileResult)obj).contents);
-        }
-        return false;
+/**
+ * Wrapper for RemoteExternalResolverRegistry handling LSP-specifics.
+ * In particular, locations from LSP are mapped to Rascal-friendly locations.
+ */
+public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
+    public VSCodeFileSystemInRascal(int remoteResolverRegistryPort) {
+        super(remoteResolverRegistryPort);
     }
 
     @Override
-    public int hashCode() {
-        return contents.hashCode();
+    public ISourceLocation resolve(ISourceLocation input) throws IOException {
+        var resolved = super.resolve(input);
+        return LSPOpenFileRedirector.getInstance().resolve(resolved == null ? input : resolved);
     }
-
-    @Override
-    public String toString() {
-        return "ReadFileResult [contents=" + contents + "]";
-    }
-
 }

@@ -24,27 +24,17 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp;
 
-import java.util.function.Supplier;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import java.io.FileNotFoundException;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
 
-public interface Lazy<T extends @NonNull Object> extends Supplier<T> {
-    public static <T extends @NonNull Object> Lazy<T> defer(Supplier<T> generator) {
-        return new Lazy<T>(){
-            private volatile @MonotonicNonNull T result = null;
+import io.usethesource.vallang.ISourceLocation;
 
-            @Override
-            public T get() {
-                if (result == null) {
-                    result = generator.get();
-                }
-                return result;
-            }
-
-        };
-
-    }
-
+public interface ITextDocumentStateManager {
+    LineColumnOffsetMap getColumnMap(ISourceLocation file);
+    ColumnMaps getColumnMaps();
+    TextDocumentState getEditorState(ISourceLocation file) throws FileNotFoundException;
+    boolean isManagingFile(ISourceLocation file);
 }
