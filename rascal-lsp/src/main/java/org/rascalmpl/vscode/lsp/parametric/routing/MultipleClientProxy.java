@@ -50,6 +50,7 @@ import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationChanged;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
@@ -204,6 +205,11 @@ public class MultipleClientProxy implements IBaseLanguageClient, LanguageClientA
     @Override
     public CompletableFuture<List<WorkspaceFolder>> workspaceFolders() {
         return availableClient().workspaceFolders();
+    }
+
+    @Override
+    public void sourceLocationChanged(ISourceLocationChanged changed) {
+        availableClient().sourceLocationChanged(changed);
     }
 
 }

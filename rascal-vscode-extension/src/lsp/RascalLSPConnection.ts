@@ -31,17 +31,17 @@ import * as vscode from 'vscode';
 
 import { integer, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import { getJavaExecutable } from '../auto-jvm/JavaLookup';
-import { RascalFileSystemProvider } from '../fs/RascalFileSystemProviders';
-import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
+import { RascalFileSystemInVSCode } from '../fs/RascalFileSystemInVSCode';
+import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 import { JsonParserOutputChannel } from './JsonOutputChannel';
 
 export async function activateLanguageClient(
     { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false, lspArg = "" } :
-    {language: string, title: string, jarPath: string, vfsServer: VSCodeUriResolverServer, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
+    {language: string, title: string, jarPath: string, vfsServer: VSCodeFileSystemInRascal, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
     : Promise<LanguageClient> {
     const logger = new JsonParserOutputChannel(title);
     const serverOptions: ServerOptions = deployMode
-        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, logger)
+        ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, await vfsServer.serverPort, logger)
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
@@ -54,24 +54,22 @@ export async function activateLanguageClient(
 
     await client.start();
     logger.setClient(client);
-    void client.sendNotification("rascal/vfs/register", {
-        port: await vfsServer.serverPort
-    });
 
     client.onNotification("rascal/showContent", (uri: string, title: string, viewColumn: integer) => {
+        logger.trace(`[RascalLSPConnection] showContent: ${uri}`);
         void showContentPanel(uri, title, viewColumn);
     });
 
-
     client.onNotification("rascal/editDocument", (uri: string, range: vscode.Range | undefined, viewColumn: integer) => {
+        logger.trace(`[RascalLSPConnection] editDocument: ${uri}`);
         void openEditor(uri, range, viewColumn);
     });
 
-    const schemesReply = client.sendRequest<string[]>("rascal/filesystem/schemes");
+    const schemesReply = client.sendRequest<string[]>("rascal/vfs/schemes");
 
     void schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
-        new RascalFileSystemProvider(client, logger).tryRegisterSchemes(schemes);
+        new RascalFileSystemInVSCode(client, logger).tryRegisterSchemes(schemes);
     });
 
     return client;
@@ -157,14 +155,15 @@ function loadURLintoPanel(panel:vscode.WebviewPanel, url:string): void {
             </html>`;
 }
 
-async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
+async function buildRascalServerOptions(jarPath: string, isParametricServer: boolean, dedicated: boolean, lspArg: string | undefined, remoteResolverRegistryPort : number, logger: vscode.LogOutputChannel): Promise<ServerOptions> {
     const classpath = buildCompilerJVMPath(jarPath);
     const commandArgs = [
         '-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration'
         , '-Dlog4j2.level=DEBUG'
-        , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
         , '-Drascal.lsp.deploy=true'
         , '-Drascal.compilerClasspath=' + classpath
+        , '-Drascal.remoteResolverRegistryPort=' + remoteResolverRegistryPort
+        , '-Drascal.customRemoteResolverRegistryClass=org.rascalmpl.vscode.lsp.uri.jsonrpc.VSCodeFileSystemInRascal'
     ];
     let mainClass: string;
     if (isParametricServer) {
