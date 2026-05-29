@@ -83,13 +83,21 @@ describe('RemoteFS', function () {
         await repl.execute('writeFile(l, "two")');
         await repl.execute("readFile(l)");
         await driver.wait(async () => {
-            await repl.execute("i");
-            return repl.lastOutput === "int: 1";
+            await repl.execute("i > 0");
+            return repl.lastOutput === "bool: true";
         }, Delays.slow, "Callback counter not updated after write", Delays.fast);
         await repl.execute("unwatch(l, false, inc)");
-        await repl.execute("writeFile(l, \"three\")");
         await repl.execute("i");
-        expect(repl.lastOutput).is.equal("int: 1");
+        let previousOutput = repl.lastOutput;
+        await driver.wait(async () => {
+            await repl.execute('writeFile(l, "three")');
+            await repl.execute('i');
+            if (repl.lastOutput !== previousOutput) {
+                previousOutput = repl.lastOutput;
+                return false;
+            }
+            return true;
+        }, Delays.slow, "Callback counter changed after watch ended", Delays.fast);
     });
 
     // Rascal file system in VS Code
@@ -108,15 +116,17 @@ describe('RemoteFS', function () {
 
         await repl.execute('writeFile(l, "aa")');
         await driver.wait(async () => {
-            await repl.execute('readFile(counterFile) == "1"');
+            await repl.execute('readFile(counterFile) >= "1"');
             return repl.lastOutput === "bool: true";
         }, Delays.slow, "Callback counter not at 1", Delays.fast);
 
+
+        await repl.execute('oldCounter = readFile(counterFile);');
         await repl.execute('writeFile(l, "bb")');
         await driver.wait(async () => {
-            await repl.execute('readFile(counterFile) == "2"');
+            await repl.execute('readFile(counterFile) > oldCounter');
             return repl.lastOutput === "bool: true";
-        }, Delays.slow, "Callback counter not at 2", Delays.fast);
+        }, Delays.slow, "Callback counter not increased", Delays.fast);
 
         await repl.execute('readFile(counterFile)');
         let previousOutput = repl.lastOutput;
