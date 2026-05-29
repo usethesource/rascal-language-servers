@@ -113,11 +113,9 @@
   <build>
     <resources>
       <resource>
-        <directory>.</directory>
+        <directory>META-INF</directory>
+        <targetPath>${project.build.outputDirectory}/META-INF</targetPath>  <!-- this way of framing it works around issue in m2e -->
         <filtering>false</filtering>
-        <includes>
-          <include>META-INF/RASCAL.MF</include>
-        </includes>
       </resource>
       <resource>
         <directory>src/main/resources</directory>
