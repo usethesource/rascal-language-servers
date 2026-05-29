@@ -76,7 +76,7 @@ public class SemanticTokenizer {
         return new SemanticTokens(tokens.getTheList());
     }
 
-    public SemanticTokensWithRegistrationOptions options() {
+    public static SemanticTokensWithRegistrationOptions options() {
         SemanticTokensWithRegistrationOptions result = new SemanticTokensWithRegistrationOptions();
         SemanticTokensLegend legend = new SemanticTokensLegend(TokenTypes.getTokenTypes(), TokenTypes.getTokenModifiers());
 

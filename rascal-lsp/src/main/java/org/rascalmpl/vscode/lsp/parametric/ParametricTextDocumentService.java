@@ -179,6 +179,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
+    private final boolean exitWhenEmpty;
+
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
@@ -199,8 +201,13 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.abstractDataType(typeStore, "FileSystemChange"), "renamed", tf.sourceLocationType(), "from",
             tf.sourceLocationType(), "to");
 
-    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
+    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage, boolean exitWhenEmpty) {
+        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
+        URIResolverRegistry.getInstance();
+
         this.exec = exec;
+        this.exitWhenEmpty = exitWhenEmpty;
+
         if (dedicatedLanguage == null) {
             this.dedicatedLanguageName = "";
             this.dedicatedLanguage = null;
@@ -226,26 +233,33 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             , new CompletionCapability()
             , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
         );
+        setStaticServerCapabilities(dedicatedLanguageName, result);
         dynamicCapabilities.registerStaticCapabilities(result);
+    }
 
+    public static void setStaticServerCapabilities(ServerCapabilities result) {
+        setStaticServerCapabilities("", result);
+    }
+
+    private static void setStaticServerCapabilities(String dedicatedLanguageName, ServerCapabilities result) {
         result.setDefinitionProvider(true);
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setHoverProvider(true);
         result.setReferencesProvider(true);
         result.setDocumentSymbolProvider(true);
         result.setImplementationProvider(true);
-        result.setSemanticTokensProvider(tokenizer.options());
+        result.setSemanticTokensProvider(SemanticTokenizer.options());
         result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setRenameProvider(new RenameOptions(true));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
+        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName(dedicatedLanguageName))));
         result.setInlayHintProvider(true);
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
         result.setCallHierarchyProvider(true);
     }
 
-    private String getRascalMetaCommandName() {
+    public static String getRascalMetaCommandName(String dedicatedLanguageName) {
         // if we run in dedicated mode, we prefix the commands with our language name
         // to avoid ambiguity with other dedicated languages and the generic rascal plugin
         if (!dedicatedLanguageName.isEmpty()) {
@@ -624,17 +638,22 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private Optional<String> safeLanguage(ISourceLocation loc) {
+        return languageByExtension(loc, registeredExtensions);
+    }
+
+    public static Optional<String> languageByExtension(ISourceLocation loc, Map<String, String> languagesByExtension) {
         var ext = extension(loc);
+        var languages = languagesByExtension.values().stream().collect(Collectors.toSet());
         if ("".equals(ext)) {
-            if (contributions.size() == 1) {
+            if (languages.size() == 1) {
                 logger.trace("file was opened without an extension; falling back to the single registered language for: {}", loc);
-                return contributions.keySet().stream().findFirst();
+                return languages.stream().findFirst();
             } else {
                 logger.error("file was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
                 return Optional.empty();
             }
         }
-        return Optional.ofNullable(registeredExtensions.get(ext));
+        return Optional.ofNullable(languagesByExtension.get(ext));
     }
 
     private String language(ISourceLocation loc) {
@@ -1025,6 +1044,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             }
             facts.remove(lang.getName());
             contributions.remove(lang.getName());
+        }
+
+        if (exitWhenEmpty && contributions.isEmpty()) {
+            logger.debug("Shutting down; no more registered languages");
+            System.exit(0);
         }
 
         availableCapabilities().update(buildLanguageParams());
