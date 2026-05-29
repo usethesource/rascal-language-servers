@@ -65,7 +65,7 @@ public class LSPOpenFileRedirector {
         return false;
     }
 
-    public ISourceLocation resolve(ISourceLocation input) throws IOException {
+    public ISourceLocation resolve(ISourceLocation input) {
         if (isFileManaged(input)) {
             try {
                 // The offset/length part of the source location is stripped off here.
