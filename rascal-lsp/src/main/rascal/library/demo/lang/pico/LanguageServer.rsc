@@ -34,11 +34,15 @@ The core functionality of this module is built upon these concepts:
 module demo::lang::pico::LanguageServer
 
 import util::LanguageServer;
+import util::Format;
 import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
 extend demo::lang::pico::Extensions;
+import lang::pico::format::Formatting;
+import lang::box::util::Box2Text;
+import analysis::diff::edits::HiFiLayoutDiff;
 import DateTime;
 import IO;
 import List;
@@ -67,7 +71,8 @@ set[LanguageService] picoLanguageServer() = {
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
     callHierarchy(picoPrepareCallHierarchy, picoCallsService),
-    completion(picoCompletionService, additionalTriggerCharacters = ["="])
+    completion(picoCompletionService, additionalTriggerCharacters = ["="]),
+    formatting(picoFormattingService)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
@@ -107,9 +112,9 @@ data PicoSummarizerMode
 rel[DocumentSymbolKind, loc, Id, str] findDefinitions(Tree input, bool funcScope = false) {
     rel[DocumentSymbolKind, loc, Id, str] defs = {};
     top-down-break visit (input) {
-        case var:(IdType) `<Id id>: <Type _>`: defs += <funcScope ? constant() : variable(), var.src, id, typeOf(var)>;
+        case var:(IdType) `<Id id>: <Type _>`: defs += <funcScope ? constant() : variable(), var.src, id, typeName(var)>;
         case func:(IdType) `<Id id>(<{IdType ","}* args>): <Type _> := <Expression _>`: {
-            defs += <function(), func.src, id, typeOf(func)>;
+            defs += <function(), func.src, id, typeName(func)>;
             defs += findDefinitions(args, funcScope = true);
         }
     }
@@ -259,11 +264,11 @@ CallHierarchyItem callHierarchyItem(start[Program] prog, Id id, loc decl, str tp
     = callHierarchyItem("<id>", function(), decl, id.src, detail = tp, \data = \data(prog));
 
 CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* _>): <Type _> := <Expression _>`)
-    = callHierarchyItem("<id>", function(), d.src, id.src, detail = typeOf(d), \data = \data(prog));
+    = callHierarchyItem("<id>", function(), d.src, id.src, detail = typeName(d), \data = \data(prog));
 
 data CallHierarchyData = \data(start[Program] prog);
 
-str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
+str typeName((IdType) `<Id _>: <Type t>`) = "<t>";
 
 lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirection dir) {
     s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
@@ -303,12 +308,20 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
                 e = isTypingId && !trigger is character
                     ? completionEdit(t.src.begin.column, cc, t.src.end.column, name)
                     : completionEdit(cc, cc, cc, name);
-                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeOf(def)>");
+                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeName(def)>");
             }
         }
     }
 
     return sort(items, bool(CompletionItem i1, CompletionItem i2) {return i1.label < i2.label; });
+}
+
+list[TextEdit] picoFormattingService(Focus focus, FormattingOptions opts) {
+    tr = focus[0];
+    if (type[&T <: Tree] treeType := type(typeOf(tr), grammar(#start[Program]).rules)) {
+        formatted = format(toBox(tr));
+        return layoutDiff(tr, parse(treeType, formatted, tr.src.top));
+    }
 }
 
 @synopsis{The main function registers the Pico language with the IDE}

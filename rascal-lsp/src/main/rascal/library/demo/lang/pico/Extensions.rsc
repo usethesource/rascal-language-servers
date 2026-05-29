@@ -38,5 +38,5 @@ syntax Expression
     = call: Id id "(" {Expression ","}* args ")"
     ;
 
-str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
-    = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
+str typeName((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
+    = "<id>(<intercalate(", ", [typeName(a) | a <- args])>): <retType>";
