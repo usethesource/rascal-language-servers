@@ -33,7 +33,15 @@ import Node;
 
 // JSON serialization
 
-data Command = testValueEncoding();
+data Command
+  = testValueEncoding()
+  | browseRascalSite()
+  | editPico(loc uri)
+  | addTodo(loc at)
+  | removeTodo(loc at)
+  | showWarning(str message, loc at)
+  | showContents(str contents)
+  ;
 
 @synopsis{Command handler to test JSON serialization of various Rascal value types.}
 value testingExecutionService(testValueEncoding()) = (
@@ -48,6 +56,52 @@ value testingExecutionService(testValueEncoding()) = (
     ]
 );
 
+@synopsis{Command handler from the ((browseRascal)) command}
+value testingExecutionService(browseRascalSite()) {
+    browse(|https://www.rascal-mpl.org|, title="Rascal MPL");
+    return ("result": true);
+}
+
+@synopsis{Command handler from the ((editPico)) command}
+value picoExecutionService(editPico(loc uri)) {
+    edit(uri[file = uri.file == "calls.pico" ? "testing.pico" : "calls.pico"]);
+    return ("result": true);
+}
+
+@synopsis{Command handler from the ((registerDiagnostics)) command}
+value testingExecutionService(addTodo(loc at)) {
+    registerDiagnostics([info("TODO", at)]);
+    return ("result": true);
+}
+
+@synopsis{Command handler from the ((unregisterDiagnostics)) command}
+value picoExecutionService(removeTodo(loc at)) {
+    unregisterDiagnostics([at]);
+    return ("result": true);
+}
+
+value picoExecutionService(showWarning(str msg, loc at)) {
+    showMessage(warning(msg, at));
+    logMessage(error("LOG " + msg, at));
+    return ("result": true);
+}
+
+value picoExecutionService(showContents(str contents)) {
+    showInteractiveContent(plainText(contents));
+    return ("result" : true);
+}
+
+lrel[loc, Command] testingCodeLensService(start[Program] input)
+    = picoCodeLenseService(input)
+    + [
+        <input.src, browseRascalSite(title="Browse Rascal site")>,
+        <input.src, editPico(input.src.top, title="Edit another file")>,
+        <input.src, addTodo(input.src, title="Register TODO")>,
+        <input.src, removeTodo(input.src, title="Unregister TODO")>,
+        <input.src, showWarning("Test warning", input.src, title="Show warning")>,
+        <input.src, showContents("Some text", title="Show some text")>
+    ];
+
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)
     = replacements + {c | c <- contributions, getName(c) notin byName}
     when byName := {getName(r) | r <- replacements};
@@ -55,7 +109,8 @@ private set[LanguageService] amendContributions(set[LanguageService] contributio
 set[LanguageService] testingLanguageServer(bool allowRecovery)
     = amendContributions(picoLanguageServer(), {
         parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
-        execution(picoExecutionService + testingExecutionService)
+        execution(picoExecutionService + testingExecutionService),
+        codeLens(testingCodeLensService)
     });
 
 set[LanguageService] testingLanguageServerSlowSummary(bool allowRecovery)

@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { InputBox, MarkerType, NotificationType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -259,6 +259,7 @@ end
     it("renaming files works", async function() {
         if (errorRecovery) { this.skip(); }
         const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
+        await fs.rm(newDir, {recursive: true, force: true});
         const fromFile = path.join(newDir, "testing.pico");
         const toDir = path.join(newDir, "dest");
         await fs.mkdir(toDir, {recursive: true});
@@ -356,4 +357,88 @@ end
         const actualJson = await resultEditor!.getText();
         expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
     });
+
+    it("browses interactively", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Browse Rascal site");
+        await driver.wait(async () => {
+            const view = new WebView();
+            return await ignoreFails(view.getTitle()) === "Rascal MPL";
+        }, Delays.normal, "Browser for rascal-mpl.org should open");
+    });
+
+    it("opens editors", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        const initialTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
+        await ide.clickCodeLens(editor, "Edit another file");
+        await driver.wait(async () => {
+            const currentTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
+            return currentTitle !== initialTitle;
+        }, Delays.normal, "Another editor should open");
+    });
+
+    it("(un)registers diagnostics", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Register TODO");
+        await driver.wait(async () => {
+            const bottomBar = new Workbench().getBottomBar();
+            const problemsView = await bottomBar.openProblemsView();
+            const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
+            const labels = await Promise.all(markers.map(async m => await m.getLabel()));
+            return labels.includes("TODO");
+        }, Delays.slow, "TODO should be registered");
+
+        await ide.clickCodeLens(editor, "Unregister TODO");
+        await driver.wait(async () => {
+            const bottomBar = new Workbench().getBottomBar();
+            const problemsView = await bottomBar.openProblemsView();
+            const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
+            const labels = await Promise.all(markers.map(async m => await m.getLabel()));
+            return !labels.includes("TODO");
+        }, Delays.slow, "TODO should be unregistered");
+    });
+
+    it("shows messages", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show warning");
+
+        await driver.wait(async () => {
+            const center = await bench.openNotificationsCenter();
+            const notifications = await center.getNotifications(NotificationType.Warning);
+            const messages = await Promise.all(notifications.map(n => n.getMessage()));
+            return messages.find(m => m.startsWith("Test warning"));
+        }, Delays.normal, "Test warning dialog should show");
+    });
+
+    it("logs messages", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show warning");
+        await driver.wait(async () => {
+            const output = await bench.getBottomBar().openOutputView();
+            await output.selectChannel("Language Parametric Rascal Language Server");
+            const contents = await output.getText();
+            return contents.split("\n")[-1]?.indexOf("LOG") !== -1;
+        }, Delays.normal, "Line should be logged");
+    });
+
+    it("shows interactive content", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show some text");
+        await driver.wait(async () => {
+            return "*static content*" === await (await bench.getEditorView().getActiveTab())?.getTitle();
+        }, Delays.normal, "Static content should be shown");
+    });
+
 });

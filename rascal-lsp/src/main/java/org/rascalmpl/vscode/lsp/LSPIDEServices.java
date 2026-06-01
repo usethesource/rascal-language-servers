@@ -42,8 +42,10 @@ import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -124,7 +126,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void registerDiagnostics(IList messages) {
-        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService.getColumnMaps());
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService.extensions(), docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
             var uri = Locations.toUri(entry.getKey()).toString();
@@ -177,6 +179,16 @@ public class LSPIDEServices implements IDEServices {
 
     public IRascalMonitor getMonitor() {
         return monitor;
+    }
+
+    @Override
+    public void showMessage(IConstructor message) {
+        languageClient.showMessage(Message.toMessageParams(message));
+    }
+
+    @Override
+    public void logMessage(IConstructor msg) {
+        languageClient.logMessage(Message.toMessageParams(msg));
     }
 
 }
