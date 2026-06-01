@@ -365,7 +365,7 @@ end
         await ide.clickCodeLens(editor, "Browse Rascal site");
         await driver.wait(async () => {
             const view = new WebView();
-            return (await ignoreFails(view.getTitle()) === "Rascal MPL") ? editor : undefined;
+            return await ignoreFails(view.getTitle()) === "Rascal MPL";
         }, Delays.normal, "Browser for rascal-mpl.org should open");
     });
 
