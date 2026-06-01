@@ -75,6 +75,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
+import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.maven.Artifact;
@@ -341,8 +342,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         });
 
-        // If support for creating (instead of forwaring) IValues in the routing server is required,
-        // register JSON encoding (but not decoding) for regular (non-proxy) IValues here.
+        // Support (de)serialization of regular IValues as well, for other notifications/requests (i.e. language client extensions)
+        GsonUtils.complexAsJsonObject().accept(builder);
     }
 
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
