@@ -40,6 +40,7 @@ data Command
   | addTodo(loc at)
   | removeTodo(loc at)
   | showWarning(str message, loc at)
+  | showContents(str contents)
   ;
 
 @synopsis{Command handler to test JSON serialization of various Rascal value types.}
@@ -85,6 +86,11 @@ value picoExecutionService(showWarning(str msg, loc at)) {
     return ("result": true);
 }
 
+value picoExecutionService(showContents(str contents)) {
+    showInteractiveContent(plainText(contents));
+    return ("result" : true);
+}
+
 lrel[loc, Command] testingCodeLensService(start[Program] input)
     = picoCodeLenseService(input)
     + [
@@ -92,7 +98,8 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
         <input.src, editPico(input.src.top, title="Edit another file")>,
         <input.src, addTodo(input.src, title="Register TODO")>,
         <input.src, removeTodo(input.src, title="Unregister TODO")>,
-        <input.src, showWarning("Test warning", input.src, title="Show warning")>
+        <input.src, showWarning("Test warning", input.src, title="Show warning")>,
+        <input.src, showContents("Some text", title="Show some text")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)

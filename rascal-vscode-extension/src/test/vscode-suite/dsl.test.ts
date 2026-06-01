@@ -431,6 +431,14 @@ end
         }, Delays.normal, "Line should be logged");
     });
 
-    // TODO showInteractiveContent
+    it("shows interactive content", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show some text");
+        await driver.wait(async () => {
+            return "*static content*" === await (await bench.getEditorView().getActiveTab())?.getTitle();
+        }, Delays.normal, "Static content should be shown");
+    });
 
 });
