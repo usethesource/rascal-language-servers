@@ -45,6 +45,7 @@ import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
+import org.eclipse.lsp4j.TextDocumentContentRefreshParams;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -210,6 +211,16 @@ public class MultipleClientProxy implements IBaseLanguageClient, LanguageClientA
     @Override
     public void sourceLocationChanged(ISourceLocationChanged changed) {
         availableClient().sourceLocationChanged(changed);
+    }
+
+    @Override
+    public CompletableFuture<Void> refreshFoldingRanges() {
+        return availableClient().refreshFoldingRanges();
+    }
+
+    @Override
+    public CompletableFuture<Void> refreshTextDocumentContent(TextDocumentContentRefreshParams params) {
+        return availableClient().refreshTextDocumentContent(params);
     }
 
 }
