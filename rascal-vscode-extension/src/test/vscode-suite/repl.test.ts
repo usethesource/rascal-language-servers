@@ -47,6 +47,10 @@ describe('REPL', function () {
         await ide.load();
         await ide.cleanup();
         await browser.waitForWorkbench();
+
+        // Commands need to be on a single line for our output capturing to work properly.
+        // Create some space for longer commands.
+        await bench.executeCommand('zoomOut');
     });
 
     afterEach(async function () {
