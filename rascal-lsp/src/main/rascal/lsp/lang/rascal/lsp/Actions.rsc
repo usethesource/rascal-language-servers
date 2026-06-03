@@ -29,6 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::Actions
 
 import lang::rascal::\syntax::Rascal;
+import lang::rascal::upgrade::UpgradeAnnotationsToKeywordParameters;
 import util::LanguageServer;
 import analysis::diff::edits::TextEdits;
 import ParseTree;
@@ -46,6 +47,7 @@ The commands must be evaluated by ((evaluateRascalCommand))
 data Command
     = visualImportGraphCommand(PathConfig pcfg)
     | sortImportsAndExtends(Header h)
+    | upgradeAnnotationsToKeywordFields(PathConfig pcfg)
     ;
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
@@ -64,6 +66,13 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
         result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")]
                +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends")]
                ;
+    }
+
+    if ([*_, (Declaration) `<Tags _> <Visibility _> anno <Type _> <Type _> @ <Name _>;`, *_] := focus
+       || [*_, (Expression) `<Expression _>[@ <Name _> = <Expression _>]`, *_] := focus
+       || [*_, (Expression) `<Expression _>@<Name _>`, *_] := focus
+       || [*_, (Assignable) `<Assignable _>@<Name _>`, *_ ]) {
+        result += [action(command=upgradeAnnotationsToKeywordFields(pcfg), title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported).")];
     }
 
     return result;
@@ -152,5 +161,10 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
                 '<}>"[..-2];
 
     applyDocumentsEdits([changed(h.src.top, [replace(h.imports.src, newHeader)])]);
+    return ("result":true);
+}
+
+value evaluateRascalCommand(upgradeAnnotationsToKeywordFields(PathConfig pcfg)) {
+    applyDocumentsEdits(editsPathConfig(pcfg));
     return ("result":true);
 }
