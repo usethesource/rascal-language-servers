@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, MarkerType, NotificationType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
+import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -404,6 +404,7 @@ end
         }, Delays.slow, "TODO should be unregistered");
     });
 
+    /*
     it("shows messages", async function() {
         if (errorRecovery) { this.skip(); } // this does not depend on error recovery
 
@@ -430,6 +431,7 @@ end
             return contents.split("\n")[-1]?.indexOf("LOG") !== -1;
         }, Delays.normal, "Line should be logged");
     });
+    */
 
     it("shows interactive content", async function() {
         if (errorRecovery) { this.skip(); }

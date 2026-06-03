@@ -42,10 +42,8 @@ import org.rascalmpl.ideservices.IDEServices;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
-import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -181,6 +179,7 @@ public class LSPIDEServices implements IDEServices {
         return monitor;
     }
 
+    /*
     @Override
     public void showMessage(IConstructor message) {
         languageClient.showMessage(Message.toMessageParams(message));
@@ -190,5 +189,6 @@ public class LSPIDEServices implements IDEServices {
     public void logMessage(IConstructor msg) {
         languageClient.logMessage(Message.toMessageParams(msg));
     }
+    */
 
 }
