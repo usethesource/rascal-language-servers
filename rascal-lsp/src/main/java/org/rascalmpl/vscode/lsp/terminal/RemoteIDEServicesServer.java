@@ -120,7 +120,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
         var authority = req.getAuthority().getValue();
         var mapping = req.getMapping();
         logger.trace("registerLocations({}, {}, {})", scheme, authority, mapping);
-        return CompletableFuture.runAsync(() -> 
+        return CompletableFuture.runAsync(() ->
             URIResolverRegistry.getInstance().registerLogical(new LogicalMapResolver(scheme, authority, mapping)), exec);
     }
 
