@@ -26,7 +26,7 @@
  */
 import * as vscode from 'vscode';
 import { CancellationToken, ProviderResult, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
-import { BaseLanguageClient } from 'vscode-languageclient';
+import { IRascalCoordinates, RascalFileSystemInVSCode } from './fs/RascalFileSystemInVSCode';
 
 interface ExtendedLink extends TerminalLink {
     loc: SourceLocation;
@@ -44,7 +44,7 @@ interface SourceLocation {
  */
 export class RascalTerminalLinkProvider implements TerminalLinkProvider<ExtendedLink> {
 
-    constructor (private readonly client: Promise<BaseLanguageClient>) {
+    constructor (private readonly client: Promise<RascalFileSystemInVSCode>) {
     }
 
     linkDetector() {
@@ -74,45 +74,26 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
             return vscode.commands.executeCommand("vscode.open", sloc.uri) ;
         }
 
-        const rsloc: SourceLocation = this.fromRascalLocationString(await (await this.client).sendRequest("rascal/vfs/logical/resolveLocation", this.toRascalLocationString(sloc)));
-        const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(rsloc.uri));
+        const [uri, coordinates] = await (await this.client).resolveLocation(vscode.Uri.parse(sloc.uri), sloc);
+        const td = await vscode.workspace.openTextDocument(uri);
         const te = await vscode.window.showTextDocument(td);
 
-        const targetRange = translateRange(rsloc, td);
-        if (targetRange) {
-            te.revealRange(targetRange);
-            te.selection = new vscode.Selection(
-                targetRange.start.line,
-                targetRange.start.character,
-                targetRange.end.line,
-                targetRange.end.character,
-            );
-        }
-    }
-
-    toRascalLocationString(sloc: SourceLocation): string {
-        let ret = `|${sloc.uri}|`;
-        if (sloc.offsetLength) {
-            ret += `(${sloc.offsetLength[0]},${sloc.offsetLength[1]}`;
-            if (sloc.beginLineColumn) {
-                ret += `,<${sloc.beginLineColumn[0]},${sloc.beginLineColumn[1]}>`;
-                ret += `,<${sloc.endLineColumn![0]},${sloc.endLineColumn![1]}>`;
+        if (coordinates) {
+            const targetRange = translateRange(coordinates, td);
+            if (targetRange) {
+                te.revealRange(targetRange);
+                te.selection = new vscode.Selection(
+                    targetRange.start.line,
+                    targetRange.start.character,
+                    targetRange.end.line,
+                    targetRange.end.character,
+                );
             }
-            ret += ")";
         }
-        return ret;
-    }
-
-    fromRascalLocationString(loc: string): SourceLocation {
-        const match: RegExpExecArray | null = this.linkDetector().exec(loc);
-        if (match !== null) {
-            return buildLocation(match);
-        }
-        throw Error(`Invalid location ${loc}`);
     }
 }
 
-function translateRange(sloc: SourceLocation, td: vscode.TextDocument): vscode.Range | undefined {
+function translateRange(sloc: IRascalCoordinates, td: vscode.TextDocument): vscode.Range | undefined {
     if (sloc.beginLineColumn !== undefined && sloc.endLineColumn !== undefined) {
         const beginLine = sloc.beginLineColumn[0] - 1;
         const endLine = sloc.endLineColumn[0] - 1;

@@ -119,8 +119,10 @@ export interface TimestampResponse {
 }
 
 export interface SourceLocationResponse {
+    /** can be a uri or an ISourceLocation string with offsets */
     loc: ISourceLocation | undefined
 }
+
 
 export interface DirectoryListingResponse {
     entries: DirectoryEntry[]

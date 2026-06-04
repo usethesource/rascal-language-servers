@@ -46,23 +46,23 @@ interface VSCodeResolverServer extends ISourceLocationCommon, ISourceLocationInp
 function connectHandlers(connection: rpc.MessageConnection, handler: VSCodeResolverServer, disposables: Disposable[], logger: vscode.LogOutputChannel) {
     disposables.push(connection.onRequest((request, arg, _token) => {
         const [rascal, vfs, direction, method] = request.split("/");
-        if (rascal !== "rascal" || vfs !== "vfs" || !direction || !method) {
+        if (rascal !== "rascal" || vfs !== "vfs" || !direction || (!method && direction !== "getCharset" && direction !== "serverCapabilities")) {
             logger.error(`[VSCodeFileSystemInRascal] Incorrect request: [${rascal},${vfs},${direction},${method}]`);
             throw new rpc.ResponseError(RemoteIOError.unknown, `Unknown request ${request}`);
         }
-        if (typeof arg !== "object") {
+        if (typeof arg !== "object" && direction !== "serverCapabilities") {
             logger.error(`[VSCodeFileSystemInRascal] Incorrect argument type: ${typeof arg}`);
             throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected argument type ${typeof arg}`);
         }
         switch (direction) {
             case "input":
-                return handleInputRequest(method, handler, arg);
+                return handleInputRequest(method!, handler, arg!);
             case "output":
-                return handleOutputRequest(method, handler, arg);
+                return handleOutputRequest(method!, handler, arg!);
             case "watcher":
-                return handleWatchRequest(method, handler, arg);
+                return handleWatchRequest(method!, handler, arg!);
             case "logical":
-                return handleLogicalRequest(method, handler, arg);
+                return handleLogicalRequest(method!, handler, arg!);
             // common ones aren't prefixed:
             case "getCharset":
                 return handler.getCharset(arg as ISourceLocationRequest);
