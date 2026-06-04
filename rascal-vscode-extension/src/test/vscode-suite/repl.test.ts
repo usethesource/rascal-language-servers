@@ -145,7 +145,6 @@ describe('REPL', function () {
     it("(un)registers diagnostics", async() => {
         const file = "project://test-project/src/main/pico/testing.pico";
         const repl = await runIdeService(`registerDiagnostics([info("TODO", |${file}|)]);`);
-        console.log(repl.lastOutput);
         checkMessageOutput(repl, file, "TODO", "info");
 
         await repl.execute(`unregisterDiagnostics([|${file}|]);`);
