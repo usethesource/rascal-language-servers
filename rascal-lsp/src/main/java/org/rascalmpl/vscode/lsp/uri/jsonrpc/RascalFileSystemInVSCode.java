@@ -39,6 +39,7 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.remote.RascalFileSystemServices;
 import org.rascalmpl.uri.remote.jsonrpc.BooleanResponse;
+import org.rascalmpl.uri.remote.jsonrpc.CapabilitiesResponse;
 import org.rascalmpl.uri.remote.jsonrpc.CopyRequest;
 import org.rascalmpl.uri.remote.jsonrpc.DirectoryListingResponse;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
@@ -83,6 +84,12 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
             throw new IllegalStateException("Remote resolver registry client not set yet");
         }
         return fileSystemServices;
+    }
+
+    @Override
+    public CompletableFuture<CapabilitiesResponse> serverCapabilities() {
+        logger.trace("serverCapabilities request");
+        return services().serverCapabilities();
     }
 
     private static ISourceLocation toRascalLocation(ISourceLocation loc) {

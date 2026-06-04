@@ -130,3 +130,22 @@ export interface DirectoryEntry {
     name: string;
     types: vscode.FileType[]
 }
+
+export interface Capabilities {
+    input: Capability | undefined;
+    output: Capability | undefined;
+    watch: Capability | undefined;
+    logical: Capability | undefined;
+    getCharset: Capability | undefined;
+}
+
+export interface Capability {
+    level: CapabilityLevel;
+    onlyForSchemes: string[] | undefined;
+}
+
+export enum CapabilityLevel {
+    unsupported = 0,
+    partial = 1,
+    full = 2
+}
