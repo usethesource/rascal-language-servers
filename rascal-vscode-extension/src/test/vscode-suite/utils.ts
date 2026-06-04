@@ -440,10 +440,15 @@ export class IDEOperations {
     async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
         await this.driver.wait(async () => {
             try {
+                console.log(`Finding code lens: ${name}`);
                 const lens = await editor.getCodeLens(name);
-                await lens!.click();
+                console.log("Clicking it");
+                await lens!.safeClick();
+                console.log("Success!");
                 return true;
             } catch (_e) {
+                console.error("Error while clicking code lens");
+                console.error(_e);
                 return false;
             }
         }, timeout, message);

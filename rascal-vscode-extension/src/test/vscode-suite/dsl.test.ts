@@ -222,7 +222,7 @@ end
     it("code lens works", async function() {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor, "Rename variables a to b.", Delays.verySlow, "Rename lens should be available");
+        await ide.clickCodeLens(editor, "Rename variables a to b.", Delays.verySlow);
         await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
     });
 
