@@ -437,21 +437,17 @@ export class IDEOperations {
         }
     }
 
-    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
-        await this.driver.wait(async () => {
-            try {
-                console.log(`Finding code lens: ${name}`);
-                const lens = await editor.getCodeLens(name);
-                console.log("Clicking it");
-                await lens!.safeClick();
-                console.log("Success!");
-                return true;
-            } catch (_e) {
-                console.error("Error while clicking code lens");
-                console.error(_e);
-                return false;
+    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow): Promise<void> {
+        const lens = await this.driver.wait(async () => {
+            const lens = await editor.getCodeLens(name);
+            if (lens?.isDisplayed()) {
+                console.log(`Found code lens: ${name}`);
+                return lens;
             }
-        }, timeout, message);
+            return undefined;
+        }, timeout, `Cannot find code lens '${name}'`);
+
+        await lens!.safeClick();
     }
 
     statusContains(needle: string): () => Promise<boolean> {
