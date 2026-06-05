@@ -93,7 +93,8 @@ export class RascalExtension implements vscode.Disposable {
     private registerMainRun() {
         this.context.subscriptions.push(
             vscode.commands.registerTextEditorCommand("rascalmpl.runMain", (text, _edit, moduleName) => {
-                if (!text.document.uri || !moduleName) {
+                moduleName = moduleName ?? this.guessModuleName(text.document);
+                if (!moduleName) {
                     return;
                 }
                 void this.startTerminal(text.document.uri, `import ${moduleName};\nmain();\n`);
@@ -105,7 +106,8 @@ export class RascalExtension implements vscode.Disposable {
     private registerImportModule() {
         this.context.subscriptions.push(
             vscode.commands.registerTextEditorCommand("rascalmpl.importModule", (text, _edit, moduleName) => {
-                if (!text.document.uri || !moduleName) {
+                moduleName = moduleName ?? this.guessModuleName(text.document);
+                if (!moduleName) {
                     return;
                 }
                 void this.startTerminal(text.document.uri, `import ${moduleName};\n`);
@@ -132,6 +134,35 @@ export class RascalExtension implements vscode.Disposable {
                 }
             })
         );
+    }
+
+    private guessModuleName(document: vscode.TextDocument) {
+        if (this.isRascalTextDocument(document)) {
+            const text = document.getText();
+
+            // Given a Rascal file at location `/foo/bar/baz/Qux.rsc`, depending
+            // on which ancestor is the root of the source directory, one of the
+            // following modules must be defined in the file:
+            //   - `foo::bar::baz::Qux`
+            //   -      `bar::baz::Qux`
+            //   -           `baz::Qux`
+            //   -                `Qux`
+            //
+            // The approach is to derive each of these possible module names
+            // from the location and try each of them (from long to short), also
+            // taking into account escape characters.
+
+            let segments = document.uri.path.slice(0, -4).split('/');
+            while ((segments = segments.slice(1)).length > 0) {
+                const guess = segments.map(s => `[\\\\]?${s}`).join('::');
+                const guessed = text.match(`module[\\s]+(${guess})`);
+                if (guessed) {
+                    return guessed[1];
+                }
+            }
+        }
+
+        return undefined;
     }
 
     private isRascalTextDocument(document: vscode.TextDocument) {

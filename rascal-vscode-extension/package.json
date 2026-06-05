@@ -49,11 +49,11 @@
       },
       {
         "command": "rascalmpl.runMain",
-        "title": "Start Rascal Terminal, Import module and Run main function"
+        "title": "Create Rascal Terminal, Import Module, and Run Main Function"
       },
       {
         "command": "rascalmpl.importModule",
-        "title": "Start Rascal Terminal and Import this module"
+        "title": "Create Rascal Terminal and Import Module"
       },
       {
         "command": "rascalmpl.startDebuggerForRepl",
