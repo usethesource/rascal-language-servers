@@ -56,6 +56,7 @@ import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SetTraceParams;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -278,6 +279,11 @@ public abstract class BaseLanguageServer {
                     throw new CompletionException(e);
                 }
             }, executor);
+        }
+
+        @Override
+        public CompletableFuture<Void> triggerRascalTypechecker(TextDocumentIdentifier document) {
+            return CompletableFuture.runAsync(() -> lspDocumentService.triggerRascalTypechecker(document), executor);
         }
 
         @Override

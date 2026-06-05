@@ -565,13 +565,18 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     @Override
+    public void triggerRascalTypechecker(TextDocumentIdentifier document) {
+        facts.invalidate(Locations.toLoc(document));
+    }
+
+    @Override
     public void registerLanguage(LanguageParameter lang) {
-        throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
+        throw new UnsupportedOperationException("Registering languages is a feature of the language parametric server, not of the Rascal server");
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
+        throw new UnsupportedOperationException("Unregistering languages is a feature of the language parametric server, not of the Rascal server");
     }
 
     /*package*/ void projectRemoved(ISourceLocation projectRoot) {

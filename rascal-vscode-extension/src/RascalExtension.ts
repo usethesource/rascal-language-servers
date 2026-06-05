@@ -28,7 +28,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { integer, URI } from'vscode-languageclient';
+import { integer, TextDocumentIdentifier, URI } from'vscode-languageclient';
 import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
@@ -55,6 +55,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerMainRun();
         this.registerImportModule();
         this.registerCopySourceLocationCommand();
+        this.registerTriggerRascalTypecheckerCommand();
         void checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient, this.log));
@@ -119,6 +120,22 @@ export class RascalExtension implements vscode.Disposable {
                 await vscode.env.clipboard.writeText(rascalUri);
             })
         );
+    }
+
+    private registerTriggerRascalTypecheckerCommand() {
+        this.context.subscriptions.push(
+            vscode.commands.registerTextEditorCommand("rascalmpl.triggerRascalTypechecker", (editor, _edit) => {
+                if (this.isRascalTextDocument(editor.document)) {
+                    const method = "rascal/triggerRascalTypechecker";
+                    const param = TextDocumentIdentifier.create(editor.document.uri.toString());
+                    void this.rascal.rascalClient.then(c => c.sendRequest(method, param));
+                }
+            })
+        );
+    }
+
+    private isRascalTextDocument(document: vscode.TextDocument) {
+        return document.languageId === 'rascalmpl';
     }
 
     private async startTerminal(uri: vscode.Uri | undefined, command?: string | undefined) {

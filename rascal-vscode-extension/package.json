@@ -64,6 +64,18 @@
         "command": "rascalmpl.copySourceLocation",
         "title": "Copy Path as Rascal Location",
         "icon": "$(copy)"
+      },
+      {
+        "command": "rascalmpl.triggerRascalTypechecker",
+        "title": "Trigger Rascal Typechecker"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "rascalmpl.triggerRascalTypechecker",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "editorFocus && editorLangId == rascalmpl"
       }
     ],
     "menus": {

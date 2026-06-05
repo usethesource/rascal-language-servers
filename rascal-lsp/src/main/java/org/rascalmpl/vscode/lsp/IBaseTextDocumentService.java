@@ -35,6 +35,7 @@ import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
@@ -50,8 +51,9 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     void connect(LanguageClient client);
     void pair(BaseWorkspaceService workspaceService);
     void initialized();
-    void registerLanguage(LanguageParameter lang);
-    void unregisterLanguage(LanguageParameter lang);
+    void triggerRascalTypechecker(TextDocumentIdentifier document); // Only Rascal
+    void registerLanguage(LanguageParameter lang); // Only parametric
+    void unregisterLanguage(LanguageParameter lang); // Only parametric
 
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     Collection<String> extensions();

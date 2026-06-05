@@ -892,6 +892,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     @Override
+    public void triggerRascalTypechecker(TextDocumentIdentifier document) {
+        throw new UnsupportedOperationException("Running the Rascal typechecker is a feature of the Rascal server, not the language parametric server.");
+    }
+
+    @Override
     public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
