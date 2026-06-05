@@ -241,6 +241,11 @@
     "configuration": {
       "title": "Rascal",
       "properties": {
+        "rascal.typechecker.auto": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically trigger the typechecker when a Rascal file is saved"
+        },
         "rascal.interpreter.maxHeapSize": {
           "type": [
             "number",
