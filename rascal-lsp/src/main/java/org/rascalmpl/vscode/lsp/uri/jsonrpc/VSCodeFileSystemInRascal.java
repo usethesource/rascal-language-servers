@@ -45,7 +45,7 @@ public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
 
     @Override
     public boolean supportsLogical(String scheme) {
-        return Locations.TRANSLATED_SCHEMES.contains(scheme) || super.supportsLogical(scheme);
+        return true;
     }
 
 

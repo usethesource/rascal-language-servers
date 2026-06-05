@@ -131,6 +131,22 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
         return Locations.toClientLocation(loc);
     }
 
+
+    private static boolean isSupported(@Nullable Capability cap, ISourceLocation loc) {
+        if (cap == null || cap.isUnsupported()) {
+            return false;
+        }
+        if (cap.isFullySupported()) {
+            return true;
+        }
+        var scheme = loc.getScheme();
+        int offset = scheme.indexOf('+');
+        if (offset > 0) {
+            scheme = scheme.substring(0, offset);
+        }
+        return cap.getOnlyForSchemes().contains(scheme);
+
+    }
     @Override
     public CompletableFuture<SourceLocationResponse> resolveLocation(ISourceLocationRequest req) {
         logger.trace("resolveLocation: {}", req.getLocation());
@@ -138,7 +154,7 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
             .thenApply(CapabilitiesResponse::getLogical)
             .thenCompose(cap -> {
                 var transformed = transformLocations(req);
-                if (cap != null && (cap.isFullySupported() || (cap.isPartiallySupported() && cap.getOnlyForSchemes().contains(transformed.getLocation().getScheme())))) {
+                if (isSupported(cap, transformed.getLocation())) {
                     return services().resolveLocation(transformed);
                 }
                 return CompletableFuture.completedFuture(new SourceLocationResponse(transformed.getLocation()));
