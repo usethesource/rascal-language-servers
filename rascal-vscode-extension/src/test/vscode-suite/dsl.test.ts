@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
+import { InputBox, MarkerType, NotificationType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -380,7 +380,7 @@ end
             return currentTitle !== initialTitle;
         }, Delays.normal, "Another editor should open");
     });
-    /*
+
     it("(un)registers diagnostics", async function() {
         if (errorRecovery) { this.skip(); } // this does not depend on error recovery
 
@@ -440,6 +440,5 @@ end
             return "*static content*" === await (await bench.getEditorView().getActiveTab())?.getTitle();
         }, Delays.normal, "Static content should be shown");
     });
-    */
 
 });

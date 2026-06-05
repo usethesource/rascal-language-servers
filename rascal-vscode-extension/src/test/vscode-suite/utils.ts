@@ -439,15 +439,24 @@ export class IDEOperations {
 
     async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow): Promise<void> {
         const lens = await this.driver.wait(async () => {
-            const lens = await editor.getCodeLens(name);
-            if (lens?.isDisplayed()) {
-                console.log(`Found code lens: ${name}`);
-                return lens;
+            const lenses = await editor.getCodeLenses();
+            console.log("All lenses:");
+            console.log(await Promise.all(lenses.map(l => l.getLocatorInfo())));
+            for (const lens of lenses) {
+                try {
+                    const title = await lens.getText();
+                    const match = title.match(name);
+                    if (match && match.length > 0 && await lens.isDisplayed()) {
+                        return lens;
+                    }
+                } catch (e: unknown) {
+                    continue;
+                }
             }
             return undefined;
         }, timeout, `Cannot find code lens '${name}'`);
 
-        await lens!.safeClick();
+        await lens!.click();
     }
 
     statusContains(needle: string): () => Promise<boolean> {

@@ -95,11 +95,11 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
     = picoCodeLenseService(input)
     + [
         <input.src, browseRascalSite(title="Browse Rascal site")>,
-        <input.src, editPico(input.src.top, title="Edit another file")>/*,
+        <input.src, editPico(input.src.top, title="Edit another file")>,
         <input.src, addTodo(input.src, title="Register TODO")>,
         <input.src, removeTodo(input.src, title="Unregister TODO")>,
         <input.src, showWarning("Test warning", input.src, title="Show warning")>,
-        <input.src, showContents("Some text", title="Show some text")>*/
+        <input.src, showContents("Some text", title="Show some text")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)
