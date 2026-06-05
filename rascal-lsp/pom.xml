@@ -59,11 +59,12 @@
       <url>https://releases.usethesource.io/maven/</url>
     </pluginRepository>
   </pluginRepositories>
+
   <dependencies>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.43.0-RC5</version>
+      <version>0.43.0-RC6</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>

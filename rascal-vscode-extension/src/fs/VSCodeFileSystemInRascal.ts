@@ -391,7 +391,7 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
     }
 
-    async resolveLocation(_req: ISourceLocationRequest): Promise<SourceLocationResponse> {
+    async resolve(_req: ISourceLocationRequest): Promise<SourceLocationResponse> {
         throw new rpc.ResponseError(RemoteIOError.notSupported, "resolving logical requests is not supported, as VS Code does not have this feature");
     }
 

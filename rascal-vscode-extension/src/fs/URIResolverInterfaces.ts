@@ -60,5 +60,5 @@ export interface ISourceLocationWatcher {
 }
 
 export interface ILogicalSourceLocationResolver {
-    resolveLocation(req: ISourceLocationRequest): Promise<SourceLocationResponse>
+    resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse>
 }

@@ -337,9 +337,9 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         });
     }
 
-    async resolveLocation(source: vscode.Uri, coordinates?: IRascalCoordinates): Promise<[vscode.Uri, IRascalCoordinates | undefined]> {
-        this.logger.debug("[RascalFileSystemInVSCode] resolveLocation: ", source);
-        const result = await this.logicalClient.resolveLocation({
+    async resolve(source: vscode.Uri, coordinates?: IRascalCoordinates): Promise<[vscode.Uri, IRascalCoordinates | undefined]> {
+        this.logger.debug("[RascalFileSystemInVSCode] resolve: ", source);
+        const result = await this.logicalClient.resolve({
             loc: RascalFileSystemInVSCode.addCoordinates(RascalFileSystemInVSCode.toRascalUri(source), coordinates),
         });
         if (!result.loc) {
