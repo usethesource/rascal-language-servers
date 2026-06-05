@@ -30,6 +30,7 @@ import java.io.IOException;
 
 import org.rascalmpl.uri.remote.RemoteExternalResolverRegistry;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -43,8 +44,20 @@ public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
     }
 
     @Override
+    public boolean supportsLogical(String scheme) {
+        return Locations.TRANSLATED_SCHEMES.contains(scheme) || super.supportsLogical(scheme);
+    }
+
+
+    @Override
     public ISourceLocation resolve(ISourceLocation input) throws IOException {
-        var resolved = super.resolve(input);
+        ISourceLocation resolved;
+        if (super.supportsLogical(input.getScheme())) {
+            resolved = super.resolve(input);
+        }
+        else {
+            resolved = input;
+        }
         return LSPOpenFileRedirector.getInstance().resolve(resolved == null ? input : resolved);
     }
 }

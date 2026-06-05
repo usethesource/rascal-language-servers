@@ -42,6 +42,9 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class LSPOpenFileResolver implements ISourceLocationInput {
 
+    public static final String LSP_OPEN_SCHEME = "lsp";
+    private static final String LSP_SCHEME_PREFIX = LSP_OPEN_SCHEME + "+";
+
     private TextDocumentState getEditorState(ISourceLocation uri) throws IOException {
         return LSPOpenFileRedirector.getInstance().getDocumentState(stripLspPrefix(uri));
     }
@@ -77,9 +80,9 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
     }
 
     public static ISourceLocation stripLspPrefix(ISourceLocation uri) {
-        if (uri.getScheme().startsWith("lsp+")) {
+        if (uri.getScheme().startsWith(LSP_SCHEME_PREFIX)) {
             try {
-                return URIUtil.changeScheme(uri, uri.getScheme().substring("lsp+".length()));
+                return URIUtil.changeScheme(uri, uri.getScheme().substring(LSP_SCHEME_PREFIX.length()));
             } catch (URISyntaxException e) {
                 // fall through
             }
@@ -94,7 +97,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public String scheme() {
-        return "lsp";
+        return LSP_OPEN_SCHEME;
     }
 
     @Override

@@ -31,6 +31,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.debug.Capabilities;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.rascalmpl.uri.FileAttributes;
@@ -40,6 +42,8 @@ import org.rascalmpl.uri.UnsupportedSchemeException;
 import org.rascalmpl.uri.remote.RascalFileSystemServices;
 import org.rascalmpl.uri.remote.jsonrpc.BooleanResponse;
 import org.rascalmpl.uri.remote.jsonrpc.CapabilitiesResponse;
+import org.rascalmpl.uri.remote.jsonrpc.Capability;
+import org.rascalmpl.uri.remote.jsonrpc.CapabilityLevel;
 import org.rascalmpl.uri.remote.jsonrpc.CopyRequest;
 import org.rascalmpl.uri.remote.jsonrpc.DirectoryListingResponse;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
@@ -56,6 +60,7 @@ import org.rascalmpl.uri.remote.jsonrpc.WatchRequest;
 import org.rascalmpl.uri.remote.jsonrpc.WriteFileRequest;
 import org.rascalmpl.uri.vfs.IRemoteResolverRegistryClient;
 import org.rascalmpl.uri.vfs.IRemoteResolverRegistryServer;
+import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -70,6 +75,8 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
 
     @MonotonicNonNull
     private RascalFileSystemServices fileSystemServices = null;
+    @MonotonicNonNull
+    private CompletableFuture<CapabilitiesResponse> serverCapabilities = null;
 
     private <T extends SourceLocationTransformer> T transformLocations(T req) {
         return req.transformLocations(RascalFileSystemInVSCode::toRascalLocation);
@@ -77,6 +84,7 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
 
     public void connectRemoteRegistryClient(IRemoteResolverRegistryClient client) {
         fileSystemServices = new RascalFileSystemServices(client);
+        serverCapabilities = fileSystemServices.serverCapabilities();
     }
 
     private RascalFileSystemServices services() {
@@ -86,10 +94,34 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
         return fileSystemServices;
     }
 
+    private CompletableFuture<CapabilitiesResponse> capabilities() {
+        if (serverCapabilities == null) {
+            throw new IllegalStateException("Remote resolver registry client not set yet");
+        }
+        return serverCapabilities;
+
+    }
+
+    private static final Capability LOGICAL_CAPABILITY = new Capability(CapabilityLevel.PARTIAL, Locations.TRANSLATED_SCHEMES);
+
     @Override
     public CompletableFuture<CapabilitiesResponse> serverCapabilities() {
         logger.trace("serverCapabilities request");
-        return services().serverCapabilities();
+        return capabilities()
+            .thenApply(c ->
+                new CapabilitiesResponse(c.getInput(), c.getWatch(), c.getOutput(), mergeLogical(c.getLogical()), c.getGetCharset())
+            );
+    }
+
+    private Capability mergeLogical(@Nullable Capability logical) {
+        if (logical == null || logical.isUnsupported()) {
+            return LOGICAL_CAPABILITY;
+        }
+        if (logical.isFullySupported()) {
+            return logical;
+        }
+        // we have to merge partial sets
+        return new Capability(CapabilityLevel.PARTIAL, Sets.union(LOGICAL_CAPABILITY.getOnlyForSchemes(), logical.getOnlyForSchemes()));
     }
 
     private static ISourceLocation toRascalLocation(ISourceLocation loc) {
@@ -102,7 +134,15 @@ public class RascalFileSystemInVSCode implements IRemoteResolverRegistryServer {
     @Override
     public CompletableFuture<SourceLocationResponse> resolveLocation(ISourceLocationRequest req) {
         logger.trace("resolveLocation: {}", req.getLocation());
-        return services().resolveLocation(transformLocations(req));
+        return capabilities()
+            .thenApply(CapabilitiesResponse::getLogical)
+            .thenCompose(cap -> {
+                var transformed = transformLocations(req);
+                if (cap != null && (cap.isFullySupported() || (cap.isPartiallySupported() && cap.getOnlyForSchemes().contains(transformed.getLocation().getScheme())))) {
+                    return services().resolveLocation(transformed);
+                }
+                return CompletableFuture.completedFuture(new SourceLocationResponse(transformed.getLocation()));
+            });
     }
 
     @Override
