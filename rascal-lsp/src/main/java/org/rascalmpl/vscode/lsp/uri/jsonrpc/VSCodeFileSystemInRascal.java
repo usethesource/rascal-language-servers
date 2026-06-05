@@ -30,7 +30,6 @@ import java.io.IOException;
 
 import org.rascalmpl.uri.remote.RemoteExternalResolverRegistry;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 

@@ -62,20 +62,17 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             RascalFileSystemInVSCode.notifyWatchers(vscode.Uri.parse(event.root), this.translateFileChangeType(event.type.valueOf()), this.activeWatches, this._emitter, "RascalFileSystemInVSCode", this.logger);
         });
         this.serverCapabilities = client.sendRequest<Capabilities>("rascal/vfs/serverCapabilities");
-        this.inputClient = buildClientProxy(client, "rascal/vfs/input/", logger, this.checkWithCapabilities(c => c.input));
-        this.outputClient = buildClientProxy(client, "rascal/vfs/output/", logger, this.checkWithCapabilities(c => c.output));
-        this.watchClient = buildClientProxy(client, "rascal/vfs/watcher/", logger, this.checkWithCapabilities(c => c.watch));
-        this.logicalClient = buildClientProxy(client, "rascal/vfs/logical/", logger, this.checkWithCapabilities(c => c.logical));
+        this.inputClient = buildClientProxy(client, "rascal/vfs/input/", logger, this.capabilityChecker(c => c.input));
+        this.outputClient = buildClientProxy(client, "rascal/vfs/output/", logger, this.capabilityChecker(c => c.output));
+        this.watchClient = buildClientProxy(client, "rascal/vfs/watcher/", logger, this.capabilityChecker(c => c.watch));
+        this.logicalClient = buildClientProxy(client, "rascal/vfs/logical/", logger, this.capabilityChecker(c => c.logical));
         // note that charset is not added as VS Code does not support that over the VFS
     }
 
-    checkWithCapabilities(cap: (all: Capabilities) => Capability | undefined) {
-        return async (req: JsonRpcRequest) : Promise<boolean> => {
-            const currentCap = cap(await this.serverCapabilities);
-            if (!currentCap) {
-                return false;
-            }
-            switch (currentCap.level) {
+    async capabilityChecker(capField: (caps: Capabilities) => Capability | undefined) {
+        const cap = capField(await this.serverCapabilities) ?? <Capability>{ level: CapabilityLevel.unsupported };
+        return (req: JsonRpcRequest) : boolean => {
+            switch (cap.level) {
                 case CapabilityLevel.full: return true;
                 case CapabilityLevel.unsupported: return false;
                 case CapabilityLevel.partial: {
@@ -87,7 +84,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                         uri = req.from;
                     }
                     // if there was no uri, let's assume it supported, and the server should throw an error if not the case
-                    return uri === undefined || supportedScheme(currentCap.onlyForSchemes!, uri);
+                    return uri === undefined || supportedScheme(cap.onlyForSchemes!, uri);
                 }
             }
         };
@@ -357,11 +354,11 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     }
 }
 
-function buildClientProxy<T extends ISourceLocationInput | ISourceLocationOutput | ISourceLocationWatcher | ILogicalSourceLocationResolver>(client: BaseLanguageClient, methodPrefix: string, logger: vscode.LogOutputChannel, supportedCheck: (arg: JsonRpcRequest) => Promise<boolean>): T {
+function buildClientProxy<T extends ISourceLocationInput | ISourceLocationOutput | ISourceLocationWatcher | ILogicalSourceLocationResolver>(client: BaseLanguageClient, methodPrefix: string, logger: vscode.LogOutputChannel, supportedCheck: Promise<(arg: JsonRpcRequest) => boolean>): T {
     return new Proxy({} as T, {
         get(_ignored, fieldName: string, _self) {
             return async function(arg: JsonRpcRequest) {
-                if (!await supportedCheck(arg)) {
+                if (!(await supportedCheck)(arg)) {
                     throw new vscode.FileSystemError(`${methodPrefix + fieldName} is not supported based on the capabilities of the VFS server`);
                 }
                 try {
@@ -379,7 +376,7 @@ function uriToRequest(uri: vscode.Uri): ISourceLocationRequest {
 }
 
 
-function supportedScheme(onlyForSchemes: string[], loc: string): boolean | PromiseLike<boolean> {
+function supportedScheme(onlyForSchemes: string[], loc: string): boolean  {
     let scheme = loc.substring(0, loc.indexOf(':'));
     const plusSplit = scheme.indexOf('+');
     if (plusSplit > 0) {
