@@ -208,7 +208,7 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
                         case CapabilityLevel.full: readOnly = false; break;
                         case CapabilityLevel.unsupported: readOnly = true; break;
                         case CapabilityLevel.partial: {
-                            readOnly = !outputCap.onlyForSchemes!.includes(s);
+                            readOnly = !supportedScheme(outputCap.onlyForSchemes!, s);
                             break;
                         }
                     }
