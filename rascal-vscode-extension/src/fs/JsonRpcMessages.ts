@@ -119,7 +119,7 @@ export interface TimestampResponse {
 }
 
 export interface SourceLocationResponse {
-    /** can be a uri or an ISourceLocation string with offsets */
+    /** can be a plain uri or an ISourceLocation string with offsets, as in: `|uri|(coordinates)` */
     loc: ISourceLocation | undefined
 }
 

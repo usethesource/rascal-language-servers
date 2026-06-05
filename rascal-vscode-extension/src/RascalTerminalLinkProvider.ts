@@ -34,9 +34,7 @@ interface ExtendedLink extends TerminalLink {
 
 interface SourceLocation {
     uri: string;
-    offsetLength?: [number, number];
-    beginLineColumn?: [number, number];
-    endLineColumn?: [number, number];
+    coordinates?: IRascalCoordinates;
 }
 
 /**
@@ -74,7 +72,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
             return vscode.commands.executeCommand("vscode.open", sloc.uri) ;
         }
 
-        const [uri, coordinates] = await (await this.client).resolveLocation(vscode.Uri.parse(sloc.uri), sloc);
+        const [uri, coordinates] = await (await this.client).resolveLocation(vscode.Uri.parse(sloc.uri), sloc.coordinates);
         const td = await vscode.workspace.openTextDocument(uri);
         const te = await vscode.window.showTextDocument(td);
 
@@ -118,13 +116,13 @@ function buildLocation(match: RegExpExecArray): SourceLocation {
     const linkMatch = match[0];
     const linkLength = linkMatch.indexOf('|', 2);
     const sloc = <SourceLocation>{ uri: linkMatch.substring(1, linkLength) };
-    const numbers = linkMatch.substring(linkLength).match(/\d+/g,);
+    const numbers = linkMatch.substring(linkLength).match(/[0-9]+/g,);
     if (numbers && numbers.length >= 2) {
-        sloc.offsetLength = [Number(numbers[0]), Number(numbers[1])];
+        sloc.coordinates = { offsetLength : [Number(numbers[0]), Number(numbers[1])] };
         if (numbers.length === 6) {
             // we have a full loc
-            sloc.beginLineColumn = [Number(numbers[2]), Number(numbers[3])];
-            sloc.endLineColumn = [Number(numbers[4]), Number(numbers[5])];
+            sloc.coordinates.beginLineColumn = [Number(numbers[2]), Number(numbers[3])];
+            sloc.coordinates.endLineColumn = [Number(numbers[4]), Number(numbers[5])];
         }
     }
     return sloc;
