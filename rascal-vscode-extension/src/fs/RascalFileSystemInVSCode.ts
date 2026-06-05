@@ -28,9 +28,9 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import * as vscode from 'vscode';
 import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
-import { ISourceLocation, ISourceLocationChanged, ISourceLocationRequest, JsonRpcRequest } from './JsonRpcMessages';
+import { Capabilities, Capability, CapabilityLevel, ISourceLocation, ISourceLocationChanged, ISourceLocationRequest, JsonRpcRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
-import { ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher } from './URIResolverInterfaces';
+import { ILogicalSourceLocationResolver, ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher } from './URIResolverInterfaces';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
@@ -40,6 +40,8 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     private readonly inputClient: ISourceLocationInput;
     private readonly outputClient: ISourceLocationOutput;
     private readonly watchClient: ISourceLocationWatcher;
+    private readonly logicalClient: ILogicalSourceLocationResolver;
+    private readonly serverCapabilities: Promise<Capabilities>;
 
     // Unique identifier for the current file system instance
     private readonly vfsWatchId = randomUUID();
@@ -59,9 +61,33 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             }
             RascalFileSystemInVSCode.notifyWatchers(vscode.Uri.parse(event.root), this.translateFileChangeType(event.type.valueOf()), this.activeWatches, this._emitter, "RascalFileSystemInVSCode", this.logger);
         });
-        this.inputClient = buildClientProxy(client, "rascal/vfs/input/", logger);
-        this.outputClient = buildClientProxy(client, "rascal/vfs/output/", logger);
-        this.watchClient = buildClientProxy(client, "rascal/vfs/watcher/", logger);
+        this.serverCapabilities = client.sendRequest<Capabilities>("rascal/vfs/serverCapabilities");
+        this.inputClient = buildClientProxy(client, "rascal/vfs/input/", logger, this.capabilityChecker(c => c.input));
+        this.outputClient = buildClientProxy(client, "rascal/vfs/output/", logger, this.capabilityChecker(c => c.output));
+        this.watchClient = buildClientProxy(client, "rascal/vfs/watcher/", logger, this.capabilityChecker(c => c.watch));
+        this.logicalClient = buildClientProxy(client, "rascal/vfs/logical/", logger, this.capabilityChecker(c => c.logical));
+        // note that charset is not added as VS Code does not support that over the VFS
+    }
+
+    async capabilityChecker(capField: (caps: Capabilities) => Capability | undefined) {
+        const cap = capField(await this.serverCapabilities) ?? <Capability>{ level: CapabilityLevel.unsupported };
+        return (req: JsonRpcRequest) : boolean => {
+            switch (cap.level) {
+                case CapabilityLevel.full: return true;
+                case CapabilityLevel.unsupported: return false;
+                case CapabilityLevel.partial: {
+                    let uri = undefined;
+                    if ('loc' in req && typeof req.loc === 'string') {
+                        uri = req.loc;
+                    }
+                    else if ('from' in req && typeof req.from === 'string') {
+                        uri = req.from;
+                    }
+                    // if there was no uri, let's assume it supported, and the server should throw an error if not the case
+                    return uri === undefined || supportedScheme(cap.onlyForSchemes!, uri);
+                }
+            }
+        };
     }
 
     private translateFileChangeType(rascalFileChangeType: number): vscode.FileChangeType {
@@ -130,6 +156,17 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return uriString;
     }
 
+    static addCoordinates(uri: string, coordinates: IRascalCoordinates | undefined): string {
+        if (!coordinates) {
+            return uri;
+        }
+        let result = `|${uri}|(${coordinates.offsetLength[0]},${coordinates.offsetLength[1]}`;
+        if (coordinates.beginLineColumn && coordinates.endLineColumn) {
+            result += `,<${coordinates.beginLineColumn[0]},${coordinates.beginLineColumn[1]}>,<${coordinates.endLineColumn[0]},${coordinates.endLineColumn[1]}>`;
+        }
+        return result + ")";
+    }
+
     static getLocation(arg: vscode.Uri | JsonRpcRequest): ISourceLocation {
         if (arg instanceof vscode.Uri) {
             return RascalFileSystemInVSCode.toRascalUri(arg);
@@ -150,11 +187,13 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
         return vscode.workspace.fs.isWritableFileSystem(scheme) === undefined;
     }
 
+
     /**
      * Attempts to register all schemes.
      * @param schemes The list of schemes to register for this provider
      */
-    tryRegisterSchemes(schemes: string[]) {
+    async tryRegisterSchemes(schemes: string[]) {
+        const outputCap = (await this.serverCapabilities).output ?? { level: CapabilityLevel.unsupported, onlyForSchemes: undefined};
         schemes
             .filter(s => !this.protectedSchemes.includes(s))
             // we add support for schemes that look inside a jar
@@ -164,7 +203,17 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             .filter(this.isUnknownFileSystem)
             .forEach(s => {
                 try {
-                    vscode.workspace.registerFileSystemProvider(s, this);
+                    let readOnly: boolean;
+                    switch (outputCap.level) {
+                        case CapabilityLevel.full: readOnly = false; break;
+                        case CapabilityLevel.unsupported: readOnly = true; break;
+                        case CapabilityLevel.partial: {
+                            readOnly = !supportedScheme(outputCap.onlyForSchemes!, s);
+                            break;
+                        }
+                    }
+
+                    vscode.workspace.registerFileSystemProvider(s, this, { isReadonly: readOnly});
                     this.logger.debug(`Rascal VFS registered scheme: ${s}`);
                 } catch (error) {
                     if (this.isUnknownFileSystem(s)) {
@@ -287,12 +336,31 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
             overwrite: options?.overwrite ?? false
         });
     }
+
+    async resolve(source: vscode.Uri, coordinates?: IRascalCoordinates): Promise<[vscode.Uri, IRascalCoordinates | undefined]> {
+        this.logger.debug("[RascalFileSystemInVSCode] resolve: ", source);
+        const result = await this.logicalClient.resolve({
+            loc: RascalFileSystemInVSCode.addCoordinates(RascalFileSystemInVSCode.toRascalUri(source), coordinates),
+        });
+        if (!result.loc) {
+            this.logger.trace("[RascalFileSystemInVSCode] resolveClient return empty result for: ", source);
+            return [source, coordinates];
+        }
+        if (!result.loc.startsWith('|')) {
+            return [vscode.Uri.parse(result.loc), undefined];
+        }
+        return parseFullSourceLocation(result.loc);
+
+    }
 }
 
-function buildClientProxy<T extends ISourceLocationInput | ISourceLocationOutput | ISourceLocationWatcher>(client: BaseLanguageClient, methodPrefix: string, logger: vscode.LogOutputChannel): T {
+function buildClientProxy<T extends ISourceLocationInput | ISourceLocationOutput | ISourceLocationWatcher | ILogicalSourceLocationResolver>(client: BaseLanguageClient, methodPrefix: string, logger: vscode.LogOutputChannel, supportedCheck: Promise<(arg: JsonRpcRequest) => boolean>): T {
     return new Proxy({} as T, {
         get(_ignored, fieldName: string, _self) {
             return async function(arg: JsonRpcRequest) {
+                if (!(await supportedCheck)(arg)) {
+                    throw new vscode.FileSystemError(`${methodPrefix + fieldName} is not supported based on the capabilities of the VFS server`);
+                }
                 try {
                     return await client.sendRequest(methodPrefix + fieldName, arg);
                 } catch (r) {
@@ -305,5 +373,61 @@ function buildClientProxy<T extends ISourceLocationInput | ISourceLocationOutput
 
 function uriToRequest(uri: vscode.Uri): ISourceLocationRequest {
     return { loc: RascalFileSystemInVSCode.toRascalUri(uri) };
+}
+
+
+function supportedScheme(onlyForSchemes: string[], loc: string): boolean  {
+    let scheme = loc.substring(0, loc.indexOf(':'));
+    const plusSplit = scheme.indexOf('+');
+    if (plusSplit > 0) {
+        scheme = scheme.substring(0, plusSplit);
+    }
+    return onlyForSchemes.includes(scheme);
+}
+
+
+/**
+ * Rascal coordinates in unicode codepoints (so utf32/24)
+ */
+export interface IRascalCoordinates {
+    offsetLength: [offset: number, length: number];
+    beginLineColumn?: [line: number, column: number];
+    endLineColumn?: [line: number, column: number];
+}
+
+function asNumberPair(ar: number[]): [number, number] {
+    if (ar.length !==  2) {
+        throw new Error(`Cannot convert ${ar} to tuple pair`);
+    }
+    return [ar[0]!, ar[1]!];
+}
+
+function parseFullSourceLocation(loc: string): [vscode.Uri, IRascalCoordinates | undefined] {
+    const [uriPart, coordinates] = loc.substring(1).split('|');
+    if (!uriPart) {
+        throw new vscode.FileSystemError(`Can not parse ${loc} as ISourceLocation`);
+    }
+    const base = vscode.Uri.parse(uriPart);
+    if (!coordinates) {
+        return [base, undefined];
+    }
+    if (!coordinates.startsWith('(') || !coordinates.endsWith(')')) {
+        throw new vscode.FileSystemError(`Can not parse ${loc} as ISourceLocation due to incorrect coordinates`);
+    }
+    const coords = coordinates.substring(1, coordinates.length - 1).match(/[0-9]+/g)?.map(c => parseInt(c));
+    if (!coords || coords.length < 2) {
+        throw new vscode.FileSystemError(`Can not parse ${loc} as ISourceLocation due to incorrect coordinates`);
+    }
+    const coord = <IRascalCoordinates>{
+        offsetLength: asNumberPair(coords.slice(0,2))
+    };
+    if (coords.length === 6) {
+        coord.beginLineColumn = asNumberPair(coords.slice(2, 4));
+        coord.endLineColumn = asNumberPair(coords.slice(4, 6));
+    }
+    else if (coords.length !== 2) {
+        throw new vscode.FileSystemError(`Can not parse ${loc} as ISourceLocation due to incorrect coordinates (${coords})`);
+    }
+    return [base, coord];
 }
 

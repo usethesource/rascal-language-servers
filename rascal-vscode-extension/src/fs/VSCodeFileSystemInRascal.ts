@@ -29,14 +29,14 @@ import * as vscode from 'vscode';
 import { Disposable } from "vscode";
 import * as rpc from 'vscode-jsonrpc/node';
 import { JsonRpcServer } from "../util/JsonRpcServer";
-import { BooleanResponse, CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, StringResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
+import { BooleanResponse, Capabilities, Capability, CapabilityLevel, CopyRequest, DirectoryListingResponse, FileAttributes, ISourceLocation, ISourceLocationChanged, ISourceLocationChangeType, ISourceLocationRequest, LocationContentResponse, NumberResponse, RemoveRequest, RenameRequest, SetLastModifiedRequest, SourceLocationResponse, StringResponse, TimestampResponse, WatchRequest, WriteFileRequest } from './JsonRpcMessages';
 import { RemoteIOError } from './RemoteIOError';
-import { ILogicalSourceLocationResolver, ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher } from './URIResolverInterfaces';
+import { ILogicalSourceLocationResolver, ISourceLocationCommon, ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher } from './URIResolverInterfaces';
 
 /**
  * VS Code implements this and offers it to the rascal-lsp server
  */
-interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver { }
+interface VSCodeResolverServer extends ISourceLocationCommon, ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher, ILogicalSourceLocationResolver { }
 
 /**
  * Rascal side should implement this on the other side of the stream
@@ -46,23 +46,28 @@ interface VSCodeResolverServer extends ISourceLocationInput, ISourceLocationOutp
 function connectHandlers(connection: rpc.MessageConnection, handler: VSCodeResolverServer, disposables: Disposable[], logger: vscode.LogOutputChannel) {
     disposables.push(connection.onRequest((request, arg, _token) => {
         const [rascal, vfs, direction, method] = request.split("/");
-        if (rascal !== "rascal" || vfs !== "vfs" || !direction || !method) {
+        if (rascal !== "rascal" || vfs !== "vfs" || !direction || (!method && direction !== "getCharset" && direction !== "serverCapabilities")) {
             logger.error(`[VSCodeFileSystemInRascal] Incorrect request: [${rascal},${vfs},${direction},${method}]`);
             throw new rpc.ResponseError(RemoteIOError.unknown, `Unknown request ${request}`);
         }
-        if (typeof arg !== "object") {
+        if (typeof arg !== "object" && direction !== "serverCapabilities") {
             logger.error(`[VSCodeFileSystemInRascal] Incorrect argument type: ${typeof arg}`);
             throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected argument type ${typeof arg}`);
         }
         switch (direction) {
             case "input":
-                return handleInputRequest(method, handler, arg);
+                return handleInputRequest(method!, handler, arg!);
             case "output":
-                return handleOutputRequest(method, handler, arg);
+                return handleOutputRequest(method!, handler, arg!);
             case "watcher":
-                return handleWatchRequest(method, handler, arg);
+                return handleWatchRequest(method!, handler, arg!);
             case "logical":
-                return handleLogicalRequest(method, handler, arg);
+                return handleLogicalRequest(method!, handler, arg!);
+            // common ones aren't prefixed:
+            case "getCharset":
+                return handler.getCharset(arg as ISourceLocationRequest);
+            case "serverCapabilities":
+                return handler.serverCapabilities();
         }
         logger.error(`[VSCodeFileSystemInRascal] Unexpected interface ${direction}`);
         throw new rpc.ResponseError(RemoteIOError.notSupported, `Unexpected interface ${direction}`);
@@ -139,6 +144,20 @@ export class VSCodeFileSystemInRascal extends JsonRpcServer {
     }
 }
 
+function fullySupported(): Capability {
+    return {
+        level: CapabilityLevel.full,
+        onlyForSchemes: undefined
+    };
+}
+
+function unsupported(): Capability {
+    return {
+        level: CapabilityLevel.unsupported,
+        onlyForSchemes: undefined
+    };
+}
+
 class ResolverClient implements VSCodeResolverServer, Disposable  {
     private readonly watchListener: WatchEventReceiver;
     private readonly fs: vscode.FileSystem;
@@ -154,6 +173,16 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
         this.watchListener = buildWatchReceiver(connection, logger);
         connectHandlers(connection, this, this.disposables, logger);
+    }
+
+    async serverCapabilities(): Promise<Capabilities> {
+        return {
+            getCharset: fullySupported(),
+            input: fullySupported(),
+            output: fullySupported(),
+            watch: fullySupported(),
+            logical: unsupported(),
+        };
     }
 
     async asyncCatcher<T>(build: () => Thenable<T>): Promise<T> {
@@ -362,10 +391,8 @@ class ResolverClient implements VSCodeResolverServer, Disposable  {
         }
     }
 
-    async resolveLocation(req: ISourceLocationRequest): Promise<SourceLocationResponse> {
-        this.logger.debug("[VSCodeFileSystemInRascal] resolve: ", req.loc);
-        // There is currently no logical resolution of locations in VS Code
-        return { loc: undefined };
+    async resolve(_req: ISourceLocationRequest): Promise<SourceLocationResponse> {
+        throw new rpc.ResponseError(RemoteIOError.notSupported, "resolving logical requests is not supported, as VS Code does not have this feature");
     }
 
     dispose() {
