@@ -213,6 +213,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
+    @Override
+    public void close() throws Exception {
+        LSPOpenFileRedirector.getInstance().unregisterTextDocumentService(this);
+    }
+
     private CapabilityRegistration availableCapabilities() {
         if (dynamicCapabilities == null) {
             throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");

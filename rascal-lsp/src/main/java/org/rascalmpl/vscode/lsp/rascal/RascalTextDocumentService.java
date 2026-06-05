@@ -155,6 +155,10 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
+    @Override
+    public void close() throws Exception {
+        LSPOpenFileRedirector.getInstance().unregisterTextDocumentService(this);
+    }
 
     private LanguageClient availableClient() {
         if (client == null) {

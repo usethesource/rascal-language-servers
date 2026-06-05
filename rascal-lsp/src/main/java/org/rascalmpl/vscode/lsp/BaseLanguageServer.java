@@ -152,12 +152,15 @@ public abstract class BaseLanguageServer {
             var requestPool = NamedThreadPool.single(requestPoolName);
             var workerPool = NamedThreadPool.cached(workerPoolName);
 
-            try {
+            try (
                 var docService = docServiceProvider.apply(workerPool);
                 var wsService = workspaceServiceProvider.apply(workerPool);
+            ) {
                 docService.pair(wsService);
                 wsService.pair(docService);
                 startLSP(constructLSPClient(capturedIn, capturedOut, new ActualLanguageServer(() -> System.exit(0), workerPool, docService, wsService), requestPool));
+            } catch (Exception e) {
+                logger.error(e);
             } finally {
                 requestPool.shutdown();
                 workerPool.shutdown();
@@ -170,15 +173,18 @@ public abstract class BaseLanguageServer {
                     var requestPool = NamedThreadPool.single(requestPoolName);
                     var workerPool = NamedThreadPool.cached(workerPoolName);
 
-                    try (Socket clientSocket = serverSocket.accept()) {
-                        logger.info("New client connected to Rascal LSP server (listening on port number: {})", portNumber);
+                    try (
+                        var clientSocket = serverSocket.accept();
                         var docService = docServiceProvider.apply(workerPool);
                         var wsService = workspaceServiceProvider.apply(workerPool);
+                    ) {
+                        logger.info("New client connected to Rascal LSP server", portNumber);
                         docService.pair(wsService);
                         wsService.pair(docService);
                         startLSP(constructLSPClient(clientSocket, new ActualLanguageServer(() -> {}, workerPool, docService, wsService), requestPool));
-                    }
-                    finally {
+                    } catch (Exception e) {
+                        logger.error(e);
+                    } finally {
                         requestPool.shutdown();
                         workerPool.shutdown();
                     }
