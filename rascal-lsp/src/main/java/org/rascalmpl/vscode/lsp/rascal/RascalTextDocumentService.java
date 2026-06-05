@@ -40,6 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,6 +55,8 @@ import org.eclipse.lsp4j.CodeLens;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
+import org.eclipse.lsp4j.ConfigurationItem;
+import org.eclipse.lsp4j.ConfigurationParams;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
@@ -139,6 +142,8 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
+import com.google.gson.JsonPrimitive;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -352,8 +357,27 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public void didSave(DidSaveTextDocumentParams params) {
         logger.debug("Save: {}", params.getTextDocument());
         // on save we don't get new file contents, that comes in via change
-        // but we do trigger the type checker on save
-        availableFacts().invalidate(Locations.toLoc(params.getTextDocument()));
+        // but, depending on settings, we do trigger the type checker on save
+        if (facts != null) {
+            getBooleanSettingFromClient("rascal.typechecker.auto").thenAccept(doTrigger -> {
+                if (doTrigger) {
+                    availableFacts().invalidate(Locations.toLoc(params.getTextDocument()));
+                }
+            });
+        }
+    }
+
+    private CompletableFuture<Boolean> getBooleanSettingFromClient(String settingId) {
+        var item = new ConfigurationItem();
+        item.setSection(settingId);
+        item.setScopeUri("");
+
+        var params = new ConfigurationParams(List.of(item));
+        var request = availableClient().configuration(params);
+        return request.thenApply(response ->
+            response.size() == 1 &&
+            response.get(0) instanceof JsonPrimitive &&
+            ((JsonPrimitive) response.get(0)).getAsBoolean());
     }
 
     @Override
