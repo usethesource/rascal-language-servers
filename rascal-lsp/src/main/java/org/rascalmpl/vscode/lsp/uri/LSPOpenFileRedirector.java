@@ -94,6 +94,10 @@ public class LSPOpenFileRedirector {
         textDocumentServices.add(service);
     }
 
+    public void unregisterTextDocumentService(IBaseTextDocumentService service) {
+        textDocumentServices.remove(service);
+    }
+
     public TextDocumentState getDocumentState(ISourceLocation file) throws IOException {
         for (var service : textDocumentServices) {
             try {

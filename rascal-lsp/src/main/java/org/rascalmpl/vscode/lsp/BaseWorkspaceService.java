@@ -60,7 +60,7 @@ import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
-public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
+public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware, AutoCloseable {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
 
     private @MonotonicNonNull IBaseLanguageClient client;
@@ -73,7 +73,6 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     private @MonotonicNonNull IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
-
 
     protected BaseWorkspaceService(ExecutorService exec) {
         this.exec = exec;
@@ -91,7 +90,11 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
             throw new IllegalStateException("Workspace service has not been constructed yet");
         }
         return client;
+    }
 
+    @Override
+    public void close() throws Exception {
+        // Subclasses can override to dispose of resources
     }
 
     public void pair(IBaseTextDocumentService documentService) {

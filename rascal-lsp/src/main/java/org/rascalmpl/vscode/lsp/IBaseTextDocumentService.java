@@ -45,7 +45,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
-public interface IBaseTextDocumentService extends TextDocumentService, ITextDocumentStateManager {
+public interface IBaseTextDocumentService extends TextDocumentService, ITextDocumentStateManager, AutoCloseable {
     static final Duration NO_DEBOUNCE = Duration.ZERO;
     static final Duration NORMAL_DEBOUNCE = Duration.ofMillis(800);
 
