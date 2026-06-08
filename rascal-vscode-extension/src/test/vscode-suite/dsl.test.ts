@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { InputBox, Key, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -355,5 +355,41 @@ end
         const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
         const actualJson = await resultEditor!.getText();
         expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
+    });
+
+    it("formatting files works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+
+        if (errorRecovery) {
+            // introduce a parse error
+            const lineText = (await editor.getTextAtLine(3)).trimEnd();
+            await editor.setTextAtLine(3, lineText.substring(0, lineText.length - 1));
+        }
+
+        const unformattedText = await editor.getText();
+        await bench.executeCommand("editor.action.formatDocument");
+        await driver.wait(async () => unformattedText !== await editor.getText(), Delays.normal, "Document should be formatted");
+    });
+
+    it("formatting selection works", async function() {
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+
+        // some incorrectly formatted code
+        await editor.setTextAtLine(3, "x : natural, y : natural,");
+
+        if (errorRecovery) {
+            // introduce a parse error
+            const lineText = (await editor.getTextAtLine(3)).trimEnd();
+            await editor.setTextAtLine(3, lineText.substring(0, lineText.length - 1));
+        }
+
+        const unformattedText = await editor.getText();
+
+        // select line
+        await editor.moveCursor(3, 1);
+        await editor.safeSendKeys(Key.SHIFT, Key.END);
+
+        await bench.executeCommand("editor.action.formatSelection");
+        await driver.wait(async () => unformattedText !== await editor.getSelectedText(), Delays.normal, "Selection should be formatted");
     });
 });
