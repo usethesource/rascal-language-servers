@@ -46,7 +46,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
     }
 
     private readonly linkDetector =
-        /\|[a-zA-Z][\w\-.+]*:\/\/[^\s|]*\|(\([^)]*\))?/g;
+        /\|[a-zA-Z][\w\-.+]*:\/\/[^\t\n\r| ]*\|(\([^)]*\))?/g;
 
     provideTerminalLinks(context: TerminalLinkContext, token: CancellationToken): ProviderResult<ExtendedLink[]> {
         if (!context.terminal.name.includes("Rascal")) {
