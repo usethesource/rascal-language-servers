@@ -57,6 +57,8 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
@@ -91,6 +93,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -125,6 +128,7 @@ import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
@@ -188,6 +192,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
         result.setHoverProvider(true);
+        result.setDocumentFormattingProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
@@ -349,6 +354,20 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
             })
             .thenApply(cur -> Locations.toRange(TreeAdapter.getLocation(cur), getColumnMaps()))
             .thenApply(Either3::forFirst), () -> null);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
+        logger.debug("textDocument/formatting: {} at {}", params.getTextDocument(), params.getOptions());
+        TextDocumentState file = getFile(params.getTextDocument());
+
+        return file
+            .getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> availableRascalServices().format(VF.list(tree), params.getOptions()))
+            .thenApply(rascalEdits -> DocumentChanges.translateTextEdits(rascalEdits, getColumnMaps()))
+            ;
+
     }
 
     @Override
