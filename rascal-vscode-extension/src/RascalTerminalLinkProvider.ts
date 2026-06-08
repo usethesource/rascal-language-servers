@@ -73,7 +73,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
         }
 
         const [uri, coordinates] = await (await this.client).resolve(vscode.Uri.parse(sloc.uri), sloc.coordinates);
-        const td = await vscode.workspace.openTextDocument(uri);
+        const td = await vscode.workspace.openTextDocument(removeLSPPrefix(uri));
         const te = await vscode.window.showTextDocument(td);
 
         if (coordinates) {
@@ -180,3 +180,10 @@ function fixedOffsetLengthPositions(td: vscode.TextDocument, offset: number, len
     }
     return [offset, endOffset];
 }
+function removeLSPPrefix(uri: vscode.Uri): vscode.Uri {
+    if (uri.scheme.startsWith('lsp+')) {
+        return uri.with({scheme: uri.scheme.substring('lsp+'.length)});
+    }
+    return uri;
+}
+
