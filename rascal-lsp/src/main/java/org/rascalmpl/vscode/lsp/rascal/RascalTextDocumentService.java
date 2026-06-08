@@ -105,6 +105,8 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
@@ -193,6 +195,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         result.setDocumentSymbolProvider(true);
         result.setHoverProvider(true);
         result.setDocumentFormattingProvider(true);
+        result.setDocumentRangeFormattingProvider(true);
         result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
@@ -359,15 +362,29 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     @Override
     public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
         logger.debug("textDocument/formatting: {} at {}", params.getTextDocument(), params.getOptions());
-        TextDocumentState file = getFile(params.getTextDocument());
 
-        return file
+        return getFile(params.getTextDocument())
             .getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
             .thenCompose(tree -> availableRascalServices().format(VF.list(tree), params.getOptions()))
             .thenApply(rascalEdits -> DocumentChanges.translateTextEdits(rascalEdits, getColumnMaps()))
             ;
+    }
 
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams pr) {
+        logger.debug("textDocument/rangeFormatting: {} at {}", pr.getTextDocument(), pr.getOptions());
+
+        return getFile(pr.getTextDocument())
+            .getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenApply((ITree tree) -> {
+                ISourceLocation fileLoc = TreeAdapter.getLocation(tree).top();
+                return TreeSearch.computeFocusList(tree, Locations.setRange(fileLoc, pr.getRange(), getColumnMaps()));
+            })
+            .thenCompose(focus -> availableRascalServices().format(focus, pr.getOptions()))
+            .thenApply(rascalEdits -> DocumentChanges.translateTextEdits(rascalEdits, getColumnMaps()))
+            ;
     }
 
     @Override

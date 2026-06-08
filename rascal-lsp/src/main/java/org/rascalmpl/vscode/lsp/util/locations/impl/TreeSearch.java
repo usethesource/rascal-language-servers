@@ -185,6 +185,16 @@ public class TreeSearch {
         return false;
     }
 
+    public static IList computeFocusList(ITree tree, ISourceLocation selection) {
+        assert TreeAdapter.getLocation(tree).top().equals(selection.top());
+
+        return computeFocusList(tree,
+            selection.getBeginLine(),
+            selection.getBeginColumn(),
+            selection.getEndLine(),
+            selection.getEndColumn());
+    }
+
     public static IList computeFocusList(ITree tree, int startLine, int startColumn, int endLine, int endColumn) {
         // Compute the focus for both the start end end positions.
         // These foci give us information about the structure of the selection.
