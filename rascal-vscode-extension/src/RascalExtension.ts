@@ -59,7 +59,7 @@ export class RascalExtension implements vscode.Disposable {
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient, this.log));
         vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
-        vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
+        vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalVFS));
     }
 
     logger(): vscode.LogOutputChannel {

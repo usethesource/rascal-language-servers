@@ -119,8 +119,10 @@ export interface TimestampResponse {
 }
 
 export interface SourceLocationResponse {
+    /** can be a plain uri or an ISourceLocation string with offsets, as in: `|uri|(coordinates)` */
     loc: ISourceLocation | undefined
 }
+
 
 export interface DirectoryListingResponse {
     entries: DirectoryEntry[]
@@ -129,4 +131,23 @@ export interface DirectoryListingResponse {
 export interface DirectoryEntry {
     name: string;
     types: vscode.FileType[]
+}
+
+export interface Capabilities {
+    input: Capability | undefined;
+    output: Capability | undefined;
+    watch: Capability | undefined;
+    logical: Capability | undefined;
+    getCharset: Capability | undefined;
+}
+
+export interface Capability {
+    level: CapabilityLevel;
+    onlyForSchemes: string[] | undefined;
+}
+
+export enum CapabilityLevel {
+    unsupported = 0,
+    partial = 1,
+    full = 2
 }

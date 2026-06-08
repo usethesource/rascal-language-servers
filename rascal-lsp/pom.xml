@@ -59,6 +59,7 @@
       <url>https://releases.usethesource.io/maven/</url>
     </pluginRepository>
   </pluginRepositories>
+
   <dependencies>
     <dependency>
       <groupId>org.rascalmpl</groupId>
