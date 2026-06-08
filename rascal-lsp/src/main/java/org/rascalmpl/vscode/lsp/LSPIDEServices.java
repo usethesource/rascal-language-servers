@@ -182,11 +182,15 @@ public class LSPIDEServices implements IDEServices {
     /*
     @Override
     public void showMessage(IConstructor message) {
+        // Not overriden; tends to cause deadlocks
+        // https://github.com/usethesource/rascal-language-servers/issues/185
         languageClient.showMessage(Message.toMessageParams(message));
     }
 
     @Override
     public void logMessage(IConstructor msg) {
+        // Not overriden; tends to cause deadlocks
+        // https://github.com/usethesource/rascal-language-servers/issues/185
         languageClient.logMessage(Message.toMessageParams(msg));
     }
     */
