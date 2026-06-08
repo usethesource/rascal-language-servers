@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
@@ -72,6 +73,7 @@ import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -126,7 +128,7 @@ public class RascalLanguageServices {
         var context = new LSPContext(exec, docService, workspaceService, client);
 
         shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates");
-        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
+        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions", "lang::rascal::lsp::Formatter");
         compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
         rascalTextDocumentService = docService;
@@ -373,6 +375,25 @@ public class RascalLanguageServices {
             }
         }
         return result;
+    }
+
+    public CompletableFuture<IList> format(IList focus, FormattingOptions options) {
+        // list[TextEdit] picoFormattingService(Focus focus, FormattingOptions opts)
+        // TODO: make these final constants, or reuse code from the parametric formatter PR.
+        // no need to code this twice.
+        Type FO = tf.abstractDataType(store, "FormattingOptions");
+        Type cons = tf.constructor(store, FO, "formattingOptions");
+        // TODO: map actual options to keyword fields (already done on the parametric formatter PR)
+        IConstructor opts = VF.constructor(cons);
+        return runEvaluator(
+            "Formatting",
+            semanticEvaluator,
+            eval -> (IList) eval.call("rascalFormattingService", focus, opts),
+            VF.list(),
+            exec,
+            false,
+            client
+        ).get();
     }
 
     public CompletableFuture<IList> parseCodeActions(String command) {

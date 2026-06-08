@@ -62,6 +62,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<IList> selectionRange(IList focus);
     public InterruptibleFuture<IList> prepareCallHierarchy(IList focus);
     public InterruptibleFuture<IList> incomingOutgoingCalls(IConstructor hierarchyItem, IConstructor direction);
+    public InterruptibleFuture<IList> formatting(IList input, IConstructor formattingOptions);
 
     public InterruptibleFuture<ISourceLocation> prepareRename(IList focus);
     public InterruptibleFuture<ITuple> rename(IList focus, String name);
@@ -88,6 +89,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> providesSelectionRange();
     public CompletableFuture<Boolean> providesCallHierarchy();
     public CompletableFuture<Boolean> providesCompletion();
+    public CompletableFuture<Boolean> providesFormatting();
 
     public CompletableFuture<Boolean> specialCaseHighlighting();
 

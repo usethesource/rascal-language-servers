@@ -33,17 +33,22 @@ The core functionality of this module is built upon these concepts:
 }
 module demo::lang::pico::LanguageServer
 
-import util::LanguageServer;
-import util::IDEServices;
-import ParseTree;
-import util::ParseErrorRecovery;
-import util::Reflective;
 extend demo::lang::pico::Extensions;
+
 import DateTime;
 import IO;
 import List;
 import Location;
+import ParseTree;
 import String;
+import analysis::diff::edits::HiFiLayoutDiff;
+import lang::box::util::Box2Text;
+import lang::pico::format::Formatting;
+import util::Formatters;
+import util::IDEServices;
+import util::LanguageServer;
+import util::ParseErrorRecovery;
+import util::Reflective;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -67,7 +72,8 @@ set[LanguageService] picoLanguageServer() = {
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
     callHierarchy(picoPrepareCallHierarchy, picoCallsService),
-    completion(picoCompletionService, additionalTriggerCharacters = ["="])
+    completion(picoCompletionService, additionalTriggerCharacters = ["="]),
+    formatting(picoFormattingService)
 };
 
 @synopsis{This set of contributions runs slower but provides more detail.}
@@ -107,9 +113,9 @@ data PicoSummarizerMode
 rel[DocumentSymbolKind, loc, Id, str] findDefinitions(Tree input, bool funcScope = false) {
     rel[DocumentSymbolKind, loc, Id, str] defs = {};
     top-down-break visit (input) {
-        case var:(IdType) `<Id id>: <Type _>`: defs += <funcScope ? constant() : variable(), var.src, id, typeOf(var)>;
+        case var:(IdType) `<Id id>: <Type _>`: defs += <funcScope ? constant() : variable(), var.src, id, typeName(var)>;
         case func:(IdType) `<Id id>(<{IdType ","}* args>): <Type _> := <Expression _>`: {
-            defs += <function(), func.src, id, typeOf(func)>;
+            defs += <function(), func.src, id, typeName(func)>;
             defs += findDefinitions(args, funcScope = true);
         }
     }
@@ -259,11 +265,11 @@ CallHierarchyItem callHierarchyItem(start[Program] prog, Id id, loc decl, str tp
     = callHierarchyItem("<id>", function(), decl, id.src, detail = tp, \data = \data(prog));
 
 CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{IdType ","}* _>): <Type _> := <Expression _>`)
-    = callHierarchyItem("<id>", function(), d.src, id.src, detail = typeOf(d), \data = \data(prog));
+    = callHierarchyItem("<id>", function(), d.src, id.src, detail = typeName(d), \data = \data(prog));
 
 data CallHierarchyData = \data(start[Program] prog);
 
-str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
+str typeName((IdType) `<Id _>: <Type t>`) = "<t>";
 
 lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirection dir) {
     s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
@@ -303,13 +309,22 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
                 e = isTypingId && !trigger is character
                     ? completionEdit(t.src.begin.column, cc, t.src.end.column, name)
                     : completionEdit(cc, cc, cc, name);
-                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeOf(def)>");
+                items += completionItem(def is function ? function() : variable(), e, name, labelDetail = ": <typeName(def)>");
             }
         }
     }
 
     return sort(items, bool(CompletionItem i1, CompletionItem i2) {return i1.label < i2.label; });
 }
+
+@synopsis{Whole file formatting for Pico}
+list[TextEdit] picoFormattingService([start[Program] tr], FormattingOptions opts)
+    = treeEdits(#start[Program], toBox, opts=opts)(tr);
+
+@synopsis{Selection formatting for Pico}
+list[TextEdit] picoFormattingService([Tree selection, *_], FormattingOptions opts)
+    = subTreeEdits(#start[Program], toBox, opts=opts)(selection);
+
 
 @synopsis{The main function registers the Pico language with the IDE}
 @description{

@@ -99,6 +99,8 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> didRenameFiles;
     private final CompletableFuture<@Nullable IFunction> selectionRange;
     private final CompletableFuture<@Nullable IFunction> prepareCallHierarchy;
+    private final CompletableFuture<@Nullable IFunction> formatting;
+
     private final CompletableFuture<@Nullable IFunction> callHierarchyService;
     private final CompletableFuture<@Nullable IFunction> completion;
     private final CompletableFuture<IList> completionTriggerCharacters;
@@ -119,6 +121,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> providesSelectionRange;
     private final CompletableFuture<Boolean> providesCallHierarchy;
     private final CompletableFuture<Boolean> providesCompletion;
+    private final CompletableFuture<Boolean> providesFormatting;
 
     private final CompletableFuture<Boolean> specialCaseHighlighting;
 
@@ -169,6 +172,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.callHierarchyService = getFunctionFor(contributions, LanguageContributions.CALL_HIERARCHY, 1);
             this.completion = getFunctionFor(contributions, LanguageContributions.COMPLETION);
             this.completionTriggerCharacters = getContributionParameter(contributions, LanguageContributions.COMPLETION, LanguageContributions.COMPLETION_TRIGGER_CHARACTERS, VF.list(), IList.class);
+            this.formatting = getFunctionFor(contributions, LanguageContributions.FORMATTING);
 
             // assign boolean properties once instead of wasting futures all the time
             this.providesAnalysis = nonNull(this.analysis);
@@ -187,6 +191,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.providesSelectionRange = nonNull(this.selectionRange);
             this.providesCallHierarchy = nonNull(this.prepareCallHierarchy);
             this.providesCompletion = nonNull(this.completion);
+            this.providesFormatting = nonNull(this.formatting);
 
             this.specialCaseHighlighting = getContributionParameter(contributions,
                 LanguageContributions.PARSING,
@@ -486,6 +491,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
         return completionTriggerCharacters;
     }
 
+    @Override
+    public InterruptibleFuture<IList> formatting(IList focus, IConstructor formattingOptions) {
+        debug(LanguageContributions.FORMATTING, focus.size(), formattingOptions);
+        return execFunction(LanguageContributions.FORMATTING, formatting, VF.list(), focus, formattingOptions);
+    }
+
     private void debug(String name, Object param) {
         logger.debug("{}({})", name, param);
     }
@@ -561,6 +572,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> providesCompletion() {
         return providesCompletion;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> providesFormatting() {
+        return providesFormatting;
     }
 
     @Override

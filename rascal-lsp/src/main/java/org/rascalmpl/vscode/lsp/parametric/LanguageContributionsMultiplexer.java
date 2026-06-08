@@ -77,6 +77,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> selectionRange = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> callHierarchy = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> completion = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> formatting = failedInitialization();
 
     private volatile CompletableFuture<Boolean> providesAnalysis = failedInitialization();
     private volatile CompletableFuture<Boolean> providesBuild = failedInitialization();
@@ -94,6 +95,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> providesSelectionRange = failedInitialization();
     private volatile CompletableFuture<Boolean> providesCallHierarchy = failedInitialization();
     private volatile CompletableFuture<Boolean> providesCompletion = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesFormatting = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -172,6 +174,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         selectionRange = findFirstOrDefault(ILanguageContributions::providesSelectionRange, "selectionRange");
         callHierarchy = findFirstOrDefault(ILanguageContributions::providesCallHierarchy, "callHierarchy");
         completion = findFirstOrDefault(ILanguageContributions::providesCompletion, "completion");
+        formatting = findFirstOrDefault(ILanguageContributions::providesFormatting, "formatting");
 
         providesAnalysis = anyTrue(ILanguageContributions::providesAnalysis);
         providesBuild = anyTrue(ILanguageContributions::providesBuild);
@@ -189,6 +192,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         providesSelectionRange = anyTrue(ILanguageContributions::providesSelectionRange);
         providesCallHierarchy = anyTrue(ILanguageContributions::providesCallHierarchy);
         providesCompletion = anyTrue(ILanguageContributions::providesCompletion);
+        providesFormatting = anyTrue(ILanguageContributions::providesFormatting);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -351,6 +355,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<IList> formatting(IList focus, IConstructor formattingOptions) {
+        return flatten(formatting, c -> c.formatting(focus, formattingOptions));
+    }
+
+    @Override
     public InterruptibleFuture<IList> completion(IList focus, IInteger cursorOffset, IConstructor trigger) {
         return flatten(completion, c -> c.completion(focus, cursorOffset, trigger));
     }
@@ -447,6 +456,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> providesCompletion() {
         return providesCompletion;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> providesFormatting() {
+        return providesFormatting;
     }
 
     @Override
