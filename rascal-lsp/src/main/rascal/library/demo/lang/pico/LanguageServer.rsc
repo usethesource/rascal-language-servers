@@ -44,7 +44,6 @@ import String;
 import analysis::diff::edits::HiFiLayoutDiff;
 import lang::box::util::Box2Text;
 import lang::pico::format::Formatting;
-import util::Format;
 import util::Formatters;
 import util::IDEServices;
 import util::LanguageServer;
