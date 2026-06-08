@@ -764,7 +764,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 final var opts = getFormattingOptions(params.getOptions());
                 return contribs.formatting(VF.list(tree), opts).get();
             })
-            .thenApply(l -> DocumentChanges.translateTextEdits(l, columns));
+            .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps()));
     }
 
     @Override
@@ -782,7 +782,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             .thenApply(Versioned::get)
             .thenCompose(tree -> {
                 // just a range
-                var r = Locations.setRange(uri, range, columns);
+                var r = Locations.setRange(uri, range, getColumnMaps());
                 // compute the focus list at the end of the range
                 var focus = TreeSearch.computeFocusList(tree, r.getBeginLine(), r.getBeginColumn(), r.getEndLine(), r.getEndColumn());
 
@@ -790,7 +790,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 return contribs.formatting(focus, opts).get();
             })
             // convert the document changes
-            .thenApply(l -> DocumentChanges.translateTextEdits(l, columns)
+            .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps())
                 .stream()
                 .filter(e -> Ranges.containsRange(range, e.getRange()))
                 .collect(Collectors.toList()));
