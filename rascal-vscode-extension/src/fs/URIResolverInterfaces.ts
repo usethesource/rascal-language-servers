@@ -24,7 +24,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { ISourceLocationRequest, LocationContentResponse, BooleanResponse, TimestampResponse, DirectoryListingResponse, NumberResponse, FileAttributes, StringResponse, WriteFileRequest, RemoveRequest, RenameRequest, CopyRequest, SetLastModifiedRequest, WatchRequest, SourceLocationResponse } from './JsonRpcMessages';
+import { ISourceLocationRequest, LocationContentResponse, BooleanResponse, TimestampResponse, DirectoryListingResponse, NumberResponse, FileAttributes, StringResponse, WriteFileRequest, RemoveRequest, RenameRequest, CopyRequest, SetLastModifiedRequest, WatchRequest, SourceLocationResponse, Capabilities } from './JsonRpcMessages';
+
+export interface ISourceLocationCommon {
+    getCharset(req: ISourceLocationRequest): Promise<StringResponse>;
+    serverCapabilities(): Promise<Capabilities>;
+}
 
 export interface ISourceLocationInput {
     readFile(req: ISourceLocationRequest): Promise<LocationContentResponse>;
@@ -37,7 +42,6 @@ export interface ISourceLocationInput {
     size(req: ISourceLocationRequest): Promise<NumberResponse>;
     stat(req: ISourceLocationRequest): Promise<FileAttributes>;
     isReadable(req: ISourceLocationRequest): Promise<BooleanResponse>;
-    getCharset(req: ISourceLocationRequest): Promise<StringResponse>;
 }
 
 export interface ISourceLocationOutput {
@@ -56,5 +60,5 @@ export interface ISourceLocationWatcher {
 }
 
 export interface ILogicalSourceLocationResolver {
-    resolveLocation(req: ISourceLocationRequest): Promise<SourceLocationResponse>
+    resolve(req: ISourceLocationRequest): Promise<SourceLocationResponse>
 }

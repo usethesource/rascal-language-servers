@@ -153,7 +153,7 @@ describe('RemoteFS', function () {
         expect(repl.lastOutput).is.equal("bool: true", "Writing Rascal Code fs works");
     });
 
-    it("resolveLocation from Rascal file system", async () => {
+    it("resolve from Rascal file system", async () => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute(":edit IO", true, Delays.extremelySlow);
