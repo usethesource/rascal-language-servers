@@ -26,7 +26,7 @@
  */
 import * as vscode from 'vscode';
 import { CancellationToken, ProviderResult, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
-import { BaseLanguageClient } from 'vscode-languageclient';
+import { IRascalCoordinates, RascalFileSystemInVSCode } from './fs/RascalFileSystemInVSCode';
 
 interface ExtendedLink extends TerminalLink {
     loc: SourceLocation;
@@ -34,9 +34,7 @@ interface ExtendedLink extends TerminalLink {
 
 interface SourceLocation {
     uri: string;
-    offsetLength?: [number, number];
-    beginLineColumn?: [number, number];
-    endLineColumn?: [number, number];
+    coordinates?: IRascalCoordinates;
 }
 
 /**
@@ -44,7 +42,7 @@ interface SourceLocation {
  */
 export class RascalTerminalLinkProvider implements TerminalLinkProvider<ExtendedLink> {
 
-    constructor (private readonly client: Promise<BaseLanguageClient>) {
+    constructor (private readonly client: Promise<RascalFileSystemInVSCode>) {
     }
 
     linkDetector() {
@@ -74,45 +72,26 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
             return vscode.commands.executeCommand("vscode.open", sloc.uri) ;
         }
 
-        const rsloc: SourceLocation = this.fromRascalLocationString(await (await this.client).sendRequest("rascal/vfs/logical/resolveLocation", this.toRascalLocationString(sloc)));
-        const td = await vscode.workspace.openTextDocument(vscode.Uri.parse(rsloc.uri));
+        const [uri, coordinates] = await (await this.client).resolve(vscode.Uri.parse(sloc.uri), sloc.coordinates);
+        const td = await vscode.workspace.openTextDocument(uri);
         const te = await vscode.window.showTextDocument(td);
 
-        const targetRange = translateRange(rsloc, td);
-        if (targetRange) {
-            te.revealRange(targetRange);
-            te.selection = new vscode.Selection(
-                targetRange.start.line,
-                targetRange.start.character,
-                targetRange.end.line,
-                targetRange.end.character,
-            );
-        }
-    }
-
-    toRascalLocationString(sloc: SourceLocation): string {
-        let ret = `|${sloc.uri}|`;
-        if (sloc.offsetLength) {
-            ret += `(${sloc.offsetLength[0]},${sloc.offsetLength[1]}`;
-            if (sloc.beginLineColumn) {
-                ret += `,<${sloc.beginLineColumn[0]},${sloc.beginLineColumn[1]}>`;
-                ret += `,<${sloc.endLineColumn![0]},${sloc.endLineColumn![1]}>`;
+        if (coordinates) {
+            const targetRange = translateRange(coordinates, td);
+            if (targetRange) {
+                te.revealRange(targetRange);
+                te.selection = new vscode.Selection(
+                    targetRange.start.line,
+                    targetRange.start.character,
+                    targetRange.end.line,
+                    targetRange.end.character,
+                );
             }
-            ret += ")";
         }
-        return ret;
-    }
-
-    fromRascalLocationString(loc: string): SourceLocation {
-        const match: RegExpExecArray | null = this.linkDetector().exec(loc);
-        if (match !== null) {
-            return buildLocation(match);
-        }
-        throw Error(`Invalid location ${loc}`);
     }
 }
 
-function translateRange(sloc: SourceLocation, td: vscode.TextDocument): vscode.Range | undefined {
+function translateRange(sloc: IRascalCoordinates, td: vscode.TextDocument): vscode.Range | undefined {
     if (sloc.beginLineColumn !== undefined && sloc.endLineColumn !== undefined) {
         const beginLine = sloc.beginLineColumn[0] - 1;
         const endLine = sloc.endLineColumn[0] - 1;
@@ -137,13 +116,13 @@ function buildLocation(match: RegExpExecArray): SourceLocation {
     const linkMatch = match[0];
     const linkLength = linkMatch.indexOf('|', 2);
     const sloc = <SourceLocation>{ uri: linkMatch.substring(1, linkLength) };
-    const numbers = linkMatch.substring(linkLength).match(/\d+/g,);
+    const numbers = linkMatch.substring(linkLength).match(/[0-9]+/g,);
     if (numbers && numbers.length >= 2) {
-        sloc.offsetLength = [Number(numbers[0]), Number(numbers[1])];
+        sloc.coordinates = { offsetLength : [Number(numbers[0]), Number(numbers[1])] };
         if (numbers.length === 6) {
             // we have a full loc
-            sloc.beginLineColumn = [Number(numbers[2]), Number(numbers[3])];
-            sloc.endLineColumn = [Number(numbers[4]), Number(numbers[5])];
+            sloc.coordinates.beginLineColumn = [Number(numbers[2]), Number(numbers[3])];
+            sloc.coordinates.endLineColumn = [Number(numbers[4]), Number(numbers[5])];
         }
     }
     return sloc;

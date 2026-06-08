@@ -81,7 +81,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
             devPort: 9999,
             dedicated: this.dedicatedLanguage !== undefined,
             lspArg: JSON.stringify(this.dedicatedLanguage)
-        });
+        }).then(([c, _]) => c);
     }
 
 
