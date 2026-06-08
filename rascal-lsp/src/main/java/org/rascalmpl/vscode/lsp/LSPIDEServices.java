@@ -44,6 +44,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -179,20 +180,20 @@ public class LSPIDEServices implements IDEServices {
         return monitor;
     }
 
-    /*
     @Override
     public void showMessage(IConstructor message) {
         // Not overriden; tends to cause deadlocks
         // https://github.com/usethesource/rascal-language-servers/issues/185
-        languageClient.showMessage(Message.toMessageParams(message));
+        // languageClient.showMessage(Message.toMessageParams(message));
+        IDEServices.super.showMessage(message);
     }
 
     @Override
     public void logMessage(IConstructor msg) {
         // Not overriden; tends to cause deadlocks
         // https://github.com/usethesource/rascal-language-servers/issues/185
-        languageClient.logMessage(Message.toMessageParams(msg));
+        // languageClient.logMessage(Message.toMessageParams(msg));
+        IDEServices.super.logMessage(msg);
     }
-    */
 
 }
