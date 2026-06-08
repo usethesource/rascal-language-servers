@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, MarkerType, NotificationType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
+import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -409,12 +409,11 @@ end
 
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.clickCodeLens(editor, "Show warning");
-
         await driver.wait(async () => {
-            const center = await bench.openNotificationsCenter();
-            const notifications = await center.getNotifications(NotificationType.Warning);
-            const messages = await Promise.all(notifications.map(n => n.getMessage()));
-            return messages.find(m => m.startsWith("Test warning"));
+            const output = await bench.getBottomBar().openOutputView();
+            await output.selectChannel("Language Parametric Rascal Language Server");
+            const contents = await output.getText();
+            return contents.split("\n")[-1]?.indexOf("Test warning") !== -1;
         }, Delays.normal, "Test warning dialog should show");
     });
 
