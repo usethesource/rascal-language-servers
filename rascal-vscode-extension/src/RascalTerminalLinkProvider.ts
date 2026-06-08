@@ -45,22 +45,18 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
     constructor (private readonly client: Promise<RascalFileSystemInVSCode>) {
     }
 
-    linkDetector() {
-        // sadly java script regex store state, so we have to create a new one everytime
-        return new RegExp(
-            "\\|[^\\t-\\n\\r\\s\\|:]+://[^\\t-\\n\\r\\s\\|]*\\|" // |location|
-            + "(\\([^\\)]*\\))?" // (optional offset)
-            , "g");
-    }
+    private readonly linkDetector =
+        /\|[a-zA-Z][\w\-.+]*:\/\/[^\t\n\r| ]*\|(\([^)]*\))?/g;
 
     provideTerminalLinks(context: TerminalLinkContext, token: CancellationToken): ProviderResult<ExtendedLink[]> {
         if (!context.terminal.name.includes("Rascal")) {
             return null;
         }
-        const matcher = this.linkDetector();
+        // reset the search
+        this.linkDetector.lastIndex = 0;
         let match: RegExpExecArray | null;
         const result: ExtendedLink[] = [];
-        while ((match = matcher.exec(context.line)) !== null && !token.isCancellationRequested) {
+        while ((match = this.linkDetector.exec(context.line)) !== null && !token.isCancellationRequested) {
             result.push(buildLink(match));
         }
         return result.length === 0 ? null : result;
@@ -73,7 +69,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
         }
 
         const [uri, coordinates] = await (await this.client).resolve(vscode.Uri.parse(sloc.uri), sloc.coordinates);
-        const td = await vscode.workspace.openTextDocument(uri);
+        const td = await vscode.workspace.openTextDocument(removeLSPPrefix(uri));
         const te = await vscode.window.showTextDocument(td);
 
         if (coordinates) {
@@ -180,3 +176,10 @@ function fixedOffsetLengthPositions(td: vscode.TextDocument, offset: number, len
     }
     return [offset, endOffset];
 }
+function removeLSPPrefix(uri: vscode.Uri): vscode.Uri {
+    if (uri.scheme.startsWith('lsp+')) {
+        return uri.with({scheme: uri.scheme.substring('lsp+'.length)});
+    }
+    return uri;
+}
+
