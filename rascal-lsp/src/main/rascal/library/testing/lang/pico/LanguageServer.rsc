@@ -102,7 +102,7 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
         <lineOffset(input.src, 1), addTodo(input.src, title="Register TODO")>,
         <lineOffset(input.src, 1), removeTodo(input.src, title="Unregister TODO")>,
         <lineOffset(input.src, 1), showWarning("Test warning", input.src, title="Show warning")>,
-        <lineOffset(input.src, 2), showContents("Some text", title="Show some text")>
+        <lineOffset(input.src, 1), showContents("Some text", title="Show some text")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)
