@@ -33,21 +33,23 @@ The core functionality of this module is built upon these concepts:
 }
 module demo::lang::pico::LanguageServer
 
-import util::LanguageServer;
-import util::Format;
-import util::IDEServices;
-import ParseTree;
-import util::ParseErrorRecovery;
-import util::Reflective;
 extend demo::lang::pico::Extensions;
-import lang::pico::format::Formatting;
-import lang::box::util::Box2Text;
-import analysis::diff::edits::HiFiLayoutDiff;
+
 import DateTime;
 import IO;
 import List;
 import Location;
+import ParseTree;
 import String;
+import analysis::diff::edits::HiFiLayoutDiff;
+import lang::box::util::Box2Text;
+import lang::pico::format::Formatting;
+import util::Format;
+import util::Formatters;
+import util::IDEServices;
+import util::LanguageServer;
+import util::ParseErrorRecovery;
+import util::Reflective;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
