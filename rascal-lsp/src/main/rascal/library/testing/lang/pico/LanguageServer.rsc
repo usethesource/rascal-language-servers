@@ -100,8 +100,8 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
         <lineOffset(input.src, 1), browseRascalSite(title="Browse Rascal site")>,
         <lineOffset(input.src, 1), editPico(input.src.top, title="Edit another file")>,
         <lineOffset(input.src, 1), addTodo(input.src, title="Register TODO")>,
-        <lineOffset(input.src, 2), removeTodo(input.src, title="Unregister TODO")>,
-        <lineOffset(input.src, 2), showWarning("Test warning", input.src, title="Show warning")>,
+        <lineOffset(input.src, 1), removeTodo(input.src, title="Unregister TODO")>,
+        <lineOffset(input.src, 1), showWarning("Test warning", input.src, title="Show warning")>,
         <lineOffset(input.src, 2), showContents("Some text", title="Show some text")>
     ];
 
