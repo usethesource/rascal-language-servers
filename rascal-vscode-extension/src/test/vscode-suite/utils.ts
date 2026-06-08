@@ -244,8 +244,10 @@ export class IDEOperations {
         // There should be no more error diagnostics
         const bottomBar = new Workbench().getBottomBar();
         const problemsView = await bottomBar.openProblemsView();
-        const allVisibleMarkers = await problemsView.getAllVisibleMarkers(MarkerType.Error);
-        expect(allVisibleMarkers.length, "Not all error diagnostics have been cleared").to.equal(0);
+        await this.driver.wait(async () => {
+            const allVisibleMarkers = await problemsView.getAllVisibleMarkers(MarkerType.Error);
+            return allVisibleMarkers.length === 0;
+        }, Delays.normal, "Not all error diagnostics have been cleared");
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
