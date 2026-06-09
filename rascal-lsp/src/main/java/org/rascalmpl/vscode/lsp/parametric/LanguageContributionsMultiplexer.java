@@ -31,6 +31,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -47,6 +49,8 @@ import io.usethesource.vallang.IValue;
 
 @SuppressWarnings("java:S3077") // Fields in this class are read/written sequentially
 public class LanguageContributionsMultiplexer implements ILanguageContributions {
+
+    private static final Logger logger = LogManager.getLogger(LanguageContributionsMultiplexer.class);
 
     private final ExecutorService exec;
     private final String name;
@@ -74,22 +78,22 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> callHierarchy = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> completion = failedInitialization();
 
-    private volatile CompletableFuture<Boolean> hasAnalysis = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasBuild = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDocumentSymbol = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasCodeLens = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasInlayHint = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasExecution = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasHover = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDefinition = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasReferences = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasImplementation = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasCodeAction = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasRename = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasDidRenameFiles = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasSelectionRange = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasCallHierarchy = failedInitialization();
-    private volatile CompletableFuture<Boolean> hasCompletion = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesAnalysis = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesBuild = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesDocumentSymbol = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesCodeLens = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesInlayHint = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesExecution = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesHover = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesDefinition = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesReferences = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesImplementation = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesCodeAction = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesRename = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesDidRenameFiles = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesSelectionRange = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesCallHierarchy = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesCompletion = failedInitialization();
 
     private volatile CompletableFuture<Boolean> specialCaseHighlighting = failedInitialization();
 
@@ -152,39 +156,39 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         // future
         parsing = firstOrFail();
 
-        analysis = findFirstOrDefault(ILanguageContributions::hasAnalysis);
-        build = findFirstOrDefault(ILanguageContributions::hasBuild);
-        documentSymbol = findFirstOrDefault(ILanguageContributions::hasDocumentSymbol);
-        codeLens = findFirstOrDefault(ILanguageContributions::hasCodeLens);
-        inlayHint = findFirstOrDefault(ILanguageContributions::hasInlayHint);
-        execution = findFirstOrDefault(ILanguageContributions::hasExecution);
-        hover = findFirstOrDefault(ILanguageContributions::hasHover);
-        definition = findFirstOrDefault(ILanguageContributions::hasDefinition);
-        references = findFirstOrDefault(ILanguageContributions::hasReferences);
-        implementation = findFirstOrDefault(ILanguageContributions::hasImplementation);
-        codeAction = findFirstOrDefault(ILanguageContributions::hasCodeAction);
-        rename = findFirstOrDefault(ILanguageContributions::hasRename);
-        didRenameFiles = findFirstOrDefault(ILanguageContributions::hasDidRenameFiles);
-        selectionRange = findFirstOrDefault(ILanguageContributions::hasSelectionRange);
-        callHierarchy = findFirstOrDefault(ILanguageContributions::hasCallHierarchy);
-        completion = findFirstOrDefault(ILanguageContributions::hasCompletion);
+        analysis = findFirstOrDefault(ILanguageContributions::providesAnalysis, "analysis");
+        build = findFirstOrDefault(ILanguageContributions::providesBuild, "build");
+        documentSymbol = findFirstOrDefault(ILanguageContributions::providesDocumentSymbol, "documentSymbol");
+        codeLens = findFirstOrDefault(ILanguageContributions::providesCodeLens, "codeLens");
+        inlayHint = findFirstOrDefault(ILanguageContributions::providesInlayHint, "inlayHint");
+        execution = findFirstOrDefault(ILanguageContributions::providesExecution, "execution");
+        hover = findFirstOrDefault(ILanguageContributions::providesHover, "hover");
+        definition = findFirstOrDefault(ILanguageContributions::providesDefinition, "definition");
+        references = findFirstOrDefault(ILanguageContributions::providesReferences, "references");
+        implementation = findFirstOrDefault(ILanguageContributions::providesImplementation, "implementation");
+        codeAction = findFirstOrDefault(ILanguageContributions::providesCodeAction, "codeAction");
+        rename = findFirstOrDefault(ILanguageContributions::providesRename, "rename");
+        didRenameFiles = findFirstOrDefault(ILanguageContributions::providesDidRenameFiles, "didRenameFiles");
+        selectionRange = findFirstOrDefault(ILanguageContributions::providesSelectionRange, "selectionRange");
+        callHierarchy = findFirstOrDefault(ILanguageContributions::providesCallHierarchy, "callHierarchy");
+        completion = findFirstOrDefault(ILanguageContributions::providesCompletion, "completion");
 
-        hasAnalysis = anyTrue(ILanguageContributions::hasAnalysis);
-        hasBuild = anyTrue(ILanguageContributions::hasBuild);
-        hasDocumentSymbol = anyTrue(ILanguageContributions::hasDocumentSymbol);
-        hasCodeLens = anyTrue(ILanguageContributions::hasCodeLens);
-        hasInlayHint = anyTrue(ILanguageContributions::hasInlayHint);
-        hasExecution = anyTrue(ILanguageContributions::hasExecution);
-        hasHover = anyTrue(ILanguageContributions::hasHover);
-        hasDefinition = anyTrue(ILanguageContributions::hasDefinition);
-        hasReferences = anyTrue(ILanguageContributions::hasReferences);
-        hasImplementation = anyTrue(ILanguageContributions::hasImplementation);
-        hasCodeAction = anyTrue(ILanguageContributions::hasCodeAction);
-        hasRename = anyTrue(ILanguageContributions::hasRename);
-        hasDidRenameFiles = anyTrue(ILanguageContributions::hasDidRenameFiles);
-        hasSelectionRange = anyTrue(ILanguageContributions::hasSelectionRange);
-        hasCallHierarchy = anyTrue(ILanguageContributions::hasCallHierarchy);
-        hasCompletion = anyTrue(ILanguageContributions::hasCompletion);
+        providesAnalysis = anyTrue(ILanguageContributions::providesAnalysis);
+        providesBuild = anyTrue(ILanguageContributions::providesBuild);
+        providesDocumentSymbol = anyTrue(ILanguageContributions::providesDocumentSymbol);
+        providesCodeLens = anyTrue(ILanguageContributions::providesCodeLens);
+        providesInlayHint = anyTrue(ILanguageContributions::providesInlayHint);
+        providesExecution = anyTrue(ILanguageContributions::providesExecution);
+        providesHover = anyTrue(ILanguageContributions::providesHover);
+        providesDefinition = anyTrue(ILanguageContributions::providesDefinition);
+        providesReferences = anyTrue(ILanguageContributions::providesReferences);
+        providesImplementation = anyTrue(ILanguageContributions::providesImplementation);
+        providesCodeAction = anyTrue(ILanguageContributions::providesCodeAction);
+        providesRename = anyTrue(ILanguageContributions::providesRename);
+        providesDidRenameFiles = anyTrue(ILanguageContributions::providesDidRenameFiles);
+        providesSelectionRange = anyTrue(ILanguageContributions::providesSelectionRange);
+        providesCallHierarchy = anyTrue(ILanguageContributions::providesCallHierarchy);
+        providesCompletion = anyTrue(ILanguageContributions::providesCompletion);
 
         // Always use the special-case highlighting status of *the first*
         // contribution (possibly using the default value in the Rascal ADT if
@@ -204,7 +208,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         return it.next().contrib;
     }
 
-    private CompletableFuture<ILanguageContributions> findFirstOrDefault(Function<ILanguageContributions, CompletableFuture<Boolean>> filter) {
+    private CompletableFuture<ILanguageContributions> findFirstOrDefault(Function<ILanguageContributions, CompletableFuture<Boolean>> filter, String contribName) {
         return CompletableFuture.supplyAsync(() -> {
             for (var c : contributions) {
                 try {
@@ -219,6 +223,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
                 }
             }
             // otherwise return the first one, that contains defaults on what to do if it's missing
+            logger.info("No contribution for {}; defaulting to empty implementation", contribName);
             return firstOrFail();
         }, exec);
     }
@@ -366,82 +371,82 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeAction() {
-        return hasCodeAction;
+    public CompletableFuture<Boolean> providesCodeAction() {
+        return providesCodeAction;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasHover() {
-        return hasHover;
+    public CompletableFuture<Boolean> providesHover() {
+        return providesHover;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDefinition() {
-        return hasDefinition;
+    public CompletableFuture<Boolean> providesDefinition() {
+        return providesDefinition;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasReferences() {
-        return hasReferences;
+    public CompletableFuture<Boolean> providesReferences() {
+        return providesReferences;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasImplementation() {
-        return hasImplementation;
+    public CompletableFuture<Boolean> providesImplementation() {
+        return providesImplementation;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDocumentSymbol() {
-        return hasDocumentSymbol;
+    public CompletableFuture<Boolean> providesDocumentSymbol() {
+        return providesDocumentSymbol;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasAnalysis() {
-        return hasAnalysis;
+    public CompletableFuture<Boolean> providesAnalysis() {
+        return providesAnalysis;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasBuild() {
-        return hasBuild;
+    public CompletableFuture<Boolean> providesBuild() {
+        return providesBuild;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCodeLens() {
-        return hasCodeLens;
+    public CompletableFuture<Boolean> providesCodeLens() {
+        return providesCodeLens;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasExecution() {
-        return hasExecution;
+    public CompletableFuture<Boolean> providesExecution() {
+        return providesExecution;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasInlayHint() {
-        return hasInlayHint;
+    public CompletableFuture<Boolean> providesInlayHint() {
+        return providesInlayHint;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasSelectionRange() {
-        return hasSelectionRange;
+    public CompletableFuture<Boolean> providesSelectionRange() {
+        return providesSelectionRange;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasRename() {
-        return hasRename;
+    public CompletableFuture<Boolean> providesRename() {
+        return providesRename;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasDidRenameFiles() {
-        return hasDidRenameFiles;
+    public CompletableFuture<Boolean> providesDidRenameFiles() {
+        return providesDidRenameFiles;
     }
 
-    public CompletableFuture<Boolean> hasCallHierarchy() {
-        return hasCallHierarchy;
+    public CompletableFuture<Boolean> providesCallHierarchy() {
+        return providesCallHierarchy;
     }
 
     @Override
-    public CompletableFuture<Boolean> hasCompletion() {
-        return hasCompletion;
+    public CompletableFuture<Boolean> providesCompletion() {
+        return providesCompletion;
     }
 
     @Override

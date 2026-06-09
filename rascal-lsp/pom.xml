@@ -30,14 +30,13 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.rascalmpl</groupId>
   <artifactId>rascal-lsp</artifactId>
-  <version>2.22.1-SNAPSHOT</version>
+  <version>2.22.6-SNAPSHOT</version>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
-    <log4j2.version>2.25.3</log4j2.version>
-    <lsp4j.version>0.24.0</lsp4j.version>
-    <mockito.version>5.21.0</mockito.version>
+    <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
+    <log4j2.version>2.26.0</log4j2.version>
+    <mockito.version>5.23.0</mockito.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
@@ -60,11 +59,12 @@
       <url>https://releases.usethesource.io/maven/</url>
     </pluginRepository>
   </pluginRepositories>
+
   <dependencies>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.41.2</version>
+      <version>0.43.0-RC6</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -76,7 +76,7 @@
     <dependency>
       <groupId>org.eclipse.lsp4j</groupId>
       <artifactId>org.eclipse.lsp4j</artifactId>
-      <version>${lsp4j.version}</version>
+      <version>1.0.0</version>
       <type>jar</type>
     </dependency>
     <dependency>
@@ -105,11 +105,6 @@
       <version>${log4j2.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.lsp4j</groupId>
-      <artifactId>org.eclipse.lsp4j.debug</artifactId>
-      <version>${lsp4j.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>${mockito.version}</version>
@@ -119,11 +114,9 @@
   <build>
     <resources>
       <resource>
-        <directory>.</directory>
+        <directory>META-INF</directory>
+        <targetPath>${project.build.outputDirectory}/META-INF</targetPath>  <!-- this way of framing it works around issue in m2e -->
         <filtering>false</filtering>
-        <includes>
-          <include>META-INF/RASCAL.MF</include>
-        </includes>
       </resource>
       <resource>
         <directory>src/main/resources</directory>
@@ -138,7 +131,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.14.1</version>
+        <version>3.15.0</version>
         <configuration>
           <release>11</release>
           <showWarnings>true</showWarnings>
@@ -157,14 +150,14 @@
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-junit47</artifactId>
-            <version>3.5.4</version>
+            <version>3.5.6</version>
           </dependency>
         </dependencies>
       </plugin>
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.30.3</version>
+        <version>0.31.0</version>
         <configuration>
             <errorsAsWarnings>false</errorsAsWarnings>
             <bin>${project.build.outputDirectory}</bin>
@@ -202,7 +195,7 @@
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.9.0</version>
+        <version>3.11.0</version>
         <executions>
           <execution>
             <?m2e ignore?>
@@ -231,9 +224,9 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.6.1</version>
+        <version>3.6.2</version>
         <dependencies>
-          <dependency> <!-- correctly shade multiple log4j2 depencneis -->
+          <dependency> <!-- correctly shade multiple log4j2 dependencies -->
               <groupId>org.apache.logging.log4j</groupId>
               <artifactId>log4j-transform-maven-shade-plugin-extensions</artifactId>
               <version>0.2.0</version>
@@ -333,7 +326,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.2</version>
+        <version>3.6.3</version>
         <executions>
           <execution>
             <id>enforce-maven</id>

@@ -1,0 +1,404 @@
+{
+  "result": [
+    {
+      "a": true
+    },
+    [
+      10000,
+      8,
+      3.14,
+      "1r2"
+    ],
+    {
+      "character": 0
+    },
+    {
+      "prod": {
+        "def": {
+          "name": "idtype",
+          "symbol": {
+            "name": "IdType"
+          }
+        },
+        "symbols": [
+          {
+            "name": "id",
+            "symbol": {
+              "name": "Id"
+            }
+          },
+          {
+            "name": "Layout"
+          },
+          {
+            "string": ":"
+          },
+          {
+            "name": "Layout"
+          },
+          {
+            "name": "t",
+            "symbol": {
+              "name": "Type"
+            }
+          }
+        ],
+        "attributes": []
+      },
+      "args": [
+        {
+          "prod": {
+            "def": {
+              "name": "Id"
+            },
+            "symbols": [
+              {
+                "ranges": [
+                  {
+                    "begin": 97,
+                    "end": 122
+                  }
+                ]
+              },
+              {
+                "symbol": {
+                  "symbol": {
+                    "ranges": [
+                      {
+                        "begin": 48,
+                        "end": 57
+                      },
+                      {
+                        "begin": 97,
+                        "end": 122
+                      }
+                    ]
+                  }
+                },
+                "conditions": [
+                  {
+                    "symbol": {
+                      "ranges": [
+                        {
+                          "begin": 48,
+                          "end": 57
+                        },
+                        {
+                          "begin": 97,
+                          "end": 122
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ],
+            "attributes": []
+          },
+          "args": [
+            {
+              "character": 120
+            },
+            {
+              "prod": {
+                "def": {
+                  "symbol": {
+                    "ranges": [
+                      {
+                        "begin": 48,
+                        "end": 57
+                      },
+                      {
+                        "begin": 97,
+                        "end": 122
+                      }
+                    ]
+                  }
+                }
+              },
+              "args": [],
+              "src": "|test:///expectation|(1,0,<1,1>,<1,1>)"
+            }
+          ],
+          "src": "|test:///expectation|(0,1,<1,0>,<1,1>)"
+        },
+        {
+          "prod": {
+            "def": {
+              "name": "Layout"
+            },
+            "symbols": [
+              {
+                "symbol": {
+                  "symbol": {
+                    "name": "WhitespaceAndComment"
+                  }
+                },
+                "conditions": [
+                  {
+                    "symbol": {
+                      "ranges": [
+                        {
+                          "begin": 9,
+                          "end": 10
+                        },
+                        {
+                          "begin": 13,
+                          "end": 13
+                        },
+                        {
+                          "begin": 32,
+                          "end": 32
+                        },
+                        {
+                          "begin": 37,
+                          "end": 37
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ],
+            "attributes": []
+          },
+          "args": [
+            {
+              "prod": {
+                "def": {
+                  "symbol": {
+                    "name": "WhitespaceAndComment"
+                  }
+                }
+              },
+              "args": [],
+              "src": "|test:///expectation|(1,0,<1,1>,<1,1>)"
+            }
+          ],
+          "src": "|test:///expectation|(1,0,<1,1>,<1,1>)"
+        },
+        {
+          "prod": {
+            "def": {
+              "string": ":"
+            },
+            "symbols": [
+              {
+                "ranges": [
+                  {
+                    "begin": 58,
+                    "end": 58
+                  }
+                ]
+              }
+            ],
+            "attributes": []
+          },
+          "args": [
+            {
+              "character": 58
+            }
+          ]
+        },
+        {
+          "prod": {
+            "def": {
+              "name": "Layout"
+            },
+            "symbols": [
+              {
+                "symbol": {
+                  "symbol": {
+                    "name": "WhitespaceAndComment"
+                  }
+                },
+                "conditions": [
+                  {
+                    "symbol": {
+                      "ranges": [
+                        {
+                          "begin": 9,
+                          "end": 10
+                        },
+                        {
+                          "begin": 13,
+                          "end": 13
+                        },
+                        {
+                          "begin": 32,
+                          "end": 32
+                        },
+                        {
+                          "begin": 37,
+                          "end": 37
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ],
+            "attributes": []
+          },
+          "args": [
+            {
+              "prod": {
+                "def": {
+                  "symbol": {
+                    "name": "WhitespaceAndComment"
+                  }
+                }
+              },
+              "args": [
+                {
+                  "prod": {
+                    "def": {
+                      "name": "WhitespaceAndComment"
+                    },
+                    "symbols": [
+                      {
+                        "ranges": [
+                          {
+                            "begin": 9,
+                            "end": 10
+                          },
+                          {
+                            "begin": 13,
+                            "end": 13
+                          },
+                          {
+                            "begin": 32,
+                            "end": 32
+                          }
+                        ]
+                      }
+                    ],
+                    "attributes": []
+                  },
+                  "args": [
+                    {
+                      "character": 32
+                    }
+                  ],
+                  "src": "|test:///expectation|(2,1,<1,2>,<1,3>)"
+                }
+              ],
+              "src": "|test:///expectation|(2,1,<1,2>,<1,3>)"
+            }
+          ],
+          "src": "|test:///expectation|(2,1,<1,2>,<1,3>)"
+        },
+        {
+          "prod": {
+            "def": {
+              "name": "string",
+              "symbol": {
+                "name": "Type"
+              }
+            },
+            "symbols": [
+              {
+                "string": "string"
+              }
+            ],
+            "attributes": []
+          },
+          "args": [
+            {
+              "prod": {
+                "def": {
+                  "string": "string"
+                },
+                "symbols": [
+                  {
+                    "ranges": [
+                      {
+                        "begin": 115,
+                        "end": 115
+                      }
+                    ]
+                  },
+                  {
+                    "ranges": [
+                      {
+                        "begin": 116,
+                        "end": 116
+                      }
+                    ]
+                  },
+                  {
+                    "ranges": [
+                      {
+                        "begin": 114,
+                        "end": 114
+                      }
+                    ]
+                  },
+                  {
+                    "ranges": [
+                      {
+                        "begin": 105,
+                        "end": 105
+                      }
+                    ]
+                  },
+                  {
+                    "ranges": [
+                      {
+                        "begin": 110,
+                        "end": 110
+                      }
+                    ]
+                  },
+                  {
+                    "ranges": [
+                      {
+                        "begin": 103,
+                        "end": 103
+                      }
+                    ]
+                  }
+                ],
+                "attributes": []
+              },
+              "args": [
+                {
+                  "character": 115
+                },
+                {
+                  "character": 116
+                },
+                {
+                  "character": 114
+                },
+                {
+                  "character": 105
+                },
+                {
+                  "character": 110
+                },
+                {
+                  "character": 103
+                }
+              ]
+            }
+          ],
+          "src": "|test:///expectation|(3,6,<1,3>,<1,9>)"
+        }
+      ],
+      "src": "|test:///expectation|(0,9,<1,0>,<1,9>)"
+    },
+    "memory://authority/file.ext",
+    1773917754121,
+    [
+      [
+        1,
+        2
+      ],
+      {
+        "symbol": "int",
+        "definitions": {}
+      }
+    ]
+  ]
+}

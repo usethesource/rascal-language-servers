@@ -14,9 +14,9 @@
     "color": "#ffffff",
     "theme": "light"
   },
-  "version": "0.13.1-head",
+  "version": "0.13.6-head",
   "engines": {
-    "vscode": "^1.90.0",
+    "vscode": "^1.100.0",
     "node": ">=20.9.0"
   },
   "type": "commonjs",
@@ -32,6 +32,7 @@
     "url": "https://github.com/sponsors/usethesource/"
   },
   "dependencies": {
+    "jsonc-parser": "3.x",
     "tar": "7.x",
     "vscode-languageclient": "9.x",
     "yauzl": "3.x"
@@ -295,14 +296,14 @@
   "scripts": {
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
     "vscode:prepublish": "npm run lsp4j:package && npm run package",
-    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --packages=bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --packages=bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --main-fields=module,main",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "package": "npm run esbuild-base -- --minify",
     "compile-lib": "npx tsc -p . --outDir lib --declaration true",
     "compile-tests": "npx tsc -p . --outDir out",
     "watch-tests": "npx tsc -p . -w --outDir out",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "pretest": "npm run compile-tests && npm run esbuild && npm run lint",
     "lint": "npx eslint src --ext ts",
     "normalTest": "npx mocha ./out/test/normal-suite/",
     "test": "node ./out/test/runVSCodeTests.js",
@@ -312,23 +313,22 @@
   "devDependencies": {
     "@tsconfig/node20": "20.x",
     "@tsconfig/strictest": "2.x",
-    "@types/chai": "4.x",
+    "@types/chai": "5.x",
     "@types/mocha": "10.x",
     "@types/node": "20.x",
-    "@types/tar": "6.x",
-    "@types/vscode": "1.90.0",
+    "@types/vscode": "1.100.0",
     "@types/yauzl": "2.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
     "@vscode/test-electron": "2.x",
     "@vscode/vsce": "3.x",
-    "chai": "4.x",
-    "esbuild": "0.27.x",
+    "chai": "6.x",
+    "esbuild": "0.28.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
     "mocha": "11.x",
-    "typescript": "5.x",
+    "typescript": "6.x",
     "vscode-extension-tester": "8.x"
   }
 }

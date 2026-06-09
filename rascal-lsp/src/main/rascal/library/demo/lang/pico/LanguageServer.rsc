@@ -38,21 +38,12 @@ import util::IDEServices;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
-extend lang::pico::\syntax::Main;
+extend demo::lang::pico::Extensions;
 import DateTime;
 import IO;
+import List;
 import Location;
 import String;
-
-// We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
-// For most use-cases, one should not extend the grammar in the language server implementation
-syntax IdType
-    = function: Id id "(" {IdType ","}* args ")" ":" Type retType ":=" Expression body
-    ;
-
-syntax Expression
-    = call: Id id "(" {Expression ","}* args ")"
-    ;
 
 private Tree (str _input, loc _origin) picoParser(bool allowRecovery) {
     return ParseTree::parser(#start[Program], allowRecovery=allowRecovery, filters=allowRecovery ? {createParseErrorFilter(false)} : {});
@@ -64,8 +55,8 @@ Each ((LanguageService)) for pico is implemented as a function.
 Here we group all services such that the LSP server can link them
 with the ((LanguageServer-Language)) definition later.
 }
-set[LanguageService] picoLanguageServer(bool allowRecovery) = {
-    parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
+set[LanguageService] picoLanguageServer() = {
+    parsing(picoParser(true), usesSpecialCaseHighlighting = false),
     documentSymbol(picoDocumentSymbolService),
     codeLens(picoCodeLenseService),
     execution(picoExecutionService),
@@ -79,23 +70,17 @@ set[LanguageService] picoLanguageServer(bool allowRecovery) = {
     completion(picoCompletionService, additionalTriggerCharacters = ["="])
 };
 
-set[LanguageService] picoLanguageServer() = picoLanguageServer(false);
-set[LanguageService] picoLanguageServerWithRecovery() = picoLanguageServer(true);
-
 @synopsis{This set of contributions runs slower but provides more detail.}
 @description{
 ((LanguageService))s can be registered asynchronously and incrementally,
 such that quicky loaded features can be made available while slower to load
 tools come in later.
 }
-set[LanguageService] picoLanguageServerSlowSummary(bool allowRecovery) = {
-    parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false),
+set[LanguageService] picoLanguageServerSlowSummary() = {
+    parsing(picoParser(true), usesSpecialCaseHighlighting = false),
     analysis(picoAnalysisService, providesImplementations = false),
     build(picoBuildService)
 };
-
-set[LanguageService] picoLanguageServerSlowSummary() = picoLanguageServerSlowSummary(false);
-set[LanguageService] picoLanguageServerSlowSummaryWithRecovery() = picoLanguageServerSlowSummary(true);
 
 @synopsis{The documentSymbol service maps pico syntax trees to lists of DocumentSymbols.}
 @description{
@@ -177,15 +162,15 @@ set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.s
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
-    = [action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
+    = [CodeAction::action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
 @synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
 list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program])
-    = [action(command=removeDecl(program, x, title="remove <x>"))];
+    = [CodeAction::action(command=removeDecl(program, x, title="remove <x>"))];
 
 default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 
-@synsopsis{Defines three example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
+@synsopsis{Defines example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command
   = renameAtoB(start[Program] program)
   | removeDecl(start[Program] program, IdType toBeRemoved)
@@ -193,7 +178,7 @@ data Command
 
 @synopsis{Adds an example lense to the entire program.}
 lrel[loc,Command] picoCodeLenseService(start[Program] input)
-    = [<input@\loc, renameAtoB(input, title="Rename variables a to b.")>];
+    = [<input.src, renameAtoB(input, title="Rename variables a to b.")>];
 
 @synopsis{Generates inlay hints that explain the type of each variable usage.}
 list[InlayHint] picoInlayHintService(start[Program] input) {
@@ -208,7 +193,7 @@ list[InlayHint] picoInlayHintService(start[Program] input) {
 
 @synopsis{Helper function to generate actual edit actions for the renameAtoB command}
 list[DocumentEdit] getAtoBEdits(start[Program] input)
-   = [changed(input@\loc.top, [replace(id@\loc, "b") | /id:(Id) `a` := input])];
+   = [changed(input.src.top, [replace(id.src, "b") | /id:(Id) `a` := input])];
 
 @synopsis{Command handler for the renameAtoB command}
 value picoExecutionService(renameAtoB(start[Program] input)) {
@@ -218,7 +203,7 @@ value picoExecutionService(renameAtoB(start[Program] input)) {
 
 @synopsis{Command handler for the removeDecl command}
 value picoExecutionService(removeDecl(start[Program] program, IdType toBeRemoved)) {
-    applyDocumentsEdits([changed(program@\loc.top, [replace(toBeRemoved@\loc, "")])]);
+    applyDocumentsEdits([changed(program.src.top, [replace(toBeRemoved.src, "")])]);
     return ("result": true);
 }
 
@@ -255,7 +240,7 @@ tuple[list[DocumentEdit],set[Message]] picoFileRenameService(list[DocumentEdit] 
 }
 
 list[loc] picoSelectionRangeService(Focus focus)
-    = dup([t@\loc | t <- focus]);
+    = dup([t.src | t <- focus]);
 
 list[CallHierarchyItem] picoPrepareCallHierarchy(Focus focus: [*_, e:(Expression) `<Id callId>(<{Expression ","}* _>)`, *_, start[Program] prog]) {
     s = picoSummaryService(prog.src.top, prog, analyze());
@@ -279,8 +264,6 @@ CallHierarchyItem callHierarchyItem(start[Program] prog, d:(IdType) `<Id id>(<{I
 data CallHierarchyData = \data(start[Program] prog);
 
 str typeOf((IdType) `<Id _>: <Type t>`) = "<t>";
-str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
-    = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
 
 lrel[CallHierarchyItem, loc] picoCallsService(CallHierarchyItem ci, CallDirection dir) {
     s = picoSummaryService(ci.\data.prog.src.top, ci.\data.prog, analyze());
@@ -303,7 +286,7 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
     t = focus[0];
     str prefix = "<t>"[..cursorOffset];
     cc = t.src.begin.column + cursorOffset;
-    items = [];
+    list[CompletionItem] items = [];
 
     isTypingId = false;
     try {
@@ -325,7 +308,7 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
         }
     }
 
-    return items;
+    return sort(items, bool(CompletionItem i1, CompletionItem i2) {return i1.label < i2.label; });
 }
 
 @synopsis{The main function registers the Pico language with the IDE}
@@ -345,14 +328,14 @@ in the presence of error trees. See ((util::LanguageServer)) for more details.
 * You can run each contribution on an example in the terminal to test it first.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
-void main(bool errorRecovery=false) {
+void main() {
     registerLanguage(
         language(
             pathConfig(),
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
-            errorRecovery ? "picoLanguageServerWithRecovery" : "picoLanguageServer"
+            "picoLanguageServer"
         )
     );
     registerLanguage(
@@ -361,7 +344,7 @@ void main(bool errorRecovery=false) {
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
-            errorRecovery ? "picoLanguageServerSlowSummaryWithRecovery" : "picoLanguageServerSlowSummary"
+            "picoLanguageServerSlowSummary"
         )
     );
 }

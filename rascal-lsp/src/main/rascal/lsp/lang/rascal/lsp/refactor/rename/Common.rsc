@@ -45,16 +45,16 @@ import Relation;
 import Set;
 import String;
 import util::FileSystem;
-import util::LanguageServer;
 import util::Maybe;
 import util::Monitor;
 import util::Reflective;
+import analysis::diff::edits::AnnotatedTextEdits;
 import util::Util;
 
 data RenameConfig(
     set[loc] workspaceFolders = {}
-  , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "No path config for <l>"; }
-  , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc l, Renamer r) { throw "Not implemented."; }
+  , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "Path config for <l> not implemented"; }
+  , TModel(loc, Renamer) augmentedTModelForLoc = TModel(loc _, Renamer _) { throw "Not implemented."; }
 );
 
 bool isContainedInScope(loc l, loc scope, TModel tm) {
@@ -78,7 +78,11 @@ str escapeReservedName(str name) = name in reservedNames ? forceEscapeSingleName
 str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n <- split(sep, qname)]);
 
 @memo{maximumSize(100), expireAfter(minutes=5)}
-str normalizeEscaping(str qname, str sep = "::") = perName(qname, str(str n) { return escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(n))); }, sep = sep);
+str normalizeEscaping(str qname, str sep = "::") = perName(qname, normalizeSingleNameEscaping, sep = sep);
+
+// Order is important; unescape everything *first* before re-escaping where necessary
+@memo{maximumSize(100), expireAfter(minutes=5)}
+str normalizeSingleNameEscaping(str name) = escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(name)));
 
 @memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
 
@@ -87,12 +91,12 @@ Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
 
 private tuple[Tree, Tree] escapePair(type[&T <: Tree] T, str n) = <parseAsOrEmpty(T, n), parseAsOrEmpty(T, forceEscapeSingleName(n))>;
 
-private set[&T] escapeSet(type[&T <: Tree] T, str n) {
-    set[&T] res = {};
-    if (just(&T t) := tryParseAs(T, n)) {
+private set[&T <: Tree] escapeSet(type[&T <: Tree] T, str n) {
+    set[&T <: Tree] res = {};
+    if (just(&T <: Tree t) := tryParseAs(T, n)) {
         res += t;
     }
-    if (just(&T t) := tryParseAs(T, forceEscapeSingleName(n))) {
+    if (just(&T <: Tree t) := tryParseAs(T, forceEscapeSingleName(n))) {
         res += t;
     }
     return res;
@@ -340,7 +344,7 @@ rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
 loc parentScope(loc l, TModel tm) {
     if (tm.scopes[l]?) {
         return tm.scopes[l];
-    } else if (just(loc scope) := findSmallestContaining(tm.scopes<inner>, l, containmentPred = isStrictlyContainedIn)) {
+    } else if (just(loc scope) := findSmallestContaining(tm.scopes<inner>, l)) {
         return scope;
     }
     return |global-scope:///|;
@@ -359,13 +363,13 @@ set[&T] flatMapPerFile(set[&U] us, set[&T](loc, set[&U]) func, rel[&U, loc] locO
 set[&T] flatMapPerFile(set[Define] defs, set[&T](loc, set[Define]) func) =
     flatMapPerFile(defs, func, {<d, d.defined> | d <- defs});
 
-default void renameAdditionalUses(set[Define] defs, str newName, TModel tm, Renamer r) {}
+default void renameAdditionalUses(set[Define] _defs, str _newName, TModel _tm, Renamer _r) {}
 
 @synopsis{Decide if a cursor is supported based on focus list only.}
-default bool isUnsupportedCursor(list[Tree] cursor, Renamer _) = false;
+default bool isUnsupportedCursor(list[Tree] _cursor, Renamer _r) = false;
 
 @synopsis{Decide whether a cursor is supported based on type information.}
-default bool isUnsupportedCursor(list[Tree] cursor, TModel tm, Renamer _) = false;
+default bool isUnsupportedCursor(list[Tree] _cursor, TModel _tm, Renamer _r) = false;
 
-@synopsis{Decide whether a cusro is supported based on resolved definitions.}
-default bool isUnsupportedCursor(list[Tree] cursor, set[Define] cursorDefs, TModel tm, Renamer _) = false;
+@synopsis{Decide whether a cursor is supported based on resolved definitions.}
+default bool isUnsupportedCursor(list[Tree] _cursor, set[Define] _cursorDefs, TModel _tm, Renamer _r) = false;

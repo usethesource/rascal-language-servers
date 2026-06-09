@@ -24,39 +24,17 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
+package org.rascalmpl.vscode.lsp;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import java.io.FileNotFoundException;
+import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.util.locations.LineColumnOffsetMap;
 
-public class ReadFileResult {
+import io.usethesource.vallang.ISourceLocation;
 
-    @NonNull private String contents;
-
-    public ReadFileResult(@NonNull String contents) {
-        this.contents = contents;
-    }
-
-    public String getContents() {
-        return contents;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object obj) {
-        if (obj instanceof ReadFileResult) {
-            return contents.equals(((ReadFileResult)obj).contents);
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return contents.hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return "ReadFileResult [contents=" + contents + "]";
-    }
-
+public interface ITextDocumentStateManager {
+    LineColumnOffsetMap getColumnMap(ISourceLocation file);
+    ColumnMaps getColumnMaps();
+    TextDocumentState getEditorState(ISourceLocation file) throws FileNotFoundException;
+    boolean isManagingFile(ISourceLocation file);
 }

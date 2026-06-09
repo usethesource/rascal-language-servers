@@ -51,21 +51,22 @@ export class RascalProjectValidator implements vscode.Disposable {
         watcher.onDidChange(this.rascalMFChanged, this, this.toDispose);
         watcher.onDidDelete(this.rascalMFChanged, this, this.toDispose);
 
-        this.validateAllOpenEditors();
+        void this.validateAllOpenEditors();
     }
 
     async validateAllOpenEditors() {
-        for (const tab of vscode.window.tabGroups.all.flatMap(t => t.tabs)) {
-            if (tab.input instanceof vscode.TabInputText) {
-                try {
-                    const document = await vscode.workspace.openTextDocument((<vscode.TabInputText>tab.input).uri);
-                    this.validate(document);
-                } catch (e) {
-                    this.log.debug("Swallowing: ", e);
+        await Promise.all(vscode.window.tabGroups.all
+            .flatMap(t => t.tabs)
+            .map(async (tab) => {
+                if (tab.input instanceof vscode.TabInputText) {
+                    try {
+                        const document = await vscode.workspace.openTextDocument((<vscode.TabInputText>tab.input).uri);
+                        await this.validate(document);
+                    } catch (e) {
+                        this.log.debug("Swallowing: ", e);
+                    }
                 }
-            }
-
-        }
+            }));
     }
 
     async rascalMFChanged(mfFile : Uri) {
@@ -77,7 +78,7 @@ export class RascalProjectValidator implements vscode.Disposable {
         if (this.cachedSourcePaths.delete(mfFile.toString())) {
             // we had calculated the source paths before
             // lets see re-validate all messages we've reported
-            this.validateAllOpenEditors();
+            await this.validateAllOpenEditors();
         }
     }
 

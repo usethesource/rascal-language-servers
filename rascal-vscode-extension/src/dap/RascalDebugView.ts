@@ -47,7 +47,7 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
         this.context.subscriptions.push(
             vscode.commands.registerCommand("rascalmpl.startDebuggerForRepl", (replNode: RascalReplNode) => {
                 if (replNode.serverPort !== undefined) {
-                    this.rascalDebugClient.startDebuggingSession(replNode.serverPort);
+                    void this.rascalDebugClient.startDebuggingSession(replNode.serverPort);
                 }
             }, this)
         );

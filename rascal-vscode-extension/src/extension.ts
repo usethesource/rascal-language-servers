@@ -27,10 +27,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { TestVirtualFileSystem } from './fs/TestVirtualFileSystem';
 import { RascalExtension } from './RascalExtension';
 import { RascalMFValidator } from './ux/RascalMFValidator';
 import { RascalProjectValidator } from './ux/RascalProjectValidator';
-import { TestVirtualFileSystem } from './fs/TestVirtualFileSystem';
+import { VsCodeSettingsFixer } from './ux/VsCodeSettingsFixer';
 
 const testDeployMode = (process.env['RASCAL_LSP_DEV_DEPLOY'] || "false") === "true";
 const deployMode = (process.env['RASCAL_LSP_DEV'] || "false") !== "true";
@@ -39,16 +40,18 @@ export function activate(context: vscode.ExtensionContext) {
     const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
     const icon = vscode.Uri.joinPath(context.extensionUri, "assets", "images", "rascal-logo-v2.1.svg");
     const extension = new RascalExtension(context, jars, icon, deployMode);
+    const logger= extension.logger();
+    logger.info(`Starting extension deployMode: ${deployMode} testDeployMode: ${testDeployMode}`)
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
-    context.subscriptions.push(new RascalProjectValidator(extension.logger()));
-    if (deployMode || testDeployMode) {
-        context.subscriptions.push(new TestVirtualFileSystem(extension.logger()));
+    context.subscriptions.push(new VsCodeSettingsFixer());
+    context.subscriptions.push(new RascalProjectValidator(logger));
+    if (!deployMode || testDeployMode) {
+        context.subscriptions.push(new TestVirtualFileSystem(logger));
     }
 
     return extension.externalLanguageRegistry();
 }
-
 
 export function deactivate() {
     // no deactivation logic yet, since we push everything as a disposable

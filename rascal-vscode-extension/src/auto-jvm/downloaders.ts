@@ -368,6 +368,7 @@ async function fetchUnpackZipInMemory(url: string, subpath: string, mainJVMPath:
     }
     return new Promise((resolve, reject) => {
         let detectedRootPath = "";
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         zipFile.on("entry", async (entry: yauzl.Entry) => {
             progress(50 / zipFile.entryCount, "Unpacking zip file");
 
