@@ -481,7 +481,7 @@ private tuple[loc, list[Tree]] findCursor(loc f, str id, int occ) {
 }
 
 private loc storeTestModule(loc dir, str name, str body, str annotations = "") {
-    str moduleStr = "<annotations> module <trim(name)>
+    str moduleStr = "<trim(annotations + " ")>module <trim(name)>
                     '<trim(body)>
                     '";
 
