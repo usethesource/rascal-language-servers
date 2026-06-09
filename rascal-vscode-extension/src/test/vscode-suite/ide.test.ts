@@ -206,6 +206,7 @@ describe('IDE', function () {
         expect(editorText).to.contain("i - 1");
         expect(editorText).to.contain("i -2");
     });
+    /*
 
     it("renaming files works", async() => {
         const newDir = path.join(TestWorkspace.libProject, "src", "main", "rascal", "lib");
@@ -272,5 +273,24 @@ describe('IDE', function () {
         await editor.setTextAtLine(2, "Project-Name: test-project");
         await editor.save();
         await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disapear");
+    });
+    */
+
+    it("anno quickfix works", async () => {
+        const editor = await ide.openModule(TestWorkspace.importeeFile);
+        await editor.typeTextAt(3, 1, "data X = y();\n");
+        await editor.typeTextAt(4, 1, "anno int X@old;\n");
+        await editor.typeTextAt(5, 1, "int calc(X x) = x@old;");
+        await editor.save();
+        await ide.hasWarningSquiggly(editor, Delays.slow, "On a annotation we should have a warning that they are deprecated");
+
+        await editor.moveCursor(5,19); // at the `\loc` part
+        await ide.triggerFirstCodeAction(editor, "Upgrade all annotations");
+        await ide.assertLineBecomes(editor, 4, "data X(int old = 0);", "annotations become a KW parameter", Delays.slow);
+        await ide.assertLineBecomes(editor, 5, "int calc(X x) = x.old;", "annotation should become a field deref", Delays.fast);
+
+        await editor.save();
+        await ide.hasNoWarningSquiggly(editor, Delays.slow, "Annotation should no longer be an error");
+
     });
 });

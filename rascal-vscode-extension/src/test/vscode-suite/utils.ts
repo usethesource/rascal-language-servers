@@ -190,6 +190,22 @@ function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCo
     });
 }
 
+
+function noElementFound(scope: WebElement, selector: Locator) : WebElementCondition {
+    return new WebElementCondition("Could not find locator", async (_driver) => {
+        try {
+            const result = await scope.findElement(selector);
+            if (result) {
+                return null;
+            }
+            return scope;
+        } catch (_ignored) {
+            return null;
+        }
+    });
+
+}
+
 function scopedElementLocatedCountTimes(scope:WebElement, selector: Locator, minCount: number): WebElementCondition {
     return new WebElementCondition("locating element in scope occuring at least ${minCount} times", async (_driver) => {
         try {
@@ -263,8 +279,16 @@ export class IDEOperations {
         return this.driver.wait(until.elementLocated(By.className("squiggly-warning")), timeout, message);
     }
 
+    hasNoWarningSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing warning squiggly"): Promise<WebElement> {
+        return this.driver.wait(noElementFound(editor, By.className("squiggly-warning")), timeout, message);
+    }
+
     hasErrorSquiggly(_editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message, 50);
+    }
+
+    hasNoErrorSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
+        return this.driver.wait(noElementFound(editor, By.className("squiggly-error")), timeout, message, 50);
     }
 
     hasRecoveredErrors(editor: TextEditor, errorCount: number, timeout = Delays.normal, message = "Missing recovered parse errors"): Promise<WebElement> {
@@ -361,7 +385,7 @@ export class IDEOperations {
      * indeed becomes the first menu item.
      *
      * @param editor
-     * @param actionLabel
+     * @param actionLabel (can be a partial part of the label)
      */
     async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
         const inputarea = await editor.findElement(By.className('inputarea'));
