@@ -256,7 +256,7 @@ export class IDEOperations {
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
         return this.driver.wait(async () => {
-            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
+            const currentContent = (await ignoreFails(editor.getTextAtLine(lineNumber)))?.trim();
             return currentContent === lineContents;
         }, wait, msg, 100);
     }

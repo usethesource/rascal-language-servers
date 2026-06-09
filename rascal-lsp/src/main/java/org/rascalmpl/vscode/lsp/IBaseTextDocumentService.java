@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.ClientCapabilities;
@@ -53,6 +54,7 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     void unregisterLanguage(LanguageParameter lang);
 
     CompletableFuture<IValue> executeCommand(String languageName, String command);
+    Collection<String> extensions();
 
     void didCreateFiles(CreateFilesParams params);
     void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders);
