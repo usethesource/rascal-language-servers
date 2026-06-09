@@ -64,7 +64,9 @@ export class TestWorkspace {
     public static readonly manifest = path.join(this.testProject, "META-INF", "RASCAL.MF");
 
     public static readonly importerFile = path.join(src(this.testProject), 'Importer.rsc');
+    public static readonly importerTpl = path.join(target(this.testProject),'$Importer.tpl');
     public static readonly importeeFile = path.join(src(this.testProject), 'Importee.rsc');
+    public static readonly importeeTpl = path.join(target(this.testProject),'$Importee.tpl');
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
     public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
@@ -190,22 +192,6 @@ function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCo
     });
 }
 
-
-function noElementFound(scope: WebElement, selector: Locator) : WebElementCondition {
-    return new WebElementCondition("Could not find locator", async (_driver) => {
-        try {
-            const result = await scope.findElement(selector);
-            if (result) {
-                return null;
-            }
-            return scope;
-        } catch (_ignored) {
-            return null;
-        }
-    });
-
-}
-
 function scopedElementLocatedCountTimes(scope:WebElement, selector: Locator, minCount: number): WebElementCondition {
     return new WebElementCondition("locating element in scope occuring at least ${minCount} times", async (_driver) => {
         try {
@@ -258,6 +244,10 @@ export class IDEOperations {
         await ignoreFails(center?.close());
 
         // There should be no more error diagnostics
+        await this.checkNoDiagnosticsAnymore();
+    }
+
+    async checkNoDiagnosticsAnymore() {
         const bottomBar = new Workbench().getBottomBar();
         const problemsView = await bottomBar.openProblemsView();
         const allVisibleMarkers = await problemsView.getAllVisibleMarkers(MarkerType.Error);
@@ -279,16 +269,8 @@ export class IDEOperations {
         return this.driver.wait(until.elementLocated(By.className("squiggly-warning")), timeout, message);
     }
 
-    hasNoWarningSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing warning squiggly"): Promise<WebElement> {
-        return this.driver.wait(noElementFound(editor, By.className("squiggly-warning")), timeout, message);
-    }
-
     hasErrorSquiggly(_editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
         return this.driver.wait(until.elementLocated(By.className("squiggly-error")), timeout, message, 50);
-    }
-
-    hasNoErrorSquiggly(editor: TextEditor, timeout = Delays.normal, message = "Missing error squiggly"): Promise<WebElement> {
-        return this.driver.wait(noElementFound(editor, By.className("squiggly-error")), timeout, message, 50);
     }
 
     hasRecoveredErrors(editor: TextEditor, errorCount: number, timeout = Delays.normal, message = "Missing recovered parse errors"): Promise<WebElement> {
