@@ -168,7 +168,7 @@ list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
 list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program])
     = [CodeAction::action(command=removeDecl(program, x, title="remove <x>"))];
 
-default list[CodeAction] picoCodeActionService(Focus focus) = [];
+default list[CodeAction] picoCodeActionService(Focus _focus) = [];
 
 @synsopsis{Defines example commands that can be triggered by the user (from a code lens, from a diagnostic, or just from the cursor position)}
 data Command

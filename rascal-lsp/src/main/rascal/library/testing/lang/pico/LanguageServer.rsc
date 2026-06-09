@@ -91,18 +91,19 @@ value picoExecutionService(showContents(str contents)) {
     return ("result" : true);
 }
 
-private loc lineOffset(loc src, int off)
-    = src[begin = <src.begin.line + off, src.begin.column>];
+private loc declOffset(start[Program] input, int off)
+    = input.top.decls.decls[off].src;
 
 lrel[loc, Command] testingCodeLensService(start[Program] input)
     = picoCodeLenseService(input)
+    // Since
     + [
-        <lineOffset(input.src, 1), browseRascalSite(title="Browse Rascal site")>,
-        <lineOffset(input.src, 1), editPico(input.src.top, title="Edit another file")>,
-        <lineOffset(input.src, 1), addTodo(input.src, title="Register TODO")>,
-        <lineOffset(input.src, 1), removeTodo(input.src, title="Unregister TODO")>,
-        <lineOffset(input.src, 1), showWarning("Test warning", input.src, title="Show warning")>,
-        <lineOffset(input.src, 1), showContents("Some text", title="Show some text")>
+        <declOffset(input, 0), browseRascalSite(title="Browse Rascal site")>,
+        <declOffset(input, 0), editPico(input.src.top, title="Edit another file")>,
+        <declOffset(input, 0), addTodo(input.src, title="Register TODO")>,
+        <declOffset(input, 0), removeTodo(input.src, title="Unregister TODO")>,
+        <declOffset(input, 0), showWarning("Test warning", input.src, title="Show warning")>,
+        <declOffset(input, 0), showContents("Some text", title="Show some text")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)

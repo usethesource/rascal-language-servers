@@ -47,10 +47,6 @@ describe('REPL', function () {
         await ide.load();
         await ide.cleanup();
         await browser.waitForWorkbench();
-
-        // Commands need to be on a single line for our output capturing to work properly.
-        // Create some space for longer commands.
-        await bench.executeCommand('zoomOut');
     });
 
     afterEach(async function () {
@@ -113,16 +109,23 @@ describe('REPL', function () {
         expect(repl.lastOutput).contains('Hello World', 'File contents should be there');
     });
 
-    async function runIdeService(command: string): Promise<RascalREPL> {
+    async function runIdeService(command: (file: string) => string): Promise<RascalREPL>;
+    async function runIdeService(command: (file: string) => string, file: string): Promise<RascalREPL>;
+    async function runIdeService(command: (file: string) => string, file?: string): Promise<RascalREPL> {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import util::IDEServices;");
-        await repl.execute(command);
+        if (file) {
+            await repl.execute(`loc f = |${file}|;`);
+            await repl.execute(command("f"));
+        } else {
+            await repl.execute(command(""));
+        }
         return repl;
     }
 
     it("browses interactively", async() => {
-        await runIdeService('browse(|https://www.rascal-mpl.org|, title="Rascal MPL");');
+        await runIdeService(() => 'browse(|https://www.rascal-mpl.org|, title="Rascal MPL");');
         await driver.wait(async () => {
             const view = new WebView();
             return await ignoreFails(view.getTitle()) === "Rascal MPL";
@@ -130,8 +133,7 @@ describe('REPL', function () {
     });
 
     it("opens editors", async() => {
-        const file = "project://test-project/src/main/pico/testing.pico";
-        await runIdeService(`edit(|${file}|);`);
+        await runIdeService(f => `edit(${f});`, "project://test-project/src/main/pico/testing.pico");
         await driver.wait(async () => {
             const editor = new TextEditor();
             return "testing.pico" === await editor.getTitle();
@@ -144,7 +146,7 @@ describe('REPL', function () {
 
     it("(un)registers diagnostics", async() => {
         const file = "project://test-project/src/main/pico/testing.pico";
-        const repl = await runIdeService(`registerDiagnostics([info("TODO", |${file}|)]);`);
+        const repl = await runIdeService(f => `registerDiagnostics([info("TODO", ${f})]);`, file);
         checkMessageOutput(repl, file, "TODO", "info");
 
         await repl.execute(`unregisterDiagnostics([|${file}|]);`);
@@ -152,18 +154,18 @@ describe('REPL', function () {
 
     it("shows messages", async() => {
         const file = "project://test-project/src/main/pico/testing.pico";
-        const repl = await runIdeService(`showMessage(warning("Test warning", |${file}|));`);
+        const repl = await runIdeService(f => `showMessage(warning("Test warning", ${f}));`, file);
         checkMessageOutput(repl, file, "Test warning", "warning");
     });
 
     it("logs messages", async() => {
         const file = "project://test-project/src/main/pico/testing.pico";
-        const repl = await runIdeService(`logMessage(error("Test warning", |${file}|));`);
+        const repl = await runIdeService(f => `logMessage(error("Test warning", ${f}));`, file);
         checkMessageOutput(repl, file, "Test warning", "error");
     });
 
     it("shows interactive content", async function() {
-        await runIdeService('showInteractiveContent(plainText("Some text"));');
+        await runIdeService(() => 'showInteractiveContent(plainText("Some text"));');
         await driver.wait(async () => {
             return "*static content*" === await (await bench.getEditorView().getActiveTab())?.getTitle();
         }, Delays.normal, "Static content should be shown");

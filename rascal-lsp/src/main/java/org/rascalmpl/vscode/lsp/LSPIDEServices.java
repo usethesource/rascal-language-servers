@@ -182,7 +182,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void showMessage(IConstructor message) {
-        // Not overriden; tends to cause deadlocks
+        // Not overriden; there are indications that this causes deadlocks
         // https://github.com/usethesource/rascal-language-servers/issues/185
         // languageClient.showMessage(Message.toMessageParams(message));
         IDEServices.super.showMessage(message);
@@ -190,7 +190,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void logMessage(IConstructor msg) {
-        // Not overriden; tends to cause deadlocks
+        // Not overriden; there are indications that this causes deadlocks
         // https://github.com/usethesource/rascal-language-servers/issues/185
         // languageClient.logMessage(Message.toMessageParams(msg));
         IDEServices.super.logMessage(msg);
