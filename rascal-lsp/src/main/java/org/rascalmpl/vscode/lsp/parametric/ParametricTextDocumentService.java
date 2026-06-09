@@ -152,6 +152,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -320,7 +321,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        updateContents(params.getTextDocument(), Lists.last(params.getContentChanges()).getText(), timestamp);
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
@@ -604,10 +605,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         IConstructor command = (IConstructor) t.get(1);
 
         return new CodeLens(Locations.toRange(loc, getColumnMaps()), CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command), null);
-    }
-
-    private static <T> T last(List<T> l) {
-        return l.get(l.size() - 1);
     }
 
     private Optional<String> safeLanguage(ISourceLocation loc) {

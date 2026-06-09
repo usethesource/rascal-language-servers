@@ -125,6 +125,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -235,7 +236,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        updateContents(params.getTextDocument(), Lists.last(params.getContentChanges()).getText(), timestamp);
     }
 
     @Override
@@ -461,10 +462,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     private String failureReason(ApplyWorkspaceEditResponse res) {
         return res.getFailureReason() != null ? (": " + res.getFailureReason()) : "";
-    }
-
-    private static <T> T last(List<T> l) {
-        return l.get(l.size() - 1);
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
