@@ -413,7 +413,7 @@ end
             const output = await bench.getBottomBar().openOutputView();
             await output.selectChannel("Language Parametric Rascal Language Server");
             const contents = await output.getText();
-            return contents.split("\n")[-1]?.indexOf("Test warning") !== -1;
+            return contents.split("\n")[-1]?.indexOf(": Test warning") !== -1;
         }, Delays.normal, "Test warning dialog should show");
     });
 
@@ -426,7 +426,7 @@ end
             const output = await bench.getBottomBar().openOutputView();
             await output.selectChannel("Language Parametric Rascal Language Server");
             const contents = await output.getText();
-            return contents.split("\n")[-1]?.indexOf("LOG") !== -1;
+            return contents.split("\n")[-1]?.indexOf(": LOG Test warning") !== -1;
         }, Delays.normal, "Line should be logged");
     });
 
