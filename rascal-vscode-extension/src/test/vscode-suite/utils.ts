@@ -550,12 +550,10 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
 }
 
 export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
-    const completions = await driver.wait(async () => {
+    await driver.wait(async () => {
         const completionMenu = new ContentAssist(editor);
-        return await ignoreFails(completionMenu.getItems());
-    }, Delays.fast, "Completion items not found");
-
-    expect(completions).to.have.length(expectedLabels.length);
-    const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
-    expect(labels).deep.equal(expectedLabels);
+        const completions = await ignoreFails(completionMenu.getItems());
+        const labels = await Promise.all(completions!.map(c => c.getLabel()));
+        return labels === expectedLabels;
+    }, Delays.normal, "Completion items not found");
 }
