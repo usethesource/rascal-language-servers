@@ -75,20 +75,20 @@ value testingExecutionService(addTodo(loc at)) {
 }
 
 @synopsis{Command handler from the ((unregisterDiagnostics)) command}
-value picoExecutionService(removeTodo(loc at)) {
+value testingExecutionService(removeTodo(loc at)) {
     unregisterDiagnostics([at]);
     return ("result": true);
 }
 
-value picoExecutionService(showWarning(str msg, loc at)) {
+value testingExecutionService(showWarning(str msg, loc at)) {
     showMessage(warning(msg, at));
     logMessage(error("LOG " + msg, at));
     return ("result": true);
 }
 
-value picoExecutionService(showContents(str contents)) {
+value testingExecutionService(showContents(str contents)) {
     showInteractiveContent(plainText(contents));
-    return ("result" : true);
+    return ("result": true);
 }
 
 private loc declOffset(start[Program] input, int off)
