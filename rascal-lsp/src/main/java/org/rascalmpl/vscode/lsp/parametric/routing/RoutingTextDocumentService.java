@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -92,15 +91,17 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.TextDocumentService;
-import org.rascalmpl.util.locations.ColumnMaps;
-import org.rascalmpl.util.locations.LineColumnOffsetMap;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
-import org.rascalmpl.vscode.lsp.TextDocumentState;
+import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
+import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -109,15 +110,20 @@ import io.usethesource.vallang.IValue;
 /**
  * A language-parametric text document service that routes incoming requests to remote dedicated language servers.
  */
-public class RoutingTextDocumentService implements IBaseTextDocumentService, DocumentRouter<CompletableFuture<TextDocumentService>> {
+public class RoutingTextDocumentService extends TextDocumentStateManager implements IBaseTextDocumentService, DocumentRouter<CompletableFuture<TextDocumentService>> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
+    private final ExecutorService exec;
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter;
 
     @SuppressWarnings("unused")
-    /*package*/ RoutingTextDocumentService(ExecutorService exec) {}
+    /*package*/ RoutingTextDocumentService(ExecutorService exec) {
+        this.exec = exec;
+
+        LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
+    }
 
     /*package*/ void setServerRouter(DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter) {
         this.serverRouter = serverRouter;
@@ -150,8 +156,7 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
 
     @Override
     public Collection<String> extensions() {
-        // TODO Implement if necessary
-        return Collections.emptyList();
+        throw new UnsupportedOperationException("extensions() should not be called on the routing server, but only on delegate servers.");
     }
 
     private LanguageClient availableClient() {
@@ -163,18 +168,26 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
 
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
+        var timestamp = System.currentTimeMillis();
+        openFile(params.getTextDocument(), l -> (loc, contents) -> CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().character(0), exec), timestamp, exec);
+
         // Note: floating future
         route(params.getTextDocument()).thenAccept(s -> s.didOpen(params));
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
+        var timestamp = System.currentTimeMillis();
+        updateContents(params, timestamp);
+
         // Note: floating future
         route(params.getTextDocument()).thenAccept(s -> s.didChange(params));
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
+        closeFile(Locations.toLoc(params.getTextDocument()));
+
         // Note: floating future
         route(params.getTextDocument()).thenAccept(s -> s.didClose(params));
     }
@@ -227,27 +240,10 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     }
 
     @Override
-    public LineColumnOffsetMap getColumnMap(ISourceLocation file) {
-        // TODO Implement in a follow-up PR
-        throw new UnsupportedOperationException("Unimplemented method 'getColumnMap'");
-    }
-
-    @Override
-    public ColumnMaps getColumnMaps() {
-        // TODO Implement in a follow-up PR
-        throw new UnsupportedOperationException("Unimplemented method 'getColumnMaps'");
-    }
-
-    @Override
-    public TextDocumentState getEditorState(ISourceLocation file) {
-        // TODO Implement in a follow-up PR
-        throw new UnsupportedOperationException("Unimplemented method 'getDocumentState'");
-    }
-
-    @Override
-    public boolean isManagingFile(ISourceLocation file) {
-        // TODO Implement in a follow-up PR
-        throw new UnsupportedOperationException("Unimplemented method 'isManagingFile'");
+    protected DiagnosticsReporter getDiagnosticsReporter(ISourceLocation file) {
+        return (l, msgs) -> {
+            // NOP; we delegate diagnostic reporting to our dedicated remote servers
+        };
     }
 
     @Override

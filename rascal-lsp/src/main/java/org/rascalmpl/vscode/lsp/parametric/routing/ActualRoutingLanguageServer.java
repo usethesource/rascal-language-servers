@@ -75,6 +75,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
+import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.maven.Artifact;
@@ -266,9 +267,10 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
                     , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
                     , "-Dlog4j2.level=" + LogJsonConfiguration.getLogLevel()
-                    , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
                     , "-Drascal.lsp.deploy=true"
                     , "-Drascal.compilerClasspath=" + classPath
+                    , "-Drascal.remoteResolverRegistryPort=" + System.getProperty("rascal.remoteResolverRegistryPort")
+                    , "-Drascal.customRemoteResolverRegistryClass=" + System.getProperty("rascal.customRemoteResolverRegistryClass")
                     , "-Xmx2048M"
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
@@ -341,8 +343,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         });
 
-        // If support for creating (instead of forwaring) IValues in the routing server is required,
-        // register JSON encoding (but not decoding) for regular (non-proxy) IValues here.
+        // Support (de)serialization of regular IValues as well, for other notifications/requests (i.e. language client extensions)
+        GsonUtils.complexAsJsonObject().accept(builder);
     }
 
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
