@@ -43,6 +43,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.KeyFor;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -54,6 +55,7 @@ import org.rascalmpl.util.locations.LineColumnOffsetMap;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
+import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -189,11 +191,12 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
         return files.keySet();
     }
 
-    protected void updateContents(VersionedTextDocumentIdentifier doc, String newContents, long timestamp) {
+    protected void updateContents(DidChangeTextDocumentParams change, long timestamp) {
+        var doc = change.getTextDocument();
         logger.trace("New contents for {}", doc);
         TextDocumentState file = getFile(Locations.toLoc(doc));
         invalidateColumnMaps(file.getLocation());
-        handleParsingErrors(file, file.update(doc.getVersion(), newContents, timestamp));
+        handleParsingErrors(file, file.update(doc.getVersion(), Lists.last(change.getContentChanges()).getText(), timestamp));
     }
 
     protected void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
