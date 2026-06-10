@@ -136,8 +136,9 @@ void renameDefinitionUnchecked(Define d:<_, currentName, _, moduleId(), _, _>, l
 void renameAdditionalUses(set[Define] _:{<_, str moduleName, _, moduleId(), loc modDef, _>}, str newName, TModel tm, Renamer r) {
     // We get the module location from the uses. If there are no uses, this is skipped.
     // That's intended, since this function is only supposed to rename uses.
-    if ({loc u, *_} := tm.useDef<0>) {
-        for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- tm.useDef[qn.src], d.top == modDef.top),
+    rel[loc, loc] useDef = getUseDef(tm);
+    if ({loc u, *_} := useDef<0>) {
+        for (/QualifiedName qn := r.getConfig().parseLoc(u.top), any(d <- useDef[qn.src], d.top == modDef.top),
             just(<moduleName, prefLoc>) := qualifiedPrefix(qn)) {
             r.textEdit(replace(prefLoc, newName));
         }

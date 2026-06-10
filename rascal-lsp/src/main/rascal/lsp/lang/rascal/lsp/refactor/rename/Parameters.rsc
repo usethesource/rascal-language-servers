@@ -56,7 +56,7 @@ TModel augmentFormalUses(Tree tr, TModel tm, TModel(loc) getModel) {
     };
     visit (tr) {
         case (Expression) `<Expression e>(<{Expression ","}* _> <KeywordArguments[Expression] kwArgs>)`: {
-            funcKwDefs = keywordFormalDefs[tm.useDef[e.src]];
+            funcKwDefs = keywordFormalDefs[getUseDef(tm)[e.src]];
             // Only visit uses of our keyword arguments - do not go into nested calls
             top-down-break visit (kwArgs) {
                 case (KeywordArgument[Expression]) `<Name kw> = <Expression _>`: {

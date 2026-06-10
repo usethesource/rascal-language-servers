@@ -74,17 +74,18 @@ import analysis::diff::edits::AnnotatedTextEdits;
 private bool isQualifiedUse(loc use, Define _:<_, str id, _, _, _, _>) = size(id) != use.length;
 
 void rascalCheckCausesOverlappingDefinitions(set[Define] currentDefs, str newName, Tree tr, TModel tm, Renamer r) {
-    defUse = invert(tm.useDef);
+    useDef = getUseDef(tm);
+    defUse = invert(useDef);
     unescNewName = forceUnescapeNames(newName);
     reachable = rascalGetReflexiveModulePaths(tm).to;
-    usedModules = {d.top | loc d <- tm.useDef<1>};
+    usedModules = {d.top | loc d <- useDef<1>};
     usedModels = (m: tm | loc m <- usedModules, TModel tm := r.getConfig().tmodelForLoc(m)) + (tr.src.top: tm);
     newNameDefs = {nD | TModel tm <- range(usedModels), Define nD:<_, unescNewName, _, _, _, _> <- tm.defines};
     curAndNewDefinitions = (d.defined: d | d <- currentDefs + newNameDefs); // temporary map for overloading checks
     maybeImplicitDefs = {n.names[-1].src | /QualifiedName n := tr};
 
     bool isImplicitDef(Define d)
-        = (d.idRole is variableId && d.defined in tm.useDef<0>) // variable that's both a use and a def
+        = (d.idRole is variableId && d.defined in useDef<0>) // variable that's both a use and a def
         || (d.idRole is patternVariableId && d.defined in maybeImplicitDefs) // or pattern variable without a type
         ;
 
@@ -304,7 +305,7 @@ private set[Define] tryGetCursorDefinitions(list[Tree] cursor, TModel(loc) getMo
         if (tm.definitions[c.src]?) {
             // Cursor at definition
             cursorDefs = {tm.definitions[c.src]};
-        } else if (defs: {_, *_} := tm.useDef[c.src]) {
+        } else if (defs: {_, *_} := getUseDef(tm)[c.src]) {
             // Cursor at use
             cursorDefs = flatMapPerFile(defs, set[Define](loc f, set[loc] localDefs) {
                 localTm = f.top == cursorLoc.top ? tm : getModel(f);
@@ -404,7 +405,7 @@ void renameUses(set[Define] defs, str newName, TModel tm, Renamer r) {
     tm = getConditionallyAugmentedTModel(getModuleScopes(tm)[tm.modelName].top, defs, {augmentUses()}, r);
 
     definitions = {<d.defined, d> | d <- defs};
-    useDefs = toMap(tm.useDef o definitions);
+    useDefs = toMap(getUseDef(tm) o definitions);
     for (loc u <- useDefs) {
         if (set[Define] ds:{_, *_} := useDefs[u], u notin defs.defined) {
             r.textEdit(replace(nameSuffix(u, ds, r), escName));
