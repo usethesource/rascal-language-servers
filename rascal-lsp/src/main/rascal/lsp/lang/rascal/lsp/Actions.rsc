@@ -101,9 +101,6 @@ bool isFixableAnnoSyntax((Expression) `delAnnotationsRec(<Expression _>)`)
 bool isFixableAnnoSyntax((Expression) `delAnnotation(<Expression _>, <Expression _>)`)
     = true;
 
-bool isFixableAnnoSyntax((Expression) `delAnnotation(<Expression _>, <Expression _>)`)
-    = true;
-
 bool isFixableAnnoSyntax((Catch) `catch NoSuchAnnotation(<Pattern _>) : <Statement _>`)
     = true;
 
