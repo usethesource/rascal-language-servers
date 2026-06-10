@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -158,8 +157,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public Collection<String> extensions() {
-        // TODO Implement if necessary
-        return Collections.emptyList();
+        throw new UnsupportedOperationException("extensions() should not be called on the routing server, but only on delegate servers.");
     }
 
     private LanguageClient availableClient() {
