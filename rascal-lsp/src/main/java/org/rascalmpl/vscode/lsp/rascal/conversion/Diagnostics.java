@@ -27,12 +27,11 @@
 package org.rascalmpl.vscode.lsp.rascal.conversion;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -74,12 +73,6 @@ public class Diagnostics {
     }
 
     private Diagnostics() {/* hide implicit public constructor */ }
-
-    public static <K, V> Map<K, List<V>> groupByKey(Stream<Entry<K, V>> diagnostics) {
-        return diagnostics.collect(
-            Collectors.groupingBy(Entry::getKey,
-                Collectors.mapping(Entry::getValue, Collectors.toCollection(ArrayList::new))));
-    }
 
     /**
      * Template for a diagnostic, to be instantiated using column maps. This
@@ -208,7 +201,7 @@ public class Diagnostics {
         return result;
     }
 
-    public static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
+    private static Diagnostic translateDiagnostic(IConstructor d, Range range, ColumnMaps otherFiles) {
         Diagnostic result = new Diagnostic();
         result.setSeverity(translateSeverity(d));
         result.setMessage(getMessageString(d));
@@ -239,9 +232,9 @@ public class Diagnostics {
         return Locations.toRange(loc, cm);
     }
 
-    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(Map<ISourceLocation, ISet> messagesPerModule, ColumnMaps cm) {
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(Map<ISourceLocation, ISet> messagesPerModule, Collection<String> validExtensions, ColumnMaps cm) {
         return messagesPerModule.entrySet().stream()
-            .filter(kv -> isValidLocation(kv.getKey(), kv.getValue()))
+            .filter(kv -> isValidLocation(kv.getKey(), kv.getValue(), validExtensions))
             .collect(Collectors.toMap(
                 Map.Entry::getKey,
                 kv -> translateDiagnostics(kv.getValue(), cm)
@@ -256,11 +249,11 @@ public class Diagnostics {
             .collect(Collectors.toList());
     }
 
-    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(ICollection<?> messages, ColumnMaps cm) {
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(ICollection<?> messages, Collection<String> validExtensions, ColumnMaps cm) {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
-            .filter(Diagnostics::hasValidLocation)
+            .filter(m -> hasValidLocation(m, validExtensions))
             .map(d -> Pair.of(getMessageLocation(d), translateDiagnostic(d, cm)))
             .collect(Collectors.groupingBy(Pair::getLeft, Collectors.mapping(Pair::getRight, Collectors.toList())));
     }
@@ -273,16 +266,16 @@ public class Diagnostics {
         return ((IString) msg.get("msg")).getValue();
     }
 
-    private static boolean hasValidLocation(IConstructor d) {
-        return isValidLocation(getMessageLocation(d), d);
+    private static boolean hasValidLocation(IConstructor d, Collection<String> validExtensions) {
+        return isValidLocation(getMessageLocation(d), d, validExtensions);
     }
 
-    private static boolean isValidLocation(ISourceLocation loc, IValue m) {
+    private static boolean isValidLocation(ISourceLocation loc, IValue m, Collection<String> validExtensions) {
         if (loc == null || loc.getScheme().equals("unknown")) {
             logger.trace("Dropping diagnostic due to incorrect location on message: {}", m);
             return false;
         }
-        if (loc.getPath().endsWith(".rsc")) {
+        if (validExtensions.stream().anyMatch(ext -> loc.getPath().endsWith("." + ext))) {
             return true;
         }
         if (loc.getPath().endsWith("/RASCAL.MF")) {

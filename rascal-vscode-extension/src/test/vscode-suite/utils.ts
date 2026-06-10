@@ -64,7 +64,9 @@ export class TestWorkspace {
     public static readonly manifest = path.join(this.testProject, "META-INF", "RASCAL.MF");
 
     public static readonly importerFile = path.join(src(this.testProject), 'Importer.rsc');
+    public static readonly importerTpl = path.join(target(this.testProject),'$Importer.tpl');
     public static readonly importeeFile = path.join(src(this.testProject), 'Importee.rsc');
+    public static readonly importeeTpl = path.join(target(this.testProject),'$Importee.tpl');
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
     public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
@@ -242,6 +244,10 @@ export class IDEOperations {
         await ignoreFails(center?.close());
 
         // There should be no more error diagnostics
+        await this.checkNoDiagnosticsAnymore();
+    }
+
+    async checkNoDiagnosticsAnymore() {
         const bottomBar = new Workbench().getBottomBar();
         const problemsView = await bottomBar.openProblemsView();
         await this.driver.wait(async () => {
@@ -252,7 +258,7 @@ export class IDEOperations {
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
         return this.driver.wait(async () => {
-            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
+            const currentContent = (await ignoreFails(editor.getTextAtLine(lineNumber)))?.trim();
             return currentContent === lineContents;
         }, wait, msg, 100);
     }
@@ -363,7 +369,7 @@ export class IDEOperations {
      * indeed becomes the first menu item.
      *
      * @param editor
-     * @param actionLabel
+     * @param actionLabel (can be a partial part of the label)
      */
     async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
         const inputarea = await editor.findElement(By.className('inputarea'));

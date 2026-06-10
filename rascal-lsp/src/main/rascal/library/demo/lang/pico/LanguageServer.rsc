@@ -164,7 +164,7 @@ set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.s
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)
     = [CodeAction::action(title="Change to <existing<0>>", edits=[changed(src.top, [replace(src, existing<0>)])]) | existing <- defs];
 
-@synopsis{Finds a declaration that the cursor is on and proposes to remove it.}
+@synopsis{Finds a declaration that the cursor is on and proposes to remove it or add a TODO to it.}
 list[CodeAction] picoCodeActionService([*_, IdType x, *_, start[Program] program])
     = [CodeAction::action(command=removeDecl(program, x, title="remove <x>"))];
 
