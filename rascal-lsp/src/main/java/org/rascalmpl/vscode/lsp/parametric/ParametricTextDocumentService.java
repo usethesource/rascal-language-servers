@@ -152,7 +152,6 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
-import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -321,7 +320,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params.getTextDocument(), Lists.last(params.getContentChanges()).getText(), timestamp);
+        updateContents(params, timestamp);
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
     }
 
