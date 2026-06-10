@@ -54,17 +54,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
 
-        // If Pico was registered before as part of another series of tests,
-        // then it needs to be unregistered first (because error recovery
-        // en/disabledness affects which contributors to use). Until issue #630
-        // is fixed (race between `unregister` and `register`), the
-        // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here and followed by a suitably
-        // long sleep.
-        await repl.execute("import util::LanguageServer;");
-        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
-        await sleep(Delays.normal);
-
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
@@ -86,6 +75,25 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
         ide = new IDEOperations(browser);
         await ide.load();
+    });
+
+    after(async() => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
+
+        // If Pico was registered before as part of another series of tests,
+        // then it needs to be unregistered first (because error recovery
+        // en/disabledness affects which contributors to use). Until issue #630
+        // is fixed (race between `unregister` and `register`), the
+        // unregistration can't reliably be done as part of `main` (tried in
+        // commit `a955a05`). Instead, it's done here and followed by a suitably
+        // long sleep.
+        await repl.execute("import util::LanguageServer;");
+        await repl.execute(`unregisterLanguage("Pico", {"pico", "pico-new"});`);
+        await sleep(Delays.normal);
+
+        await repl.terminate();
     });
 
     beforeEach(async function () {

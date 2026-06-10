@@ -41,6 +41,7 @@ data Command
   | removeTodo(loc at)
   | showWarning(str message, loc at)
   | showContents(str contents)
+  | copyFileContents(loc from, loc to)
   ;
 
 @synopsis{Command handler to test JSON serialization of various Rascal value types.}
@@ -91,6 +92,11 @@ value testingExecutionService(showContents(str contents)) {
     return ("result": true);
 }
 
+value testingExecutionService(copyFileContents(loc from, loc to)) {
+    applyDocumentsEdits([changed([replace(to, readFile(from))])]);
+    return ("result": true);
+}
+
 private loc declOffset(start[Program] input, int off)
     = input.top.decls.decls[off].src;
 
@@ -103,7 +109,8 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
         <declOffset(input, 0), addTodo(input.src, title="Register TODO")>,
         <declOffset(input, 0), removeTodo(input.src, title="Unregister TODO")>,
         <declOffset(input, 0), showWarning("Test warning", input.src, title="Show warning")>,
-        <declOffset(input, 0), showContents("Some text", title="Show some text")>
+        <declOffset(input, 0), showContents("Some text", title="Show some text")>,
+        <declOffset(input, 1), copyFileContents(switchExtension(input.src.top), input.src, title="Copy contents of <switchExtension(input.src.top).file>")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)
@@ -122,19 +129,25 @@ set[LanguageService] testingLanguageServerSlowSummary(bool allowRecovery)
         parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false)
     });
 
+private loc switchExtension(loc f)
+    = f[extension = substring(e, 0, s - 1) + (e[s - 1] == "1" ? "2" : "1")]
+    when e := f.extension
+       , s := size(e)
+       ;
+
 set[LanguageService] testingLanguageServer() = testingLanguageServer(false);
 set[LanguageService] testingLanguageServerWithRecovery() = testingLanguageServer(true);
 
 set[LanguageService] testingLanguageServerSlowSummary() = testingLanguageServerSlowSummary(false);
 set[LanguageService] testingLanguageServerSlowSummaryWithRecovery() = testingLanguageServerSlowSummary(true);
 
-void register(bool errorRecovery=false) {
+void register(bool errorRecovery=false, str suffix = "") {
     pcfg = getPicoPathConfig();
     registerLanguage(
         language(
             pcfg,
-            "Pico",
-            {"pico", "pico-new"},
+            "Pico<suffix>",
+            {"pico<suffix>", "pico-new<suffix>"},
             "testing::lang::pico::LanguageServer",
             errorRecovery ? "testingLanguageServerWithRecovery" : "testingLanguageServer"
         )
@@ -142,8 +155,8 @@ void register(bool errorRecovery=false) {
     registerLanguage(
         language(
             pcfg,
-            "Pico",
-            {"pico", "pico-new"},
+            "Pico<suffix>",
+            {"pico<suffix>", "pico-new<suffix>"},
             "testing::lang::pico::LanguageServer",
             errorRecovery ? "testingLanguageServerSlowSummaryWithRecovery" : "testingLanguageServerSlowSummary"
         )
