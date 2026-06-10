@@ -316,6 +316,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             });
         } catch (IOException e) {
             logger.error("Connecting to socket at port {} failed", port, e);
+            portPool.add(port); // return port to the pool, so the developer can start the delegate server and try again
             return null;
         }
     }
