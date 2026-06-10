@@ -235,7 +235,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        updateContents(params, timestamp);
     }
 
     @Override
@@ -461,10 +461,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     private String failureReason(ApplyWorkspaceEditResponse res) {
         return res.getFailureReason() != null ? (": " + res.getFailureReason()) : "";
-    }
-
-    private static <T> T last(List<T> l) {
-        return l.get(l.size() - 1);
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
