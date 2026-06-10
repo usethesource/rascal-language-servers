@@ -266,9 +266,10 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
                     , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
                     , "-Dlog4j2.level=" + LogJsonConfiguration.getLogLevel()
-                    , "-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver"
                     , "-Drascal.lsp.deploy=true"
                     , "-Drascal.compilerClasspath=" + classPath
+                    , "-Drascal.remoteResolverRegistryPort=" + System.getProperty("rascal.remoteResolverRegistryPort")
+                    , "-Drascal.customRemoteResolverRegistryClass=" + System.getProperty("rascal.customRemoteResolverRegistryClass")
                     , "-Xmx2048M"
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
