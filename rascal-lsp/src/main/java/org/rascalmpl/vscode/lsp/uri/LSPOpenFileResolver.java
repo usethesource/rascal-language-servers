@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.ISourceLocationInput;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -41,8 +42,11 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class LSPOpenFileResolver implements ISourceLocationInput {
 
+    public static final String LSP_OPEN_SCHEME = "lsp";
+    private static final String LSP_SCHEME_PREFIX = LSP_OPEN_SCHEME + "+";
+
     private TextDocumentState getEditorState(ISourceLocation uri) throws IOException {
-        return FallbackResolver.getInstance().getDocumentState(stripLspPrefix(uri));
+        return LSPOpenFileRedirector.getInstance().getDocumentState(stripLspPrefix(uri));
     }
 
     @Override
@@ -57,7 +61,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public boolean exists(ISourceLocation uri) {
-        return FallbackResolver.getInstance().isFileManaged(stripLspPrefix(uri));
+        return LSPOpenFileRedirector.getInstance().isFileManaged(stripLspPrefix(uri));
     }
 
     @Override
@@ -76,9 +80,9 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
     }
 
     public static ISourceLocation stripLspPrefix(ISourceLocation uri) {
-        if (uri.getScheme().startsWith("lsp+")) {
+        if (uri.getScheme().startsWith(LSP_SCHEME_PREFIX)) {
             try {
-                return URIUtil.changeScheme(uri, uri.getScheme().substring("lsp+".length()));
+                return URIUtil.changeScheme(uri, uri.getScheme().substring(LSP_SCHEME_PREFIX.length()));
             } catch (URISyntaxException e) {
                 // fall through
             }
@@ -93,7 +97,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public String scheme() {
-        return "lsp";
+        return LSP_OPEN_SCHEME;
     }
 
     @Override
@@ -112,7 +116,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public boolean isReadable(ISourceLocation uri) throws IOException {
-        return FallbackResolver.getInstance().isFileManaged(stripLspPrefix(uri));
+        return LSPOpenFileRedirector.getInstance().isFileManaged(stripLspPrefix(uri));
     }
 
     @Override
@@ -122,7 +126,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
         }
         var current = getEditorState(uri).getCurrentContent();
         var modified = current.getTimestamp();
-        var isWritable = FallbackResolver.getInstance().isWritable(stripLspPrefix(uri));
+        var isWritable = URIResolverRegistry.getInstance().isWritable(stripLspPrefix(uri));
         return new FileAttributes(
             true, true,
             modified, modified, //We fix the creation timestamp to be equal to the last modified time

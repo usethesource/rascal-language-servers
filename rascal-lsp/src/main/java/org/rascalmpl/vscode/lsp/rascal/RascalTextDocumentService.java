@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -118,11 +119,12 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
-import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -132,7 +134,6 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
@@ -150,11 +151,8 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     public RascalTextDocumentService(ExecutorService exec) {
-        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
-        URIResolverRegistry.getInstance();
-
         this.exec = exec;
-        FallbackResolver.getInstance().registerTextDocumentService(this);
+        LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
     private LanguageClient availableClient() {
@@ -216,6 +214,11 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public void initialized() {
         // reserved for future use
         // e.g. dynamic registration of capabilities
+    }
+
+    @Override
+    public Collection<String> extensions() {
+        return Set.of("rsc");
     }
 
     // LSP interface methods
@@ -385,37 +388,9 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private void showMessages(ISet messages) {
         exec.submit(() -> {
             for (var msg : messages) {
-                availableClient().showMessage(setMessageParams((IConstructor) msg));
+                availableClient().showMessage(Message.toMessageParams((IConstructor) msg));
             }
         });
-    }
-
-    private MessageParams setMessageParams(IConstructor message) {
-        var params = new MessageParams();
-        switch (message.getName()) {
-            case "error": {
-                params.setType(MessageType.Error);
-                break;
-            }
-            case "warning": {
-                params.setType(MessageType.Warning);
-                break;
-            }
-            case "info": {
-                params.setType(MessageType.Info);
-                break;
-            }
-            default: params.setType(MessageType.Log);
-        }
-
-        var msgText = ((IString) message.get("msg")).getValue();
-        if (message.has("at")) {
-            var at = Locations.toUri((ISourceLocation) message.get("at"));
-            params.setMessage(String.format("%s (at %s)", msgText, at));
-        } else {
-            params.setMessage(msgText);
-        }
-        return params;
     }
 
     @Override

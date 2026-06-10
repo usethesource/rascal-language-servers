@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -145,6 +146,12 @@ public class RoutingTextDocumentService implements IBaseTextDocumentService, Doc
     @Override
     public CompletableFuture<TextDocumentService> route(String language) {
         return availableServerRouter().route(language).thenApply(LanguageServer::getTextDocumentService);
+    }
+
+    @Override
+    public Collection<String> extensions() {
+        // TODO Implement if necessary
+        return Collections.emptyList();
     }
 
     private LanguageClient availableClient() {

@@ -29,6 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::Actions
 
 import lang::rascal::\syntax::Rascal;
+import lang::rascal::upgrade::UpgradeAnnotationsToKeywordParameters;
 import util::LanguageServer;
 import analysis::diff::edits::TextEdits;
 import ParseTree;
@@ -46,7 +47,10 @@ The commands must be evaluated by ((evaluateRascalCommand))
 data Command
     = visualImportGraphCommand(PathConfig pcfg)
     | sortImportsAndExtends(Header h)
+    | upgradeAnnotations(PathConfig pcfg)
     ;
+
+private str annoFixTitle = "Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported).";
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
 list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
@@ -56,18 +60,54 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
         result += addLicenseAction(top, pcfg);
     }
 
-    if ([*_, Toplevel t, *_] := focus) {
-        result += toplevelCodeActions(t);
-    }
-
-    if ([*_, Header h, *_] := focus) {
-        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")]
-               +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends")]
-               ;
+    for (Tree elem <- focus) {
+        switch(elem) {
+            case Toplevel t:
+                result += toplevelCodeActions(t);
+            case Header h:
+                result += [
+                    action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph"),
+                    action(command=sortImportsAndExtends(h), title="Sort imports and extends")
+                ];
+            case Tree other:
+                if (isFixableAnnoSyntax(other)) {
+                    result += [action(command=upgradeAnnotations(pcfg), title=annoFixTitle)];
+                }
+        }
     }
 
     return result;
 }
+
+@synopsis{Identifies all uses of annotation syntax and annotation library functions.}
+bool isFixableAnnoSyntax((Declaration) `<Tags _> <Visibility _> anno <Type _> <Type _> @ <Name _>;`)
+    = true;
+
+bool isFixableAnnoSyntax((Expression)`<Expression _>[@ <Name _> = <Expression _>]`)
+    = true;
+
+bool isFixableAnnoSyntax((Expression) `<Expression _>@<Name _>`)
+    = true;
+
+bool isFixableAnnoSyntax((Assignable) `<Assignable _>@<Name _>`)
+    = true;
+
+bool isFixableAnnoSyntax((Expression) `delAnnotations(<Expression _>)`)
+    = true;
+
+bool isFixableAnnoSyntax((Expression) `delAnnotationsRec(<Expression _>)`)
+    = true;
+
+bool isFixableAnnoSyntax((Expression) `delAnnotation(<Expression _>, <Expression _>)`)
+    = true;
+
+bool isFixableAnnoSyntax((Expression) `delAnnotation(<Expression _>, <Expression _>)`)
+    = true;
+
+bool isFixableAnnoSyntax((Catch) `catch NoSuchAnnotation(<Pattern _>) : <Statement _>`)
+    = true;
+
+default bool isFixableAnnoSyntax(Tree _) = false;
 
 @synopsis{Add a license header if there isn't one.}
 list[CodeAction] addLicenseAction(start[Module] \module, PathConfig pcfg) {
@@ -152,5 +192,10 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
                 '<}>"[..-2];
 
     applyDocumentsEdits([changed(h.src.top, [replace(h.imports.src, newHeader)])]);
+    return ("result":true);
+}
+
+value evaluateRascalCommand(upgradeAnnotations(PathConfig pcfg)) {
+    applyDocumentsEdits(editsPathConfig(pcfg));
     return ("result":true);
 }

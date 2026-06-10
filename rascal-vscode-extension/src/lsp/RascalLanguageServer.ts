@@ -27,26 +27,28 @@
 import * as vscode from 'vscode';
 
 import { BaseLanguageClient } from 'vscode-languageclient';
-import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
+import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
 import { LanguageRegistry } from './LanguageRegistry';
+import { RascalFileSystemInVSCode } from '../fs/RascalFileSystemInVSCode';
 
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
     public readonly rascalDebugClient: RascalDebugClient;
     public readonly languageRegistry: LanguageRegistry;
+    public readonly rascalVFS: Promise<RascalFileSystemInVSCode>;
 
     constructor(
         _context: vscode.ExtensionContext,
-        vfsServer: VSCodeUriResolverServer,
+        vfsServer: VSCodeFileSystemInRascal,
         absoluteJarPath: string,
         dslLSP: ParameterizedLanguageServer,
         logger: vscode.LogOutputChannel,
         deployMode = true) {
-        this.rascalClient = activateLanguageClient({
+        const client = activateLanguageClient({
             deployMode: deployMode,
             devPort: 8888,
             isParametricServer: false,
@@ -57,6 +59,8 @@ export class RascalLanguageServer implements vscode.Disposable {
             dedicated: false,
             lspArg: undefined
         });
+        this.rascalClient = client.then(c => c[0]);
+        this.rascalVFS = client.then(c => c[1]);
 
         this.rascalDebugClient = new RascalDebugClient();
 

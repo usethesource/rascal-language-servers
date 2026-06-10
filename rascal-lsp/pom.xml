@@ -34,9 +34,8 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
-    <log4j2.version>2.25.4</log4j2.version>
-    <lsp4j.version>0.24.0</lsp4j.version>
+    <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
+    <log4j2.version>2.26.0</log4j2.version>
     <mockito.version>5.23.0</mockito.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -60,11 +59,12 @@
       <url>https://releases.usethesource.io/maven/</url>
     </pluginRepository>
   </pluginRepositories>
+
   <dependencies>
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.43.0-RC1</version>
+      <version>0.43.0-RC7</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
@@ -76,7 +76,7 @@
     <dependency>
       <groupId>org.eclipse.lsp4j</groupId>
       <artifactId>org.eclipse.lsp4j</artifactId>
-      <version>${lsp4j.version}</version>
+      <version>1.0.0</version>
       <type>jar</type>
     </dependency>
     <dependency>
@@ -105,11 +105,6 @@
       <version>${log4j2.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.lsp4j</groupId>
-      <artifactId>org.eclipse.lsp4j.debug</artifactId>
-      <version>${lsp4j.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>${mockito.version}</version>
@@ -119,11 +114,9 @@
   <build>
     <resources>
       <resource>
-        <directory>.</directory>
+        <directory>META-INF</directory>
+        <targetPath>${project.build.outputDirectory}/META-INF</targetPath>  <!-- this way of framing it works around issue in m2e -->
         <filtering>false</filtering>
-        <includes>
-          <include>META-INF/RASCAL.MF</include>
-        </includes>
       </resource>
       <resource>
         <directory>src/main/resources</directory>
@@ -157,7 +150,7 @@
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-junit47</artifactId>
-            <version>3.5.5</version>
+            <version>3.5.6</version>
           </dependency>
         </dependencies>
       </plugin>
@@ -202,7 +195,7 @@
 
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.10.0</version>
+        <version>3.11.0</version>
         <executions>
           <execution>
             <?m2e ignore?>
@@ -333,7 +326,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.2</version>
+        <version>3.6.3</version>
         <executions>
           <execution>
             <id>enforce-maven</id>

@@ -148,9 +148,10 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
-import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -202,9 +203,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.sourceLocationType(), "to");
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage, boolean exitWhenEmpty) {
-        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
-        URIResolverRegistry.getInstance();
-
         this.exec = exec;
         this.exitWhenEmpty = exitWhenEmpty;
 
@@ -216,7 +214,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             this.dedicatedLanguageName = dedicatedLanguage.getName();
             this.dedicatedLanguage = dedicatedLanguage;
         }
-        FallbackResolver.getInstance().registerTextDocumentService(this);
+        LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
     private CapabilityRegistration availableCapabilities() {
@@ -480,33 +478,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
 
         for (var msg : messages) {
-            client.showMessage(setMessageParams((IConstructor) msg));
+            client.showMessage(Message.toMessageParams((IConstructor) msg));
         }
-    }
-
-    private static MessageParams setMessageParams(IConstructor message) {
-        var params = new MessageParams();
-        switch (message.getName()) {
-            case "warning": {
-                params.setType(MessageType.Warning);
-                break;
-            }
-            case "info": {
-                params.setType(MessageType.Info);
-                break;
-            }
-            default: params.setType(MessageType.Log);
-        }
-
-        var msgText = ((IString) message.get("msg")).getValue();
-        if (message.has("at")) {
-            var at = Locations.toUri((ISourceLocation) message.get("at"));
-            params.setMessage(String.format("%s (at %s)", msgText, at));
-        } else {
-            params.setMessage(msgText);
-        }
-
-        return params;
     }
 
     @Override
@@ -672,6 +645,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     private static String extension(ISourceLocation doc) {
         return URIUtil.getExtension(doc);
+    }
+
+    @Override
+    @SuppressWarnings("java:S1905") // cast necessary for CF
+    public Collection<String> extensions() {
+        return (Collection<String>) registeredExtensions.keySet();
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {

@@ -57,18 +57,21 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SetTraceParams;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.impl.VSCodeVFSClient;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVSCode;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.VFSRegister;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
+import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
@@ -76,7 +79,7 @@ import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
 /**
-* The main language server class for Rascal is build on top of the Eclipse lsp4j library
+* The main language server class for Rascal is built on top of the Eclipse lsp4j library
 */
 @SuppressWarnings("java:S106") // we are using system.in/system.out correctly in this class
 public abstract class BaseLanguageServer {
@@ -122,6 +125,12 @@ public abstract class BaseLanguageServer {
             .setOutput(out)
             .configureGson(GsonUtils.complexAsJsonObject())
             .setExecutorService(threadPool)
+            .setExceptionHandler(t -> {
+                if (t instanceof ResponseErrorException) {
+                    return ((ResponseErrorException) t).getResponseError();
+                }
+                return RemoteIOError.translate(t).getResponseError();
+            })
             .create();
 
         server.connect(clientLauncher.getRemoteProxy());
@@ -221,7 +230,7 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    public static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
+    public static class ActualLanguageServer extends RascalFileSystemInVSCode implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
@@ -341,6 +350,7 @@ public abstract class BaseLanguageServer {
             this.client = addShutdownDetectionTo(client);
             lspDocumentService.connect(this.client);
             lspWorkspaceService.connect(this.client);
+            connectRemoteRegistryClient(this.client);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(this.client, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
@@ -377,9 +387,8 @@ public abstract class BaseLanguageServer {
             return (IBaseLanguageClient) Proxy.newProxyInstance(loader, interfaces, handler);
         }
 
-        @Override
-        public void registerVFS(VFSRegister registration) {
-            VSCodeVFSClient.buildAndRegister(registration.getPort());
+        protected ExecutorService getExecutor() {
+            return executor;
         }
 
         @Override
@@ -393,9 +402,13 @@ public abstract class BaseLanguageServer {
             Configurator.setRootLevel(l);
         }
 
-        protected ExecutorService getExecutor() {
-            return executor;
-        }
+        @Override
+        public CompletableFuture<String[]> fileSystemSchemes() {
+            var reg = URIResolverRegistry.getInstance();
+            var inputs = reg.getRegisteredInputSchemes();
+            var logicals = reg.getRegisteredLogicalSchemes();
 
+            return CompletableFutureUtils.completedFuture(Sets.union(inputs, logicals).toArray(String[]::new), executor);
+        }
     }
 }
