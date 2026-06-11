@@ -45,7 +45,6 @@ describe('DSL [multi-language]', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
 
-        const jobs: Promise<unknown>[] = [];
         for (const lang of languages) {
             await repl.execute(`import testing::lang::${lang.toLowerCase()}::LanguageServer;`, false, Delays.extremelySlow);
             const replExecuteMain = repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`); // we don't wait yet, because we might miss language loading window
@@ -53,11 +52,10 @@ describe('DSL [multi-language]', function () {
             const isLoading = ide.statusContains(lang);
             await driver.wait(isLoading, Delays.slow, `${lang} should start loading`);
             // now wait for the Pico loader to disappear
-            jobs.push(driver.wait(async () => !(await isLoading()), Delays.extremelySlow, `${lang} should be finished starting`, 100));
+            await driver.wait(async () => !(await isLoading()), Delays.extremelySlow, `${lang} should be finished starting`, 100);
             await replExecuteMain;
         }
 
-        await Promise.all(jobs);
         await repl.terminate();
     }
 
