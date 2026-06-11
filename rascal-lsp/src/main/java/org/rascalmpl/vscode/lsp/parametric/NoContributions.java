@@ -60,12 +60,6 @@ public class NoContributions implements ILanguageContributions {
     private final Executor exec;
     private final CompletableFuture<Boolean> falsy;
 
-    public class NoContributionException extends RuntimeException {
-        private NoContributionException(String message) {
-            super("Missing contribution: " + message);
-        }
-    }
-
     public NoContributions(String name, Executor exec) {
         this.name = name;
         this.exec = exec;
@@ -186,7 +180,7 @@ public class NoContributions implements ILanguageContributions {
         // This should only be called on the same contributions on which `callHierarchy` was called. It parses some data from the call hierarchy.
         // Since our `callHierarchy` return nothing, this should really never be called. There is also no sensible default.
         // Hence, we throw an exception here.
-        return CompletableFuture.failedFuture(new NoContributionException("parseCallHierarchyData"));
+        throw new UnsupportedOperationException("parseCallHierarchyData should not be called, since no call hierarchy is returned by these contributions.");
     }
 
     @Override
