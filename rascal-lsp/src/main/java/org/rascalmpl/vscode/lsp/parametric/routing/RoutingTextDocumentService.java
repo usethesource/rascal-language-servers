@@ -171,8 +171,9 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         var timestamp = System.currentTimeMillis();
         openFile(params.getTextDocument(), l -> (loc, contents) -> CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().character(0), exec), timestamp, exec);
 
-        // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didOpen(params));
+        // Inform all remote servers about this file, so they can maintain its state.
+        // Note: floating futures
+        allRoutes().forEach(r -> r.thenAccept(s -> s.didOpen(params)));
     }
 
     @Override
@@ -180,20 +181,23 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         var timestamp = System.currentTimeMillis();
         updateContents(params, timestamp);
 
-        // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didChange(params));
+        // Inform all remote servers about this file, so they can maintain its state.
+        // Note: floating futures
+        allRoutes().forEach(r -> r.thenAccept(s -> s.didChange(params)));
     }
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
         closeFile(Locations.toLoc(params.getTextDocument()));
 
-        // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didClose(params));
+        // Inform all remote servers about this file, so they can maintain its state.
+        // Note: floating futures
+        allRoutes().forEach(r -> r.thenAccept(s -> s.didClose(params)));
     }
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
+        // Inform only the remote server for this language, since this does not change file state
         // Note: floating future
         route(params.getTextDocument()).thenAccept(s -> s.didSave(params));
     }
