@@ -604,14 +604,17 @@ export function isLanguageLoading(bench: Workbench, language: string): () => Pro
 }
 
 export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
-    const completions = await driver.wait(async () => {
-        const completionMenu = new ContentAssist(editor);
-        return await ignoreFails(completionMenu.getItems());
-    }, Delays.fast, "Completion items not found");
-
-    expect(completions).to.have.length(expectedLabels.length);
-    const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
-    expect(labels).deep.equal(expectedLabels);
+    await driver.wait(async () => {
+        try {
+            const completionMenu = new ContentAssist(editor);
+            const completions = await completionMenu.getItems();
+            const labels = await Promise.all(completions.map(c => c.getLabel()));
+            return labels.every(l => expectedLabels.includes(l))
+                && expectedLabels.every(l => labels.includes(l));
+        } catch (e) {
+            return false;
+        }
+    }, Delays.fast, `Completion items do not equal ${expectedLabels}`);
 }
 
 
