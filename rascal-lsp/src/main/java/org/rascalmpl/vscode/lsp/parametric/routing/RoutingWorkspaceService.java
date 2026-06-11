@@ -32,13 +32,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.eclipse.lsp4j.CreateFilesParams;
+import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
+import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.WorkspaceService;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -90,6 +94,27 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
         }
 
         return CompletableFutureUtils.completedFuture(commandParams.getCommand() + " was ignored, since it is not a Rascal LSP command.", getExecutor());
+    }
+
+    @Override
+    public void didCreateFiles(CreateFilesParams params) {
+        params.getFiles().stream()
+            .collect(Collectors.groupingBy(f -> route(Locations.toLoc(f.getUri()))))
+            .forEach((r, creates) -> r.thenAccept(s -> s.didCreateFiles(new CreateFilesParams(creates))));
+    }
+
+    @Override
+    public void didDeleteFiles(DeleteFilesParams params) {
+        params.getFiles().stream()
+            .collect(Collectors.groupingBy(f -> route(Locations.toLoc(f.getUri()))))
+            .forEach((r, deletes) -> r.thenAccept(s -> s.didDeleteFiles(new DeleteFilesParams(deletes))));
+    }
+
+    @Override
+    public void didRenameFiles(RenameFilesParams params) {
+        params.getFiles().stream()
+            .collect(Collectors.groupingBy(f -> route(Locations.toLoc(f.getOldUri())))) // like VS Code, notify language associated with the old file name
+            .forEach((r, renames) -> r.thenAccept(s -> s.didRenameFiles(new RenameFilesParams(renames))));
     }
 
 }

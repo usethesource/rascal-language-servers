@@ -260,8 +260,7 @@ end
         expect(editorText).to.contain("z := 2");
     });
 
-    // TODO Implement this test in a later PR
-    it.skip("renaming files works", async function() {
+    it("renaming files works", async function() {
         if (errorRecovery) { this.skip(); }
         const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
         await fs.rm(newDir, {recursive: true, force: true});
