@@ -46,7 +46,7 @@ export class Delays {
     public static readonly extremelySlow =sec(120) * this.delayFactor;
 }
 
-function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
+export function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
 function target(project : string) { return path.join(project, 'target', 'classes', 'rascal'); }
 export class TestWorkspace {
     private static readonly workspacePrefix = 'test-workspace';

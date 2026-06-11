@@ -110,7 +110,7 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
         <declOffset(input, 0), removeTodo(input.src, title="Unregister TODO")>,
         <declOffset(input, 0), showWarning("Test warning", input.src, title="Show warning")>,
         <declOffset(input, 0), showContents("Some text", title="Show some text")>,
-        <declOffset(input, 1), copyFileContents(switchExtension(input.src.top), input.src, title="Copy contents of <switchExtension(input.src.top).file>")>
+        <declOffset(input, 1), copyFileContents(|project://test-project/src/main/json/example.json|, |project://test-project/src/main/json/example-copy.json|, title="Copy contents of example.json")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)
@@ -129,25 +129,19 @@ set[LanguageService] testingLanguageServerSlowSummary(bool allowRecovery)
         parsing(picoParser(allowRecovery), usesSpecialCaseHighlighting = false)
     });
 
-private loc switchExtension(loc f)
-    = f[extension = substring(e, 0, s - 1) + (e[s - 1] == "1" ? "2" : "1")]
-    when e := f.extension
-       , s := size(e)
-       ;
-
 set[LanguageService] testingLanguageServer() = testingLanguageServer(false);
 set[LanguageService] testingLanguageServerWithRecovery() = testingLanguageServer(true);
 
 set[LanguageService] testingLanguageServerSlowSummary() = testingLanguageServerSlowSummary(false);
 set[LanguageService] testingLanguageServerSlowSummaryWithRecovery() = testingLanguageServerSlowSummary(true);
 
-void register(bool errorRecovery=false, str suffix = "") {
+void register(bool errorRecovery=false) {
     pcfg = getPicoPathConfig();
     registerLanguage(
         language(
             pcfg,
-            "Pico<suffix>",
-            {"pico<suffix>", "pico-new<suffix>"},
+            "Pico",
+            {"pico", "pico-new"},
             "testing::lang::pico::LanguageServer",
             errorRecovery ? "testingLanguageServerWithRecovery" : "testingLanguageServer"
         )
@@ -155,8 +149,8 @@ void register(bool errorRecovery=false, str suffix = "") {
     registerLanguage(
         language(
             pcfg,
-            "Pico<suffix>",
-            {"pico<suffix>", "pico-new<suffix>"},
+            "Pico",
+            {"pico", "pico-new"},
             "testing::lang::pico::LanguageServer",
             errorRecovery ? "testingLanguageServerSlowSummaryWithRecovery" : "testingLanguageServerSlowSummary"
         )
