@@ -311,8 +311,7 @@ end
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 
-    // TODO Implement this test in a later PR
-    it.skip("completion works", async function() {
+    it("completion works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         try {
             await editor.setTextAtLine(6, "     aa : natural;");
@@ -326,8 +325,7 @@ end
         }
     });
 
-    // TODO Implement this test in a later PR
-    it.skip("completion by trigger character works", async function() {
+    it("completion by trigger character works", async function() {
         // We will be typing and introducing parse errors, so this only works with error recovery
         if (!errorRecovery) { this.skip(); }
 
