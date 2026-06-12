@@ -108,7 +108,7 @@ describe('DSL [multi-language]', function () {
     });
 
     it("reads unsaved editor contents across languages", async function() {
-        const editor1 = await ide.openModule(path.join(src(TestWorkspace.testProject, 'json'), 'example.json'));
+        const editor1 = await ide.openModule(path.join(src(TestWorkspace.testProject, 'json'), 'example.json2'));
         await editor1.setTextAtLine(6, '}, "key5": "unsaved"');
         const editor2 = await ide.openModule(TestWorkspace.picoFile);
         await ide.clickCodeLens(editor2, "Copy contents of example.json");

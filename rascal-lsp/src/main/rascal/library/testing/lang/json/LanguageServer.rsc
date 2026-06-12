@@ -62,7 +62,7 @@ void register() {
         language(
             pcfg,
             "JSON",
-            {"json"},
+            {"json2"},
             "testing::lang::json::LanguageServer",
             "jsonLanguageServer"
         )
