@@ -224,6 +224,8 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         return Set.of("rsc");
     }
 
+
+
     // LSP interface methods
 
     @Override

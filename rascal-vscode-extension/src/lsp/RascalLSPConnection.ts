@@ -72,7 +72,7 @@ export async function activateLanguageClient(
 
     void schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
-        void rascalVFS.tryRegisterSchemes(schemes);
+        //void rascalVFS.tryRegisterSchemes(schemes);
     });
 
     return [client, rascalVFS];
