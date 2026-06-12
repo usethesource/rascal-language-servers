@@ -110,7 +110,7 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
         <declOffset(input, 0), removeTodo(input.src, title="Unregister TODO")>,
         <declOffset(input, 0), showWarning("Test warning", input.src, title="Show warning")>,
         <declOffset(input, 0), showContents("Some text", title="Show some text")>,
-        <declOffset(input, 1), copyFileContents(|project://test-project/src/main/json/example.json|, |project://test-project/src/main/json/example-copy.json|, title="Copy contents of example.json")>
+        <declOffset(input, 1), copyFileContents(input.top.src.parent.parent + "json" + "example.json", input.top.src.parent.parent + "json" + "example-copy.json", title="Copy contents of example.json")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)
