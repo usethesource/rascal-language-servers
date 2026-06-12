@@ -44,8 +44,8 @@ describe('DSL [multi-language]', function () {
     function isLanguageLoading(bench: Workbench, language: string): () => Promise<boolean> {
         return async () => {
             const center = await bench.openNotificationsCenter();
-            const notifications = await center.getNotifications(NotificationType.Info);
-            const messages = await Promise.all(notifications.map(n => ignoreFails(n.getMessage())));
+            const notifications = await ignoreFails(center.getNotifications(NotificationType.Info));
+            const messages = await Promise.all((notifications ?? []).map(n => ignoreFails(n.getMessage())));
             return messages.find(msg => msg?.startsWith(`${language}`)) !== undefined;
         };
     }
