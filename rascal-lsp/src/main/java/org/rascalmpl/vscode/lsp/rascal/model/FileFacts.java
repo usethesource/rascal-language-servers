@@ -75,6 +75,7 @@ public class FileFacts implements DiagnosticsReporter {
         this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
         this.nopFact = new FileFact() {
             @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
+            @Override public void reportWarnings(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
@@ -102,6 +103,11 @@ public class FileFacts implements DiagnosticsReporter {
     @Override
     public void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
         getFile(file).reportParseErrors(msgs);
+    }
+
+    @Override
+    public void reportWarnings(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
+        getFile(file).reportWarnings(msgs);
     }
 
     private FileFact getFile(ISourceLocation l) {
@@ -140,6 +146,7 @@ public class FileFacts implements DiagnosticsReporter {
 
     private interface FileFact {
         void reportParseErrors(Versioned<List<Diagnostic>> msgs);
+        void reportWarnings(Versioned<List<Diagnostic>> msgs);
         void reportTypeCheckerErrors(List<Diagnostic> msgs);
         CompletableFuture<@Nullable SummaryBridge> getSummary();
         void invalidate();
@@ -151,6 +158,7 @@ public class FileFacts implements DiagnosticsReporter {
         private final ISourceLocation file;
         private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
         private AtomicReference<Versioned<List<Diagnostic>>> parseMessages = Versioned.atomic(-1, Collections.emptyList());
+        private AtomicReference<Versioned<List<Diagnostic>>> warningMessages = Versioned.atomic(-1, Collections.emptyList());
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
@@ -177,6 +185,14 @@ public class FileFacts implements DiagnosticsReporter {
         }
 
         @Override
+        public void reportWarnings(Versioned<List<Diagnostic>> msgs) {
+            if (Versioned.replaceIfNewer(warningMessages, msgs)) {
+                sendDiagnostics();
+            }
+        }
+
+
+        @Override
         public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
             typeCheckerMessages = msgs;
             sendDiagnostics();
@@ -190,7 +206,7 @@ public class FileFacts implements DiagnosticsReporter {
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 Locations.toUri(file).toString(),
-                Lists.union(typeCheckerMessages, parseMessages.get().get())));
+                Lists.union(typeCheckerMessages, parseMessages.get().get(), warningMessages.get().get())));
         }
 
         @Override
@@ -208,9 +224,15 @@ public class FileFacts implements DiagnosticsReporter {
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
         }
 
+        private boolean noMessages() {
+            return parseMessages.get().get().isEmpty()
+                && warningMessages.get().get().isEmpty()
+                && typeCheckerMessages.isEmpty();
+        }
+
         @Override
         public void close() {
-            if ((parseMessages.get().get().isEmpty() && typeCheckerMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
+            if (noMessages() || !URIResolverRegistry.getInstance().exists(file)) {
                 // If there are no messages for this file or the file has been deleted, can we remove it
                 // else VS Code comes back and we've dropped the messages in our internal data
                 files.remove(file);

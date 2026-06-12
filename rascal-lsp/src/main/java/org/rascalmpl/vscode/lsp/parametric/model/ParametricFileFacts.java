@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -113,6 +114,13 @@ public class ParametricFileFacts implements DiagnosticsReporter {
     public void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
         getFile(file).reportParseErrors(msgs);
     }
+
+    @Override
+    public void reportWarnings(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
+        throw new NotImplementedException("reportWarnigns is not implemented for Parametric file facts yet");
+
+    }
+
 
     private FileFact getFile(ISourceLocation file) {
         var fact = files.get(file);

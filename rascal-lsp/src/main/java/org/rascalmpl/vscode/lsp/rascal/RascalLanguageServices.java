@@ -126,7 +126,7 @@ public class RascalLanguageServices {
         var context = new LSPContext(exec, docService, workspaceService, client);
 
         shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates");
-        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
+        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions", "lang::rascal::lsp::Warnings");
         compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
         rascalTextDocumentService = docService;
@@ -264,6 +264,7 @@ public class RascalLanguageServices {
         });
     }
 
+
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFile(ISourceLocation file, PathConfig pcfg,
         Executor exec) {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
@@ -346,6 +347,14 @@ public class RascalLanguageServices {
 
     public CompletableFuture<ITree> parseSourceFile(ISourceLocation loc, String input) {
         return CompletableFuture.supplyAsync(() -> RascalServices.parseRascalModule(loc, input.toCharArray()), exec);
+    }
+
+    public InterruptibleFuture<IList> warnings(ITree tree, PathConfig pcfg) {
+        return runEvaluator("Rascal warnings", semanticEvaluator, eval -> {
+                Map<String, IValue> kws = Map.of("pcfg", pcfg.asConstructor());
+                return (IList) eval.call("rascalWarnings", "lang::rascal::lsp::Warnings", kws, tree);
+            },
+            VF.list(), exec, false, client);
     }
 
     public List<CodeLensSuggestion> locateCodeLenses(ITree tree) {

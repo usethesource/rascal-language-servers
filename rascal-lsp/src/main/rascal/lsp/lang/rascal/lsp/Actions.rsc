@@ -50,7 +50,7 @@ data Command
     | upgradeAnnotations(PathConfig pcfg)
     ;
 
-private str annoFixTitle = "Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported).";
+public str annoFixTitle = "Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported).";
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
 list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
@@ -78,6 +78,7 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
 
     return result;
 }
+
 
 @synopsis{Identifies all uses of annotation syntax and annotation library functions.}
 bool isFixableAnnoSyntax((Declaration) `<Tags _> <Visibility _> anno <Type _> <Type _> @ <Name _>;`)
@@ -196,3 +197,4 @@ value evaluateRascalCommand(upgradeAnnotations(PathConfig pcfg)) {
     applyDocumentsEdits(editsPathConfig(pcfg));
     return ("result":true);
 }
+

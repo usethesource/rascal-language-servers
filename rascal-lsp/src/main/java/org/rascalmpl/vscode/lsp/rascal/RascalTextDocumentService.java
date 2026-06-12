@@ -54,6 +54,7 @@ import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -116,6 +117,7 @@ import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
 import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
@@ -230,14 +232,36 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        requestWarnings(file);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params, timestamp);
+        var changed = updateContents(params, timestamp);
+        requestWarnings(changed);
     }
+
+
+    private void requestWarnings(TextDocumentState file) {
+        var loc = file.getLocation();
+        file.getCurrentTreeAsync(false)
+            .thenCompose(t -> calculateWarnings(t, loc))
+            .thenAccept(m -> getDiagnosticsReporter(loc).reportWarnings(loc, m));
+    }
+
+    private CompletableFuture<Versioned<List<Diagnostic>>> calculateWarnings(Versioned<ITree> t, ISourceLocation loc) {
+        var tree = t.get();
+        return availableRascalServices()
+            .warnings(tree, availableFacts().getPathConfig(loc))
+            .thenApply(u -> t.map(_t -> u.stream()
+                .map(IConstructor.class::cast)
+                .map(m -> Diagnostics.translateDiagnostic(m, getColumnMaps()))
+                .collect(Collectors.toList())
+             )).get();
+    }
+
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
