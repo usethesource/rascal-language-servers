@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { NotificationType, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, src, TestWorkspace } from './utils';
 
 import path from 'path';
@@ -41,17 +41,26 @@ describe('DSL [multi-language]', function () {
 
     printRascalOutputOnFailure('Language Parametric Rascal');
 
+    function isLanguageLoading(bench: Workbench, language: string): () => Promise<boolean> {
+        return async () => {
+            const center = await bench.openNotificationsCenter();
+            const notifications = await center.getNotifications(NotificationType.Info);
+            const messages = await Promise.all(notifications.map(n => ignoreFails(n.getMessage())));
+            console.log(messages);
+            return messages.find(msg => msg?.startsWith(`${language}`)) !== undefined;
+        };
+    }
+
     async function loadLanguages() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
 
         for (const lang of languages) {
             await repl.execute(`import testing::lang::${lang.toLowerCase()}::LanguageServer;`, false, Delays.extremelySlow);
-            const replExecuteMain = repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`); // we don't wait yet, because we might miss language loading window
-            const ide = new IDEOperations(browser);
-            const isLoading = ide.statusContains(lang);
-            await driver.wait(isLoading, Delays.slow, `${lang} should start loading`);
-            // now wait for the Pico loader to disappear
+            const replExecuteMain = await repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`); // we don't wait yet, because we might miss language loading window
+            const isLoading = isLanguageLoading(bench, lang);
+            await driver.wait(isLoading, Delays.extremelySlow, `${lang} should start loading`);
+            // now wait for the loader to disappear
             await driver.wait(async () => !(await isLoading()), Delays.extremelySlow, `${lang} should be finished starting`, 100);
             await replExecuteMain;
         }
