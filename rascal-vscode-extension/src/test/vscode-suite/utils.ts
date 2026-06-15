@@ -29,7 +29,7 @@ import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
 import * as os from 'os';
 import { env } from "process";
-import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, NotificationType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
 import path = require("path");
 
 export async function sleep(ms: number) {
@@ -553,6 +553,15 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             }
         }
     });
+}
+
+export function isLanguageLoading(bench: Workbench, language: string): () => Promise<boolean> {
+    return async () => {
+        const center = await bench.openNotificationsCenter();
+        const notifications = await ignoreFails(center.getNotifications(NotificationType.Info));
+        const messages = await Promise.all((notifications ?? []).map(n => ignoreFails(n.getMessage())));
+        return messages.find(msg => msg?.startsWith(`${language}`)) !== undefined;
+    };
 }
 
 export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {

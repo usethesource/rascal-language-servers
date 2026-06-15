@@ -25,8 +25,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 import * as fs from 'fs/promises';
-import { NotificationType, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, src, TestWorkspace } from './utils';
+import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, RascalREPL, sleep, src, TestWorkspace } from './utils';
 
 import path from 'path';
 
@@ -41,15 +41,6 @@ describe('DSL [multi-language]', function () {
     this.timeout(Delays.extremelySlow * 2);
 
     printRascalOutputOnFailure('Language Parametric Rascal');
-
-    function isLanguageLoading(bench: Workbench, language: string): () => Promise<boolean> {
-        return async () => {
-            const center = await bench.openNotificationsCenter();
-            const notifications = await ignoreFails(center.getNotifications(NotificationType.Info));
-            const messages = await Promise.all((notifications ?? []).map(n => ignoreFails(n.getMessage())));
-            return messages.find(msg => msg?.startsWith(`${language}`)) !== undefined;
-        };
-    }
 
     async function loadLanguages() {
         const repl = new RascalREPL(bench, driver);
