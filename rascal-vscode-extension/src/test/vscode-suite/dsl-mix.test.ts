@@ -26,6 +26,7 @@
  */
 import { NotificationType, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, src, TestWorkspace } from './utils';
+import * as fs from 'fs/promises';
 
 import path from 'path';
 
@@ -108,8 +109,10 @@ describe('DSL [multi-language]', function () {
     });
 
     it("reads unsaved editor contents across languages", async function() {
-        const editor1 = await ide.openModule(path.join(src(TestWorkspace.testProject, 'json'), 'example.json2'));
+        const exampleDir = src(TestWorkspace.testProject, 'json');
+        const editor1 = await ide.openModule(path.join(exampleDir, 'example.json2'));
         await editor1.setTextAtLine(6, '}, "key5": "unsaved"');
+        await fs.writeFile(path.join(exampleDir, "example-copy.json2"), "");
         const editor2 = await ide.openModule(TestWorkspace.picoFile);
         await ide.clickCodeLens(editor2, "Copy contents of example.json");
         await driver.wait(async() => (await new TextEditor().getText()).includes("unsaved"), Delays.normal, "Unsaved editor contents should be available across languages");
