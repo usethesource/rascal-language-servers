@@ -102,6 +102,8 @@ describe('DSL [multi-language]', function () {
     });
 
     afterEach(async function () {
+        await ide.revertOpenChanges();
+
         if (this.test?.title) {
             await ide.screenshot(`DSL-mix-${this.test?.title}`);
         }
