@@ -122,5 +122,7 @@ describe('DSL [multi-language]', function () {
             const editor = await ignoreFails(editorView.openEditor("example-copy.json2")) as TextEditor | undefined;
             return (await editor?.getText())?.includes("unsaved");
         }, Delays.normal, "Unsaved editor contents should be available across languages");
+
+        await fs.unlink(targetFile);
     });
 });
