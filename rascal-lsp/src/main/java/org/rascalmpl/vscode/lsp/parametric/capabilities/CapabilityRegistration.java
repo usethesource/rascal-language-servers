@@ -44,11 +44,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.DocumentFilter;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ServerCapabilities;
+import org.eclipse.lsp4j.TextDocumentRegistrationOptions;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -62,6 +64,8 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 public class CapabilityRegistration {
 
     private static final Logger logger = LogManager.getLogger(CapabilityRegistration.class);
+
+    private static final DocumentFilter UNTITLED_FILES = new DocumentFilter(null, "untitled", null);
 
     private final LanguageClient client;
     private final Executor exec;
@@ -287,15 +291,37 @@ public class CapabilityRegistration {
         }
 
         // Filter contributions by providing this capability
-        return CompletableFutureUtils.filter(languages, cap::isProvidedBy).<@Nullable Registration>thenCompose(cs -> {
-            if (cs.isEmpty()) {
+        return CompletableFutureUtils.filter(languages, cap::isProvidedBy).<@Nullable Registration>thenCompose(providingLanguages -> {
+            if (providingLanguages.isEmpty()) {
                 return CompletableFutureUtils.completedFuture(null, exec);
             }
 
-            var allOpts = cs.stream().<CompletableFuture<@Nullable T>>map(cap::options).collect(Collectors.toList());
+            var allOpts = providingLanguages.stream().<CompletableFuture<@Nullable T>>map(cap::options).collect(Collectors.toList());
             return CompletableFutureUtils.reduce(allOpts, cap::mergeNullableOptions) // non-empty, so no need to provide a reduction identity
+                .<@Nullable T>thenApply(opts -> {
+                    if (opts instanceof TextDocumentRegistrationOptions) {
+                        setDocumentSelector((TextDocumentRegistrationOptions) opts, providingLanguages);
+                    }
+                    return opts;
+                })
                 .thenApply(opts -> new Registration(cap.id(), cap.methodName(), opts));
         });
+    }
+
+    private void setDocumentSelector(TextDocumentRegistrationOptions opts, Collection<ICapabilityParams> params) {
+        // If the document selector is set already by the capability implementation, we do not touch it.
+        if (opts.getDocumentSelector() == null || opts.getDocumentSelector().isEmpty()) {
+            opts.setDocumentSelector(params.stream()
+                .flatMap(c -> c.fileExtensions().stream())
+                .map(ext -> {
+                    var filter = new DocumentFilter();
+                    filter.setPattern(String.format("**/*.%s", ext));
+                    return filter;
+                }).collect(Collectors.toList()));
+
+            // Always support untitled files, since those can belong to any language
+            opts.getDocumentSelector().add(UNTITLED_FILES);
+        }
     }
 
 }
