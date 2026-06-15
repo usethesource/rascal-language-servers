@@ -87,7 +87,7 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<ITree> parsing(ISourceLocation loc, String input) {
-        return CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().character(0), exec);
+        return CompletableFuture.failedFuture(new NoContributionException("parsing"));
     }
 
     @Override
