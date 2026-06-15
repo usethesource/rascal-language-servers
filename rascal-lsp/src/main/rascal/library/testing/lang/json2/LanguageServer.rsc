@@ -24,7 +24,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 }
-module testing::lang::json::LanguageServer
+module testing::lang::json2::LanguageServer
 
 import lang::json::\syntax::JSON;
 
@@ -61,9 +61,9 @@ void register() {
     registerLanguage(
         language(
             pcfg,
-            "JSON",
+            "JSON2",
             {"json2"},
-            "testing::lang::json::LanguageServer",
+            "testing::lang::json2::LanguageServer",
             "jsonLanguageServer"
         )
     );

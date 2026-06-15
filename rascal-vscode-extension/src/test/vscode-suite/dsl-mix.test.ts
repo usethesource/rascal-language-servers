@@ -36,7 +36,7 @@ describe('DSL [multi-language]', function () {
     let bench: Workbench;
     let ide : IDEOperations;
 
-    const languages = ["Pico", "JSON"];
+    const languages = ["Pico", "JSON2"];
 
     this.timeout(Delays.extremelySlow * 2);
 
@@ -111,14 +111,14 @@ describe('DSL [multi-language]', function () {
     });
 
     it("reads unsaved editor contents across languages", async function() {
-        const exampleDir = src(TestWorkspace.testProject, 'json');
+        const exampleDir = src(TestWorkspace.testProject, 'json2');
         const targetFile = path.join(exampleDir, "example-copy.json2");
 
         const editor1 = await ide.openModule(path.join(exampleDir, 'example.json2'));
         await editor1.setTextAtLine(6, '}, "key5": "unsaved"');
         await fs.writeFile(targetFile, "{}");
         const editor2 = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor2, "Copy contents of example.json");
+        await ide.clickCodeLens(editor2, "Copy contents of example.json2");
         await driver.wait(async() => {
             const editorView = bench.getEditorView();
             const editor = await ignoreFails(editorView.openEditor("example-copy.json2")) as TextEditor | undefined;
