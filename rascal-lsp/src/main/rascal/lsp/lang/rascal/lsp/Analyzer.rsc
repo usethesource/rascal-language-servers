@@ -34,10 +34,11 @@ import lang::rascal::\syntax::Rascal;
 import lang::rascal::lsp::Actions;
 
 
+@synopsis{A fast analyzer, is run on most parse trees, so it should be fast}
 list[Message] analyze(start[Module] tree, PathConfig pcfg=pathConfig()) {
     result = [];
-    bool annotationAlreadyReported = false;
 
+    annotationAlreadyReported = false;
     void reportAnnotationDeprecation(Tree t) {
         if (!annotationAlreadyReported) {
             annotationAlreadyReported = true;
@@ -57,9 +58,9 @@ list[Message] analyze(start[Module] tree, PathConfig pcfg=pathConfig()) {
     }
 
     top-down-break visit (tree) {
-        case l:(LocationLiteral)`|lib://<PathPart _>`: {
+        case l:(LocationLiteral)`|lib://<PathPart _>`:
             result += error("lib scheme is not supported anymore. In most cases it can be replaced by either |project://|, |mvn://| or IO::getResource", l.src);
-        }
+
 
         // annotation cases
         case t:(Declaration) `<Tags _> <Visibility _> anno <Type _> <Type _> @ <Name _>;`: reportAnnotationDeprecation(t);
