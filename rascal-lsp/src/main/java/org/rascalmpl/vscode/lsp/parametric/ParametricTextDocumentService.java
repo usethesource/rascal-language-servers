@@ -138,6 +138,7 @@ import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.ICapabilityParams;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.SemanticTokensCapability;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -224,6 +225,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
         dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities
+            , new SemanticTokensCapability()
             , new CompletionCapability()
             , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
         );
@@ -235,7 +237,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         result.setReferencesProvider(true);
         result.setDocumentSymbolProvider(true);
         result.setImplementationProvider(true);
-        result.setSemanticTokensProvider(tokenizer.options());
         result.setCodeActionProvider(true);
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setRenameProvider(new RenameOptions(true));
