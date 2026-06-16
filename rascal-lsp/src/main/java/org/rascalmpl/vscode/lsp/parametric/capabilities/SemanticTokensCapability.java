@@ -44,6 +44,7 @@ public class SemanticTokensCapability extends AbstractDynamicCapability<Semantic
 
     @Override
     protected CompletableFuture<@Nullable SemanticTokensWithRegistrationOptions> options(ICapabilityParams language) {
+        // Note: `mergeOptions` is implemented based on the assumptions that we return a constant here.
         return CompletableFuture.completedFuture(SemanticTokenizer.options());
     }
 
@@ -53,10 +54,9 @@ public class SemanticTokensCapability extends AbstractDynamicCapability<Semantic
     }
 
     @Override
-    protected SemanticTokensWithRegistrationOptions mergeOptions(SemanticTokensWithRegistrationOptions o1,
-            SemanticTokensWithRegistrationOptions o2) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'mergeOptions'");
+    protected SemanticTokensWithRegistrationOptions mergeOptions(SemanticTokensWithRegistrationOptions o1, SemanticTokensWithRegistrationOptions o2) {
+        // Since `SemanticTokenCapability::options` always returns this, we don't need to do a smart merge here.
+        return SemanticTokenizer.options();
     }
 
     @Override
