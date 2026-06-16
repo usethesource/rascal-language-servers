@@ -79,7 +79,7 @@ set[Define] getFieldDefinitions(set[AType] containerTypes, str fieldName, TModel
 
 @synopsis{Collect all definitions for the field <fieldName> in ADT/collection/tuple by tree.}
 set[Define] getFieldDefinitions(Tree container, str fieldName, TModel tm, TModel(loc) getModel) {
-    if (defs:{_, *_} := tm.useDef[container.src]) {
+    if (defs:{_, *_} := getUseDef(tm)[container.src]) {
         return flatMapPerFile(defs, set[Define](loc f, set[loc] localContainerDefs) {
             fileTm = getModel(f);
 
