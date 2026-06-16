@@ -29,7 +29,7 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
+import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
 
 const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile, TestWorkspace.manifest, TestWorkspace.importeeFile, TestWorkspace.importerFile];
 
@@ -79,7 +79,7 @@ describe('IDE', function () {
         try {
             await ide.openModule(TestWorkspace.mainFile);
             let statusBarSeen = false;
-            const checkRascalStatus = ide.statusContains("Loading Rascal");
+            const checkRascalStatus = isLanguageLoading(bench, "Rascal");
 
             for (let tries = 0; tries < 10 && !statusBarSeen; tries++) {
                 if (await checkRascalStatus()) {
@@ -193,7 +193,7 @@ describe('IDE', function () {
         await editor.moveCursor(7, 15);
 
         // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = ide.statusContains("Loading Rascal");
+        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
         await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         await ide.renameSymbol(editor, bench, "i");
@@ -215,7 +215,7 @@ describe('IDE', function () {
         const libFile = await ide.openModule(TestWorkspace.libFile);
 
         // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = ide.statusContains("Loading Rascal");
+        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
         await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         await ide.moveFile("Lib.rsc", "lib", bench);
