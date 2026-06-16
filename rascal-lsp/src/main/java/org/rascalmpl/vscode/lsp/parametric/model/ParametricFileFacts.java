@@ -115,13 +115,6 @@ public class ParametricFileFacts implements DiagnosticsReporter {
         getFile(file).reportParseErrors(msgs);
     }
 
-    @Override
-    public void reportWarnings(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
-        throw new NotImplementedException("reportWarnigns is not implemented for Parametric file facts yet");
-
-    }
-
-
     private FileFact getFile(ISourceLocation file) {
         var fact = files.get(file);
         if (fact == null) {
@@ -274,7 +267,7 @@ public class ParametricFileFacts implements DiagnosticsReporter {
                 ParametricSummary.getMessages(summary, exec)
                     .thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, new Versioned<>(contentVersion.version(), ms)));
                 return summary.thenApply(Versioned::get);
-            }, exec);
+            }, nullSummary, exec);
         }
 
         /**

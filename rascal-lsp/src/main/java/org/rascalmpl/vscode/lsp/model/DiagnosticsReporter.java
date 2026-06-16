@@ -41,5 +41,4 @@ import io.usethesource.vallang.ISourceLocation;
  */
 public interface DiagnosticsReporter {
     void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs);
-    void reportWarnings(ISourceLocation file, Versioned<List<Diagnostic>> msgs);
 }

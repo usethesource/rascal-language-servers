@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -131,7 +132,6 @@ import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -232,34 +232,21 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
-        requestWarnings(file);
+        triggerAnalyzer(file, NORMAL_DEBOUNCE);
     }
+
+
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
         var changed = updateContents(params, timestamp);
-        requestWarnings(changed);
+        triggerAnalyzer(changed, NORMAL_DEBOUNCE);
     }
 
-
-    private void requestWarnings(TextDocumentState file) {
-        var loc = file.getLocation();
-        file.getCurrentTreeAsync(false)
-            .thenCompose(t -> calculateWarnings(t, loc))
-            .thenAccept(m -> getDiagnosticsReporter(loc).reportWarnings(loc, m));
-    }
-
-    private CompletableFuture<Versioned<List<Diagnostic>>> calculateWarnings(Versioned<ITree> t, ISourceLocation loc) {
-        var tree = t.get();
-        return availableRascalServices()
-            .warnings(tree, availableFacts().getPathConfig(loc))
-            .thenApply(u -> t.map(_t -> u.stream()
-                .map(IConstructor.class::cast)
-                .map(m -> Diagnostics.translateDiagnostic(m, getColumnMaps()))
-                .collect(Collectors.toList())
-             )).get();
+    private void triggerAnalyzer(TextDocumentState state, Duration delay) {
+        facts.triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
     }
 
 

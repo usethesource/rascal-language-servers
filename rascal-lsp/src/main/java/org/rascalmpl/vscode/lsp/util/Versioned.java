@@ -98,15 +98,16 @@ public class Versioned<T> {
      * calculation will be granted, unless another request is made in the
      * meantime (in which case the current request is abandoned)
      * @param calculation the actual calculation
+     * @param debouncedReplacementValue in case a debounce happened, this value will be reported on the completable future
      * @param exec executor to use for the futures
      *
      * @return a future that supplies the calculated result if the current
-     * request was granted, or an null if the calcution was skipped due
+     * request was granted, or an debounceReplacementValue if the calcution was skipped due
      * to a new version before delay was passed.
      */
-    public <U> CompletableFuture<@Nullable Versioned<U>> debounce(
+    public <U> CompletableFuture<Versioned<U>> debounce(
         AtomicReference<Versioned<T>> activeVersion, Duration delay,
-        Function<T, CompletableFuture<U>> calculation, Executor exec) {
+        Function<T, CompletableFuture<U>> calculation, U debouncedReplacementValue, Executor exec) {
         // we store our debounce start value first
         activeVersion.set(this);
 
@@ -121,7 +122,7 @@ public class Versioned<T> {
                 }
                 // otherwise we return an empty result
                 // as a later closure will be running on this new version of `activeVersion`
-                return CompletableFutureUtils.completedFuture((Versioned<U>)null, exec);
+                return CompletableFutureUtils.completedFuture(new Versioned<>(version, debouncedReplacementValue, timestamp), exec);
             });
     }
 }
