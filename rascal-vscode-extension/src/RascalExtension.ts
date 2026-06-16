@@ -92,6 +92,7 @@ export class RascalExtension implements vscode.Disposable {
     private registerMainRun() {
         this.context.subscriptions.push(
             vscode.commands.registerTextEditorCommand("rascalmpl.runMain", (text, _edit, moduleName) => {
+                moduleName = moduleName ?? this.guessModuleName(text.document);
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
@@ -104,6 +105,7 @@ export class RascalExtension implements vscode.Disposable {
     private registerImportModule() {
         this.context.subscriptions.push(
             vscode.commands.registerTextEditorCommand("rascalmpl.importModule", (text, _edit, moduleName) => {
+                moduleName = moduleName ?? this.guessModuleName(text.document);
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
@@ -119,6 +121,35 @@ export class RascalExtension implements vscode.Disposable {
                 await vscode.env.clipboard.writeText(rascalUri);
             })
         );
+    }
+
+    private guessModuleName(document: vscode.TextDocument) {
+        if (document.languageId === 'rascalmpl') {
+            const text = document.getText();
+
+            // Given a Rascal file at location `/foo/bar/baz/Qux.rsc`, depending
+            // on which ancestor is the root of the source directory, one of the
+            // following modules must be defined in the file:
+            //   - `foo::bar::baz::Qux`
+            //   -      `bar::baz::Qux`
+            //   -           `baz::Qux`
+            //   -                `Qux`
+            //
+            // For each of these possible module names (from long to short), the
+            // approach below is to derive it from the location (also taking
+            // into account escape characters), and then try it.
+
+            let segments = document.uri.path.slice(0, -4).split('/');
+            while ((segments = segments.slice(1)).length > 0) {
+                const guess = segments.map(s => `[\\\\]?${s}`).join('::');
+                const guessed = text.match(`module[\\s]+(${guess})`);
+                if (guessed) {
+                    return guessed[1];
+                }
+            }
+        }
+
+        return undefined;
     }
 
     private async startTerminal(uri: vscode.Uri | undefined, command?: string | undefined) {
