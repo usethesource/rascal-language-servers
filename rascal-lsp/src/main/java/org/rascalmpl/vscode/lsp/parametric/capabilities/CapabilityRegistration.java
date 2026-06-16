@@ -313,6 +313,7 @@ public class CapabilityRegistration {
         if (opts.getDocumentSelector() == null || opts.getDocumentSelector().isEmpty()) {
             opts.setDocumentSelector(params.stream()
                 .flatMap(c -> c.fileExtensions().stream())
+                .distinct()
                 .map(ext -> {
                     var filter = new DocumentFilter();
                     filter.setPattern(String.format("**/*.%s", ext));
