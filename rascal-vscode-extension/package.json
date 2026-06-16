@@ -45,15 +45,15 @@
     "commands": [
       {
         "command": "rascalmpl.createTerminal",
-        "title": "Create Rascal Terminal"
+        "title": "Create New Rascal Terminal"
       },
       {
         "command": "rascalmpl.runMain",
-        "title": "Create Rascal Terminal, Import Module, and Run Main Function"
+        "title": "Create New Rascal Terminal, Import Module, and Run Main Function"
       },
       {
         "command": "rascalmpl.importModule",
-        "title": "Create Rascal Terminal and Import Module"
+        "title": "Create New Rascal Terminal and Import Module"
       },
       {
         "command": "rascalmpl.startDebuggerForRepl",
