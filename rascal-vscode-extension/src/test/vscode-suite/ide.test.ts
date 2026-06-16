@@ -279,7 +279,6 @@ describe('IDE', function () {
         await editor.typeTextAt(3, 1, "data X = y();\n");
         await editor.typeTextAt(4, 1, "anno int X@old;\n");
         await editor.typeTextAt(5, 1, "int calc(X x) = x@old;");
-        await triggerTypeChecker(editor, TestWorkspace.importeeTpl, true);
 
         await ide.hasWarningSquiggly(editor, Delays.slow, "On a annotation we should have a warning that they are deprecated");
 
@@ -287,8 +286,6 @@ describe('IDE', function () {
         await ide.triggerFirstCodeAction(editor, "Upgrade all annotations");
         await ide.assertLineBecomes(editor, 4, "data X(int old = 0);", "annotations become a KW parameter", Delays.slow);
         await ide.assertLineBecomes(editor, 5, "int calc(X x) = x.old;", "annotation should become a field deref", Delays.fast);
-
-        await triggerTypeChecker(editor, TestWorkspace.importeeTpl, true);
 
         await ide.checkNoDiagnosticsAnymore();
     });
