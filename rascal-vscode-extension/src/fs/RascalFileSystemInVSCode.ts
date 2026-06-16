@@ -33,6 +33,8 @@ import { RemoteIOError } from './RemoteIOError';
 import { ILogicalSourceLocationResolver, ISourceLocationInput, ISourceLocationOutput, ISourceLocationWatcher } from './URIResolverInterfaces';
 
 export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
+    private static INSTANCE : RascalFileSystemInVSCode | undefined ;
+
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly protectedSchemes: string[] = ["file", "http", "https", "unknown"];
@@ -46,13 +48,18 @@ export class RascalFileSystemInVSCode implements vscode.FileSystemProvider {
     // Unique identifier for the current file system instance
     private readonly vfsWatchId = randomUUID();
 
+    public static construct(client: BaseLanguageClient, logger: vscode.LogOutputChannel): RascalFileSystemInVSCode {
+        this.INSTANCE ??= new RascalFileSystemInVSCode(client, logger);
+        return this.INSTANCE;
+    }
+
     /**
      * Registers a single FileSystemProvider for every URI scheme that Rascal supports, except
      * for file, http and https.
      *
      * @param client to use as a server for the file system provider methods
      */
-    constructor (client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
+    private constructor (client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) {
         client.onNotification("rascal/vfs/watcher/sourceLocationChanged", (event: ISourceLocationChanged) => {
             logger.debug("[RascalFileSystemInVSCode] sourceLocationChanged", event.root, event.type);
             if (event.watchId.slice(-this.vfsWatchId.length) !== this.vfsWatchId) {

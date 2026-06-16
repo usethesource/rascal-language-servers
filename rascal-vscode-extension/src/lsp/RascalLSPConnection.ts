@@ -51,6 +51,7 @@ export async function activateLanguageClient(
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
+    client.registerProposedFeatures();
 
     await client.start();
     logger.setClient(client);
@@ -65,10 +66,13 @@ export async function activateLanguageClient(
         void openEditor(uri, range, viewColumn);
     });
 
+    client.onRequest("rascal/checkUnregisteredSchemes", (schemes: string[]) => {
+        return schemes.filter(s => vscode.workspace.fs.isWritableFileSystem(s) === undefined);
+    });
 
     const schemesReply = client.sendRequest<string[]>("rascal/vfs/schemes");
 
-    const rascalVFS = new RascalFileSystemInVSCode(client, logger);
+    const rascalVFS = RascalFileSystemInVSCode.construct(client, logger);
 
     void schemesReply.then( schemes => {
         vfsServer.ignoreSchemes(schemes);
