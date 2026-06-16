@@ -193,6 +193,11 @@ public class CapabilityRegistrationTest {
             public Set<String> fileExtensions() {
                 return Set.of(lang.getExtensions());
             }
+
+            @Override
+            public Set<String> extensionLessSchemes() {
+                return Set.of();
+            }
         };
     }
 

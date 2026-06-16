@@ -26,12 +26,14 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -181,6 +183,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
+    private final Set<String> extensionLessSchemes = new HashSet<>();
+
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
@@ -304,6 +308,21 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
         triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
+
+        // Discover capabilities
+        discoverExtensionLessScheme(URIUtil.assumeCorrect(params.getTextDocument().getUri()));
+    }
+
+    /**
+     * Captures extensions-less schemes and updates dynamic capabilities to apply to them.
+     * @param uri A URI that should be associated with the parametric server.
+     */
+    private void discoverExtensionLessScheme(URI uri) {
+        var ext = URIUtil.getExtension(Locations.toLoc(uri));
+        // We want the original scheme, not the one possibly modified when converting URI -> loc
+        if (ext.equals("") && extensionLessSchemes.add(uri.getScheme())) {
+            updateCapabilities();
+        }
     }
 
     @Override
@@ -926,10 +945,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             this.registeredExtensions.put(extension, lang.getName());
         }
 
-        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
-        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
-        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
-        availableCapabilities().update(buildLanguageParams());
+        updateCapabilities();
 
         // If we opened any files with this extension before, now associate them with contributions
         var extensions = Arrays.asList(lang.getExtensions());
@@ -939,6 +955,13 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 refreshFileState(f);
             }
         }
+    }
+
+    private synchronized CompletableFuture<Void> updateCapabilities() {
+        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
+        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
+        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
+        return availableCapabilities().update(buildLanguageParams());
     }
 
     /**
@@ -956,6 +979,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             @Override
             public Set<String> fileExtensions() {
                 return extensionsByLang.getOrDefault(e.getKey(), Collections.emptySet());
+            }
+
+            @Override
+            public Set<String> extensionLessSchemes() {
+                return extensionLessSchemes;
             }
         }).collect(Collectors.toSet());
     }
@@ -1006,7 +1034,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             contributions.remove(lang.getName());
         }
 
-        availableCapabilities().update(buildLanguageParams());
+        updateCapabilities();
     }
 
     @Override

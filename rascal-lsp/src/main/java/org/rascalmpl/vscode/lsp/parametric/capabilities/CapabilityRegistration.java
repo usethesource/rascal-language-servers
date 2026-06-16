@@ -65,8 +65,6 @@ public class CapabilityRegistration {
 
     private static final Logger logger = LogManager.getLogger(CapabilityRegistration.class);
 
-    private static final DocumentFilter UNTITLED_FILES = new DocumentFilter(null, "untitled", null);
-
     private final LanguageClient client;
     private final Executor exec;
     private final CompletableFuture<Void> noop;
@@ -311,17 +309,27 @@ public class CapabilityRegistration {
     private void setDocumentSelector(TextDocumentRegistrationOptions opts, Collection<ICapabilityParams> params) {
         // If the document selector is set already by the capability implementation, we do not touch it.
         if (opts.getDocumentSelector() == null || opts.getDocumentSelector().isEmpty()) {
-            opts.setDocumentSelector(params.stream()
+            // extension filters
+            var filters = params.stream()
                 .flatMap(c -> c.fileExtensions().stream())
                 .distinct()
                 .map(ext -> {
                     var filter = new DocumentFilter();
                     filter.setPattern(String.format("**/*.%s", ext));
                     return filter;
+                }).collect(Collectors.toList());
+
+            // scheme filters
+            filters.addAll(params.stream()
+                .flatMap(c -> c.extensionLessSchemes().stream())
+                .distinct()
+                .map(scheme -> {
+                    var filter = new DocumentFilter();
+                    filter.setScheme(scheme);
+                    return filter;
                 }).collect(Collectors.toList()));
 
-            // Always support untitled files, since those can belong to any language
-            opts.getDocumentSelector().add(UNTITLED_FILES);
+            opts.setDocumentSelector(filters);
         }
     }
 
