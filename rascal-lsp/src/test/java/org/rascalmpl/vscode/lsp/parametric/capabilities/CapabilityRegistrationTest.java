@@ -38,6 +38,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.only;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -271,9 +272,8 @@ public class CapabilityRegistrationTest {
     public void registerIdenticalContribution() throws InterruptedException, ExecutionException {
         registerSequentially(List.of(".", "::"), List.of(".", "::"));
 
-        InOrder inOrder = inOrder(client);
-        inOrder.verify(client).registerCapability(registrationCaptor.capture());
-        inOrder.verifyNoMoreInteractions();
+        verify(client).registerCapability(registrationCaptor.capture());
+        verifyNoMoreInteractions(client);
 
         assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false), registrationCaptor.getAllValues().get(0));
     }
