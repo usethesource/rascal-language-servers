@@ -246,7 +246,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     private void triggerAnalyzer(TextDocumentState state, Duration delay) {
-        facts.triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
+        availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
     }
 
 
