@@ -960,13 +960,15 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private CompletableFuture<Void> refreshEditors() {
+        var client = availableClient();
+        // Do all in parallel, and return a future that completes when each of these completes
         return CompletableFutureUtils.reduce(List.of(
-            availableClient().refreshCodeLenses(),
-            availableClient().refreshDiagnostics(),
-            availableClient().refreshFoldingRanges(),
-            availableClient().refreshInlayHints(),
-            availableClient().refreshInlineValues(),
-            availableClient().refreshSemanticTokens()
+            client.refreshCodeLenses(),
+            client.refreshDiagnostics(),
+            client.refreshFoldingRanges(),
+            client.refreshInlayHints(),
+            client.refreshInlineValues(),
+            client.refreshSemanticTokens()
         ), (v1, v2) -> null);
     }
 
