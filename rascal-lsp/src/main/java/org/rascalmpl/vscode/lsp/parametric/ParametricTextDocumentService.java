@@ -321,6 +321,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var ext = URIUtil.getExtension(Locations.toLoc(uri));
         // We want the original scheme, not the one possibly modified when converting URI -> loc
         if (ext.equals("") && extensionLessSchemes.add(uri.getScheme())) {
+            // Should be called from the main, single-threaded request pool
             updateCapabilities();
         }
     }
@@ -956,6 +957,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
         // Do this last, after the parser for open editors has been updated,
         // since this might trigger new requests on the editor contents.
+        // `updateCapabilities`/`CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
+        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
+        // Note: `updateCapabilities` returns a void future, which we do not have to wait on.
         updateCapabilities();
     }
 
@@ -973,9 +977,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private synchronized CompletableFuture<Void> updateCapabilities() {
-        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
-        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
-        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
         return availableCapabilities()
             .update(buildLanguageParams())
             .thenCompose(v -> refreshEditors());
@@ -1051,6 +1052,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             contributions.remove(lang.getName());
         }
 
+        // Should be called from the main, single-threaded request pool
         updateCapabilities();
     }
 
