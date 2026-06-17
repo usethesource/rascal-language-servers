@@ -314,14 +314,14 @@ public class CapabilityRegistration {
             var filters = params.stream()
                 .flatMap(c -> c.fileExtensions().stream())
                 .distinct()
-                .map(ext -> new DocumentFilter(null, null, Either.forLeft(String.format("**/*.%s", ext))))
+                .map(ext -> new DocumentFilter("parametric-rascalmpl", null, Either.forLeft(String.format("**/*.%s", ext))))
                 .collect(Collectors.toList());
 
             // scheme filters
             filters.addAll(params.stream()
                 .flatMap(c -> c.extensionLessSchemes().stream())
                 .distinct()
-                .map(scheme -> new DocumentFilter(null, scheme, null))
+                .map(scheme -> new DocumentFilter("parametric-rascalmpl", scheme, null))
                 .collect(Collectors.toList()));
 
             opts.setDocumentSelector(filters);
