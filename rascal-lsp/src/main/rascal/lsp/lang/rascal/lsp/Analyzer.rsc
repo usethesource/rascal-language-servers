@@ -28,6 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::Analyzer
 
 import IO;
+import String;
 import ParseTree;
 import util::IDEServices;
 import util::PathConfig;
@@ -41,29 +42,27 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
 
     annotationAlreadyReported = false;
     void reportAnnotationDeprecation(Tree t) {
-        if (!annotationAlreadyReported && !isWritable(t.src.top)) {
-            // not reporting issues for code we cannot rewrite
-            annotationAlreadyReported = true;
-        }
-
         if (!annotationAlreadyReported) {
             annotationAlreadyReported = true;
-            result += warning(
-                "annotations are no longer supported and will soon be removed, please use our build-in quick-fix to refactor them into keyword parameters",
-                t.src, fixes=[
-                    action(
-                        command=upgradeAnnotations(getPathConfig(t.src.top)),
-                        title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
-                    )
-                ]
-            );
+            if (isWritable(t.src.top)) {
+                // only reporting issues for code we can rewrite
+                result += warning(
+                    "annotations are no longer supported and will soon be removed, please use our build-in quick-fix to refactor them into keyword parameters",
+                    t.src, fixes=[
+                        action(
+                            command=upgradeAnnotations(getPathConfig(t.src.top)),
+                            title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
+                        )
+                    ]
+                );
+            }
         }
         // since the single quickfix fixes the whole project, it's not useful to report it multiple times
         // especially since a user might click "fix all" and then the upgrade would be run several times.
         // instead we ignore all follow up cases of the same error
     }
 
-    top-down-break visit (tree) {
+    visit (tree) {
         case l:(LocationLiteral)`|lib://<PathPart _>`:
             result += error("lib scheme is not supported anymore. In most cases it can be replaced by either |project://|, |mvn://| or IO::getResource", l.src);
 

@@ -35,6 +35,7 @@ import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -351,7 +352,7 @@ public class RascalLanguageServices {
 
     public InterruptibleFuture<IList> analyze(ITree tree) {
         return runEvaluator("Rascal analyze", shortRunningTaskEvaluator, eval ->
-                (IList) eval.call("analyze", "lang::rascal::lsp::Analyzer", tree, makePathConfigGetter(eval)),
+                (IList) eval.call("analyze", "lang::rascal::lsp::Analyzer", Collections.emptyMap(), tree, makePathConfigGetter(eval)),
             VF.list(), exec, false, client);
     }
 
