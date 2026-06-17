@@ -102,8 +102,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
             for (const doc of vscode.workspace.textDocuments) {
                 const ext = path.extname(doc.uri.path);
                 if (ext !== "" && lang.extensions.includes(ext.substring(1))) {
-                    // (Re)set the language ID to re-trigger contribution requests
-                    await vscode.languages.setTextDocumentLanguage(doc, "plaintext");
+                    // Associate open editors with the given extensions with this language server
                     await vscode.languages.setTextDocumentLanguage(doc, this.languageId);
                 }
             }

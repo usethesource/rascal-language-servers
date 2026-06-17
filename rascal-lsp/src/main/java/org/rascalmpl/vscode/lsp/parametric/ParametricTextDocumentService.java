@@ -945,8 +945,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             this.registeredExtensions.put(extension, lang.getName());
         }
 
-        updateCapabilities();
-
         // If we opened any files with this extension before, now associate them with contributions
         var extensions = Arrays.asList(lang.getExtensions());
         for (var f : getOpenFiles()) {
@@ -955,13 +953,30 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 refreshFileState(f);
             }
         }
+
+        // Do this last, after the parser for open editors has been updated,
+        // since this might trigger new requests on the editor contents.
+        updateCapabilities();
+    }
+
+    private CompletableFuture<Void> refreshEditors() {
+        return CompletableFutureUtils.reduce(List.of(
+            availableClient().refreshCodeLenses(),
+            availableClient().refreshDiagnostics(),
+            availableClient().refreshFoldingRanges(),
+            availableClient().refreshInlayHints(),
+            availableClient().refreshInlineValues(),
+            availableClient().refreshSemanticTokens()
+        ), (v1, v2) -> null);
     }
 
     private synchronized CompletableFuture<Void> updateCapabilities() {
         // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
         // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
         // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
-        return availableCapabilities().update(buildLanguageParams());
+        return availableCapabilities()
+            .update(buildLanguageParams())
+            .thenCompose(v -> refreshEditors());
     }
 
     /**
