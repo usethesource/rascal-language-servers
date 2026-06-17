@@ -54,6 +54,7 @@ import org.eclipse.lsp4j.TextDocumentRegistrationOptions;
 import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -313,21 +314,15 @@ public class CapabilityRegistration {
             var filters = params.stream()
                 .flatMap(c -> c.fileExtensions().stream())
                 .distinct()
-                .map(ext -> {
-                    var filter = new DocumentFilter();
-                    filter.setPattern(String.format("**/*.%s", ext));
-                    return filter;
-                }).collect(Collectors.toList());
+                .map(ext -> new DocumentFilter(null, null, Either.forLeft(String.format("**/*.%s", ext))))
+                .collect(Collectors.toList());
 
             // scheme filters
             filters.addAll(params.stream()
                 .flatMap(c -> c.extensionLessSchemes().stream())
                 .distinct()
-                .map(scheme -> {
-                    var filter = new DocumentFilter();
-                    filter.setScheme(scheme);
-                    return filter;
-                }).collect(Collectors.toList()));
+                .map(scheme -> new DocumentFilter(null, scheme, null))
+                .collect(Collectors.toList()));
 
             opts.setDocumentSelector(filters);
         }
