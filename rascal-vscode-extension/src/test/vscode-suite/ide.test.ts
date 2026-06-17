@@ -62,16 +62,20 @@ describe('IDE', function () {
         if (this.test?.title) {
             await ide.screenshot("IDE-" + this.test?.title);
         }
+        // make sure we always reset, so errors don't propagate (since sometimes an afterEach is not run)
+        for (const [f, b] of originalFiles) {
+            await fs.writeFile(f, b);
+        }
     });
 
     afterEach(async function () {
+        for (const [f, b] of originalFiles) {
+            await fs.writeFile(f, b);
+        }
         if (this.test?.title) {
             await ide.screenshot("IDE-" + this.test?.title);
         }
         await ide.cleanup();
-        for (const [f, b] of originalFiles) {
-            await fs.writeFile(f, b);
-        }
     });
 
 

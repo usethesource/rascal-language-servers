@@ -237,7 +237,7 @@ public class FileFacts implements DiagnosticsReporter {
         }
 
         private CompletableFuture<List<Diagnostic>> analyzer(Versioned<ITree> t) {
-            return rascal.analyze(t.get(), confs.lookupConfig(file))
+            return rascal.analyze(t.get())
                 .thenApply(m -> Diagnostics.translateDiagnostics(m, cm))
                 .get();
         }

@@ -27,6 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 @bootstrapParser
 module lang::rascal::lsp::Analyzer
 
+import IO;
 import ParseTree;
 import util::IDEServices;
 import util::PathConfig;
@@ -35,18 +36,23 @@ import lang::rascal::lsp::Actions;
 
 
 @synopsis{A fast analyzer, is run on most parse trees, so it should be fast}
-list[Message] analyze(start[Module] tree, PathConfig pcfg=pathConfig()) {
+list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     result = [];
 
     annotationAlreadyReported = false;
     void reportAnnotationDeprecation(Tree t) {
+        if (!annotationAlreadyReported && !isWritable(t.src.top)) {
+            // not reporting issues for code we cannot rewrite
+            annotationAlreadyReported = true;
+        }
+
         if (!annotationAlreadyReported) {
             annotationAlreadyReported = true;
             result += warning(
                 "annotations are no longer supported and will soon be removed, please use our build-in quick-fix to refactor them into keyword parameters",
                 t.src, fixes=[
                     action(
-                        command=upgradeAnnotations(pcfg),
+                        command=upgradeAnnotations(getPathConfig(t.src.top)),
                         title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
                     )
                 ]

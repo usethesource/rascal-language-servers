@@ -349,11 +349,9 @@ public class RascalLanguageServices {
         return CompletableFuture.supplyAsync(() -> RascalServices.parseRascalModule(loc, input.toCharArray()), exec);
     }
 
-    public InterruptibleFuture<IList> analyze(ITree tree, PathConfig pcfg) {
-        return runEvaluator("Rascal analyze", shortRunningTaskEvaluator, eval -> {
-                Map<String, IValue> kws = Map.of("pcfg", pcfg.asConstructor());
-                return (IList) eval.call("analyze", "lang::rascal::lsp::Analyzer", kws, tree);
-            },
+    public InterruptibleFuture<IList> analyze(ITree tree) {
+        return runEvaluator("Rascal analyze", shortRunningTaskEvaluator, eval ->
+                (IList) eval.call("analyze", "lang::rascal::lsp::Analyzer", tree, makePathConfigGetter(eval)),
             VF.list(), exec, false, client);
     }
 
