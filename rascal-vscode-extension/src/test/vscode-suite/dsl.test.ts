@@ -49,6 +49,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     printRascalOutputOnFailure('Language Parametric Rascal');
 
+    async function unloadPico(repl: RascalREPL) {
+        await repl.execute("import util::LanguageServer;");
+        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
+
+        // Since we cannot know when exactly unregistration is done, it is followed by a suitably long sleep.
+        await sleep(Delays.normal);
+    }
+
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
@@ -59,11 +67,8 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         // en/disabledness affects which contributors to use). Until issue #630
         // is fixed (race between `unregister` and `register`), the
         // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here and followed by a suitably
-        // long sleep.
-        await repl.execute("import util::LanguageServer;");
-        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
-        await sleep(Delays.normal);
+        // commit `a955a05`). Instead, it's done here.
+        await unloadPico(repl);
 
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
@@ -73,6 +78,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
         await replExecuteMain;
         await repl.terminate();
+    }
+
+    async function setParametricLanguage(editor: TextEditor) {
+        await (await editor.getTab()).select();
+        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
+        const inputBox = new InputBox();
+        await inputBox.setText("parametric-rascalmpl");
+        await inputBox.confirm();
     }
 
     before(async () => {
@@ -140,11 +153,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.newUntitledFile(bench, driver, 1);
         expect(editor).to.not.be.undefined;
 
-        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
-
-        const inputBox = new InputBox();
-        await inputBox.setText("parametric-rascalmpl");
-        await inputBox.confirm();
+        await setParametricLanguage(editor);
 
         await editor.setText(`begin
   declare
@@ -440,4 +449,18 @@ end
         }, Delays.normal, "Static content should be shown");
     });
 
+    it("updates open editors on registration", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await unloadPico(repl);
+        await repl.terminate();
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await setParametricLanguage(editor);
+
+        await loadPico();
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
+    });
 });
