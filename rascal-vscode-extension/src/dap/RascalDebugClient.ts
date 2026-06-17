@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { debug, DebugConfiguration, DebugSession, Terminal, window, EventEmitter } from "vscode";
+import { debug, DebugConfiguration, DebugSession, Terminal, window, EventEmitter, commands } from "vscode";
 import { RascalDebugAdapterDescriptorFactory } from "./RascalDebugAdapterDescriptorFactory";
 import { RascalDebugConfigurationProvider } from "./RascalDebugConfigurationProvider";
 
@@ -53,6 +53,7 @@ export class RascalDebugClient {
             if(processId !== undefined && this.debugSocketServersPorts.has(processId)){
                 this.debugSocketServersPorts.delete(processId);
             }
+            await this.updateTerminalViewButton();
         });
 
         debug.onDidStartDebugSession(async (debugsession: DebugSession) => {
@@ -60,6 +61,7 @@ export class RascalDebugClient {
             if(port !== undefined){
                 this.runningDebugSessionsPorts.add(port);
             }
+            await this.updateTerminalViewButton();
         });
 
         debug.onDidTerminateDebugSession(async (debugsession: DebugSession) => {
@@ -67,8 +69,30 @@ export class RascalDebugClient {
             if(port !== undefined){
                 this.runningDebugSessionsPorts.delete(port);
             }
+            await this.updateTerminalViewButton();
         });
 
+        window.onDidChangeActiveTerminal(async _ => {
+            await this.updateTerminalViewButton();
+        });
+    }
+
+    async updateTerminalViewButton() {
+        let isRascalTerminal = false;
+        let isRascalTerminalDebugging = false;
+        const activeTerminal = window.activeTerminal;
+        if (activeTerminal) {
+            isRascalTerminal = activeTerminal.name.includes("Rascal terminal");
+            const processId = await activeTerminal.processId;
+            if (isRascalTerminal && processId) {
+                const serverPort = this.debugSocketServersPorts.get(processId);
+                if (serverPort) {
+                    isRascalTerminalDebugging = this.runningDebugSessionsPorts.has(serverPort);
+                }
+            }
+        }
+        await commands.executeCommand('setContext', 'rascalmpl.isRascalTerminalActive', isRascalTerminal);
+        await commands.executeCommand('setContext', 'rascalmpl.activeRascalTerminalIsDebugging', isRascalTerminalDebugging);
     }
 
     async startDebuggingSession(serverPort: number){

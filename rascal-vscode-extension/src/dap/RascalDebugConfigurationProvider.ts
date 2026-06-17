@@ -64,10 +64,10 @@ export class RascalDebugConfigurationProvider implements DebugConfigurationProvi
             }
             const port = this.debugClient.getServerPort(terminalProcessID);
             if(port === undefined) {
-                throw Error("Active terminal has not a debug server port registered !");
+                throw Error("Active terminal does not have a debug server port registered!");
             } else {
                 if(this.debugClient.isConnectedToDebugServer(port)){
-                    throw Error("This REPL has already a running debug session !");
+                    throw Error("This REPL already has a running debug session!");
                 } else {
                     debugConfiguration['serverPort'] = port;
                 }
