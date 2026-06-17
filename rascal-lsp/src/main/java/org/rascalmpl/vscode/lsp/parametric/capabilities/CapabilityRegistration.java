@@ -309,6 +309,7 @@ public class CapabilityRegistration {
 
     private void setDocumentSelector(TextDocumentRegistrationOptions opts, Collection<ICapabilityParams> params) {
         // If the document selector is set already by the capability implementation, we do not touch it.
+        // This allows specific capabilities to add specific selectors if needed.
         if (opts.getDocumentSelector() == null || opts.getDocumentSelector().isEmpty()) {
             // extension filters
             var filters = params.stream()
