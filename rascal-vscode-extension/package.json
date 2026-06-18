@@ -61,6 +61,11 @@
         "icon": "$(debug)"
       },
       {
+        "command": "rascalmpl.stopDebuggerForRepl",
+        "title": "Stop Rascal debugger for REPL",
+        "icon": "$(debug-disconnect-compact)"
+      },
+      {
         "command": "rascalmpl.copySourceLocation",
         "title": "Copy Path as Rascal Location",
         "icon": "$(copy)"
@@ -82,6 +87,23 @@
           "command": "rascalmpl.startDebuggerForRepl",
           "when": "view == rascalmpl-debugger-view && viewItem == 'canStartDebugging'",
           "group": "inline"
+        },
+        {
+          "command": "rascalmpl.stopDebuggerForRepl",
+          "when": "view == rascalmpl-debugger-view && viewItem == 'canStopDebugging'",
+          "group": "inline"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "rascalmpl.startDebuggerForRepl",
+          "when": "view == terminal && rascalmpl.isRascalTerminalActive == true && rascalmpl.activeRascalTerminalIsDebugging == false",
+          "group": "navigation@1"
+        },
+        {
+          "command": "rascalmpl.stopDebuggerForRepl",
+          "when": "view == terminal && rascalmpl.isRascalTerminalActive == true && rascalmpl.activeRascalTerminalIsDebugging == true",
+          "group": "navigation@1"
         }
       ],
       "explorer/context": [
