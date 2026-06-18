@@ -44,35 +44,23 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
 
         this.rascalDebugClient.portRegistrationEvent(fireEmitter, this, context.subscriptions);
 
+        this.registerDebugCommand("rascalmpl.startDebuggerForRepl", n => this.rascalDebugClient.startDebuggingSessionFromProcessId(n));
+        this.registerDebugCommand("rascalmpl.stopDebuggerForRepl", n => this.rascalDebugClient.stopDebuggingSession(n));
+    }
+
+    registerDebugCommand(command: string, debugCommand: (n: number) => Promise<void>) {
         this.context.subscriptions.push(
-            vscode.commands.registerCommand("rascalmpl.startDebuggerForRepl", async (element: RascalReplNode | undefined) => {
-                if (element instanceof RascalReplNode) {
-                    // Clicked button of an entry in the "Debug Rascal Terminal" view
-                    if (element.serverPort) {
-                        await this.rascalDebugClient.startDebuggingSession(element.serverPort);
-                    }
-                } else {
-                    // Clicked button in the Terminal view
-                    const processId = await vscode.window.activeTerminal?.processId;
-                    if (processId) {
-                        const serverPort = this.rascalDebugClient.getServerPort(processId);
-                        await this.rascalDebugClient.startDebuggingSession(serverPort!);
-                    }
-                }
-            }, this)
-        );
-        this.context.subscriptions.push(
-            vscode.commands.registerCommand("rascalmpl.stopDebuggerForRepl", async (element: RascalReplNode | undefined) => {
+            vscode.commands.registerCommand(command, async (element: RascalReplNode | undefined) => {
                 if (element instanceof RascalReplNode) {
                     // Clicked button of an entry in the "Debug Rascal Terminal" view
                     if (element.processId) {
-                        await this.rascalDebugClient.stopDebuggingSession(element.processId);
+                        await debugCommand(element.processId);
                     }
                 } else {
                     // Clicked button in the Terminal view
                     const processId = await vscode.window.activeTerminal?.processId;
                     if (processId) {
-                        await this.rascalDebugClient.stopDebuggingSession(processId);
+                        await debugCommand(processId);
                     }
                 }
             }, this)

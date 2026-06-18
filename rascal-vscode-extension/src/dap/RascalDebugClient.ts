@@ -33,17 +33,17 @@ import { RascalDebugConfigurationProvider } from "./RascalDebugConfigurationProv
  * Debug Client that stores running debug sessions and available REPL ports for debug sessions.
  */
 export class RascalDebugClient {
-    rascalDescriptorFactory: RascalDebugAdapterDescriptorFactory;
-    debugSocketServersPorts: Map<number, number>; // Terminal processID -> socket server port for debug
-    runningDebugSessions: Map<number, DebugSession>; // Debug server port -> DebugSession
+    readonly rascalDescriptorFactory: RascalDebugAdapterDescriptorFactory;
+    readonly debugSocketServersPorts: Map<number, number>; // Terminal processID -> socket server port for debug
+    readonly runningDebugSessions: Map<number, DebugSession>; // Debug server port -> DebugSession
 
     private portEventEmitter = new EventEmitter<{processId: number, serverPort: number}>();
     readonly portRegistrationEvent = this.portEventEmitter.event;
 
     constructor(){
         this.rascalDescriptorFactory = new RascalDebugAdapterDescriptorFactory();
-        this.debugSocketServersPorts = new Map<number, number>();
-        this.runningDebugSessions = new Map<number, DebugSession>();
+        this.debugSocketServersPorts = new Map();
+        this.runningDebugSessions = new Map();
 
         debug.registerDebugConfigurationProvider("rascalmpl", new RascalDebugConfigurationProvider(this));
         debug.registerDebugAdapterDescriptorFactory("rascalmpl", this.rascalDescriptorFactory);
@@ -72,9 +72,7 @@ export class RascalDebugClient {
             await this.updateTerminalViewButton();
         });
 
-        window.onDidChangeActiveTerminal(async _ => {
-            await this.updateTerminalViewButton();
-        });
+        window.onDidChangeActiveTerminal(async _ => this.updateTerminalViewButton());
     }
 
     async updateTerminalViewButton() {
@@ -95,6 +93,13 @@ export class RascalDebugClient {
     async startDebuggingSession(serverPort: number){
         const conf: DebugConfiguration = {type: "rascalmpl", name: "Rascal debugger", request: "attach", serverPort: serverPort};
         await debug.startDebugging(undefined, conf);
+    }
+
+    async startDebuggingSessionFromProcessId(processId: number) {
+        const serverPort = this.debugSocketServersPorts.get(processId);
+        if (serverPort) {
+            await this.startDebuggingSession(serverPort);
+        }
     }
 
     async stopDebuggingSession(processId: number){
