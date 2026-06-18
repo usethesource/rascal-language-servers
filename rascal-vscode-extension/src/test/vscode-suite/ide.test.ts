@@ -285,13 +285,12 @@ describe('IDE', function () {
 
     it("anno quickfix works", async () => {
         const editor = await ide.openModule(TestWorkspace.importeeFile);
-        await editor.typeTextAt(3, 1, "data X = y();\n");
-        await editor.typeTextAt(4, 1, "anno int X@old;\n");
-        await editor.typeTextAt(5, 1, "int calc(X x) = x@old;");
+        await editor.typeTextAt(3, 1, "data X = y();\nanno int X@old;\nint calc(X x) = x@old;");
 
         await ide.hasWarningSquiggly(editor, Delays.slow, "On a annotation we should have a warning that they are deprecated");
 
-        await editor.moveCursor(5,19); // at the `\loc` part
+        await editor.moveCursor(4,12); // at the `@old` part
+
         await ide.triggerFirstCodeAction(editor, "Upgrade all annotations");
         await ide.assertLineBecomes(editor, 4, "data X(int old = 0);", "annotations become a KW parameter", Delays.slow);
         await ide.assertLineBecomes(editor, 5, "int calc(X x) = x.old;", "annotation should become a field deref", Delays.fast);
