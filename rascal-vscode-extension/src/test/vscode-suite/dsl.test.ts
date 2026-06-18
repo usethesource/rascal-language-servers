@@ -57,7 +57,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await sleep(Delays.normal);
     }
 
-    async function loadPico() {
+    async function loadPico(unregisterFirst = true) {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
@@ -68,7 +68,9 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         // is fixed (race between `unregister` and `register`), the
         // unregistration can't reliably be done as part of `main` (tried in
         // commit `a955a05`). Instead, it's done here.
-        await unloadPico(repl);
+        if (unregisterFirst) {
+            await unloadPico(repl);
+        }
 
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
@@ -460,7 +462,9 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await setParametricLanguage(editor);
 
-        await loadPico();
+        await loadPico(false);
+
+        // Dynamically registered capability
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
     });
 });
