@@ -45,18 +45,35 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
         this.rascalDebugClient.portRegistrationEvent(fireEmitter, this, context.subscriptions);
 
         this.context.subscriptions.push(
-            vscode.commands.registerCommand("rascalmpl.startDebuggerForRepl", (element: RascalReplNode | undefined) => {
+            vscode.commands.registerCommand("rascalmpl.startDebuggerForRepl", async (element: RascalReplNode | undefined) => {
                 if (element instanceof RascalReplNode) {
                     // Clicked button of an entry in the "Debug Rascal Terminal" view
                     if (element.serverPort) {
-                        void this.rascalDebugClient.startDebuggingSession(element.serverPort);
+                        await this.rascalDebugClient.startDebuggingSession(element.serverPort);
                     }
                 } else {
                     // Clicked button in the Terminal view
-                    void vscode.window.activeTerminal?.processId.then(id => {
-                        const serverPort = this.rascalDebugClient.getServerPort(<number> id);
-                        void this.rascalDebugClient.startDebuggingSession(serverPort!);
-                    });
+                    const processId = await vscode.window.activeTerminal?.processId;
+                    if (processId) {
+                        const serverPort = this.rascalDebugClient.getServerPort(processId);
+                        await this.rascalDebugClient.startDebuggingSession(serverPort!);
+                    }
+                }
+            }, this)
+        );
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand("rascalmpl.stopDebuggerForRepl", async (element: RascalReplNode | undefined) => {
+                if (element instanceof RascalReplNode) {
+                    // Clicked button of an entry in the "Debug Rascal Terminal" view
+                    if (element.processId) {
+                        await this.rascalDebugClient.stopDebuggingSession(element.processId);
+                    }
+                } else {
+                    // Clicked button in the Terminal view
+                    const processId = await vscode.window.activeTerminal?.processId;
+                    if (processId) {
+                        await this.rascalDebugClient.stopDebuggingSession(processId);
+                    }
                 }
             }, this)
         );
@@ -97,10 +114,12 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
             if (terminal.name.includes("Rascal terminal")) {
                 const label = this.makeLabel(terminal.name, processId === activeTerminalProcessId);
                 const serverPort = this.rascalDebugClient.getServerPort(processId);
-                const isDebugging = serverPort !== undefined && this.rascalDebugClient.isConnectedToDebugServer(serverPort);
-                const replNode = new RascalReplNode(label, serverPort, isDebugging);
+                const isDebugging = this.rascalDebugClient.isConnectedToDebugServer(processId);
+                const replNode = new RascalReplNode(label, processId, serverPort, isDebugging);
                 if (serverPort !== undefined && !isDebugging) {
                     replNode.contextValue = "canStartDebugging";
+                } else if (serverPort !== undefined && isDebugging) {
+                    replNode.contextValue = "canStopDebugging";
                 }
                 result.push(replNode);
             }
@@ -111,7 +130,7 @@ export class RascalDebugViewProvider implements vscode.TreeDataProvider<RascalRe
 }
 
 export class RascalReplNode extends vscode.TreeItem {
-    constructor(label : string | vscode.TreeItemLabel, readonly serverPort : number | undefined, isDebugging : boolean) {
+    constructor(label : string | vscode.TreeItemLabel, readonly processId : number | undefined, readonly serverPort : number | undefined, isDebugging : boolean) {
         super(label, vscode.TreeItemCollapsibleState.None);
         this.iconPath = new vscode.ThemeIcon(isDebugging ? "debug" : "terminal");
     }
