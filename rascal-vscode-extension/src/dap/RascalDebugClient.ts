@@ -72,7 +72,7 @@ export class RascalDebugClient {
             await this.updateTerminalViewButton();
         });
 
-        window.onDidChangeActiveTerminal(async _ => this.updateTerminalViewButton());
+        window.onDidChangeActiveTerminal(_ => this.updateTerminalViewButton());
     }
 
     async updateTerminalViewButton() {
