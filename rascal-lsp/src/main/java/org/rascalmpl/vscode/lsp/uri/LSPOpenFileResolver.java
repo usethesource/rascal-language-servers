@@ -133,7 +133,7 @@ public class LSPOpenFileResolver implements ISourceLocationInputOutput {
         var current = state.getCurrentContent();
         return new FileAttributes(
             true, true,
-            current.getTimestamp(), onDiskStat.created(), //We fix the creation timestamp to be equal to the last modified time
+            onDiskStat.created(), current.getTimestamp(),
             true, onDiskStat.isWritable(),
             size(current)
         );
@@ -150,7 +150,7 @@ public class LSPOpenFileResolver implements ISourceLocationInputOutput {
 
     @Override
     public boolean isWritable(ISourceLocation uri) throws IOException {
-        // this communicates that yes, it's a writeable file system
+        // this communicates that yes, it's a writable file system
         // so if you indeed use `applyFileSystemEdits` it should succeed.
         return getEditorState(uri).getAttributesOnDisk().isWritable();
     }
