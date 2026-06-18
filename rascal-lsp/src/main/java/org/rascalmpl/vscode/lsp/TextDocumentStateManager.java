@@ -155,7 +155,13 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
 
     protected TextDocumentState openFile(TextDocumentItem doc, Function<ISourceLocation, BiFunction<ISourceLocation, String, CompletableFuture<ITree>>> parserGetter, long timestamp, ExecutorService exec)  {
         return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(parserGetter.apply(l), l, doc.getVersion(), doc.getText(), timestamp, exec));
+            l -> {
+                try {
+                    return new TextDocumentState(parserGetter.apply(l), l, doc.getVersion(), doc.getText(), timestamp, exec, URIResolverRegistry.getInstance().stat(l));
+                } catch (IOException e) {
+                    throw new RuntimeException("Could not calculate stat of opened file", e);
+                }
+            });
     }
 
     private void invalidateColumnMaps(ISourceLocation loc) {
