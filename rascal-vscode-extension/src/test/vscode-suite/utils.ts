@@ -250,8 +250,8 @@ export class IDEOperations {
     async checkNoDiagnosticsAnymore() {
         const bottomBar = new Workbench().getBottomBar();
         const problemsView = await bottomBar.openProblemsView();
-        const allVisibleMarkers = await problemsView.getAllVisibleMarkers(MarkerType.Error);
-        expect(allVisibleMarkers.length, "Not all error diagnostics have been cleared").to.equal(0);
+        const allVisibleMarkers = await Promise.all((await problemsView.getAllVisibleMarkers(MarkerType.Error)).map(m => m.getText()));
+        expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
