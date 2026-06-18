@@ -49,6 +49,7 @@ import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
+import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.util.locations.LineColumnOffsetMap;
@@ -58,7 +59,6 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.ISourceLocation;
 
 /**
@@ -153,9 +153,25 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
         }
     }
 
+    private FileAttributes safeStat(ISourceLocation loc, long timestamp) {
+        try {
+            return URIResolverRegistry.getInstance().stat(loc);
+        } catch (IOException e) {
+            // generate a fallback
+            // for example for untitled files, text document content provided,
+            // or other files that are not accessible to our VFS
+            return new FileAttributes(
+                true, true,
+                timestamp, timestamp,
+                true, false,
+                0
+            );
+        }
+
+    }
+
     protected TextDocumentState openFile(TextDocumentItem doc, Function<ISourceLocation, BiFunction<ISourceLocation, String, CompletableFuture<ITree>>> parserGetter, long timestamp, ExecutorService exec)  {
-        return files.computeIfAbsent(Locations.toLoc(doc),
-            l -> new TextDocumentState(parserGetter.apply(l), l, doc.getVersion(), doc.getText(), timestamp, exec));
+        return files.computeIfAbsent(Locations.toLoc(doc), l -> new TextDocumentState(parserGetter.apply(l), l, doc.getVersion(), doc.getText(), timestamp, exec, safeStat(l, timestamp)));
     }
 
     private void invalidateColumnMaps(ISourceLocation loc) {
