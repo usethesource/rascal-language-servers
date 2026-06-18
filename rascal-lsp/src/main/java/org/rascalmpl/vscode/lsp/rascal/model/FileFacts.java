@@ -78,7 +78,7 @@ public class FileFacts implements DiagnosticsReporter {
         this.nopFact = new FileFact() {
             @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs) { /* NOP */}
-            @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void reportTypeCheckerMessages(List<Diagnostic> msgs) { /* NOP */ }
             @Override public void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
@@ -150,7 +150,7 @@ public class FileFacts implements DiagnosticsReporter {
     private interface FileFact {
         void reportParseErrors(Versioned<List<Diagnostic>> msgs);
         void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs);
-        void reportTypeCheckerErrors(List<Diagnostic> msgs);
+        void reportTypeCheckerMessages(List<Diagnostic> msgs);
         CompletableFuture<@Nullable SummaryBridge> getSummary();
         void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay);
         void invalidate();
@@ -198,7 +198,7 @@ public class FileFacts implements DiagnosticsReporter {
 
 
         @Override
-        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
+        public void reportTypeCheckerMessages(List<Diagnostic> msgs) {
             typeCheckerMessages = msgs;
             sendDiagnostics();
         }
@@ -226,7 +226,7 @@ public class FileFacts implements DiagnosticsReporter {
             this.typeCheckResults.replace(
                 rascal.compileFile(file, confs.lookupConfig(file), exec)
                     .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
-            ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
+            ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerMessages(msgs)));
         }
 
         @Override

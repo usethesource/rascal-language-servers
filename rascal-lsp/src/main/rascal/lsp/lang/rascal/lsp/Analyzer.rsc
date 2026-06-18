@@ -47,7 +47,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
             if (isWritable(t.src.top)) {
                 // only reporting issues for code we can rewrite
                 result += warning(
-                    "annotations are no longer supported and will soon be removed, please use our build-in quick-fix to refactor them into keyword parameters",
+                    "Annotations are no longer supported and will soon be removed, please use our build-in Quick Fix to refactor them into keyword parameters",
                     t.src, fixes=[
                         action(
                             command=upgradeAnnotations(getPathConfig(t.src.top)),
@@ -57,9 +57,9 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
                 );
             }
         }
-        // since the single quickfix fixes the whole project, it's not useful to report it multiple times
+        // since the single Quick Fix fixes the whole project, it's not useful to report it multiple times
         // especially since a user might click "fix all" and then the upgrade would be run several times.
-        // instead we ignore all follow up cases of the same error
+        // instead we ignore all follow-up cases of the same error
     }
 
     visit (tree) {

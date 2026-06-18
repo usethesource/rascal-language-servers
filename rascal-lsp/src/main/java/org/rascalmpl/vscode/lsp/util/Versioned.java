@@ -97,8 +97,8 @@ public class Versioned<T> {
      * @param delay the duration after which the current request for summary
      * calculation will be granted, unless another request is made in the
      * meantime (in which case the current request is abandoned)
-     * @param calculation the actual calculation
-     * @param debouncedReplacementValue in case a debounce happened, this value will be reported on the completable future
+     * @param onFire the actual calculation
+     * @param onDiscard in case a debounce happened, this value will be reported on the completable future
      * @param exec executor to use for the futures
      *
      * @return a future that supplies the calculated result if the current
@@ -107,7 +107,7 @@ public class Versioned<T> {
      */
     public <U> CompletableFuture<Versioned<U>> debounce(
         AtomicReference<Versioned<T>> activeVersion, Duration delay,
-        Function<T, CompletableFuture<U>> calculation, U debouncedReplacementValue, Executor exec) {
+        Function<T, CompletableFuture<U>> onFire, U onDiscard, Executor exec) {
         // we store our debounce start value first
         activeVersion.set(this);
 
@@ -118,11 +118,11 @@ public class Versioned<T> {
                     // If no new call to `debounce` has been made after `delay` has
                     // passed (i.e., `activeVersion` hasn't changed in the meantime),
                     // then run the calculation.
-                    return calculation.apply(object).thenApply(u -> new Versioned<>(version, u, timestamp));
+                    return onFire.apply(object).thenApply(u -> new Versioned<>(version, u, timestamp));
                 }
                 // otherwise we return an empty result
                 // as a later closure will be running on this new version of `activeVersion`
-                return CompletableFutureUtils.completedFuture(new Versioned<>(version, debouncedReplacementValue, timestamp), exec);
+                return CompletableFutureUtils.completedFuture(new Versioned<>(version, onDiscard, timestamp), exec);
             });
     }
 }
