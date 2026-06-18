@@ -40,6 +40,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -307,26 +308,26 @@ public class CapabilityRegistration {
         });
     }
 
+    /**
+     * Add document selectors for extensions and schemes if not already present
+     */
     private void setDocumentSelector(TextDocumentRegistrationOptions opts, Collection<ICapabilityParams> params) {
-        // If the document selector is set already by the capability implementation, we do not touch it.
-        // This allows specific capabilities to add specific selectors if needed.
-        if (opts.getDocumentSelector() == null || opts.getDocumentSelector().isEmpty()) {
-            // extension filters
-            var filters = params.stream()
-                .flatMap(c -> c.fileExtensions().stream())
-                .distinct()
-                .map(ext -> new DocumentFilter("parametric-rascalmpl", null, Either.forLeft(String.format("**/*.%s", ext))))
-                .collect(Collectors.toList());
+        // extension & scheme selectors
+        var additionalSelectors = params.stream()
+            .flatMap(c -> {
+                var extSelectors = c.fileExtensions().stream().map(ext -> new DocumentFilter("parametric-rascalmpl", null, Either.forLeft(String.format("**/*.%s", ext))));
+                var schemeSelectors = c.extensionLessSchemes().stream().map(scheme -> new DocumentFilter("parametric-rascalmpl", scheme, null));
+                return Stream.concat(extSelectors, schemeSelectors);
+            })
+            .distinct();
 
-            // scheme filters
-            filters.addAll(params.stream()
-                .flatMap(c -> c.extensionLessSchemes().stream())
-                .distinct()
-                .map(scheme -> new DocumentFilter("parametric-rascalmpl", scheme, null))
-                .collect(Collectors.toList()));
-
-            opts.setDocumentSelector(filters);
+        if (opts.getDocumentSelector() == null) {
+            // No need to concatenate anything
+            opts.setDocumentSelector(additionalSelectors.collect(Collectors.toList()));
+            return;
         }
+
+        opts.setDocumentSelector(Stream.concat(opts.getDocumentSelector().stream(), additionalSelectors).distinct().collect(Collectors.toList()));
     }
 
 }
