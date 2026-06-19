@@ -8,8 +8,9 @@
     "sourceMap": true,
     "rootDir": "src",
     "outDir": "out",
-    "types": []
+    "types": [],
+    "noEmit": true
   },
   "include": ["src"],
-  "exclude": ["dist", "node_modules", "lib"]
+  "exclude": ["dist", "node_modules", "lib", "out"]
 }

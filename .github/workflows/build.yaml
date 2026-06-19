@@ -43,7 +43,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
-          npm run compile-tests
+          npm run compile:tests
           npm run normalTest
       
   ui-test:
@@ -80,7 +80,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
-          npm run compile-tests
+          npm run compile:tests
 
       - name: Cache vscode downloads 
         id: cache-vscode
@@ -186,8 +186,8 @@ jobs:
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
-          npm run license-check
-          npm run esbuild
+          npm run license:check
+          npm run compile
           npm run lint 
 
       - name: package extension

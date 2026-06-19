@@ -28,9 +28,9 @@
 import { assert, expect } from "chai";
 import { stat, unlink } from "fs/promises";
 import * as os from 'os';
+import path from "path/posix";
 import { env } from "process";
 import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
-import path = require("path");
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -95,7 +95,7 @@ export class RascalREPL {
     private terminal: TerminalView;
 
 
-    constructor(private bench : Workbench, private driver: WebDriver) {
+    constructor(private readonly bench : Workbench, private driver: WebDriver) {
         this.terminal = new TerminalView();
     }
 
