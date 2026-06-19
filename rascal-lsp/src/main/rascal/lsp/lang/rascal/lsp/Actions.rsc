@@ -47,10 +47,9 @@ The commands must be evaluated by ((evaluateRascalCommand))
 data Command
     = visualImportGraphCommand(PathConfig pcfg)
     | sortImportsAndExtends(Header h)
-    | upgradeAnnotations(PathConfig pcfg)
+    | upgradeAnnotations(PathConfig pcfg) // reported by the analyzer itself
     ;
 
-private str annoFixTitle = "Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported).";
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
 list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
@@ -69,42 +68,11 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
                     action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph"),
                     action(command=sortImportsAndExtends(h), title="Sort imports and extends")
                 ];
-            case Tree other:
-                if (isFixableAnnoSyntax(other)) {
-                    result += [action(command=upgradeAnnotations(pcfg), title=annoFixTitle)];
-                }
         }
     }
 
     return result;
 }
-
-@synopsis{Identifies all uses of annotation syntax and annotation library functions.}
-bool isFixableAnnoSyntax((Declaration) `<Tags _> <Visibility _> anno <Type _> <Type _> @ <Name _>;`)
-    = true;
-
-bool isFixableAnnoSyntax((Expression)`<Expression _>[@ <Name _> = <Expression _>]`)
-    = true;
-
-bool isFixableAnnoSyntax((Expression) `<Expression _>@<Name _>`)
-    = true;
-
-bool isFixableAnnoSyntax((Assignable) `<Assignable _>@<Name _>`)
-    = true;
-
-bool isFixableAnnoSyntax((Expression) `delAnnotations(<Expression _>)`)
-    = true;
-
-bool isFixableAnnoSyntax((Expression) `delAnnotationsRec(<Expression _>)`)
-    = true;
-
-bool isFixableAnnoSyntax((Expression) `delAnnotation(<Expression _>, <Expression _>)`)
-    = true;
-
-bool isFixableAnnoSyntax((Catch) `catch NoSuchAnnotation(<Pattern _>) : <Statement _>`)
-    = true;
-
-default bool isFixableAnnoSyntax(Tree _) = false;
 
 @synopsis{Add a license header if there isn't one.}
 list[CodeAction] addLicenseAction(start[Module] \module, PathConfig pcfg) {
@@ -196,3 +164,4 @@ value evaluateRascalCommand(upgradeAnnotations(PathConfig pcfg)) {
     applyDocumentsEdits(editsPathConfig(pcfg));
     return ("result":true);
 }
+
