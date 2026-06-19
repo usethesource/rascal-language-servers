@@ -302,15 +302,15 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
-        triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
+        triggerAnalyzer(file, NORMAL_DEBOUNCE);
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params, timestamp);
-        triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
+        var state = updateContents(params, timestamp);
+        triggerAnalyzer(state, NORMAL_DEBOUNCE);
     }
 
     @Override
@@ -353,21 +353,13 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
     }
 
-    private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
-        triggerAnalyzer(new VersionedTextDocumentIdentifier(doc.getUri(), doc.getVersion()), delay);
-    }
-
-    private void triggerAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
-        var location = Locations.toLoc(doc);
-        triggerAnalyzer(location, doc.getVersion(), delay);
-    }
-
-    private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
-        if (safeLanguage(location).isPresent()) {
+    private void triggerAnalyzer(TextDocumentState state, Duration delay) {
+        var location = state.getLocation();
+        if (safeLanguage(state.getLocation()).isPresent()) {
             logger.trace("Triggering analyzer for {}", location);
             var fileFacts = facts(location);
             fileFacts.invalidateAnalyzer(location);
-            fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
+            fileFacts.calculateAnalyzer(location, state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
         } else {
             logger.debug("Not triggering analyzer, since no language is registered for {}", location);
         }
@@ -970,7 +962,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
         // Update open editor
         handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
-        triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
+        triggerAnalyzer(state, NORMAL_DEBOUNCE);
     }
 
     private static String buildContributionKey(LanguageParameter lang) {

@@ -241,7 +241,7 @@ public class Diagnostics {
             ));
     }
 
-    private static List<Diagnostic> translateDiagnostics(ICollection<?> messages, ColumnMaps cm) {
+    public static List<Diagnostic> translateDiagnostics(ICollection<?> messages, ColumnMaps cm) {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)

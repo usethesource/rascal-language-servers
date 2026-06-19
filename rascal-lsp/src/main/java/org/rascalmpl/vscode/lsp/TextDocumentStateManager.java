@@ -207,12 +207,13 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
         return files.keySet();
     }
 
-    protected void updateContents(DidChangeTextDocumentParams change, long timestamp) {
+    protected TextDocumentState updateContents(DidChangeTextDocumentParams change, long timestamp) {
         var doc = change.getTextDocument();
         logger.trace("New contents for {}", doc);
         TextDocumentState file = getFile(Locations.toLoc(doc));
         invalidateColumnMaps(file.getLocation());
         handleParsingErrors(file, file.update(doc.getVersion(), Lists.last(change.getContentChanges()).getText(), timestamp));
+        return file;
     }
 
     protected void handleParsingErrors(TextDocumentState file, CompletableFuture<Versioned<List<Diagnostics.Template>>> diagnosticsAsync) {
