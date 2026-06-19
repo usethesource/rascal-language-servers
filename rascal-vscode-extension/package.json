@@ -315,7 +315,7 @@
     "compile": "npm run check:types && npm run esbuild",
     "watch:esbuild": "npm run esbuild -- --watch",
     "watch:tsc": "npm run check:types -- --watch --project tsconfig.json",
-    "package": "npm run compile -- --production",
+    "package": "npm run esbuild -- --production",
     "compile:tests": "npm run esbuild -- --tests",
     "pretest:ui": "npm run compile:tests",
     "pretest:normal": "npm run compile:tests",

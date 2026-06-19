@@ -68,6 +68,7 @@ async function configureTests() {
 }
 
 async function main() {
+    console.log(`Running esbuild (production: ${production})`)
     const ctx = test ? await configureTests() : await configureExtension();
     if (watch) {
         await ctx.watch();
