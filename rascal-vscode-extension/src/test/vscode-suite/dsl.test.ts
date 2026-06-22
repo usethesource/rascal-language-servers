@@ -31,7 +31,7 @@ import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutpu
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import { Suite } from 'mocha';
-import * as path from 'path';
+import * as path from 'path/posix';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -49,6 +49,11 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     printRascalOutputOnFailure('Language Parametric Rascal');
 
+    async function unloadPico(repl: RascalREPL) {
+        await repl.execute("import util::LanguageServer;");
+        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
+    }
+
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
@@ -61,6 +66,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
         await replExecuteMain;
         await repl.terminate();
+    }
+
+    async function setParametricLanguage(editor: TextEditor) {
+        await (await editor.getTab()).select();
+        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
+        const inputBox = new InputBox();
+        await inputBox.setText("parametric-rascalmpl");
+        await inputBox.confirm();
     }
 
     before(async () => {
@@ -128,11 +141,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.newUntitledFile(bench, driver, 1);
         expect(editor).to.not.be.undefined;
 
-        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
-
-        const inputBox = new InputBox();
-        await inputBox.setText("parametric-rascalmpl");
-        await inputBox.confirm();
+        await setParametricLanguage(editor);
 
         await editor.setText(`begin
   declare
@@ -265,8 +274,8 @@ end
         await ide.moveFile("testing.pico", "dest", bench);
 
         await driver.wait(async() => {
-            const text = await testFile.getText();
-            return text.indexOf("%% File moved from") !== -1;
+            const text = await ignoreFails(testFile.getText());
+            return text?.indexOf("%% File moved from") !== -1;
         }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
         await fs.rm(newDir, {recursive: true, force: true});
@@ -428,4 +437,20 @@ end
         }, Delays.normal, "Static content should be shown");
     });
 
+    it("updates open editors on registration", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await unloadPico(repl);
+        await repl.terminate();
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await setParametricLanguage(editor);
+
+        await loadPico();
+
+        // Dynamically registered capability
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
+    });
 });

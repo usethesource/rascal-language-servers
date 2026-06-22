@@ -191,7 +191,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
         result.setHoverProvider(true);
-        result.setSemanticTokensProvider(tokenizer.options());
+        result.setSemanticTokensProvider(SemanticTokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(new RenameOptions(true));

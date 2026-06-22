@@ -35,4 +35,5 @@ import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 public interface ICapabilityParams {
     ILanguageContributions contributions();
     Set<String> fileExtensions();
+    Set<String> extensionLessSchemes();
 }
