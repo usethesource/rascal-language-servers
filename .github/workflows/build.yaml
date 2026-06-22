@@ -43,8 +43,8 @@ jobs:
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
-          npm run compile-tests
-          npm run normalTest
+          npm run compile:tests
+          npm run test:normal
       
   ui-test:
     strategy:
@@ -80,7 +80,7 @@ jobs:
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
-          npm run compile-tests
+          npm run compile:tests
 
       - name: Cache vscode downloads 
         id: cache-vscode
@@ -182,15 +182,16 @@ jobs:
             sed -i "1i⚠️ This is pre-release build, based on [CI build $GITHUB_RUN_NUMBER](https://github.com/usethesource/rascal-language-servers/actions/runs/$GITHUB_RUN_ID). ⚠️\n\n" README.md
           sed -i "s/\\(\"version\":.*\\)\\-head/\\1-head$GITHUB_RUN_NUMBER/" package.json
 
-      - name: Package & compile extension 
+      - name: Compile extension 
         working-directory: ./rascal-vscode-extension
         run: |
           npm ci
-          npm run license-check
-          npm run esbuild
+          npm run license:check
           npm run lint 
+          npm run check:types
+          npm run compile
 
-      - name: package extension
+      - name: Package extension
         working-directory: rascal-vscode-extension
         run: |
           npm run lsp4j:package

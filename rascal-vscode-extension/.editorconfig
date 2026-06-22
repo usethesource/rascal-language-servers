@@ -12,6 +12,6 @@ max_line_length = 80
 [*.sh]
 end_of_line = lf
 
-[*.ts]
+[*.{ts,mjs}]
 indent_size = 4
 max_line_length = 120
