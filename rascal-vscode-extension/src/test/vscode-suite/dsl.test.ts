@@ -26,7 +26,7 @@
  */
 
 import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -43,7 +43,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     let driver: WebDriver;
     let bench: Workbench;
     let ide : IDEOperations;
-    let picoFileBackup: Buffer;
+    let protectedFiles : ProtectedFiles;
 
     this.timeout(Delays.extremelySlow * 2);
 
@@ -53,18 +53,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
-
-        // If Pico was registered before as part of another series of tests,
-        // then it needs to be unregistered first (because error recovery
-        // en/disabledness affects which contributors to use). Until issue #630
-        // is fixed (race between `unregister` and `register`), the
-        // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here and followed by a suitably
-        // long sleep.
-        await repl.execute("import util::LanguageServer;");
-        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
-        await sleep(Delays.normal);
-
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
@@ -83,7 +71,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         ide = new IDEOperations(browser);
         await ide.load();
         await loadPico();
-        picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
+        protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
         ide = new IDEOperations(browser);
         await ide.load();
     });
@@ -99,7 +87,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
         }
         await ide.cleanup();
-        await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
+        await protectedFiles.restore();
     });
 
     it("has highlighting and parse errors", async function () {

@@ -29,32 +29,33 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
-
-const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile, TestWorkspace.manifest, TestWorkspace.importeeFile, TestWorkspace.importerFile];
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
     let driver: WebDriver;
     let bench: Workbench;
     let ide: IDEOperations;
-    const originalFiles = new Map<string, Buffer>();
+    let protectedFiles : ProtectedFiles;
 
     this.timeout(Delays.extremelySlow * 2);
 
     printRascalOutputOnFailure('Rascal MPL');
 
     before(async () => {
+        const files = ProtectedFiles.protect(
+            TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile,
+            TestWorkspace.manifest, TestWorkspace.importeeFile, TestWorkspace.importerFile
+        );
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
         await browser.waitForWorkbench();
         ide = new IDEOperations(browser);
         await ide.load();
-        // trigger rascal type checker to be sure
-        for (const f of protectFiles) {
-            originalFiles.set(f, await fs.readFile(f));
-        }
+
+        protectedFiles = await files;
+
         await makeSureRascalModulesAreLoaded();
     });
 
@@ -63,9 +64,7 @@ describe('IDE', function () {
             await ide.screenshot("IDE-" + this.test?.title);
         }
         // make sure we always reset, so errors don't propagate (since sometimes an afterEach is not run)
-        for (const [f, b] of originalFiles) {
-            await fs.writeFile(f, b);
-        }
+        await protectedFiles.restore();
     });
 
     afterEach(async function () {
@@ -76,9 +75,7 @@ describe('IDE', function () {
             await ide.cleanup();
         }
         finally {
-            for (const [f, b] of originalFiles) {
-                await fs.writeFile(f, b);
-            }
+            await protectedFiles.restore();
         }
 
     });
