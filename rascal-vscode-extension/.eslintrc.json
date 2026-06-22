@@ -7,26 +7,35 @@
         "project": true
     },
     "plugins": [
-        "@typescript-eslint",
        "editorconfig"
     ],
     "env": {
       "node": true,
       "browser": true
     },
+    "overrides": [
+      {
+        "files": ["*.ts"],
+        "plugins": [ "@typescript-eslint"],
+        "extends": [
+          "plugin:@typescript-eslint/eslint-recommended",
+          "plugin:@typescript-eslint/recommended"
+        ],
+        "rules": {
+          "@typescript-eslint/naming-convention": "warn",
+          "@typescript-eslint/semi": "warn",
+          "@typescript-eslint/no-unused-vars": [ "warn", { "varsIgnorePattern": "^_",  "argsIgnorePattern": "^_"  } ],
+          "@typescript-eslint/no-floating-promises": "error",
+          "@typescript-eslint/no-misused-promises": "error"
+        }
+      }
+    ],
     "extends": [
       "eslint:recommended",
-      "plugin:@typescript-eslint/eslint-recommended",
-      "plugin:@typescript-eslint/recommended",
       "plugin:editorconfig/all"
     ],
 
     "rules": {
-        "@typescript-eslint/naming-convention": "warn",
-        "@typescript-eslint/semi": "warn",
-        "@typescript-eslint/no-unused-vars": [ "warn", { "varsIgnorePattern": "^_",  "argsIgnorePattern": "^_"  } ],
-        "@typescript-eslint/no-floating-promises": "error",
-        "@typescript-eslint/no-misused-promises": "error",
         "curly": "warn",
         "eqeqeq": "warn",
         "no-throw-literal": "warn",
