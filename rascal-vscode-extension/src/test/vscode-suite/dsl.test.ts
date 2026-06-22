@@ -26,7 +26,7 @@
  */
 
 import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -52,26 +52,12 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     async function unloadPico(repl: RascalREPL) {
         await repl.execute("import util::LanguageServer;");
         await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
-
-        // Since we cannot know when exactly unregistration is done, it is followed by a suitably long sleep.
-        await sleep(Delays.normal);
     }
 
-    async function loadPico(unregisterFirst = true) {
+    async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
-
-        // If Pico was registered before as part of another series of tests,
-        // then it needs to be unregistered first (because error recovery
-        // en/disabledness affects which contributors to use). Until issue #630
-        // is fixed (race between `unregister` and `register`), the
-        // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here.
-        if (unregisterFirst) {
-            await unloadPico(repl);
-        }
-
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
@@ -462,7 +448,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await setParametricLanguage(editor);
 
-        await loadPico(false);
+        await loadPico();
 
         // Dynamically registered capability
         await ide.hasSyntaxHighlighting(editor, Delays.slow);

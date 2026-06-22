@@ -129,6 +129,9 @@ set[LanguageService] testingLanguageServerSlowSummary() = testingLanguageServerS
 set[LanguageService] testingLanguageServerSlowSummaryWithRecovery() = testingLanguageServerSlowSummary(true);
 
 void register(bool errorRecovery=false) {
+    // Since there might be an existing registration with a different error recovery setting, we unregister it here first.
+    // Note that in a typical usage scenario, `unregisterLanguage` should not be used.
+    unregisterLanguage("Pico", {"pico", "pico-new"});
     registerLanguage(
         language(
             pathConfig(),

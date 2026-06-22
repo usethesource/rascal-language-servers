@@ -250,7 +250,14 @@ export class IDEOperations {
     async checkNoDiagnosticsAnymore() {
         const bottomBar = new Workbench().getBottomBar();
         const problemsView = await bottomBar.openProblemsView();
-        const allVisibleMarkers = await Promise.all((await problemsView.getAllVisibleMarkers(MarkerType.Error)).map(m => m.getText()));
+        let allVisibleMarkers: string[] = [];
+        for (let i = 0; i < 5; i++) {
+            allVisibleMarkers = await Promise.all((await problemsView.getAllVisibleMarkers(MarkerType.Error)).map(m => m.getText()));
+            if (allVisibleMarkers.length === 0) {
+                break;
+            }
+            await sleep(Delays.fast); // give it some time for the diagnostic to clear
+        }
         expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
     }
 
@@ -518,11 +525,11 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
+        const bbp = new BottomBarPanel();
         try {
             for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
                 await new Workbench().executeCommand('workbench.action.zoomOut');
             }
-            const bbp = new BottomBarPanel();
             await bbp.maximize();
             console.log('**********************************************');
             console.log('***** Rascal MPL output for the failed tests: ');
@@ -540,7 +547,6 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             for (const l of textLines) {
                 console.log(await l.getText());
             }
-            await bbp.closePanel();
         } catch (e) {
             console.log('Error capturing output: ', e);
         }
@@ -549,6 +555,7 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
                 await new Workbench().executeCommand('workbench.action.zoomIn');
             }
+            await bbp.closePanel();
         }
     });
 }
