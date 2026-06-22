@@ -602,11 +602,20 @@ class ProtectedFile {
     }
 
     async restore() {
-        const newHash = calcHash(await readFile(this.filename));
-        if (!newHash.equals(this.hash)) {
+        if (!(await exists(this.filename)) || !calcHash(await readFile(this.filename)).equals(this.hash)) {
             await writeFile(this.filename, this.content);
         }
     }
+}
+
+async function exists(file: string) {
+    try {
+        return await stat(file) !== undefined;
+    }
+    catch (_ignored) {
+        return false;
+    }
+
 }
 
 function calcHash(content: Buffer<ArrayBuffer>): Buffer<ArrayBuffer> {
