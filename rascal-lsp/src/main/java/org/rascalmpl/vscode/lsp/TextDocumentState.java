@@ -244,7 +244,7 @@ public class TextDocumentState {
                         }
                     }, exec);
             } catch (NoContributionException e) {
-                logger.debug("Ignoring missing parser for {}", location, e);
+                logger.debug("Ignoring missing parser for {}", location);
                 treeAsync.completeOnTimeout(new Versioned<>(version, IRascalValueFactory.getInstance().character(0), timestamp), 60, TimeUnit.SECONDS);
             }
         }
