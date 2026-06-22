@@ -31,7 +31,7 @@ import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutpu
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import { Suite } from 'mocha';
-import * as path from 'path';
+import * as path from 'path/posix';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -274,8 +274,8 @@ end
         await ide.moveFile("testing.pico", "dest", bench);
 
         await driver.wait(async() => {
-            const text = await testFile.getText();
-            return text.indexOf("%% File moved from") !== -1;
+            const text = await ignoreFails(testFile.getText());
+            return text?.indexOf("%% File moved from") !== -1;
         }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
         await fs.rm(newDir, {recursive: true, force: true});

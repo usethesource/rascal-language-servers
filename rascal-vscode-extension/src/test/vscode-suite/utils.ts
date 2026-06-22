@@ -338,7 +338,7 @@ export class IDEOperations {
                 return result;
             }
             return undefined;
-        }, Delays.normal, "Could not open file") as Promise<TextEditor>;
+        }, Delays.normal, `Could not open file: ${file}`) as Promise<TextEditor>;
     }
 
     async appendSpace(editor: TextEditor, line = 1) {
