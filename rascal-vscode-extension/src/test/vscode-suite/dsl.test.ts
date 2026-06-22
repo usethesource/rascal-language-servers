@@ -26,7 +26,7 @@
  */
 
 import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -43,7 +43,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     let driver: WebDriver;
     let bench: Workbench;
     let ide : IDEOperations;
-    let picoFileBackup: Buffer;
+    let protectedFiles : ProtectedFiles;
 
     this.timeout(Delays.extremelySlow * 2);
 
@@ -84,7 +84,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         ide = new IDEOperations(browser);
         await ide.load();
         await loadPico();
-        picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
+        protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
         ide = new IDEOperations(browser);
         await ide.load();
     });
@@ -100,7 +100,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
         }
         await ide.cleanup();
-        await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
+        await protectedFiles.restore();
     });
 
     it("has highlighting and parse errors", async function () {

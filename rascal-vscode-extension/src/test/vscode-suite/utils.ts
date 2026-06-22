@@ -26,7 +26,8 @@
  */
 
 import { assert, expect } from "chai";
-import { stat, unlink } from "fs/promises";
+import { createHash } from "crypto";
+import { readFile, stat, unlink, writeFile } from "fs/promises";
 import * as os from 'os';
 import { env } from "process";
 import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
@@ -569,4 +570,56 @@ export async function expectCompletions(driver: WebDriver, editor: TextEditor, e
     expect(completions).to.have.length(expectedLabels.length);
     const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
     expect(labels).deep.equal(expectedLabels);
+}
+
+
+export class ProtectedFiles {
+    private constructor(private readonly files: readonly ProtectedFile[]) {
+    }
+
+    public static async protect(...files: string[]) {
+        return new ProtectedFiles(await Promise.all(files.map(f => ProtectedFile.build(f))));
+    }
+
+    public async restore() {
+        return Promise.all(this.files.map(f => f.restore()));
+    }
+}
+
+class ProtectedFile {
+
+    constructor(
+        private readonly filename: string,
+        private readonly content: Buffer<ArrayBuffer>,
+        private readonly hash: Buffer<ArrayBuffer>
+    ) {
+    }
+
+    static async build(filename: string) {
+        const content = await readFile(filename);
+        const hash = calcHash(content);
+        return new ProtectedFile(filename, content, hash);
+    }
+
+    async restore() {
+        if (!(await exists(this.filename)) || !calcHash(await readFile(this.filename)).equals(this.hash)) {
+            await writeFile(this.filename, this.content);
+        }
+    }
+}
+
+async function exists(file: string) {
+    try {
+        return await stat(file) !== undefined;
+    }
+    catch (_ignored) {
+        return false;
+    }
+
+}
+
+function calcHash(content: Buffer<ArrayBuffer>): Buffer<ArrayBuffer> {
+    const hasher = createHash('sha256');
+    hasher.update(content);
+    return hasher.digest();
 }
