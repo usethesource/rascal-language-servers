@@ -106,8 +106,7 @@ Summary picoBuildService(loc l, start[Program] input) = picoSummaryService(l, in
 
 @synopsis{A simple "enum" data type for switching between analysis modes}
 data PicoSummarizerMode
-    = analyze()
-    | build()
+    = analyze() | build()
     ;
 
 rel[DocumentSymbolKind, loc, Id, str] findDefinitions(Tree input, bool funcScope = false) {
