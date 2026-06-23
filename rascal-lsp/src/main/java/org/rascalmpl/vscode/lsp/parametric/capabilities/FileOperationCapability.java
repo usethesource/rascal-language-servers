@@ -126,24 +126,6 @@ public abstract class FileOperationCapability extends WorkspaceCapability<FileOp
     protected abstract void registerStatically(FileOperationsServerCapabilities fileOperationCapabilities);
 
     /**
-     * File created notification capability.
-     *
-     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#workspace_didCreateFiles
-     */
-    public static class DidCreateFiles extends FileOperationCapability {
-
-        public DidCreateFiles() {
-            super("didCreateFiles");
-        }
-
-        @Override
-        public void registerStatically(FileOperationsServerCapabilities result) {
-            result.setDidCreate(staticOptions());
-        }
-
-    }
-
-    /**
      * File deleted notification capability.
      *
      * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#workspace_didDeleteFiles

@@ -137,7 +137,6 @@ public class DynamicServerCapabilities {
 
             // Workspace capabilities
             new ExecuteCommandCapability(rascalMetaCommandName),
-            /* new FileOperationCapability.DidCreateFiles(), */
             new FileOperationCapability.DidRenameFiles(),
             new FileOperationCapability.DidDeleteFiles()
         };
