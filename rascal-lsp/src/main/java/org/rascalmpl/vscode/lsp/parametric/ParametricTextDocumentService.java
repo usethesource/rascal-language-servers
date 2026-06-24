@@ -1003,6 +1003,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @Override
     public synchronized void unregisterLanguage(LanguageParameter lang) {
+        logger.info("unregisterLanguage({})", lang.getName());
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (!removeAll) {
             var contrib = contributions.get(lang.getName());

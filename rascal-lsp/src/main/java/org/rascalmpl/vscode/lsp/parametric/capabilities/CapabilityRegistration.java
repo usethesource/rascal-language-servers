@@ -163,8 +163,8 @@ public class CapabilityRegistration {
         var params = lastParams.get();
         var method = cap.methodName();
 
-        return tryBuildRegistration(cap, params).thenCompose(registration -> {
-            // Synchronize on `currentRegistrations`, so we can reliable compute the required registration
+        return tryBuildRegistration(cap, params).thenComposeAsync(registration -> {
+            // Synchronize on `currentRegistrations`, so we can reliably compute the required registration
             // and update the current registration without interference from other threads.
             synchronized (currentRegistrations) {
                 // If someone else modified the contributions in the meantime, we need to restart.
@@ -219,7 +219,7 @@ public class CapabilityRegistration {
                     return updateRegistration(cap);
                 }).thenCompose(Function.identity());
             }
-        });
+        }, exec);
     }
 
     /**
@@ -292,7 +292,7 @@ public class CapabilityRegistration {
         }
 
         // Filter contributions by providing this capability
-        return CompletableFutureUtils.filter(languages, cap::isProvidedBy).<@Nullable Registration>thenCompose(providingLanguages -> {
+        return CompletableFutureUtils.filter(languages, cap::isProvidedBy).<@Nullable Registration>thenComposeAsync(providingLanguages -> {
             if (providingLanguages.isEmpty()) {
                 return CompletableFutureUtils.completedFuture(null, exec);
             }
@@ -306,7 +306,7 @@ public class CapabilityRegistration {
                     return opts;
                 })
                 .thenApply(opts -> new Registration(cap.id(), cap.methodName(), opts));
-        });
+        }, exec);
     }
 
     /**
