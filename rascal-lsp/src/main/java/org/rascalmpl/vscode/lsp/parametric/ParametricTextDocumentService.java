@@ -947,6 +947,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         ), (v1, v2) -> null);
     }
 
+    /**
+     * Update the dynamic capabilities and refresh open editors.
+     *
+     * 1. Updates the capabilties given the current state of the language parameters.
+     * 2. Refreshes open editors. Even when the capabilities did not change, the underlying language implementations might have. Therefore, a refresh is always required.
+     */
     private synchronized CompletableFuture<Void> updateCapabilities() {
         return availableCapabilities()
             .update(buildLanguageParams())
