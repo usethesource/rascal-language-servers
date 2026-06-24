@@ -276,34 +276,32 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
-            return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang), executor);
+            lspDocumentService.registerLanguage(lang);
+            return CompletableFutureUtils.completedFuture(null, executor);
         }
         @Override
         public CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
-            return CompletableFuture.runAsync(() -> lspDocumentService.unregisterLanguage(lang), executor);
+            lspDocumentService.unregisterLanguage(lang);
+            return CompletableFutureUtils.completedFuture(null, executor);
         }
 
         @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
-            return CompletableFuture.supplyAsync(() -> {
-                logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
-                logger.debug("LSP client capabilities: {}", params.getCapabilities());
-                final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
-                lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
-                lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
-                logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-                return initializeResult;
-            }, executor);
+            logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
+            logger.debug("LSP client capabilities: {}", params.getCapabilities());
+            final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
+            lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
+            lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
+            logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
+            return CompletableFutureUtils.completedFuture(initializeResult, executor);
         }
 
         @Override
         @SuppressWarnings("unused") // InitializedParams is an empty interface
         public void initialized(InitializedParams params) {
-            executor.submit(() -> {
-                logger.debug("LSP connection initialized");
-                lspWorkspaceService.initialized();
-                lspDocumentService.initialized();
-            });
+            logger.debug("LSP connection initialized");
+            lspWorkspaceService.initialized();
+            lspDocumentService.initialized();
         }
 
         @Override
