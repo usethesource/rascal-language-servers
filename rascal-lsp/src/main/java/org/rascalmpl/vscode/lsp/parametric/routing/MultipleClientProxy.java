@@ -45,6 +45,7 @@ import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
+import org.eclipse.lsp4j.TextDocumentContentRefreshParams;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -171,6 +172,11 @@ public class MultipleClientProxy implements IBaseLanguageClient, LanguageClientA
     }
 
     @Override
+    public CompletableFuture<Void> refreshFoldingRanges() {
+        return availableClient().refreshFoldingRanges();
+    }
+
+    @Override
     public CompletableFuture<Void> refreshInlayHints() {
         return availableClient().refreshInlayHints();
     }
@@ -183,6 +189,11 @@ public class MultipleClientProxy implements IBaseLanguageClient, LanguageClientA
     @Override
     public CompletableFuture<Void> refreshSemanticTokens() {
         return availableClient().refreshSemanticTokens();
+    }
+
+    @Override
+    public CompletableFuture<Void> refreshTextDocumentContent(TextDocumentContentRefreshParams params) {
+        return client.refreshTextDocumentContent(params);
     }
 
     @Override
