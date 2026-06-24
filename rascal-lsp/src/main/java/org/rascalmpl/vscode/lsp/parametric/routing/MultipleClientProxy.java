@@ -171,6 +171,11 @@ public class MultipleClientProxy implements IBaseLanguageClient, LanguageClientA
     }
 
     @Override
+    public CompletableFuture<Void> refreshFoldingRanges() {
+        return availableClient().refreshFoldingRanges();
+    }
+
+    @Override
     public CompletableFuture<Void> refreshInlayHints() {
         return availableClient().refreshInlayHints();
     }
