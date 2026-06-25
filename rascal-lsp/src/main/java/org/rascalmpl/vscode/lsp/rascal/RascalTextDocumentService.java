@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -54,6 +55,7 @@ import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -116,6 +118,7 @@ import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
 import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
@@ -129,7 +132,6 @@ import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -229,14 +231,23 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        triggerAnalyzer(file, NORMAL_DEBOUNCE);
     }
+
+
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params, timestamp);
+        var changed = updateContents(params, timestamp);
+        triggerAnalyzer(changed, NORMAL_DEBOUNCE);
     }
+
+    private void triggerAnalyzer(TextDocumentState state, Duration delay) {
+        availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
+    }
+
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {

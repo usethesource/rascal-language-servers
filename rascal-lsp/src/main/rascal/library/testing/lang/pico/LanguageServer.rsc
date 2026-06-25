@@ -137,6 +137,10 @@ set[LanguageService] testingLanguageServerSlowSummaryWithRecovery() = testingLan
 
 void register(bool errorRecovery=false) {
     pcfg = getPicoPathConfig();
+
+    // Since there might be an existing registration with a different error recovery setting, we unregister it here first.
+    // Note that in a typical usage scenario, `unregisterLanguage` should not be used.
+    unregisterLanguage("Pico", {"pico", "pico-new"});
     registerLanguage(
         language(
             pcfg,

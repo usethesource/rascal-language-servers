@@ -31,12 +31,6 @@
   "sponsor": {
     "url": "https://github.com/sponsors/usethesource/"
   },
-  "dependencies": {
-    "jsonc-parser": "3.x",
-    "tar": "7.x",
-    "vscode-languageclient": "9.x",
-    "yauzl": "3.x"
-  },
   "categories": [
     "Programming Languages"
   ],
@@ -61,6 +55,11 @@
         "icon": "$(debug)"
       },
       {
+        "command": "rascalmpl.stopDebuggerForRepl",
+        "title": "Stop Rascal debugger for REPL",
+        "icon": "$(debug-disconnect-compact)"
+      },
+      {
         "command": "rascalmpl.copySourceLocation",
         "title": "Copy Path as Rascal Location",
         "icon": "$(copy)"
@@ -82,6 +81,23 @@
           "command": "rascalmpl.startDebuggerForRepl",
           "when": "view == rascalmpl-debugger-view && viewItem == 'canStartDebugging'",
           "group": "inline"
+        },
+        {
+          "command": "rascalmpl.stopDebuggerForRepl",
+          "when": "view == rascalmpl-debugger-view && viewItem == 'canStopDebugging'",
+          "group": "inline"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "rascalmpl.startDebuggerForRepl",
+          "when": "view == terminal && rascalmpl.isRascalTerminalActive == true && rascalmpl.activeRascalTerminalIsDebugging == false",
+          "group": "navigation@1"
+        },
+        {
+          "command": "rascalmpl.stopDebuggerForRepl",
+          "when": "view == terminal && rascalmpl.isRascalTerminalActive == true && rascalmpl.activeRascalTerminalIsDebugging == true",
+          "group": "navigation@1"
         }
       ],
       "explorer/context": [
@@ -294,21 +310,34 @@
     }
   },
   "scripts": {
+    "esbuild": "node esbuild.mjs",
+    "check:types": "npx tsc",
+    "compile": "npm run check:types && npm run esbuild",
+    "watch:esbuild": "npm run esbuild -- --watch",
+    "watch:tsc": "npm run check:types -- --watch --project tsconfig.json",
+    "package": "npm run esbuild -- --production",
+    "compile:tests": "npm run esbuild -- --tests",
+    "pretest:ui": "npm run compile:tests",
+    "pretest:normal": "npm run compile:tests",
+    "lint": "npx eslint",
+
+    "test:ui": "npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests",
+    "test:normal": "npx mocha ./out/test/normal-suite/",
+
+
     "lsp4j:package": "cp ../rascal-lsp/target/rascal-lsp*.jar assets/jars/rascal-lsp.jar && cp ../rascal-lsp/target/lib/*.jar assets/jars/",
     "vscode:prepublish": "npm run lsp4j:package && npm run package",
-    "esbuild-base": "npx esbuild ./src/extension.ts --bundle --packages=bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --main-fields=module,main",
-    "esbuild": "npm run esbuild-base -- --sourcemap",
-    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
-    "package": "npm run esbuild-base -- --minify",
-    "compile-lib": "npx tsc -p . --outDir lib --declaration true",
-    "compile-tests": "npx tsc -p . --outDir out",
-    "watch-tests": "npx tsc -p . -w --outDir out",
-    "pretest": "npm run compile-tests && npm run esbuild && npm run lint",
-    "lint": "npx eslint src --ext ts",
-    "normalTest": "npx mocha ./out/test/normal-suite/",
-    "test": "node ./out/test/runVSCodeTests.js",
-    "license-check": "npx license-check-and-add check -f license-config.json",
-    "license-add": "npx license-check-and-add add -f license-config.json"
+
+    "compile:lib": "npx tsc -p . --noEmit false --outDir lib --declaration true",
+
+    "license:check": "npx license-check-and-add check -f license-config.json",
+    "license:add": "npx license-check-and-add add -f license-config.json"
+  },
+  "dependencies": {
+    "jsonc-parser": "3.x",
+    "tar": "7.x",
+    "vscode-languageclient": "9.x",
+    "yauzl": "3.x"
   },
   "devDependencies": {
     "@tsconfig/node20": "20.x",
@@ -317,10 +346,9 @@
     "@types/mocha": "10.x",
     "@types/node": "20.x",
     "@types/vscode": "1.100.0",
-    "@types/yauzl": "2.x",
+    "@types/yauzl": "3.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
-    "@vscode/test-electron": "2.x",
     "@vscode/vsce": "3.x",
     "chai": "6.x",
     "esbuild": "0.28.x",

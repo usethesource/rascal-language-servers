@@ -26,12 +26,12 @@
  */
 
 import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import { Suite } from 'mocha';
-import * as path from 'path';
+import * as path from 'path/posix';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -43,17 +43,21 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     let driver: WebDriver;
     let bench: Workbench;
     let ide : IDEOperations;
-    let picoFileBackup: Buffer;
+    let protectedFiles : ProtectedFiles;
 
     this.timeout(Delays.extremelySlow * 2);
 
     printRascalOutputOnFailure('Language Parametric Rascal');
 
+    async function unloadPico(repl: RascalREPL) {
+        await repl.execute("import util::LanguageServer;");
+        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
+    }
+
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
-
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const isPicoLoading = isLanguageLoading(bench, "Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
@@ -61,6 +65,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
         await replExecuteMain;
         await repl.terminate();
+    }
+
+    async function setParametricLanguage(editor: TextEditor) {
+        await (await editor.getTab()).select();
+        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
+        const inputBox = new InputBox();
+        await inputBox.setText("parametric-rascalmpl");
+        await inputBox.confirm();
     }
 
     before(async () => {
@@ -71,7 +83,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         ide = new IDEOperations(browser);
         await ide.load();
         await loadPico();
-        picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
+        protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
         ide = new IDEOperations(browser);
         await ide.load();
     });
@@ -80,18 +92,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
-
-        // If Pico was registered before as part of another series of tests,
-        // then it needs to be unregistered first (because error recovery
-        // en/disabledness affects which contributors to use). Until issue #630
-        // is fixed (race between `unregister` and `register`), the
-        // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here and followed by a suitably
-        // long sleep.
-        await repl.execute("import util::LanguageServer;");
-        await repl.execute(`unregisterLanguage("Pico", {"pico", "pico-new"});`);
-        await sleep(Delays.normal);
-
+        await unloadPico(repl);
         await repl.terminate();
     });
 
@@ -106,7 +107,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
         }
         await ide.cleanup();
-        await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
+        await protectedFiles.restore();
     });
 
     it("has highlighting and parse errors", async function () {
@@ -147,11 +148,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.newUntitledFile(bench, driver, 1);
         expect(editor).to.not.be.undefined;
 
-        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
-
-        const inputBox = new InputBox();
-        await inputBox.setText("parametric-rascalmpl");
-        await inputBox.confirm();
+        await setParametricLanguage(editor);
 
         await editor.setText(`begin
   declare
@@ -285,8 +282,8 @@ end
         await ide.moveFile("testing.pico", "dest", bench);
 
         await driver.wait(async() => {
-            const text = await testFile.getText();
-            return text.indexOf("%% File moved from") !== -1;
+            const text = await ignoreFails(testFile.getText());
+            return text?.indexOf("%% File moved from") !== -1;
         }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
         await fs.rm(newDir, {recursive: true, force: true});
@@ -450,4 +447,20 @@ end
         }, Delays.normal, "Static content should be shown");
     });
 
+    it("updates open editors on registration", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await unloadPico(repl);
+        await repl.terminate();
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await setParametricLanguage(editor);
+
+        await loadPico();
+
+        // Dynamically registered capability
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
+    });
 });

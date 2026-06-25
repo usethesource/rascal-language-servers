@@ -26,14 +26,27 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
-import java.util.Set;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.DynamicRegistrationCapabilities;
+import org.eclipse.lsp4j.WorkspaceClientCapabilities;
+import org.rascalmpl.vscode.lsp.util.Nullables;
 
-/**
- * Provider of parameters required to compute which instances of {@link AbstractDynamicCapability} are supported and what options they should be registered with.
- */
-public interface ICapabilityParams {
-    ILanguageContributions contributions();
-    Set<String> fileExtensions();
-    Set<String> extensionLessSchemes();
+public abstract class WorkspaceCapability<T> extends AbstractDynamicCapability<T> {
+
+    protected WorkspaceCapability(String methodName) {
+        super(String.format("workspace/%s", methodName));
+    }
+
+    protected WorkspaceCapability(String methodName, boolean preferStaticRegistration) {
+        super(String.format("workspace/%s", methodName), preferStaticRegistration);
+    }
+
+    protected abstract @Nullable DynamicRegistrationCapabilities getCapabilities(WorkspaceClientCapabilities caps);
+
+    @Override
+    protected final boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities) {
+        return Nullables.has(clientCapabilities.getWorkspace(), this::getCapabilities, DynamicRegistrationCapabilities::getDynamicRegistration);
+    }
+
 }

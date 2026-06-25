@@ -26,11 +26,12 @@
  */
 
 import { assert, expect } from "chai";
-import { stat, unlink } from "fs/promises";
+import { createHash } from "crypto";
+import { readFile, stat, unlink, writeFile } from "fs/promises";
 import * as os from 'os';
+import path from "path/posix";
 import { env } from "process";
 import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, NotificationType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
-import path = require("path");
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -95,7 +96,7 @@ export class RascalREPL {
     private terminal: TerminalView;
 
 
-    constructor(private bench : Workbench, private driver: WebDriver) {
+    constructor(private readonly bench : Workbench, private driver: WebDriver) {
         this.terminal = new TerminalView();
     }
 
@@ -250,10 +251,15 @@ export class IDEOperations {
     async checkNoDiagnosticsAnymore() {
         const bottomBar = new Workbench().getBottomBar();
         const problemsView = await bottomBar.openProblemsView();
-        await this.driver.wait(async () => {
-            const allVisibleMarkers = await problemsView.getAllVisibleMarkers(MarkerType.Error);
-            return allVisibleMarkers.length === 0;
-        }, Delays.normal, "Not all error diagnostics have been cleared");
+        let allVisibleMarkers: string[] = [];
+        for (let i = 0; i < 5; i++) {
+            allVisibleMarkers = await Promise.all((await problemsView.getAllVisibleMarkers(MarkerType.Error)).map(m => m.getText()));
+            if (allVisibleMarkers.length === 0) {
+                break;
+            }
+            await sleep(Delays.fast); // give it some time for the diagnostic to clear
+        }
+        expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
@@ -332,7 +338,7 @@ export class IDEOperations {
                 return result;
             }
             return undefined;
-        }, Delays.normal, "Could not open file") as Promise<TextEditor>;
+        }, Delays.normal, `Could not open file: ${file}`) as Promise<TextEditor>;
     }
 
     async appendSpace(editor: TextEditor, line = 1) {
@@ -520,11 +526,11 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
     const ZOOM_OUT_FACTOR = 5;
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
+        const bbp = new BottomBarPanel();
         try {
             for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
                 await new Workbench().executeCommand('workbench.action.zoomOut');
             }
-            const bbp = new BottomBarPanel();
             await bbp.maximize();
             console.log('**********************************************');
             console.log('***** Rascal MPL output for the failed tests: ');
@@ -542,7 +548,6 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             for (const l of textLines) {
                 console.log(await l.getText());
             }
-            await bbp.closePanel();
         } catch (e) {
             console.log('Error capturing output: ', e);
         }
@@ -551,6 +556,7 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
             for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
                 await new Workbench().executeCommand('workbench.action.zoomIn');
             }
+            await bbp.closePanel();
         }
     });
 }
@@ -573,4 +579,56 @@ export async function expectCompletions(driver: WebDriver, editor: TextEditor, e
     expect(completions).to.have.length(expectedLabels.length);
     const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
     expect(labels).deep.equal(expectedLabels);
+}
+
+
+export class ProtectedFiles {
+    private constructor(private readonly files: readonly ProtectedFile[]) {
+    }
+
+    public static async protect(...files: string[]) {
+        return new ProtectedFiles(await Promise.all(files.map(f => ProtectedFile.build(f))));
+    }
+
+    public async restore() {
+        return Promise.all(this.files.map(f => f.restore()));
+    }
+}
+
+class ProtectedFile {
+
+    constructor(
+        private readonly filename: string,
+        private readonly content: Buffer<ArrayBuffer>,
+        private readonly hash: Buffer<ArrayBuffer>
+    ) {
+    }
+
+    static async build(filename: string) {
+        const content = await readFile(filename);
+        const hash = calcHash(content);
+        return new ProtectedFile(filename, content, hash);
+    }
+
+    async restore() {
+        if (!(await exists(this.filename)) || !calcHash(await readFile(this.filename)).equals(this.hash)) {
+            await writeFile(this.filename, this.content);
+        }
+    }
+}
+
+async function exists(file: string) {
+    try {
+        return await stat(file) !== undefined;
+    }
+    catch (_ignored) {
+        return false;
+    }
+
+}
+
+function calcHash(content: Buffer<ArrayBuffer>): Buffer<ArrayBuffer> {
+    const hasher = createHash('sha256');
+    hasher.update(content);
+    return hasher.digest();
 }

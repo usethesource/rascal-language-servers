@@ -26,9 +26,15 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.checker.nullness.qual.PolyNull;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 public class Versioned<T> {
     private final int version;
@@ -81,5 +87,42 @@ public class Versioned<T> {
 
     public <U> Versioned<U> map(Function<? super T, ? extends U> func) {
         return new Versioned<>(this.version, func.apply(this.object), this.timestamp);
+    }
+
+    /**
+     * Debounce a certain calculation. It assumes that `debounce` is not called in parallel,
+     * and that version is in always increasing monotonically.
+     *
+     * @param activeVersion state for all call for this debounce to share
+     * @param delay the duration after which the current request for summary
+     * calculation will be granted, unless another request is made in the
+     * meantime (in which case the current request is abandoned)
+     * @param onFire the actual calculation
+     * @param onDiscard in case a debounce happened, this value will be reported on the completable future
+     * @param exec executor to use for the futures
+     *
+     * @return a future that supplies the calculated result if the current
+     * request was granted, or an debounceReplacementValue if the calcution was skipped due
+     * to a new version before delay was passed.
+     */
+    public <U> CompletableFuture<Versioned<U>> debounce(
+        AtomicReference<Versioned<T>> activeVersion, Duration delay,
+        Function<T, CompletableFuture<U>> onFire, U onDiscard, Executor exec) {
+        // we store our debounce start value first
+        activeVersion.set(this);
+
+        var delayed = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
+        return CompletableFuture.supplyAsync(activeVersion::get, delayed)
+            .thenCompose(active -> {
+                if (active == this) {
+                    // If no new call to `debounce` has been made after `delay` has
+                    // passed (i.e., `activeVersion` hasn't changed in the meantime),
+                    // then run the calculation.
+                    return onFire.apply(object).thenApply(u -> new Versioned<>(version, u, timestamp));
+                }
+                // otherwise we return an empty result
+                // as a later closure will be running on this new version of `activeVersion`
+                return CompletableFutureUtils.completedFuture(new Versioned<>(version, onDiscard, timestamp), exec);
+            });
     }
 }
