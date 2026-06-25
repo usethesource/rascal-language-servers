@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -85,6 +86,7 @@ import org.eclipse.lsp4j.SemanticTokensParams;
 import org.eclipse.lsp4j.SemanticTokensRangeParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SymbolInformation;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -155,6 +157,24 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     @Override
     public CompletableFuture<TextDocumentService> route(String language) {
         return availableServerRouter().route(language).thenApply(LanguageServer::getTextDocumentService);
+    }
+
+    private <P, R> CompletableFuture<R> route(TextDocumentIdentifier doc, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
+        return routeCompose(route(doc), endpoint, params);
+    }
+
+    private <P, R> CompletableFuture<R> route(ISourceLocation loc, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
+        return routeCompose(route(loc), endpoint, params);
+    }
+
+    private <P, R> CompletableFuture<R> routeCompose(CompletableFuture<TextDocumentService> sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
+        return sf.thenCompose(s -> {
+            logger.trace("Calling endpoint with params: {}", params);
+            return endpoint.apply(s, params);
+        }).thenApply(r -> {
+            logger.trace("Return value: {}", r);
+            return r;
+        });
     }
 
     @Override
@@ -280,103 +300,103 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     @Override
     public CompletableFuture<List<CallHierarchyIncomingCall>> callHierarchyIncomingCalls(
             CallHierarchyIncomingCallsParams params) {
-        return route(Locations.toLoc(params.getItem().getUri())).thenCompose(s -> s.callHierarchyIncomingCalls(params));
+        return route(Locations.toLoc(params.getItem().getUri()), TextDocumentService::callHierarchyIncomingCalls, params);
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyOutgoingCall>> callHierarchyOutgoingCalls(
             CallHierarchyOutgoingCallsParams params) {
-        return route(Locations.toLoc(params.getItem().getUri())).thenCompose(s -> s.callHierarchyOutgoingCalls(params));
+        return route(Locations.toLoc(params.getItem().getUri()), TextDocumentService::callHierarchyOutgoingCalls, params);
     }
 
     @Override
     public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(CompletionParams position) {
-        return route(position.getTextDocument()).thenCompose(s -> s.completion(position));
+        return route(position.getTextDocument(), TextDocumentService::completion, position);
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
             DefinitionParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.definition(params));
+        return route(params.getTextDocument(), TextDocumentService::definition, params);
     }
 
     @Override
     public CompletableFuture<List<CallHierarchyItem>> prepareCallHierarchy(CallHierarchyPrepareParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.prepareCallHierarchy(params));
+        return route(params.getTextDocument(), TextDocumentService::prepareCallHierarchy, params);
     }
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensFull(SemanticTokensParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.semanticTokensFull(params));
+        return route(params.getTextDocument(), TextDocumentService::semanticTokensFull, params);
     }
 
     @Override
     public CompletableFuture<Either<SemanticTokens, SemanticTokensDelta>> semanticTokensFullDelta(
             SemanticTokensDeltaParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.semanticTokensFullDelta(params));
+        return route(params.getTextDocument(), TextDocumentService::semanticTokensFullDelta, params);
     }
 
     @Override
     public CompletableFuture<SemanticTokens> semanticTokensRange(SemanticTokensRangeParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.semanticTokensRange(params));
+        return route(params.getTextDocument(), TextDocumentService::semanticTokensRange, params);
     }
 
     @Override
     public CompletableFuture<List<? extends CodeLens>> codeLens(CodeLensParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.codeLens(params));
+        return route(params.getTextDocument(), TextDocumentService::codeLens, params);
     }
 
     @Override
     public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
             PrepareRenameParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.prepareRename(params));
+        return route(params.getTextDocument(), TextDocumentService::prepareRename, params);
     }
 
     @Override
     public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.rename(params));
+        return route(params.getTextDocument(), TextDocumentService::rename, params);
     }
 
     @Override
     public CompletableFuture<List<InlayHint>> inlayHint(InlayHintParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.inlayHint(params));
+        return route(params.getTextDocument(), TextDocumentService::inlayHint, params);
     }
 
     @Override
     public CompletableFuture<List<Either<Command, CodeAction>>> codeAction(CodeActionParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.codeAction(params));
+        return route(params.getTextDocument(), TextDocumentService::codeAction, params);
     }
 
     @Override
     public CompletableFuture<List<Either<SymbolInformation, DocumentSymbol>>> documentSymbol(
             DocumentSymbolParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.documentSymbol(params));
+        return route(params.getTextDocument(), TextDocumentService::documentSymbol, params);
     }
 
     @Override
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> implementation(
             ImplementationParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.implementation(params));
+        return route(params.getTextDocument(), TextDocumentService::implementation, params);
     }
 
     @Override
     public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.references(params));
+        return route(params.getTextDocument(), TextDocumentService::references, params);
     }
 
     @Override
     public CompletableFuture<List<FoldingRange>> foldingRange(FoldingRangeRequestParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.foldingRange(params));
+        return route(params.getTextDocument(), TextDocumentService::foldingRange, params);
     }
 
     @Override
     public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
-        return route(params.getTextDocument()).<@Nullable Hover>thenCompose(s -> s.hover(params));
+        return this.<HoverParams, @Nullable Hover>route(params.getTextDocument(), TextDocumentService::hover, params);
     }
 
     @Override
     public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
-        return route(params.getTextDocument()).thenCompose(s -> s.selectionRange(params));
+        return route(params.getTextDocument(), TextDocumentService::selectionRange, params);
     }
 
 }
