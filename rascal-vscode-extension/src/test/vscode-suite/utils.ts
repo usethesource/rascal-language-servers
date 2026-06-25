@@ -217,7 +217,7 @@ export class IDEOperations {
         this.driver = browser.driver;
     }
 
-    async load() {
+    async load(logLevel: LogLevel = "Debug") {
         await ignoreFails(this.browser.waitForWorkbench(Delays.slow));
         for (let t = 0; t < 5; t++) {
             try {
@@ -235,7 +235,7 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
-        await assureDebugLevelLoggingIsEnabled();
+        await setLogLevel(logLevel);
     }
 
     async cleanup() {
@@ -508,17 +508,13 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     return outputView;
 }
 
-let alreadySetup = false;
+type LogLevel = "Trace" | "Debug" | "Info" | "Warning" | "Error" | "Off";
 
-async function assureDebugLevelLoggingIsEnabled() {
-    if (alreadySetup) {
-        return;
-    }
-    alreadySetup = true; // to avoid doing this twice/parallel
+async function setLogLevel(logLevel: LogLevel) {
     const prompt = await new Workbench().openCommandPrompt();
     await prompt.setText(">workbench.action.setLogLevel");
     await prompt.confirm();
-    await prompt.setText("Debug");
+    await prompt.setText(logLevel);
     await prompt.confirm();
 }
 
