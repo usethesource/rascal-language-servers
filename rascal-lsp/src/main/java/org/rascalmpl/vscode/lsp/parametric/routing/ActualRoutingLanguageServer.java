@@ -471,20 +471,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var work = route(lang.getName())
             .thenCompose(s -> s.sendUnregisterLanguage(lang));
 
-        // Note: this should be handled for the deployed scenario by the process onExit hook.
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (removeAll) {
-            // clear the whole language
-            logger.trace("unregisterLanguage({}) completely", lang.getName());
+            // Do not remove the connection to the server.
+            // For the deployed scenario, this is handled by the process onExit hook.
+            // For the development scenario, we maintain the connection, since the remote server does not exit.
 
             for (var extension : lang.getExtensions()) {
                 this.languagesByExtension.remove(extension);
-            }
-            var removed = languageServers.remove(lang.getName());
-            if (removed != null) {
-                work = work
-                    .thenCompose(ignored -> removed)
-                    .thenCompose(server -> server.shutdown().thenAccept(ignored -> server.exit()));
             }
         }
 
