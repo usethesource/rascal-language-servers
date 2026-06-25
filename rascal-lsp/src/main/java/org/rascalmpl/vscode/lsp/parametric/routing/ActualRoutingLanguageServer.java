@@ -113,7 +113,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
     private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
 
-    private final MultipleClientProxy client = new MultipleClientProxy();
+    private @MonotonicNonNull MultipleClientProxy remoteClient;
     private @MonotonicNonNull InitializeParams initializeParams;
     private final JsonWriter logForwarder;
 
@@ -173,7 +173,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public void connect(LanguageClient client) {
         super.connect(client); // first let the super class proxy the client
-        this.client.connect(availableClient());
+        this.remoteClient = new MultipleClientProxy(availableClient());
     }
 
     private static String extension(ISourceLocation doc) {
@@ -349,6 +349,11 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
+        if (remoteClient == null) {
+            // This should never happen, since it's initialized by `connect` before we are able to receive any `registerLanguage` requests.
+            throw new IllegalStateException("Remote client is not initialized");
+        }
+
         var serverParams = BaseLanguageServer.DEPLOY_MODE
             ? startServerProcess(lang)
             : connectToServer(lang)
@@ -360,7 +365,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         var serverLauncher = new Launcher.Builder<IBaseLanguageServerExtensions>()
             .setRemoteInterface(IBaseLanguageServerExtensions.class)
-            .setLocalService(client)
+            .setLocalService(remoteClient)
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
             .configureGson(ActualRoutingLanguageServer::configureProxyGson)
