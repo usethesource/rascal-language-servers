@@ -32,6 +32,7 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import { Suite } from 'mocha';
 import * as path from 'path/posix';
+import { fail } from 'assert';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -103,28 +104,9 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await protectedFiles.restore();
     });
 
-    it("has highlighting and parse errors", async function () {
-        await ignoreFails(new Workbench().getEditorView().closeAllEditors());
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        const isPicoLoading = ide.statusContains("Pico");
-        // we might miss this event, but we wait for it to show up
-        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
-        // now wait for the Pico parser generator to disappear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
-        await ide.hasSyntaxHighlighting(editor, Delays.slow);
-        console.log("We got syntax highlighting");
-        try {
-            await editor.setTextAtLine(10, "b := ;");
-            await ide.hasErrorSquiggly(editor, Delays.slow);
-        } catch (e) {
-            console.log(`Failed to trigger parse error: ${e}`);
-            if (e instanceof Error) {
-                console.log(e.stack);
-            }
-        } finally {
-            await ide.revertOpenChanges();
-        }
-    }).retries(2);
+    it.only("has highlighting and parse errors", async function () {
+        fail("Artificial failure");
+    });
 
     it("has highlighting and parse errors for second extension", async function () {
         const editor = await ide.openModule(TestWorkspace.picoNewFile);
