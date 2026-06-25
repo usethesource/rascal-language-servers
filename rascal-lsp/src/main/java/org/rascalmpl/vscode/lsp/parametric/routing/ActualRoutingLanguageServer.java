@@ -473,11 +473,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     public synchronized CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
 
-        var work = route(lang.getName())
-            .thenCompose(s -> s.sendUnregisterLanguage(lang));
-
-        boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
-        if (removeAll) {
+        if (ParametricTextDocumentService.isLanguageCompletelyRemoved(lang)) {
             // Do not remove the connection to the server.
             // For the deployed scenario, this is handled by the process onExit hook.
             // For the development scenario, we maintain the connection, since the remote server does not exit.
@@ -487,7 +483,13 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             }
         }
 
-        return work;
+        return route(lang.getName()).handle((s, t) -> {
+            if (s == null) {
+                // Nothing to unregister
+                return CompletableFutureUtils.<Void>completedFuture(null, getExecutor());
+            }
+            return s.sendUnregisterLanguage(lang);
+        }).thenCompose(Function.identity());
     }
 
     @Override

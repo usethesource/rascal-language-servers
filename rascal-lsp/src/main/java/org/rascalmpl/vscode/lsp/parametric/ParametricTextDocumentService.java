@@ -1013,10 +1013,14 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return lang.getMainFunction() + "::" + lang.getMainFunction();
     }
 
+    public static boolean isLanguageCompletelyRemoved(LanguageParameter lang) {
+        return lang.getMainModule() == null || lang.getMainModule().isEmpty();
+    }
+
     @Override
     public synchronized void unregisterLanguage(LanguageParameter lang) {
         logger.info("unregisterLanguage({})", lang.getName());
-        boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
+        boolean removeAll = isLanguageCompletelyRemoved(lang);
         if (!removeAll) {
             var contrib = contributions.get(lang.getName());
             if (contrib != null && !contrib.removeContributor(buildContributionKey(lang))) {
