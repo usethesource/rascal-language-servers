@@ -28,7 +28,15 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -41,11 +49,13 @@ import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.Registration;
 import org.eclipse.lsp4j.RegistrationParams;
 import org.eclipse.lsp4j.ShowDocumentParams;
 import org.eclipse.lsp4j.ShowDocumentResult;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
 import org.eclipse.lsp4j.TextDocumentContentRefreshParams;
+import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
@@ -53,6 +63,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationChanged;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IString;
@@ -65,9 +76,16 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     private static final Logger logger = LogManager.getLogger(MultipleClientProxy.class);
 
     private final IBaseLanguageClient client;
+    private final ExecutorService exec;
+    private final CompletableFuture<Void> noop;
 
-    protected MultipleClientProxy(LanguageClient client) {
+    private final Map<String, Set<Registration>> currentRegistrations = new ConcurrentHashMap<>();
+
+
+    protected MultipleClientProxy(LanguageClient client, ExecutorService exec) {
         this.client = (IBaseLanguageClient) client;
+        this.exec = exec;
+        this.noop = CompletableFutureUtils.completedFuture(null, exec);
     }
 
     @Override
@@ -194,14 +212,74 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
     @Override
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
-        // TODO Collect/maintain capabilities of all delegate servers, combine, and unregister capabilities if necessary based on that.
-        return client.registerCapability(params);
+        return CompletableFutureUtils
+            .reduce(params
+                .getRegistrations()
+                .parallelStream()
+                .map(this::registerCapability), exec)
+            .thenAccept(v -> {}); // convert to Void
+    }
+
+    private CompletableFuture<Void> registerCapability(Registration r) {
+        var c = currentRegistrations.computeIfAbsent(r.getMethod(), k -> new CopyOnWriteArraySet<>());
+        // Lock on the registrations for this method for a moment
+        synchronized (c) {
+            var similarRegOpt = c.stream().filter(rr -> Objects.equals(rr.getRegisterOptions(), r.getRegisterOptions())).findAny();
+            if (similarRegOpt.isPresent()) {
+                logger.trace("We already have a registration for {} with the same options; ignoring this one", r.getMethod());
+                return noop;
+            }
+
+            c.add(r);
+            return client.registerCapability(new RegistrationParams(List.of(r)))
+                .exceptionally(t -> {
+                    logger.error("Exception while registering {}", r,  t);
+                    c.remove(r);
+                    return null;
+                });
+        }
     }
 
     @Override
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
-        // TODO Collect/maintain capabilities of all delegate servers, combine, and unregister capabilities if necessary based on that.
-        return client.unregisterCapability(params);
+        return CompletableFutureUtils
+            .reduce(params
+                .getUnregisterations()
+                .parallelStream()
+                .map(this::unregisterCapability), exec)
+            .thenAccept(v -> {}); // convert to Void
+    }
+
+    private boolean matches(Registration r, Unregistration u) {
+        return r.getId().equals(u.getId())
+            && r.getMethod().equals(u.getMethod());
+    }
+
+    private Predicate<Registration> matches(Unregistration u) {
+        return r -> matches(r, u);
+    }
+
+    private CompletableFuture<Void> unregisterCapability(Unregistration u) {
+        var c = currentRegistrations.get(u.getMethod());
+        if (c == null) {
+            return noop;
+        }
+
+        synchronized (c) {
+            var cs = c.stream().filter(matches(u)).collect(Collectors.toSet());
+            if (cs.isEmpty()) {
+                // No registrations => nothing to unregister
+                return noop;
+            }
+
+            c.removeAll(cs);
+            return client.unregisterCapability(new UnregistrationParams(List.of(u)))
+                .exceptionally(t -> {
+                    logger.error("Exception while unregistering {} ({})", u.getMethod(), u, t);
+                    c.addAll(cs);
+                    return null;
+                });
+        }
     }
 
     @Override
