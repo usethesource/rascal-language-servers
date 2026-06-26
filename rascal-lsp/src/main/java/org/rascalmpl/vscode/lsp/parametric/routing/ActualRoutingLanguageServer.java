@@ -173,7 +173,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public void connect(LanguageClient client) {
         super.connect(client); // first let the super class proxy the client
-        this.remoteClient = new MultipleClientProxy(availableClient());
+        this.remoteClient = new MultipleClientProxy(availableClient(), getExecutor());
     }
 
     private static String extension(ISourceLocation doc) {
