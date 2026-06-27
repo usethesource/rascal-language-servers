@@ -24,39 +24,29 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
+package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
+import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.DynamicRegistrationCapabilities;
+import org.eclipse.lsp4j.WorkspaceClientCapabilities;
+import org.rascalmpl.vscode.lsp.util.Nullables;
 
-public class ReadFileResult {
+public abstract class WorkspaceCapability<T> extends AbstractDynamicCapability<T> {
 
-    @NonNull private String contents;
-
-    public ReadFileResult(@NonNull String contents) {
-        this.contents = contents;
+    protected WorkspaceCapability(String methodName) {
+        super(String.format("workspace/%s", methodName));
     }
 
-    public String getContents() {
-        return contents;
+    protected WorkspaceCapability(String methodName, boolean preferStaticRegistration) {
+        super(String.format("workspace/%s", methodName), preferStaticRegistration);
     }
+
+    protected abstract @Nullable DynamicRegistrationCapabilities getCapabilities(WorkspaceClientCapabilities caps);
 
     @Override
-    public boolean equals(@Nullable Object obj) {
-        if (obj instanceof ReadFileResult) {
-            return contents.equals(((ReadFileResult)obj).contents);
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return contents.hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return "ReadFileResult [contents=" + contents + "]";
+    protected final boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities) {
+        return Nullables.has(clientCapabilities.getWorkspace(), this::getCapabilities, DynamicRegistrationCapabilities::getDynamicRegistration);
     }
 
 }

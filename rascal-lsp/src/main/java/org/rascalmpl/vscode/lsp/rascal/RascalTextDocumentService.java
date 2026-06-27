@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
+import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +55,7 @@ import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -115,24 +118,24 @@ import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
 import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
-import org.rascalmpl.vscode.lsp.uri.FallbackResolver;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
-
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
@@ -150,11 +153,8 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     public RascalTextDocumentService(ExecutorService exec) {
-        // The following call ensures that URIResolverRegistry is initialized before FallbackResolver is accessed
-        URIResolverRegistry.getInstance();
-
         this.exec = exec;
-        FallbackResolver.getInstance().registerTextDocumentService(this);
+        LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
 
@@ -191,7 +191,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
         result.setDocumentSymbolProvider(true);
         result.setHoverProvider(true);
-        result.setSemanticTokensProvider(tokenizer.options());
+        result.setSemanticTokensProvider(SemanticTokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(new RenameOptions(true));
@@ -219,6 +219,11 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         // e.g. dynamic registration of capabilities
     }
 
+    @Override
+    public Collection<String> extensions() {
+        return Set.of("rsc");
+    }
+
     // LSP interface methods
 
     @Override
@@ -227,14 +232,23 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        triggerAnalyzer(file, NORMAL_DEBOUNCE);
     }
+
+
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        var changed = updateContents(params, timestamp);
+        triggerAnalyzer(changed, NORMAL_DEBOUNCE);
     }
+
+    private void triggerAnalyzer(TextDocumentState state, Duration delay) {
+        availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
+    }
+
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
@@ -386,37 +400,9 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private void showMessages(ISet messages) {
         exec.submit(() -> {
             for (var msg : messages) {
-                availableClient().showMessage(setMessageParams((IConstructor) msg));
+                availableClient().showMessage(Message.toMessageParams((IConstructor) msg));
             }
         });
-    }
-
-    private MessageParams setMessageParams(IConstructor message) {
-        var params = new MessageParams();
-        switch (message.getName()) {
-            case "error": {
-                params.setType(MessageType.Error);
-                break;
-            }
-            case "warning": {
-                params.setType(MessageType.Warning);
-                break;
-            }
-            case "info": {
-                params.setType(MessageType.Info);
-                break;
-            }
-            default: params.setType(MessageType.Log);
-        }
-
-        var msgText = ((IString) message.get("msg")).getValue();
-        if (message.has("at")) {
-            var at = Locations.toUri((ISourceLocation) message.get("at"));
-            params.setMessage(String.format("%s (at %s)", msgText, at));
-        } else {
-            params.setMessage(msgText);
-        }
-        return params;
     }
 
     @Override
@@ -489,20 +475,12 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         return res.getFailureReason() != null ? (": " + res.getFailureReason()) : "";
     }
 
-    private static <T> T last(List<T> l) {
-        return l.get(l.size() - 1);
-    }
-
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
         return openFile(doc, l -> availableRascalServices()::parseSourceFile, timestamp, exec);
     }
 
     private TextDocumentState getFile(TextDocumentIdentifier doc) {
         return getFile(Locations.toLoc(doc));
-    }
-
-    public void shutdown() {
-        exec.shutdown();
     }
 
     private CompletableFuture<SemanticTokens> getSemanticTokens(TextDocumentIdentifier doc) {
@@ -581,13 +559,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         throw new UnsupportedOperationException("registering language is a feature of the language parametric server, not of the Rascal server");
     }
 
-    @Override
-    public void projectAdded(String name, ISourceLocation projectRoot) {
-        // No need to do anything
-    }
-
-    @Override
-    public void projectRemoved(String name, ISourceLocation projectRoot) {
+    /*package*/ void projectRemoved(ISourceLocation projectRoot) {
         if (facts != null) {
             facts.projectRemoved(projectRoot);
         }

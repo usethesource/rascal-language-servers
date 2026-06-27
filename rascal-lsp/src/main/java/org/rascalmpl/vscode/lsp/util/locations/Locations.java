@@ -29,6 +29,8 @@ package org.rascalmpl.vscode.lsp.util.locations;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Set;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -58,10 +60,13 @@ public class Locations {
     private static final Logger logger = LogManager.getLogger(Locations.class);
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
+
     // Synthetic scheme to (un)wrap an opaque URI as/from an absolute URI.
     // Can only contain alphanumeric characters or "+", "-", ".", and should start with an alpha
     // https://datatracker.ietf.org/doc/html/rfc3986#section-3.1
     private static final String OPAQUE_SCHEME = "opaque-lsp-";
+
+    public static final Set<String> TRANSLATED_SCHEMES = Set.of(OPAQUE_SCHEME, LSPOpenFileResolver.LSP_OPEN_SCHEME);
 
     public static ISourceLocation toClientLocation(ISourceLocation loc) {
         loc = LSPOpenFileResolver.stripLspPrefix(loc);
@@ -167,6 +172,10 @@ public class Locations {
             }
         }
         return uri;
+    }
+
+    public static boolean isWrappedOpaque(ISourceLocation loc) {
+        return OPAQUE_SCHEME.equals(loc.getURI().getScheme());
     }
 
     public static Location mapValueToLocation(IValue v, ColumnMaps cm) {

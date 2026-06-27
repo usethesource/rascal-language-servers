@@ -38,6 +38,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.util.ParseErrorRecovery;
+import org.rascalmpl.uri.FileAttributes;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.NoContributions.NoContributionException;
@@ -64,6 +65,7 @@ public class TextDocumentState {
     private final BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser;
     private final ISourceLocation location;
     private final ExecutorService exec;
+    private final FileAttributes attributesOnDisk;
 
     private final AtomicReference<Versioned<Update>> current;
     private final AtomicReference<@Nullable Versioned<ITree>> lastWithoutErrors;
@@ -73,10 +75,11 @@ public class TextDocumentState {
             BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parser,
             ISourceLocation location,
             int initialVersion, String initialContent, long initialTimestamp,
-            ExecutorService exec) {
+            ExecutorService exec, FileAttributes attributesOnDisk) {
 
         this.parser = parser;
         this.location = location;
+        this.attributesOnDisk = attributesOnDisk;
         this.lastWithoutErrors = new AtomicReference<>();
         this.last = new AtomicReference<>();
         this.exec = exec;
@@ -87,6 +90,13 @@ public class TextDocumentState {
 
     public ISourceLocation getLocation() {
         return location;
+    }
+
+    /**
+     * The file attributes (aka stat) of the location on disk, before it was opened by VS Code
+     */
+    public FileAttributes getAttributesOnDisk() {
+        return attributesOnDisk;
     }
 
     public CompletableFuture<Versioned<List<Diagnostics.Template>>> update(int version, String content, long timestamp) {
@@ -234,7 +244,7 @@ public class TextDocumentState {
                         }
                     }, exec);
             } catch (NoContributionException e) {
-                logger.debug("Ignoring missing parser for {}", location, e);
+                logger.debug("Ignoring missing parser for {}", location);
                 treeAsync.completeOnTimeout(new Versioned<>(version, IRascalValueFactory.getInstance().character(0), timestamp), 60, TimeUnit.SECONDS);
             }
         }
@@ -266,6 +276,6 @@ public class TextDocumentState {
 
     public TextDocumentState changeParser(BiFunction<ISourceLocation, String, CompletableFuture<ITree>> parsing) {
         var c = getCurrentContent();
-        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified(), exec);
+        return new TextDocumentState(parsing, this.location, c.version(), c.get(), getLastModified(), exec, getAttributesOnDisk());
     }
 }

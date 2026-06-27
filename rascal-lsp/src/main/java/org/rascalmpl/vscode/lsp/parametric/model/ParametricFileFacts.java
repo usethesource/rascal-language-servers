@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -147,8 +148,8 @@ public class ParametricFileFacts implements DiagnosticsReporter {
         getFile(file).invalidateBuilder(false);
     }
 
-    public void calculateAnalyzer(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
-        getFile(file).calculateAnalyzer(tree, version, delay);
+    public void calculateAnalyzer(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree, Versioned<String> content, Duration delay) {
+        getFile(file).calculateAnalyzer(tree, content, delay);
     }
 
     public void calculateBuilder(ISourceLocation file, CompletableFuture<Versioned<ITree>> tree) {
@@ -163,11 +164,19 @@ public class ParametricFileFacts implements DiagnosticsReporter {
         getFile(file).close();
     }
 
+    public void remove(ISourceLocation file) {
+        var fact = files.remove(file);
+        if (fact != null) {
+            fact.remove();
+        }
+    }
+
     private interface FileFact {
         void invalidateAnalyzer(boolean isClosing);
         void invalidateBuilder(boolean isClosing);
         void close();
-        void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay);
+        void remove();
+        void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> content, Duration delay);
         void calculateBuilder(CompletableFuture<Versioned<ITree>> tree);
         void reportParseErrors(Versioned<List<Diagnostic>> messages);
         void clearDiagnostics();
@@ -177,6 +186,7 @@ public class ParametricFileFacts implements DiagnosticsReporter {
     @SuppressWarnings("java:S3077") // Reads/writes to fields of this class happen sequentially
     private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
+        private volatile boolean removed = false;
 
         // To replace old diagnostics when new diagnostics become available in a
         // thread-safe way, we need to atomically: (1) check if the version of
@@ -188,7 +198,7 @@ public class ParametricFileFacts implements DiagnosticsReporter {
         private final AtomicReference<Versioned<List<Diagnostic>>> analyzerDiagnostics = Versioned.atomic(-1, Collections.emptyList());
         private final AtomicReference<Versioned<List<Diagnostic>>> builderDiagnostics = Versioned.atomic(-1, Collections.emptyList());
 
-        private final AtomicInteger latestVersionCalculateAnalyzer = new AtomicInteger(-1);
+        private final AtomicReference<Versioned<String>> latestVersionCalculateAnalyzer = new AtomicReference<>();
 
         private volatile CompletableFuture<Versioned<ParametricSummary>> latestAnalyzerAnalysis =
             CompletableFutureUtils.completedFuture(new Versioned<>(-1, nullSummary), exec);
@@ -237,74 +247,27 @@ public class ParametricFileFacts implements DiagnosticsReporter {
                 if ((aMessages.isEmpty() && bMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
                     // If there are no messages for this file or the file has been deleted, can we remove it
                     // else VS Code comes back and we've dropped the messages in our internal data
-                    remove(file);
+                    ParametricFileFacts.this.remove(file);
                 }
             });
         }
 
-        private @Nullable FileFact remove(ISourceLocation file) {
-            var removed = files.remove(file.top());
-            if (removed != null) {
-                removed.clearDiagnostics();
-            }
-            return removed;
-        }
-
-        /**
-         * @param version the version of the file for which summary calculation
-         * is currently requested
-         * @param latestVersion the last version of the file for which summary
-         * calculation was previously requested
-         * @param delay the duration after which the current request for summary
-         * calculation will be granted, unless another request is made in the
-         * meantime (in which case the current request is abandoned)
-         * @param calculation the actual summary calculation
-         * @return a future that supplies the calculated summary if the current
-         * request was granted, or an empty summary if it was abandoned
-         */
-        private CompletableFuture<Versioned<ParametricSummary>> debounce(
-                int version, AtomicInteger latestVersion, Duration delay,
-                Supplier<CompletableFuture<Versioned<ParametricSummary>>> calculation) {
-
-            latestVersion.set(version);
-            // Note: No additional logic (`compareAndSet` in a loop etc.) is
-            // needed to change `latestVersion`, because:
-            //   - LSP guarantees that the client sends change and save
-            //     notifications in-order, and that the server receives them
-            //     in-order. Thus, the version number of a file monotonically
-            //     increases with each notifications to be processed.
-            //   - To process notifications, calls of `didChange` and `didSave`
-            //     in `ParametricTextDocumentService` run sequentially and
-            //     in-order; these are the only methods that (indirectly) call
-            //     `calculate`. Thus, parameter `version` (obtained from the
-            //     notifications) monotonically increases with each `calculate`
-            //     call.
-
-            var delayed = CompletableFuture.delayedExecutor(delay.toMillis(), TimeUnit.MILLISECONDS, exec);
-            var summary = CompletableFuture.supplyAsync(() -> {
-                // If no new call to `calculate` has been made after `delay` has
-                // passed (i.e., `lastVersion` hasn't changed in the meantime),
-                // then run the calculation. Else, abandon this calculation.
-                if (latestVersion.get() == version) {
-                    return calculation.get();
-                } else {
-                    return CompletableFutureUtils.completedFuture(new Versioned<>(version, nullSummary), exec);
-                }
-            }, delayed);
-
-            return summary.thenCompose(Function.identity());
+        @Override
+        public void remove() {
+            removed = true;
+            clearDiagnostics();
         }
 
         @Override
-        public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
-            latestAnalyzerAnalysis = debounce(version, latestVersionCalculateAnalyzer, delay, () -> {
+        public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> contentVersion, Duration delay) {
+            latestAnalyzerAnalysis= contentVersion.debounce(latestVersionCalculateAnalyzer, delay, ignored -> {
                 var summary = analyzerSummaryFactory
                     .thenApply(f -> f.createFullSummary(file, tree))
                     .thenCompose(Function.identity());
                 ParametricSummary.getMessages(summary, exec)
-                    .thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, new Versioned<>(version, ms)));
-                return summary;
-            });
+                    .thenAcceptIfUninterrupted(ms -> reportDiagnostics(analyzerDiagnostics, new Versioned<>(contentVersion.version(), ms)));
+                return summary.thenApply(Versioned::get);
+            }, nullSummary, exec);
         }
 
         /**
@@ -353,7 +316,7 @@ public class ParametricFileFacts implements DiagnosticsReporter {
 
         @Override
         public void clearDiagnostics() {
-            var emptyDiagnostics = new Versioned<List<Diagnostic>>(latestVersionCalculateAnalyzer.get(), Collections.emptyList());
+            var emptyDiagnostics = latestVersionCalculateAnalyzer.get().map(v -> Collections.<Diagnostic>emptyList());
             parserDiagnostics.set(emptyDiagnostics);
             analyzerDiagnostics.set(emptyDiagnostics);
             builderDiagnostics.set(emptyDiagnostics);
@@ -363,6 +326,10 @@ public class ParametricFileFacts implements DiagnosticsReporter {
         }
 
         private void sendDiagnostics() {
+            if (removed) {
+                logger.debug("Will not send diagnostics since the file has been removed");
+                return;
+            }
             if (client == null) {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
                 return;
@@ -383,9 +350,17 @@ public class ParametricFileFacts implements DiagnosticsReporter {
                 "Sending {} diagnostic(s) for {} (parser: v{}; analyzer: v{}; builder: v{})",
                 diagnostics.size(), file, fromParser.version(), fromAnalyzer.version(), fromBuilder.version());
 
-            client.publishDiagnostics(new PublishDiagnosticsParams(
-                Locations.toUri(file).toString(),
-                diagnostics));
+            var uri = Locations.toUri(file).toString();
+            client.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
+
+            // The file for which diagnostics have just been sent, may have been
+            // deleted concurrently (i.e., after the `removed` check at the
+            // start of this method, but before the `publishDiagnostics` call).
+            // The resulting race may have caused the send to have accidentally
+            // overwritten the clear, so an additional clear might be needed.
+            if (removed) {
+                client.publishDiagnostics(new PublishDiagnosticsParams(uri, Collections.emptyList()));
+            }
         }
 
         /**
@@ -459,7 +434,12 @@ public class ParametricFileFacts implements DiagnosticsReporter {
         }
 
         @Override
-        public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, int version, Duration delay) {
+        public void remove() {
+            // NOP
+        }
+
+        @Override
+        public void calculateAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay) {
             // NOP
         }
 

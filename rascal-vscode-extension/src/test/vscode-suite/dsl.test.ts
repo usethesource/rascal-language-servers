@@ -25,13 +25,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, SideBarView, TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, TestWorkspace } from './utils';
+import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import { Suite } from 'mocha';
-import * as path from 'path';
+import * as path from 'path/posix';
 
 function parameterizedDescribe(body: (this: Suite, errorRecovery: boolean) => void) {
     describe('DSL', function() { body.apply(this, [false]); });
@@ -43,29 +43,22 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     let driver: WebDriver;
     let bench: Workbench;
     let ide : IDEOperations;
-    let picoFileBackup: Buffer;
+    let protectedFiles : ProtectedFiles;
 
     this.timeout(Delays.extremelySlow * 2);
 
     printRascalOutputOnFailure('Language Parametric Rascal');
 
+    async function unloadPico(repl: RascalREPL) {
+        await repl.execute("import util::LanguageServer;");
+        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
+    }
+
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import demo::lang::pico::LanguageServer;");
-
-        // If Pico was registered before as part of another series of tests,
-        // then it needs to be unregistered first (because error recovery
-        // en/disabledness affects which contributors to use). Until issue #630
-        // is fixed (race between `unregister` and `register`), the
-        // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here and followed by a suitably
-        // long sleep.
-        await repl.execute("import util::LanguageServer;");
-        await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
-        await sleep(Delays.normal);
-
-        const replExecuteMain = repl.execute(`main(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
+        await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
+        const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         const ide = new IDEOperations(browser);
         const isPicoLoading = ide.statusContains("Pico");
         await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
@@ -73,6 +66,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
         await replExecuteMain;
         await repl.terminate();
+    }
+
+    async function setParametricLanguage(editor: TextEditor) {
+        await (await editor.getTab()).select();
+        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
+        const inputBox = new InputBox();
+        await inputBox.setText("parametric-rascalmpl");
+        await inputBox.confirm();
     }
 
     before(async () => {
@@ -83,7 +84,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         ide = new IDEOperations(browser);
         await ide.load();
         await loadPico();
-        picoFileBackup = await fs.readFile(TestWorkspace.picoFile);
+        protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
         ide = new IDEOperations(browser);
         await ide.load();
     });
@@ -99,7 +100,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
             await ide.screenshot(`DSL-${errorRecovery}-`+ this.test?.title);
         }
         await ide.cleanup();
-        await fs.writeFile(TestWorkspace.picoFile, picoFileBackup);
+        await protectedFiles.restore();
     });
 
     it("has highlighting and parse errors", async function () {
@@ -140,11 +141,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         const editor = await ide.newUntitledFile(bench, driver, 1);
         expect(editor).to.not.be.undefined;
 
-        await bench.executeCommand("workbench.action.editor.changeLanguageMode");
-
-        const inputBox = new InputBox();
-        await inputBox.setText("parametric-rascalmpl");
-        await inputBox.confirm();
+        await setParametricLanguage(editor);
 
         await editor.setText(`begin
   declare
@@ -259,6 +256,7 @@ end
     it("renaming files works", async function() {
         if (errorRecovery) { this.skip(); }
         const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
+        await fs.rm(newDir, {recursive: true, force: true});
         const fromFile = path.join(newDir, "testing.pico");
         const toDir = path.join(newDir, "dest");
         await fs.mkdir(toDir, {recursive: true});
@@ -276,8 +274,8 @@ end
         await ide.moveFile("testing.pico", "dest", bench);
 
         await driver.wait(async() => {
-            const text = await testFile.getText();
-            return text.indexOf("%% File moved from") !== -1;
+            const text = await ignoreFails(testFile.getText());
+            return text?.indexOf("%% File moved from") !== -1;
         }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
         await fs.rm(newDir, {recursive: true, force: true});
@@ -308,11 +306,16 @@ end
 
     it("completion works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.setTextAtLine(6, "     aa : natural;");
+        try {
+            await editor.setTextAtLine(6, "     aa : natural;");
 
-        await editor.moveCursor(9, 4);
-        await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
-        await expectCompletions(driver, editor, ["a", "aa"]);
+            await editor.moveCursor(9, 4);
+            await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
+            await expectCompletions(driver, editor, ["a", "aa"]);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 
     it("completion by trigger character works", async function() {
@@ -320,9 +323,14 @@ end
         if (!errorRecovery) { this.skip(); }
 
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.moveCursor(10, 10);
-        await editor.typeText("  x :=");
-        await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
+        try {
+            await editor.moveCursor(10, 10);
+            await editor.typeText("  x :=");
+            await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 
     it("serializes Rascal values as expected", async function() {
@@ -345,5 +353,104 @@ end
         const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
         const actualJson = await resultEditor!.getText();
         expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
+    });
+
+    it("browses interactively", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Browse Rascal site");
+        await driver.wait(async () => {
+            const view = new WebView();
+            return await ignoreFails(view.getTitle()) === "Rascal MPL";
+        }, Delays.normal, "Browser for rascal-mpl.org should open");
+    });
+
+    it("opens editors", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        const initialTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
+        await ide.clickCodeLens(editor, "Edit another file");
+        await driver.wait(async () => {
+            const currentTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
+            return currentTitle !== initialTitle;
+        }, Delays.normal, "Another editor should open");
+    });
+
+    it("(un)registers diagnostics", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Register TODO");
+        await driver.wait(async () => {
+            const bottomBar = new Workbench().getBottomBar();
+            const problemsView = await bottomBar.openProblemsView();
+            const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
+            const labels = await Promise.all(markers.map(async m => await m.getLabel()));
+            return labels.includes("TODO");
+        }, Delays.slow, "TODO should be registered");
+
+        await ide.clickCodeLens(editor, "Unregister TODO");
+        await driver.wait(async () => {
+            const bottomBar = new Workbench().getBottomBar();
+            const problemsView = await bottomBar.openProblemsView();
+            const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
+            const labels = await Promise.all(markers.map(async m => await m.getLabel()));
+            return !labels.includes("TODO");
+        }, Delays.slow, "TODO should be unregistered");
+    });
+
+    it("shows messages", async function() {
+        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show warning");
+        await driver.wait(async () => {
+            const output = await bench.getBottomBar().openOutputView();
+            await output.selectChannel("Language Parametric Rascal Language Server");
+            const contents = await output.getText();
+            return contents.split("\n")[-1]?.indexOf(": Test warning") !== -1;
+        }, Delays.normal, "Test warning dialog should show");
+    });
+
+    it("logs messages", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show warning");
+        await driver.wait(async () => {
+            const output = await bench.getBottomBar().openOutputView();
+            await output.selectChannel("Language Parametric Rascal Language Server");
+            const contents = await output.getText();
+            return contents.split("\n")[-1]?.indexOf(": LOG Test warning") !== -1;
+        }, Delays.normal, "Line should be logged");
+    });
+
+    it("shows interactive content", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show some text");
+        await driver.wait(async () => {
+            return "*static content*" === await (await bench.getEditorView().getActiveTab())?.getTitle();
+        }, Delays.normal, "Static content should be shown");
+    });
+
+    it("updates open editors on registration", async function() {
+        if (errorRecovery) { this.skip(); }
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await unloadPico(repl);
+        await repl.terminate();
+
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await setParametricLanguage(editor);
+
+        await loadPico();
+
+        // Dynamically registered capability
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
     });
 });

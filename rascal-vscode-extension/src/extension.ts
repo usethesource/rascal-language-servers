@@ -40,12 +40,14 @@ export function activate(context: vscode.ExtensionContext) {
     const jars = context.asAbsolutePath(path.join('.', 'assets', 'jars'));
     const icon = vscode.Uri.joinPath(context.extensionUri, "assets", "images", "rascal-logo-v2.1.svg");
     const extension = new RascalExtension(context, jars, icon, deployMode);
+    const logger= extension.logger();
+    logger.info(`Starting extension deployMode: ${deployMode} testDeployMode: ${testDeployMode}`);
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
     context.subscriptions.push(new VsCodeSettingsFixer());
-    context.subscriptions.push(new RascalProjectValidator(extension.logger()));
-    if (deployMode || testDeployMode) {
-        context.subscriptions.push(new TestVirtualFileSystem(extension.logger()));
+    context.subscriptions.push(new RascalProjectValidator(logger));
+    if (!deployMode || testDeployMode) {
+        context.subscriptions.push(new TestVirtualFileSystem(logger));
     }
 
     return extension.externalLanguageRegistry();

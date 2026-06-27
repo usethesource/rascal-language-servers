@@ -28,33 +28,34 @@
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench, until } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
-
-const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile, TestWorkspace.manifest];
+import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
     let driver: WebDriver;
     let bench: Workbench;
     let ide: IDEOperations;
-    const originalFiles = new Map<string, Buffer>();
+    let protectedFiles : ProtectedFiles;
 
     this.timeout(Delays.extremelySlow * 2);
 
     printRascalOutputOnFailure('Rascal MPL');
 
     before(async () => {
+        const files = ProtectedFiles.protect(
+            TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile,
+            TestWorkspace.manifest, TestWorkspace.importeeFile, TestWorkspace.importerFile
+        );
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
         await browser.waitForWorkbench();
         ide = new IDEOperations(browser);
         await ide.load();
-        // trigger rascal type checker to be sure
-        for (const f of protectFiles) {
-            originalFiles.set(f, await fs.readFile(f));
-        }
+
+        protectedFiles = await files;
+
         await makeSureRascalModulesAreLoaded();
     });
 
@@ -62,16 +63,21 @@ describe('IDE', function () {
         if (this.test?.title) {
             await ide.screenshot("IDE-" + this.test?.title);
         }
+        // make sure we always reset, so errors don't propagate (since sometimes an afterEach is not run)
+        await protectedFiles.restore();
     });
 
     afterEach(async function () {
         if (this.test?.title) {
             await ide.screenshot("IDE-" + this.test?.title);
         }
-        await ide.cleanup();
-        for (const [f, b] of originalFiles) {
-            await fs.writeFile(f, b);
+        try {
+            await ide.cleanup();
         }
+        finally {
+            await protectedFiles.restore();
+        }
+
     });
 
 
@@ -251,11 +257,17 @@ describe('IDE', function () {
         const importerEditor = await ide.openModule(TestWorkspace.importerFile);
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
 
+        // Add type error
         await importeeEditor.typeTextAt(3, 1, "public str foo;");
         await ide.openModule(TestWorkspace.importerFile);
-
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
+
+        // Remove type error (absence of error diagnostics is checked as part of the `cleanup` call in `afterEach`)
+        await ide.openModule(TestWorkspace.importeeFile);
+        await importeeEditor.setTextAtLine(3, "public int foo;");
+        await ide.openModule(TestWorkspace.importerFile);
+        await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
     });
 
     it("errors in manifest detected", async() => {
@@ -266,5 +278,20 @@ describe('IDE', function () {
         await editor.setTextAtLine(2, "Project-Name: test-project");
         await editor.save();
         await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disapear");
+    });
+
+    it("anno quickfix works", async () => {
+        const editor = await ide.openModule(TestWorkspace.importeeFile);
+        await editor.typeTextAt(3, 1, "data X = y();\nanno int X@old;\nint calc(X x) = x@old;");
+
+        await ide.hasWarningSquiggly(editor, Delays.slow, "On a annotation we should have a warning that they are deprecated");
+
+        await editor.moveCursor(4,12); // at the `@old` part
+
+        await ide.triggerFirstCodeAction(editor, "Upgrade all annotations");
+        await ide.assertLineBecomes(editor, 4, "data X(int old = 0);", "annotations become a KW parameter", Delays.slow);
+        await ide.assertLineBecomes(editor, 5, "int calc(X x) = x.old;", "annotation should become a field deref", Delays.fast);
+
+        await ide.checkNoDiagnosticsAnymore();
     });
 });

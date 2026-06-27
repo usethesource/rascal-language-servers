@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -232,7 +233,7 @@ public class PathConfigs {
             var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
             logger.debug("Path config for {}: {}", projectRoot, pathConfig);
             // Publish diagnostics in a background thread
-            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages()));
+            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages(), Set.of("rsc")));
             return Pair.of(pathConfig, time);
         }
 

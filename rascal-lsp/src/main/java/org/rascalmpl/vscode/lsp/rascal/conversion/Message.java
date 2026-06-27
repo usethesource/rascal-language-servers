@@ -24,20 +24,50 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc;
+package org.rascalmpl.vscode.lsp.rascal.conversion;
 
-import java.io.IOException;
-import java.util.function.Consumer;
-import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.rascalmpl.uri.ISourceLocationWatcher;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.ISourceLocationChanged;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 
-public interface VSCodeUriResolverClient {
+/**
+ * Translates Rascal data-type representation of messages to the LSP representation.
+ */
+public class Message {
 
-    @JsonNotification("rascal/vfs/watcher/emitWatch")
-    void emitWatch(ISourceLocationChanged event);
+    private Message() { /* hide implicit constructor */ }
 
-    void addWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
-    void removeWatcher(ISourceLocation loc, boolean recursive, Consumer<ISourceLocationWatcher.ISourceLocationChanged> callback, VSCodeUriResolverServer server) throws IOException;
+    public static MessageParams toMessageParams(IConstructor message) {
+        var params = new MessageParams();
+        switch (message.getName()) {
+            case "error": {
+                params.setType(MessageType.Error);
+                break;
+            }
+            case "warning": {
+                params.setType(MessageType.Warning);
+                break;
+            }
+            case "info": {
+                params.setType(MessageType.Info);
+                break;
+            }
+            default: params.setType(MessageType.Log);
+        }
+
+        var msgText = ((IString) message.get("msg")).getValue();
+        if (message.has("at")) {
+            var at = Locations.toUri((ISourceLocation) message.get("at"));
+            params.setMessage(String.format("%s (at %s)", msgText, at));
+        } else {
+            params.setMessage(msgText);
+        }
+
+        return params;
+    }
+
 }

@@ -24,27 +24,39 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.util;
+package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
-import java.util.function.Supplier;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import java.io.IOException;
 
-public interface Lazy<T extends @NonNull Object> extends Supplier<T> {
-    public static <T extends @NonNull Object> Lazy<T> defer(Supplier<T> generator) {
-        return new Lazy<T>(){
-            private volatile @MonotonicNonNull T result = null;
+import org.rascalmpl.uri.remote.RemoteExternalResolverRegistry;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 
-            @Override
-            public T get() {
-                if (result == null) {
-                    result = generator.get();
-                }
-                return result;
-            }
+import io.usethesource.vallang.ISourceLocation;
 
-        };
-
+/**
+ * Wrapper for RemoteExternalResolverRegistry handling LSP-specifics.
+ * In particular, locations from LSP are mapped to Rascal-friendly locations.
+ */
+public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
+    public VSCodeFileSystemInRascal(int remoteResolverRegistryPort) {
+        super(remoteResolverRegistryPort);
     }
 
+    @Override
+    public boolean supportsLogical(String scheme) {
+        return true;
+    }
+
+
+    @Override
+    public ISourceLocation resolve(ISourceLocation input) throws IOException {
+        ISourceLocation resolved;
+        if (super.supportsLogical(input.getScheme())) {
+            resolved = super.resolve(input);
+        }
+        else {
+            resolved = input;
+        }
+        return LSPOpenFileRedirector.getInstance().resolve(resolved == null ? input : resolved);
+    }
 }

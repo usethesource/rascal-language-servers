@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.rascal.model;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -59,9 +60,9 @@ import io.usethesource.vallang.ISourceLocation;
         this.cm = cm;
     }
 
-    public void publishDiagnostics(ISourceLocation project, IList messages) {
+    public void publishDiagnostics(ISourceLocation project, IList messages, Collection<String> validExtensions) {
         // Gather messages per file
-        publishDiagnostics(project, Diagnostics.translateMessages(messages, cm));
+        publishDiagnostics(project, Diagnostics.translateMessages(messages, validExtensions, cm));
     }
 
     public void clearDiagnostics(ISourceLocation project) {

@@ -33,20 +33,20 @@ import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalLanguageServer } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
-import { VSCodeUriResolverServer } from './fs/VSCodeURIResolver';
+import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
 
 export class RascalExtension implements vscode.Disposable {
-    private readonly vfsServer: VSCodeUriResolverServer;
+    private readonly vfsServer: VSCodeFileSystemInRascal;
     private readonly dsls:ParameterizedLanguageServer;
     private readonly rascal: RascalLanguageServer;
 
     private readonly log: vscode.LogOutputChannel = vscode.window.createOutputChannel("Rascal Extension", {log: true});
 
     constructor(private readonly context: vscode.ExtensionContext, private readonly jarRootPath: string, private readonly icon: vscode.Uri, private readonly isDeploy = true) {
-        this.vfsServer = new VSCodeUriResolverServer(!isDeploy, this.log);
+        this.vfsServer = new VSCodeFileSystemInRascal(!isDeploy, this.log);
 
         this.dsls = new ParameterizedLanguageServer(context, this.vfsServer, jarRootPath, isDeploy);
         this.rascal = new RascalLanguageServer(context, this.vfsServer, jarRootPath, this.dsls, this.log, isDeploy);
@@ -59,7 +59,7 @@ export class RascalExtension implements vscode.Disposable {
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient, this.log));
         vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
-        vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalClient));
+        vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal.rascalVFS));
     }
 
     logger(): vscode.LogOutputChannel {
@@ -92,6 +92,7 @@ export class RascalExtension implements vscode.Disposable {
     private registerMainRun() {
         this.context.subscriptions.push(
             vscode.commands.registerTextEditorCommand("rascalmpl.runMain", (text, _edit, moduleName) => {
+                moduleName = moduleName ?? this.guessModuleName(text.document);
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
@@ -104,6 +105,7 @@ export class RascalExtension implements vscode.Disposable {
     private registerImportModule() {
         this.context.subscriptions.push(
             vscode.commands.registerTextEditorCommand("rascalmpl.importModule", (text, _edit, moduleName) => {
+                moduleName = moduleName ?? this.guessModuleName(text.document);
                 if (!text.document.uri || !moduleName) {
                     return;
                 }
@@ -119,6 +121,35 @@ export class RascalExtension implements vscode.Disposable {
                 await vscode.env.clipboard.writeText(rascalUri);
             })
         );
+    }
+
+    private guessModuleName(document: vscode.TextDocument) {
+        if (document.languageId === 'rascalmpl') {
+            const text = document.getText();
+
+            // Given a Rascal file at location `/foo/bar/baz/Qux.rsc`, depending
+            // on which ancestor is the root of the source directory, one of the
+            // following modules must be defined in the file:
+            //   - `foo::bar::baz::Qux`
+            //   -      `bar::baz::Qux`
+            //   -           `baz::Qux`
+            //   -                `Qux`
+            //
+            // For each of these possible module names (from long to short), the
+            // approach below is to derive it from the location (also taking
+            // into account escape characters), and then try it.
+
+            let segments = document.uri.path.slice(0, -4).split('/');
+            while ((segments = segments.slice(1)).length > 0) {
+                const guess = segments.map(s => `[\\\\]?${s}`).join('::');
+                const guessed = text.match(`module[\\s]+(${guess})`);
+                if (guessed) {
+                    return guessed[1];
+                }
+            }
+        }
+
+        return undefined;
     }
 
     private async startTerminal(uri: vscode.Uri | undefined, command?: string | undefined) {
@@ -266,15 +297,14 @@ export class RascalExtension implements vscode.Disposable {
             );
         }
         shellArgs.push();
+        const vfsServerPort = await this.vfsServer.serverPort;
         shellArgs.push(
             '-Dfile.encoding=UTF8'
-            , '-Drascal.fallbackResolver=org.rascalmpl.vscode.lsp.uri.FallbackResolver'
             , `-Drascal.languageRegistryPort=${await this.rascal.languageRegistry.serverPort}`
-            , 'org.rascalmpl.vscode.lsp.terminal.LSPTerminalREPL'
+            , `-Drascal.remoteResolverRegistryPort=${vfsServerPort}`
+            , 'org.rascalmpl.shell.RascalShell'
             , '--remoteIDEServicesPort'
             , '' + remoteIDEServicesConfiguration.port
-            , '--vfsPort'
-            , '' + await this.vfsServer.serverPort
         );
         return shellArgs.concat(extraArgs || []);
     }
