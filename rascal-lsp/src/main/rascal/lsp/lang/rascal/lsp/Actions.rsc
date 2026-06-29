@@ -47,7 +47,7 @@ The commands must be evaluated by ((evaluateRascalCommand))
 data Command
     = visualImportGraphCommand(PathConfig pcfg)
     | sortImportsAndExtends(Header h)
-    | upgradeAnnotations(PathConfig pcfg) // reported by the analyzer itself
+    | upgradeAnnotations(PathConfig pcfg)
     ;
 
 
