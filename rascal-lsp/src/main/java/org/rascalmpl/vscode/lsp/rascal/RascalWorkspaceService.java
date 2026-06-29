@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
@@ -56,6 +57,7 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
@@ -114,28 +116,12 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         ((RascalTextDocumentService) availableDocumentService()).projectRemoved(loc);
     }
 
-
-    private final Stream<String> allReadableSchemes() {
-        var inputs = REG.getRegisteredInputSchemes();
-        var logicals = REG.getRegisteredLogicalSchemes();
-        return Stream.concat(inputs.stream(), logicals.stream()).filter(s -> !s.equals("lsp"));
-    }
-
-    private static final Set<String> GENERIC_SCHEMES = Set.of("file", "http", "https", "ftp");
-    private static final Set<String> CONTAINER_LOCS = Set.of("jar", "zip", "compressed");
-
     private void registerTextDocumentContent(int retryCount) {
         // we don't want to collide with existing registrations in the client
         // so we have to first ask what is already registered
         // and only the ones that are not claimed yet, we claim as ours
         // otherwise the LSP client crashes on the static registration
-        var candidates = Stream.concat(
-            // rascal specific schemes
-            allReadableSchemes().filter(s -> !GENERIC_SCHEMES.contains(s)),
-            // nested schemes like jar+file etc
-            allReadableSchemes().filter( s -> !CONTAINER_LOCS.contains(s)).flatMap(s -> CONTAINER_LOCS.stream().map(c -> c + "+" + s))
-        ).collect(Collectors.toList());
-        availableClient().checkUnregisteredSchemes(candidates)
+        availableClient().checkUnregisteredSchemes(calculatePossibleSchemes())
             .thenComposeAsync(schemes -> {
                 logger.info("Trying to register schemes in the client: {}", schemes);
                 if (!schemes.contains("jar+file")) {
@@ -164,13 +150,34 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
             });
     }
 
+    private final Stream<String> allReadableSchemes() {
+        return Stream.concat(
+                REG.getRegisteredInputSchemes().stream(),
+                REG.getRegisteredLogicalSchemes().stream()
+            ).filter(s -> !s.equals("lsp"));
+    }
+
+    private static final Set<String> GENERIC_SCHEMES = Set.of("file", "http", "https", "ftp");
+    private static final Set<String> CONTAINER_LOCS = Set.of("jar", "zip", "compressed");
+
+    private List<String> calculatePossibleSchemes() {
+        return Stream.concat(
+            // rascal specific schemes
+            allReadableSchemes().filter(Predicate.not(GENERIC_SCHEMES::contains)),
+            // nested schemes like jar+file etc
+            allReadableSchemes().filter(Predicate.not(CONTAINER_LOCS::contains))
+                .flatMap(s -> CONTAINER_LOCS.stream().map(c -> c + "+" + s))
+        ).collect(Collectors.toList());
+    }
+
 
     @Override
     public CompletableFuture<TextDocumentContentResult> textDocumentContent(TextDocumentContentParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                var file = URIUtil.assumeCorrectLocation(params.getUri());
-                return new TextDocumentContentResult(org.apache.commons.io.IOUtils.toString(REG.getCharacterReader(file)));
+                try (var contents = REG.getCharacterReader(URIUtil.assumeCorrectLocation(params.getUri()))) {
+                    return new TextDocumentContentResult(Prelude.consumeInputStream(contents));
+                }
             } catch (IOException e) {
                 var message = e.getMessage();
                 if (message == null || message.isEmpty()) {
