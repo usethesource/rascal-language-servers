@@ -102,7 +102,6 @@ import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -121,7 +120,6 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     private final ExecutorService exec;
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter;
-    private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
 
     @SuppressWarnings("unused")
     /*package*/ RoutingTextDocumentService(ExecutorService exec) {
@@ -189,13 +187,6 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         return client;
     }
 
-    private CapabilityRegistration availableCapabilities() {
-        if (dynamicCapabilities == null) {
-            throw new IllegalStateException("Dynamic capabilities are `null` - the document service did not yet connect to a client.");
-        }
-        return dynamicCapabilities;
-    }
-
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
@@ -234,9 +225,8 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, ServerCapabilities result) {
-        // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
-        // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = ParametricTextDocumentService.initializeServerCapabilities(availableClient(), null, exec, clientCapabilities, result);
+        // Only register static capabilities here; we leave dynamic capability registration to the remote servers
+        ParametricTextDocumentService.initializeStaticServerCapabilities(result);
     }
 
     @Override
