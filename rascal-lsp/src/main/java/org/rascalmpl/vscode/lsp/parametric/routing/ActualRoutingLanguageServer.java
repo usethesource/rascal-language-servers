@@ -78,6 +78,7 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.util.maven.MavenParser;
 import org.rascalmpl.util.maven.ModelResolutionError;
@@ -369,7 +370,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
             .configureGson(ActualRoutingLanguageServer::configureProxyGson)
-            .setExecutorService(getExecutor())
+            .setExecutorService(NamedThreadPool.single(String.format("parametric-lsp-router-%s", lang.getName().toLowerCase())))
             .create();
 
         var runner = serverLauncher.startListening();
