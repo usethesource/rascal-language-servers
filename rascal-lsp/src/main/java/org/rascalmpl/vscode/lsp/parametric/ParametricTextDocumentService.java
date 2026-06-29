@@ -609,10 +609,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var languages = languagesByExtension.values().stream().collect(Collectors.toSet());
         if ("".equals(ext)) {
             if (languages.size() == 1) {
-                logger.trace("file was opened without an extension; falling back to the single registered language for: {}", loc);
+                logger.trace("File was opened without an extension; falling back to the single registered language for: {}", loc);
                 return languages.stream().findFirst();
             } else {
-                logger.error("file was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
+                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
                 return Optional.empty();
             }
         }
