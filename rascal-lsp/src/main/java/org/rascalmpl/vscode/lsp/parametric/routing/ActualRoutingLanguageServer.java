@@ -495,7 +495,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public CompletableFuture<Object> shutdown() {
-        return CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenCompose(LanguageServer::shutdown)), getExecutor())
+        return CompletableFutureUtils.reduce(allRoutes(serverFut -> serverFut.thenCompose(LanguageServer::shutdown)), getExecutor())
             .thenCompose(ignored -> super.shutdown())
             .whenComplete((v, t) -> {
                 try {
@@ -509,7 +509,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public void exit() {
         try {
-            CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor())
+            CompletableFutureUtils.reduce(allRoutes(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor())
                 .whenComplete((v, t) -> {
                     try {
                         logForwarder.close();
@@ -531,7 +531,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public void cancelProgress(WorkDoneProgressCancelParams params) {
         // Forward to everyone
-        allRoutes().forEach(r -> r.thenAccept(s -> s.cancelProgress(params)));
+        allRoutes(r -> r.thenAccept(s -> s.cancelProgress(params)));
     }
 
 }
