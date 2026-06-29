@@ -227,14 +227,18 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = initializeServerCapabilities(availableClient(), dedicatedLanguageName, exec, clientCapabilities, result);
+        dynamicCapabilities = initializeDynamicServerCapabilities(availableClient(), dedicatedLanguageName, exec, clientCapabilities, result);
+        initializeStaticServerCapabilities(result);
     }
 
-    public static CapabilityRegistration initializeServerCapabilities(LanguageClient client, @Nullable String dedicatedLanguageName, ExecutorService exec, ClientCapabilities clientCapabilities, ServerCapabilities result) {
+    public static CapabilityRegistration initializeDynamicServerCapabilities(LanguageClient client, @Nullable String dedicatedLanguageName, ExecutorService exec, ClientCapabilities clientCapabilities, ServerCapabilities result) {
         var dynamicCapabilities = new CapabilityRegistration(client, exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName(dedicatedLanguageName)));
-        result.setTextDocumentSync(TextDocumentSyncKind.Full);
         dynamicCapabilities.registerStaticCapabilities(result);
         return dynamicCapabilities;
+    }
+
+    public static void initializeStaticServerCapabilities(final ServerCapabilities result) {
+        result.setTextDocumentSync(TextDocumentSyncKind.Full);
     }
 
     private static String getRascalMetaCommandName(@Nullable String dedicatedLanguageName) {
