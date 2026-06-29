@@ -227,6 +227,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             var similarRegOpt = c.stream().filter(rr -> Objects.equals(rr.getRegisterOptions(), r.getRegisterOptions())).findAny();
             if (similarRegOpt.isPresent()) {
                 logger.trace("We already have a registration for {} with the same options; ignoring this one", r.getMethod());
+                logger.trace("{} vs. {}", similarRegOpt.get(), r);
                 return noop;
             }
 
@@ -267,6 +268,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
         synchronized (c) {
             var cs = c.stream().filter(matches(u)).collect(Collectors.toSet());
+            logger.trace("Registrations to unregister: {}", cs);
             if (cs.isEmpty()) {
                 // No registrations => nothing to unregister
                 return noop;
