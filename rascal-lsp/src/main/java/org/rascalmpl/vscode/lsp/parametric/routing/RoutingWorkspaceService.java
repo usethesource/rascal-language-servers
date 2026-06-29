@@ -71,9 +71,7 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
 
     @Override
     public Collection<CompletableFuture<WorkspaceService>> allRoutes() {
-        return availableServerRouter().allRoutes().stream()
-            .map(server -> server.thenApply(LanguageServer::getWorkspaceService))
-            .collect(Collectors.toList());
+        return availableServerRouter().allRoutes(server -> server.thenApply(LanguageServer::getWorkspaceService));
     }
 
     @Override

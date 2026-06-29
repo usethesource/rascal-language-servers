@@ -29,10 +29,12 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-
+import java.util.function.Consumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -142,9 +144,18 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public Collection<CompletableFuture<TextDocumentService>> allRoutes() {
-        return availableServerRouter().allRoutes().stream()
-            .map(server -> server.thenApply(LanguageServer::getTextDocumentService))
-            .collect(Collectors.toList());
+        return availableServerRouter().allRoutes(server -> server.thenApply(LanguageServer::getTextDocumentService));
+    }
+
+    private CompletableFuture<Void> notifyAllRoutes(Consumer<TextDocumentService> notify) {
+        return CompletableFutureUtils.reduce(allRoutes(s -> {
+            try {
+                return s.thenAccept(notify);
+            } catch (Exception e) {
+                logger.catching(e);
+                return CompletableFutureUtils.<Void>completedFuture(null, exec);
+            }
+        }), exec).thenAccept(v -> {});
     }
 
     @Override
@@ -194,7 +205,13 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
         // Inform all remote servers about this file, so they can maintain its state.
         // Note: floating futures
-        allRoutes().forEach(r -> r.thenAccept(s -> s.didOpen(params)));
+        try {
+            notifyAllRoutes(s -> s.didOpen(params)).get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            logger.catching(e);
+        }
     }
 
     @Override
@@ -204,7 +221,13 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
         // Inform all remote servers about this file, so they can maintain its state.
         // Note: floating futures
-        allRoutes().forEach(r -> r.thenAccept(s -> s.didChange(params)));
+        try {
+            notifyAllRoutes(s -> s.didChange(params)).get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            logger.catching(e);
+        }
     }
 
     @Override
@@ -213,7 +236,13 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
         // Inform all remote servers about this file, so they can maintain its state.
         // Note: floating futures
-        allRoutes().forEach(r -> r.thenAccept(s -> s.didClose(params)));
+        try {
+            notifyAllRoutes(s -> s.didClose(params)).get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            logger.catching(e);
+        }
     }
 
     @Override
