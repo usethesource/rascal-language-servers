@@ -80,6 +80,7 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
     }
 
     protected static ResponseError unknownFileError(ISourceLocation loc, @Nullable Object data) {
+        logger.error("Unknown file: {} ({})", loc, data);
         return new ResponseError(ResponseErrorCode.RequestFailed, "Unknown file: " + loc, data);
     }
 
