@@ -275,7 +275,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     , "-Xmx2048M"
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-                    , "--exitWhenEmpty"
+                    // , "--exitWhenEmpty" // TODO Shutdown of a server might race with a new registration. Fix.
                 )
                 .start();
 
