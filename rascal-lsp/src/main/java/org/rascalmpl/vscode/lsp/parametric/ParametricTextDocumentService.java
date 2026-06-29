@@ -333,7 +333,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
         closeFile(loc);
-        facts(loc).close(loc);
+        if (safeLanguage(loc).isPresent()) {
+            facts(loc).close(loc);
+        }
         // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
         // we mimic a delete event to ensure all diagnostics are cleared.
         if (!URIResolverRegistry.getInstance().exists(loc)) {
@@ -373,11 +375,15 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private void triggerBuilder(TextDocumentIdentifier doc) {
-        logger.trace("Triggering builder for {}", doc.getUri());
         var location = Locations.toLoc(doc);
-        var fileFacts = facts(location);
-        fileFacts.invalidateBuilder(location);
-        fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
+        if (safeLanguage(location).isPresent()) {
+            logger.trace("Triggering builder for {}", doc.getUri());
+            var fileFacts = facts(location);
+            fileFacts.invalidateBuilder(location);
+            fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
+        } else {
+            logger.debug("Not triggering builder, since no language is registered for {}", location);
+        }
     }
 
     @Override
