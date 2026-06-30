@@ -28,7 +28,7 @@ import * as fs from 'fs/promises';
 import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, RascalREPL, sleep, src, TestWorkspace } from './utils';
 
-import path from 'path';
+import path from 'path/posix';
 
 describe('DSL [multi-language]', function () {
     let browser: VSBrowser;
