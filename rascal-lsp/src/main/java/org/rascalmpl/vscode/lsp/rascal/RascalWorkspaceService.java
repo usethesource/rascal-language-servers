@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -140,10 +139,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
 
     }
 
-
-
-
-    private static final Set<String> GENERIC_SCHEMES = Set.of("file", "http", "https", "ftp");
+    private static final Set<String> GENERIC_SCHEMES = Set.of("file", "http", "https", "ftp", "tmp" /* VS Code has this one for itself */);
     private static final Set<String> CONTAINER_SCHEMES = Set.of("jar", "zip", "compressed");
     private static final Set<String> IGNORED_SCHEMES = Set.of(URIUtil.unknownLocation().getScheme(), "memory", "lsp");
 
@@ -167,6 +163,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
 
     @Override
     public CompletableFuture<TextDocumentContentResult> textDocumentContent(TextDocumentContentParams params) {
+        logger.trace("textDocumentContent for {}", params.getUri());
         return CompletableFuture.supplyAsync(() -> {
             try {
                 try (var contents = REG.getCharacterReader(parseVSCodeURI(params.getUri()))) {

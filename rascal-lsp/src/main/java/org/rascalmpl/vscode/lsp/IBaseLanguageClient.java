@@ -67,12 +67,4 @@ public interface IBaseLanguageClient extends LanguageClient, IRemoteResolverRegi
     @JsonNotification
     void registerDebugServerPort(int processID, int serverPort);
 
-    /**
-     * Given a set of schemes, return the ones that client doesn't know yet
-     * @return the schemes not registered in the client
-     */
-    @JsonRequest
-    CompletableFuture<List<String>> checkUnregisteredSchemes(List<String> schemes);
-
-
 }

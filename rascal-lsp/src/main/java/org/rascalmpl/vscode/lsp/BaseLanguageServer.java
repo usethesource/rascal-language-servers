@@ -45,7 +45,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -65,17 +64,17 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.UnsupportedSchemeException;
+import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
+import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVSCode;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
-import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
@@ -226,7 +225,7 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer extends RascalFileSystemInVSCode implements IBaseLanguageServerExtensions, LanguageClientAware {
+    private static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
@@ -335,7 +334,6 @@ public abstract class BaseLanguageServer {
             var proxy = addShutdownDetectionTo(client);
             lspDocumentService.connect(proxy);
             lspWorkspaceService.connect(proxy);
-            connectRemoteRegistryClient(proxy);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(proxy, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
@@ -376,13 +374,27 @@ public abstract class BaseLanguageServer {
             Configurator.setRootLevel(l);
         }
 
-        @Override
-        public CompletableFuture<String[]> fileSystemSchemes() {
-            var reg = URIResolverRegistry.getInstance();
-            var inputs = reg.getRegisteredInputSchemes();
-            var logicals = reg.getRegisteredLogicalSchemes();
+        private static ISourceLocation toRascalLocation(ISourceLocation loc) {
+            if (Locations.isWrappedOpaque(loc)) {
+                throw RemoteIOError.translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal: " + loc.getScheme()));
+            }
+            return Locations.toClientLocation(loc);
+        }
 
-            return CompletableFutureUtils.completedFuture(Sets.union(inputs, logicals).toArray(String[]::new), executor);
+        @Override
+        public CompletableFuture<SourceLocationResponse> resolve(ISourceLocationRequest req) {
+            logger.trace("resolve: {}", req.getLocation());
+            return CompletableFuture.supplyAsync(() -> {
+                var loc = toRascalLocation(req.getLocation());
+                ISourceLocation resolved = null;
+                try {
+                    resolved = URIResolverRegistry.getInstance().logicalToPhysical(loc);
+                } catch (IOException ignored) { }
+                if (resolved == null) {
+                    resolved = loc;
+                }
+                return new SourceLocationResponse(resolved);
+            }, executor);
         }
     }
 }

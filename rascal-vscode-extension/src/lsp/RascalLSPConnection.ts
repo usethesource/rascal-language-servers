@@ -63,10 +63,6 @@ export async function activateLanguageClient(
         void openEditor(uri, range, viewColumn);
     });
 
-    client.onRequest("rascal/checkUnregisteredSchemes", (schemes: string[]) => {
-        return schemes.filter(s => vscode.workspace.fs.isWritableFileSystem(s) === undefined);
-    });
-
     void client.sendRequest<string[]>("rascal/vfs/schemes")
         .then(schemes => vfsServer.ignoreSchemes(schemes));
 
