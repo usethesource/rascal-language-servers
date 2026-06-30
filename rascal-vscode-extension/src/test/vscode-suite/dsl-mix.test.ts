@@ -26,7 +26,7 @@
  */
 import * as fs from 'fs/promises';
 import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, RascalREPL, sleep, src, TestWorkspace } from './utils';
+import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, src, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import path from 'path/posix';
 
@@ -49,10 +49,7 @@ describe('DSL [multi-language]', function () {
         for (const lang of languages) {
             await repl.execute(`import testing::lang::${lang.toLowerCase()}::LanguageServer;`, false, Delays.extremelySlow);
             const replExecuteMain = repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`); // we don't wait yet, because we might miss language loading window
-            const isLoading = isLanguageLoading(bench, lang);
-            await driver.wait(isLoading, Delays.extremelySlow, `${lang} should start loading`);
-            // now wait for the loader to disappear
-            await driver.wait(async () => !(await isLoading()), Delays.extremelySlow, `${lang} should be finished starting`, 100);
+            await startsAndStopsLoading(driver, bench, "loading");
             await replExecuteMain;
         }
 
