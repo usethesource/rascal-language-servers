@@ -26,7 +26,7 @@
  */
 
 import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -59,10 +59,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
-        const isPicoLoading = isLanguageLoading(bench, "Pico");
-        await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
-        // now wait for the Pico loader to disappear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
+        await startsAndStopsLoading(driver, bench, "Pico");
         await replExecuteMain;
         await repl.terminate();
     }
@@ -111,13 +108,8 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     it("has highlighting and parse errors", async function () {
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        const isPicoLoading = isLanguageLoading(bench, "Pico");
-        // we might miss this event, but we wait for it to show up
-        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
-        // now wait for the Pico parser generator to disappear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
+        await startsAndStopsLoading(driver, bench, "Pico", "generating a parser");
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
-        console.log("We got syntax highlighting");
         try {
             await editor.setTextAtLine(10, "b := ;");
             await ide.hasErrorSquiggly(editor, Delays.slow);
