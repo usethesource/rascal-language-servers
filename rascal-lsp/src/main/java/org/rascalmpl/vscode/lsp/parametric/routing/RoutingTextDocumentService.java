@@ -231,7 +231,6 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public void connect(LanguageClient client) {
-        logger.debug("Connecting client {}", client);
         this.client = client;
     }
 
