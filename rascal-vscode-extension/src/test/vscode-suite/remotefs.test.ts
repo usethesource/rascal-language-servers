@@ -101,55 +101,13 @@ describe('RemoteFS', function () {
     });
 
     // Rascal file system in VS Code
-
-    it("Watch operations in VS Code on Rascal file system", async () => {
+    it("Read from Rascal locations from VS Code", async () => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import IO;");
-        await repl.execute("l = |tmp:///rascal-remotefs-test/rascalfs-watch-test|;");
-        await repl.execute("testRoot = |rascal-vscode-test:///remotefs-api-test/|;");
-        await repl.execute('counterFile = testRoot + "test-rascalfs-counter";');
-        await repl.execute('writeFile(l, "")');
-        await repl.execute('readFile(testRoot + "test-rascalfs-initiate-watch")');
-        await repl.execute('readFile(counterFile) == "0"');
-        expect(repl.lastOutput).is.equal("bool: true", "Callback counter not at 0");
-
-        await repl.execute('writeFile(l, "aa")');
-        await driver.wait(async () => {
-            await repl.execute('readFile(counterFile) >= "1"');
-            return repl.lastOutput === "bool: true";
-        }, Delays.slow, "Callback counter not at 1", Delays.fast);
-
-
-        await repl.execute('oldCounter = readFile(counterFile);');
-        await repl.execute('writeFile(l, "bb")');
-        await driver.wait(async () => {
-            await repl.execute('readFile(counterFile) > oldCounter');
-            return repl.lastOutput === "bool: true";
-        }, Delays.slow, "Callback counter not increased", Delays.fast);
-
-        await repl.execute('readFile(counterFile)');
-        let previousOutput = repl.lastOutput;
-        await repl.execute('readFile(testRoot + "test-rascalfs-end-watch")');
-        await driver.wait(async () => {
-            await repl.execute('writeFile(l, "cc")');
-            await repl.execute('readFile(counterFile)');
-            if (repl.lastOutput !== previousOutput) {
-                previousOutput = repl.lastOutput;
-                return false;
-            }
-            return true;
-        }, Delays.slow, "Callback counter changed after watch ended", Delays.fast);
-    });
-
-    it("IO operations on Rascal locations from VS Code", async () => {
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
-        await repl.execute("import IO;");
-        await repl.execute("l = |tmp:///rascal-remotefs-test/rascal-test-file|;");
-        await repl.execute('writeFile(l, "")');
-        await repl.execute("readFile(|rascal-vscode-test:///remotefs-api-test/test-rascalfs-write|)");
-        await repl.execute('readFile(l) == "hi"');
+        await repl.execute("l = |compressed+tmp:///rascal-remotefs-test/rascal-test-file.gz|;");
+        await repl.execute('writeFile(l, "hi")');
+        await repl.execute('"readFile(|rascal-vscode-test:///remotefs-api-test/test-rascalfs-read|) == "hi"');
         expect(repl.lastOutput).is.equal("bool: true", "Writing Rascal Code fs works");
     });
 

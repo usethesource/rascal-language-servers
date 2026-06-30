@@ -33,22 +33,21 @@ import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
 import { LanguageRegistry } from './LanguageRegistry';
-import { RascalFileSystemInVSCode } from '../fs/RascalFileSystemInVSCode';
+import { SourceLocationResponse } from '../fs/JsonRpcMessages';
 
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
     public readonly rascalDebugClient: RascalDebugClient;
     public readonly languageRegistry: LanguageRegistry;
-    public readonly rascalVFS: Promise<RascalFileSystemInVSCode>;
 
     constructor(
         _context: vscode.ExtensionContext,
         vfsServer: VSCodeFileSystemInRascal,
         absoluteJarPath: string,
         dslLSP: ParameterizedLanguageServer,
-        logger: vscode.LogOutputChannel,
+        private readonly logger: vscode.LogOutputChannel,
         deployMode = true) {
-        const client = activateLanguageClient({
+        this.rascalClient = activateLanguageClient({
             deployMode: deployMode,
             devPort: 8888,
             isParametricServer: false,
@@ -59,8 +58,6 @@ export class RascalLanguageServer implements vscode.Disposable {
             dedicated: false,
             lspArg: undefined
         });
-        this.rascalClient = client.then(c => c[0]);
-        this.rascalVFS = client.then(c => c[1]);
 
         this.rascalDebugClient = new RascalDebugClient();
 
@@ -79,5 +76,89 @@ export class RascalLanguageServer implements vscode.Disposable {
         void this.rascalClient.then(c => c.dispose());
         this.languageRegistry.dispose();
     }
+
+    async resolve(uri: vscode.Uri, coordinates?: IRascalCoordinates) : Promise<[vscode.Uri, IRascalCoordinates | undefined]> {
+        this.logger.debug("[RascalLanguageServer] resolve: ", [uri, coordinates]);
+        const result = await (await this.rascalClient).sendRequest<SourceLocationResponse>("rascal/vfs/logical/resolve", {
+            loc: addCoordinates(toRascalUri(uri), coordinates)
+        });
+
+        if (!result.loc) {
+            this.logger.trace("[RascalFileSystemInVSCode] resolveClient return empty result for: ", uri);
+            return [uri, coordinates];
+        }
+        if (!result.loc.startsWith('|')) {
+            return [vscode.Uri.parse(result.loc), undefined];
+        }
+        return parseFullSourceLocation(result.loc);
+    }
+}
+
+function addCoordinates(uri: string, coordinates: IRascalCoordinates | undefined): string {
+    if (!coordinates) {
+        return uri;
+    }
+    let result = `|${uri}|(${coordinates.offsetLength[0]},${coordinates.offsetLength[1]}`;
+    if (coordinates.beginLineColumn && coordinates.endLineColumn) {
+        result += `,<${coordinates.beginLineColumn[0]},${coordinates.beginLineColumn[1]}>,<${coordinates.endLineColumn[0]},${coordinates.endLineColumn[1]}>`;
+    }
+    return result + ")";
+}
+
+// VS Code omits the leading two slashes from URIs if the autority is empty *and* the scheme is not equal to "file"
+// Rascal does not support this style of URIs, so we add the slashes before sending the URI over
+function toRascalUri(uri: vscode.Uri): string {
+    const uriString = uri.toString();
+    if (uri.authority === "" && uri.scheme !== "file") {
+        const colon = uri.scheme.length + 1;
+        return `${uriString.slice(0, colon)}//${uriString.slice(colon)}`;
+    }
+    return uriString;
+}
+
+function asNumberPair(ar: number[]): [number, number] {
+    if (ar.length !==  2) {
+        throw new Error(`Cannot convert ${ar} to tuple pair`);
+    }
+    return [ar[0]!, ar[1]!];
+}
+
+function parseFullSourceLocation(loc: string): [vscode.Uri, IRascalCoordinates | undefined] {
+    const [uriPart, coordinates] = loc.substring(1).split('|');
+    if (!uriPart) {
+        throw new vscode.FileSystemError(`Can not parse ${loc} as ISourceLocation`);
+    }
+    const base = vscode.Uri.parse(uriPart);
+    if (!coordinates) {
+        return [base, undefined];
+    }
+    if (!coordinates.startsWith('(') || !coordinates.endsWith(')')) {
+        throw new vscode.FileSystemError(`Can not parse ${loc} as ISourceLocation due to incorrect coordinates`);
+    }
+    const coords = coordinates.substring(1, coordinates.length - 1).match(/[0-9]+/g)?.map(c => parseInt(c));
+    if (!coords || coords.length < 2) {
+        throw new vscode.FileSystemError(`Can not parse ${loc} as ISourceLocation due to incorrect coordinates`);
+    }
+    const coord = <IRascalCoordinates>{
+        offsetLength: asNumberPair(coords.slice(0,2))
+    };
+    if (coords.length === 6) {
+        coord.beginLineColumn = asNumberPair(coords.slice(2, 4));
+        coord.endLineColumn = asNumberPair(coords.slice(4, 6));
+    }
+    else if (coords.length !== 2) {
+        throw new vscode.FileSystemError(`Can not parse ${loc} as ISourceLocation due to incorrect coordinates (${coords})`);
+    }
+    return [base, coord];
+}
+
+
+/**
+ * Rascal coordinates in unicode codepoints (so utf32/24)
+ */
+export interface IRascalCoordinates {
+    offsetLength: [offset: number, length: number];
+    beginLineColumn?: [line: number, column: number];
+    endLineColumn?: [line: number, column: number];
 }
 

@@ -26,7 +26,7 @@
  */
 import * as vscode from 'vscode';
 import { CancellationToken, ProviderResult, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
-import { IRascalCoordinates, RascalFileSystemInVSCode } from './fs/RascalFileSystemInVSCode';
+import { IRascalCoordinates, RascalLanguageServer } from './lsp/RascalLanguageServer';
 
 interface ExtendedLink extends TerminalLink {
     loc: SourceLocation;
@@ -42,7 +42,7 @@ interface SourceLocation {
  */
 export class RascalTerminalLinkProvider implements TerminalLinkProvider<ExtendedLink> {
 
-    constructor (private readonly client: Promise<RascalFileSystemInVSCode>) {
+    constructor (private readonly client: RascalLanguageServer) {
     }
 
     private readonly linkDetector =
@@ -68,7 +68,7 @@ export class RascalTerminalLinkProvider implements TerminalLinkProvider<Extended
             return vscode.commands.executeCommand("vscode.open", sloc.uri) ;
         }
 
-        const [uri, coordinates] = await (await this.client).resolve(vscode.Uri.parse(sloc.uri), sloc.coordinates);
+        const [uri, coordinates] = await  this.client.resolve(vscode.Uri.parse(sloc.uri), sloc.coordinates);
         const td = await vscode.workspace.openTextDocument(removeLSPPrefix(uri));
         const te = await vscode.window.showTextDocument(td);
 

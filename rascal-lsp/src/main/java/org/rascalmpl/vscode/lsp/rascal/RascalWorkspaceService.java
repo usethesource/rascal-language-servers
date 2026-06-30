@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -107,7 +108,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         super.initialized();
 
         if (supportsTextDocumentContent) {
-            registerTextDocumentContent(0);
+            registerAvailableSchemes();
         }
     }
 
@@ -116,57 +117,50 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         ((RascalTextDocumentService) availableDocumentService()).projectRemoved(loc);
     }
 
-    private void registerTextDocumentContent(int retryCount) {
-        // we don't want to collide with existing registrations in the client
-        // so we have to first ask what is already registered
-        // and only the ones that are not claimed yet, we claim as ours
-        // otherwise the LSP client crashes on the static registration
-        availableClient().checkUnregisteredSchemes(calculatePossibleSchemes())
-            .thenComposeAsync(schemes -> {
-                logger.info("Trying to register schemes in the client: {}", schemes);
-                if (!schemes.contains("jar+file")) {
-                    logger.error("We will not be registering schemes, as some-one else already provided jar+file, so we're running side-by side, skipped: {}", schemes);
-                    return CompletableFuture.completedStage(null);
-                }
-                return availableClient().registerCapability(
-                    new RegistrationParams(
-                        List.of(
-                            new Registration(
-                                UUID.randomUUID().toString(),
-                                "workspace/textDocumentContent",
-                                new TextDocumentContentRegistrationOptions(schemes)
-                            )
+    private void registerAvailableSchemes() {
+        var client = availableClient();
+        for (var scheme : calculatePossibleSchemes()) {
+            var schemeCopy = scheme;
+            logger.trace("Trying to register scheme in the client: {}", scheme);
+            client.registerCapability(
+                new RegistrationParams(
+                    List.of(
+                        new Registration(
+                            UUID.randomUUID().toString(),
+                            "workspace/textDocumentContent",
+                            new TextDocumentContentRegistrationOptions(List.of(schemeCopy))
                         )
                     )
-                );
-            }, getExecutor())
-            .exceptionally(ex -> {
-                logger.error("Could not register textDocumentContent", ex);
-                if (retryCount < 3) {
-                    logger.info("Retyring the register text document content, seeing if maybe we now can get a better list of the schemes still available");
-                    getExecutor().submit(() -> registerTextDocumentContent(retryCount + 1));
-                }
+                )
+            ).exceptionally(ex -> {
+                logger.error("Could not register textDocumentContent for scheme: {}", schemeCopy, ex);
                 return null;
             });
+        }
+
     }
+
+
+
+
+    private static final Set<String> GENERIC_SCHEMES = Set.of("file", "http", "https", "ftp");
+    private static final Set<String> CONTAINER_SCHEMES = Set.of("jar", "zip", "compressed");
+    private static final Set<String> IGNORED_SCHEMES = Set.of(URIUtil.unknownLocation().getScheme(), "memory", "lsp");
 
     private final Stream<String> allReadableSchemes() {
         return Stream.concat(
                 REG.getRegisteredInputSchemes().stream(),
                 REG.getRegisteredLogicalSchemes().stream()
-            ).filter(s -> !s.equals("lsp"));
+            ).filter(Predicate.not(IGNORED_SCHEMES::contains));
     }
-
-    private static final Set<String> GENERIC_SCHEMES = Set.of("file", "http", "https", "ftp");
-    private static final Set<String> CONTAINER_LOCS = Set.of("jar", "zip", "compressed");
 
     private List<String> calculatePossibleSchemes() {
         return Stream.concat(
             // rascal specific schemes
             allReadableSchemes().filter(Predicate.not(GENERIC_SCHEMES::contains)),
             // nested schemes like jar+file etc
-            allReadableSchemes().filter(Predicate.not(CONTAINER_LOCS::contains))
-                .flatMap(s -> CONTAINER_LOCS.stream().map(c -> c + "+" + s))
+            allReadableSchemes().filter(Predicate.not(CONTAINER_SCHEMES::contains))
+                .flatMap(s -> CONTAINER_SCHEMES.stream().map(c -> c + "+" + s))
         ).collect(Collectors.toList());
     }
 
@@ -175,7 +169,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     public CompletableFuture<TextDocumentContentResult> textDocumentContent(TextDocumentContentParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                try (var contents = REG.getCharacterReader(URIUtil.assumeCorrectLocation(params.getUri()))) {
+                try (var contents = REG.getCharacterReader(parseVSCodeURI(params.getUri()))) {
                     return new TextDocumentContentResult(Prelude.consumeInputStream(contents));
                 }
             } catch (IOException e) {
@@ -186,6 +180,17 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
                 throw new ResponseErrorException(new ResponseError(-100, "Could not read " + params.getUri() + "due to: " + message, e));
             }
         }, getExecutor());
+    }
+
+    private static ISourceLocation parseVSCodeURI(String uri) {
+        var plainUri = URIUtil.assumeCorrect(uri);
+        if ((plainUri.getAuthority() == null || plainUri.getAuthority().isEmpty()) && !plainUri.getScheme().equals("file")) {
+            // VS Code omits the leading two slashes from URIs if the autority is empty *and* the scheme is not equal to "file"
+            // Rascal does not support this style of URIs, so we add the slashes before sending the URI over
+            uri = uri.replaceFirst(":/", ":///");
+        }
+        return URIUtil.assumeCorrectLocation(uri);
+
     }
 
 
