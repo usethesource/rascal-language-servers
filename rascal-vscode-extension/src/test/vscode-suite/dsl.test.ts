@@ -84,8 +84,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ide.load();
         await loadPico();
         protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
-        ide = new IDEOperations(browser);
-        await ide.load();
     });
 
     after(async() => {

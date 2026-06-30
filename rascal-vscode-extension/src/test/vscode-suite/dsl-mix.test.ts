@@ -67,8 +67,6 @@ describe('DSL [multi-language]', function () {
         ide = new IDEOperations(browser);
         await ide.load();
         await loadLanguages();
-        ide = new IDEOperations(browser);
-        await ide.load();
     });
 
     after(async () => {
