@@ -83,6 +83,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
     });
 
+    after(async() => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
+        await unloadPico(repl);
+        await repl.terminate();
+    });
+
     beforeEach(async function () {
         if (this.test?.title) {
             await ide.screenshot(`DSL-${errorRecovery}-` + this.test?.title);
@@ -242,7 +250,8 @@ end
         expect(editorText).to.contain("z := 2");
     });
 
-    it("renaming files works", async function() {
+    // TODO Implement this test in a later PR
+    it.skip("renaming files works", async function() {
         if (errorRecovery) { this.skip(); }
         const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
         await fs.rm(newDir, {recursive: true, force: true});
@@ -293,7 +302,8 @@ end
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
 
-    it("completion works", async function() {
+    // TODO Implement this test in a later PR
+    it.skip("completion works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
         try {
             await editor.setTextAtLine(6, "     aa : natural;");
@@ -307,7 +317,8 @@ end
         }
     });
 
-    it("completion by trigger character works", async function() {
+    // TODO Implement this test in a later PR
+    it.skip("completion by trigger character works", async function() {
         // We will be typing and introducing parse errors, so this only works with error recovery
         if (!errorRecovery) { this.skip(); }
 

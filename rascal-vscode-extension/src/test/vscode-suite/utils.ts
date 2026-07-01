@@ -48,7 +48,7 @@ export class Delays {
     public static readonly extremelySlow =sec(120) * this.delayFactor;
 }
 
-function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
+export function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
 function target(project : string) { return path.join(project, 'target', 'classes', 'rascal'); }
 export class TestWorkspace {
     private static readonly workspacePrefix = 'test-workspace';
@@ -306,7 +306,7 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                const title = await ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
                 await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
