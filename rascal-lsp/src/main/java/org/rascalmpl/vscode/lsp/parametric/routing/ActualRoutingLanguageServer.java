@@ -484,13 +484,11 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             }
         }
 
-        return route(lang.getName()).handle((s, t) -> {
-            if (s == null) {
-                // Nothing to unregister
-                return CompletableFutureUtils.<Void>completedFuture(null, getExecutor());
-            }
-            return s.sendUnregisterLanguage(lang);
-        }).thenCompose(Function.identity());
+        return route(lang.getName()).handle((s, t) ->
+            s == null
+            ? CompletableFutureUtils.<Void>completedFuture(null, getExecutor())
+            : s.sendUnregisterLanguage(lang)
+        ).thenCompose(Function.identity());
     }
 
     @Override
