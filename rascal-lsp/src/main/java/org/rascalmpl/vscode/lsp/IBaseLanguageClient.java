@@ -27,16 +27,15 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.net.URI;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
-import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.uri.vfs.IRemoteResolverRegistryClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IString;
 

@@ -45,6 +45,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -73,8 +74,10 @@ import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
+import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
 
@@ -374,6 +377,16 @@ public abstract class BaseLanguageServer {
             Configurator.setRootLevel(l);
         }
 
+        @Override
+        public CompletableFuture<String[]> fileSystemSchemes() {
+            return CompletableFuture.supplyAsync(() -> {
+                var reg = URIResolverRegistry.getInstance();
+                var inputs = reg.getRegisteredInputSchemes();
+                var logicals = reg.getRegisteredLogicalSchemes();
+                return Sets.union(inputs, logicals).toArray(String[]::new);
+            }, executor);
+        }
+
         private static ISourceLocation toRascalLocation(ISourceLocation loc) {
             if (Locations.isWrappedOpaque(loc)) {
                 throw RemoteIOError.translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal: " + loc.getScheme()));
@@ -395,7 +408,9 @@ public abstract class BaseLanguageServer {
                     // debugging is broken.
                     try {
                         resolved = URIResolverRegistry.getInstance().logicalToPhysical(loc);
-                    } catch (IOException ignored) { }
+                    } catch (IOException ignored) {
+                        logger.trace("Resolving {} failed, but we ignored it", loc, ignored);
+                    }
                 }
                 if (resolved == null) {
                     resolved = loc;

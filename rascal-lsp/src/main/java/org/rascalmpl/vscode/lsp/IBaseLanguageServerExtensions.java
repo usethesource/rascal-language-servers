@@ -64,6 +64,10 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
     @JsonNotification
     void setMinimumLogLevel(String level);
 
+
+    @JsonRequest("vfs/schemes")
+    CompletableFuture<String[]> fileSystemSchemes();
+
     @JsonRequest("vfs/logical/resolve")
     CompletableFuture<SourceLocationResponse> resolve(ISourceLocationRequest req);
 }

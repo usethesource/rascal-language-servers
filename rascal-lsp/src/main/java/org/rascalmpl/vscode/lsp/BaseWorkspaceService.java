@@ -63,7 +63,7 @@ import io.usethesource.vallang.ISourceLocation;
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
 
-    private @MonotonicNonNull IBaseLanguageClient client;
+    private @MonotonicNonNull LanguageClient client;
 
     public static final String RASCAL_LANGUAGE = "Rascal";
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
@@ -81,17 +81,9 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     protected IBaseTextDocumentService availableDocumentService() {
         if (documentService == null) {
-            throw new IllegalStateException("Workspace service has not been constructed yet");
+            throw new IllegalStateException("Document service has not been constructed yet");
         }
         return documentService;
-    }
-
-    protected IBaseLanguageClient availableClient() {
-        if (client == null) {
-            throw new IllegalStateException("Workspace service has not been constructed yet");
-        }
-        return client;
-
     }
 
     public void pair(IBaseTextDocumentService documentService) {
@@ -119,14 +111,14 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     @Override
     public void connect(LanguageClient client) {
-        this.client = (IBaseLanguageClient)client;
+        this.client = client;
     }
 
     /**
      * After the client has been initialized, register dynamic capabilities.
      */
     @SuppressWarnings("java:S1172")
-    public void initialized() {
+    void initialized() {
         // not in use
     }
 
