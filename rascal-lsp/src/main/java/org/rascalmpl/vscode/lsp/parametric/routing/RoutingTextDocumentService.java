@@ -177,13 +177,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     }
 
     private <P, R> CompletableFuture<R> routeCompose(CompletableFuture<TextDocumentService> sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
-        return sf.thenCompose(s -> {
-            logger.trace("Calling endpoint with params: {}", params);
-            return endpoint.apply(s, params);
-        }).thenApply(r -> {
-            logger.trace("Return value: {}", r);
-            return r;
-        });
+        return sf.thenCompose(s -> endpoint.apply(s, params));
     }
 
     @Override
