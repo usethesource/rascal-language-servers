@@ -299,7 +299,7 @@
     "compile:tests": "npm run esbuild -- --tests",
     "pretest:ui": "npm run compile:tests",
     "pretest:normal": "npm run compile:tests",
-    "lint": "npx eslint",
+    "lint": "npx eslint src",
 
     "test:ui": "npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests",
     "test:normal": "npx mocha ./out/test/normal-suite/",
