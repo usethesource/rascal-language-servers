@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +79,6 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
     private final IBaseLanguageClient client;
     private final ExecutorService exec;
-    private final CompletableFuture<Void> noop;
 
     private final Map<String, Set<Registration>> currentRegistrations = new ConcurrentHashMap<>();
 
@@ -85,7 +86,6 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     protected MultipleClientProxy(LanguageClient client, ExecutorService exec) {
         this.client = (IBaseLanguageClient) client;
         this.exec = exec;
-        this.noop = CompletableFutureUtils.completedFuture(null, exec);
     }
 
     @Override
@@ -228,7 +228,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             if (similarRegOpt.isPresent()) {
                 logger.trace("A registration for {} with the same options already exists; ignoring this one", r.getMethod());
                 logger.trace("{} vs. {}", similarRegOpt.get(), r);
-                return noop;
+                return NOOP;
             }
 
             c.add(r);
@@ -263,7 +263,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     private CompletableFuture<Void> unregisterCapability(Unregistration u) {
         var c = currentRegistrations.get(u.getMethod());
         if (c == null) {
-            return noop;
+            return NOOP;
         }
 
         synchronized (c) {
@@ -271,7 +271,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             if (cs.isEmpty()) {
                 logger.trace("No registrations for {} exist; ignoring this request: {}", u.getMethod(), u);
                 // No registrations => nothing to unregister
-                return noop;
+                return NOOP;
             }
 
             c.removeAll(cs);
