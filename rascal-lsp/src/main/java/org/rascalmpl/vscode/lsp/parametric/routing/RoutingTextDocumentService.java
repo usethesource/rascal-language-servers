@@ -191,13 +191,6 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         throw new UnsupportedOperationException("extensions() should not be called on the routing server, but only on delegate servers.");
     }
 
-    private LanguageClient availableClient() {
-        if (client == null) {
-            throw new IllegalStateException("Client not connected yet.");
-        }
-        return client;
-    }
-
     @Override
     public void didOpen(DidOpenTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
