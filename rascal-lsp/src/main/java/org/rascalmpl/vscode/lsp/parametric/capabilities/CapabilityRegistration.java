@@ -75,8 +75,6 @@ public class CapabilityRegistration {
     private final Set<AbstractDynamicCapability<?>> staticCapabilities;
 
     private final AtomicReference<Collection<ICapabilityParams>> lastParams = new AtomicReference<>(Collections.emptyList());
-    private final AtomicReference<CompletableFuture<Void>> currentUpdate;
-
     // Map of method names with current registration values
     private final Map<String, Registration> currentRegistrations = new ConcurrentHashMap<>();
 
@@ -89,7 +87,6 @@ public class CapabilityRegistration {
         this.client = client;
         this.exec = exec;
         this.noop = CompletableFutureUtils.completedFuture(null, exec);
-        this.currentUpdate = new AtomicReference<>(noop);
 
         // Check whether to register capabilities dynamically or statically
         var dynamicCaps = new HashSet<AbstractDynamicCapability<?>>();
@@ -123,7 +120,9 @@ public class CapabilityRegistration {
      * @return A future that completes with a boolean that is false when any registration failed, and true otherwise.
      */
     public CompletableFuture<Void> update(Collection<ICapabilityParams> languages) {
+        logger.debug("Updating {} dynamic capabilities for {} languages", dynamicCapabilities.size(), languages.size());
         // Copy the contributions so we know we are looking at a stable collection of elements.
+
         /*
             *VERY IMPORTANT* Setting the atomic reference from the thread that called us.
             We need to be sure that the `lastContributions` reference actually points to the most recently known contributions.
@@ -131,11 +130,6 @@ public class CapabilityRegistration {
             Additionally, this function should be called from a thread pool with predictable execution order.
         */
         lastParams.set(List.copyOf(languages));
-        return currentUpdate.updateAndGet(current -> current.thenComposeAsync(v -> doUpdate(languages), exec));
-    }
-
-    private CompletableFuture<Void> doUpdate(Collection<ICapabilityParams> languages) {
-        logger.debug("Updating {} dynamic capabilities for {} languages", dynamicCapabilities.size(), languages.size());
         return CompletableFutureUtils.reduce(dynamicCapabilities.stream().map(this::updateRegistration), exec)
             .thenAccept(_v -> logger.debug("Done updating dynamic capabilities"));
     }
