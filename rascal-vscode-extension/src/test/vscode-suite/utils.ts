@@ -32,7 +32,7 @@ import { readdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import * as os from 'os';
 import path from "path/posix";
 import { env } from "process";
-import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, NotificationType, TerminalView, TextEditor, until, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -217,7 +217,7 @@ export class IDEOperations {
         this.driver = browser.driver;
     }
 
-    async load() {
+    async load(logLevel: LogLevel = "Debug") {
         await ignoreFails(this.browser.waitForWorkbench(Delays.slow));
         for (let t = 0; t < 5; t++) {
             try {
@@ -235,7 +235,7 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
-        await assureDebugLevelLoggingIsEnabled();
+        await setLogLevel(logLevel);
     }
 
     async cleanup() {
@@ -508,17 +508,13 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     return outputView;
 }
 
-let alreadySetup = false;
+type LogLevel = "Trace" | "Debug" | "Info" | "Warning" | "Error" | "Off";
 
-async function assureDebugLevelLoggingIsEnabled() {
-    if (alreadySetup) {
-        return;
-    }
-    alreadySetup = true; // to avoid doing this twice/parallel
+async function setLogLevel(logLevel: LogLevel) {
     const prompt = await new Workbench().openCommandPrompt();
     await prompt.setText(">workbench.action.setLogLevel");
     await prompt.confirm();
-    await prompt.setText("Debug");
+    await prompt.setText(logLevel);
     await prompt.confirm();
 }
 
@@ -592,6 +588,22 @@ export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal'
 
         console.log('*******End output*****************************');
     });
+}
+
+export function isLanguageLoading(bench: Workbench, language: string): () => Promise<boolean> {
+    return async () => {
+        const center = await bench.openNotificationsCenter();
+        const notifications = await center.getNotifications(NotificationType.Info);
+        const messages = await Promise.all(notifications.map(n => n.getMessage()));
+        await center.close();
+        return messages.find(msg => msg.startsWith(`${language}`)) !== undefined;
+    };
+}
+
+export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", doneTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
+    const isLoading = isLanguageLoading(bench, language);
+    await driver.wait(ignoreFails(isLoading()), Delays.normal, `${language} should start ${message}`, pollInterval);
+    await driver.wait(async () => (await ignoreFails(isLoading())) === false, doneTimeout, `${language} should stop ${message}`, pollInterval);
 }
 
 export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
