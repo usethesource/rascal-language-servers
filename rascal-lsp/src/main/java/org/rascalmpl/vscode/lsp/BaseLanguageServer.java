@@ -402,7 +402,7 @@ public abstract class BaseLanguageServer {
                 ISourceLocation resolved = null;
                 if (!loc.getScheme().equals("std")) {
                     // TODO: this works around the fact that `std` is a bit of a broken scheme in
-                    // VS Code, as REPL 1 migh have a different std than REPL2, and again different from the
+                    // VS Code, as REPL 1 might have a different std than REPL 2, and again different from the
                     // rascal-lsp server
                     // In a follow-up PR we should reconsider how we deal with std, but if we rewrite it here
                     // debugging is broken.

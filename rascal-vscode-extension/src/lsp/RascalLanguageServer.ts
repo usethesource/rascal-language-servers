@@ -26,7 +26,7 @@
  */
 import * as vscode from 'vscode';
 
-import { BaseLanguageClient } from 'vscode-languageclient';
+import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
 import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 import { activateLanguageClient } from './RascalLSPConnection';
 import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
@@ -34,6 +34,7 @@ import { RascalDebugClient } from '../dap/RascalDebugClient';
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
 import { LanguageRegistry } from './LanguageRegistry';
 import { SourceLocationResponse } from '../fs/JsonRpcMessages';
+import { RemoteIOError } from '../fs/RemoteIOError';
 
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
@@ -77,11 +78,19 @@ export class RascalLanguageServer implements vscode.Disposable {
         this.languageRegistry.dispose();
     }
 
+    private async requestResolve(uri: vscode.Uri, coordinates?: IRascalCoordinates): Promise<SourceLocationResponse> {
+        try {
+            return (await this.rascalClient).sendRequest("rascal/vfs/logical/resolve", {
+                loc: addCoordinates(toRascalUri(uri), coordinates)
+            });
+        } catch (error) {
+            throw RemoteIOError.translateResponseError(error as ResponseError, uri, this.logger);
+        }
+    }
+
     async resolve(uri: vscode.Uri, coordinates?: IRascalCoordinates) : Promise<[vscode.Uri, IRascalCoordinates | undefined]> {
         this.logger.debug("[RascalLanguageServer] resolve: ", [uri, coordinates]);
-        const result = await (await this.rascalClient).sendRequest<SourceLocationResponse>("rascal/vfs/logical/resolve", {
-            loc: addCoordinates(toRascalUri(uri), coordinates)
-        });
+        const result = await this.requestResolve(uri, coordinates);
 
         if (!result.loc) {
             this.logger.trace("[RascalFileSystemInVSCode] resolveClient return empty result for: ", uri);

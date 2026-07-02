@@ -62,6 +62,7 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.util.Nullables;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import io.usethesource.vallang.ISourceLocation;
 
 public class RascalWorkspaceService extends BaseWorkspaceService {
@@ -119,7 +120,6 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     private void registerAvailableSchemes() {
         var client = availableClient();
         for (var scheme : calculatePossibleSchemes()) {
-            var schemeCopy = scheme;
             logger.trace("Trying to register scheme in the client: {}", scheme);
             client.registerCapability(
                 new RegistrationParams(
@@ -127,12 +127,12 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
                         new Registration(
                             UUID.randomUUID().toString(),
                             "workspace/textDocumentContent",
-                            new TextDocumentContentRegistrationOptions(List.of(schemeCopy))
+                            new TextDocumentContentRegistrationOptions(List.of(scheme))
                         )
                     )
                 )
             ).exceptionally(ex -> {
-                logger.error("Could not register textDocumentContent for scheme: {}", schemeCopy, ex);
+                logger.error("Could not register textDocumentContent for scheme: {}", scheme, ex);
                 return null;
             });
         }
@@ -166,7 +166,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         logger.trace("textDocumentContent for {}", params.getUri());
         return CompletableFuture.supplyAsync(() -> {
             try {
-                try (var contents = REG.getCharacterReader(parseVSCodeURI(params.getUri()))) {
+                try (var contents = REG.getCharacterReader(Locations.toClientLocation(URIUtil.assumeCorrectLocation(params.getUri())))) {
                     return new TextDocumentContentResult(Prelude.consumeInputStream(contents));
                 }
             } catch (IOException e) {
@@ -179,16 +179,6 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         }, getExecutor());
     }
 
-    private static ISourceLocation parseVSCodeURI(String uri) {
-        var plainUri = URIUtil.assumeCorrect(uri);
-        if ((plainUri.getAuthority() == null || plainUri.getAuthority().isEmpty()) && !plainUri.getScheme().equals("file")) {
-            // VS Code omits the leading two slashes from URIs if the autority is empty *and* the scheme is not equal to "file"
-            // Rascal does not support this style of URIs, so we add the slashes before sending the URI over
-            uri = uri.replaceFirst(":/", ":///");
-        }
-        return URIUtil.assumeCorrectLocation(uri);
-
-    }
 
 
 }
