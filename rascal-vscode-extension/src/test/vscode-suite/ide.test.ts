@@ -29,7 +29,7 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
+import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -85,7 +85,7 @@ describe('IDE', function () {
         try {
             await ide.openModule(TestWorkspace.mainFile);
             let statusBarSeen = false;
-            const checkRascalStatus = ide.statusContains("Loading Rascal");
+            const checkRascalStatus = () => ignoreFails(isLanguageLoading(bench, "Rascal")());
 
             for (let tries = 0; tries < 10 && !statusBarSeen; tries++) {
                 if (await checkRascalStatus()) {
@@ -98,7 +98,7 @@ describe('IDE', function () {
             if (statusBarSeen) {
                 console.log("Waiting for startup of rascal core");
                 for (let tries = 0; tries < 70; tries++) {
-                    if (!await checkRascalStatus()) {
+                    if (await checkRascalStatus() === false) {
                         return;
                     }
                     await sleep(delay / 80);
@@ -194,8 +194,8 @@ describe('IDE', function () {
         await editor.moveCursor(7, 15);
 
         // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = ide.statusContains("Loading Rascal");
-        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
+        await driver.wait(async () => await ignoreFails(checkRascalStatus()) === false, Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         await ide.renameSymbol(editor, bench, "i");
 
@@ -216,8 +216,8 @@ describe('IDE', function () {
         const libFile = await ide.openModule(TestWorkspace.libFile);
 
         // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = ide.statusContains("Loading Rascal");
-        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
+        await driver.wait(async () => await ignoreFails(checkRascalStatus()) === false, Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         await ide.moveFile("Lib.rsc", "lib", bench);
 
