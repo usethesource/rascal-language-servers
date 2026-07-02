@@ -141,7 +141,13 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
 
     private static final Set<String> GENERIC_SCHEMES = Set.of("file", "http", "https", "ftp", "tmp" /* VS Code has this one for itself */);
     private static final Set<String> CONTAINER_SCHEMES = Set.of("jar", "zip", "compressed");
-    private static final Set<String> IGNORED_SCHEMES = Set.of(URIUtil.unknownLocation().getScheme(), "memory", "lsp");
+    private static final Set<String> IGNORED_SCHEMES = Set.of(
+        URIUtil.unknownLocation().getScheme(), // invalid scheme, never read from this
+        "lsp", // an internal scheme that should not be exposed to VS Code
+        "memory", // unclear whose memory
+        "project",  "target", // an scheme that VS Code should never read as it should be translated to file paths to align with VS Code open file tabs
+        "PATH", "cwd", "cwdrive" // unclear whose path / cwd
+    );
 
     private final Stream<String> allReadableSchemes() {
         return Stream.concat(
