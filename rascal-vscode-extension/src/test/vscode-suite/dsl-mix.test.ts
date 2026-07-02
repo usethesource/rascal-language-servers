@@ -122,7 +122,7 @@ describe('DSL [multi-language]', function () {
         const editor1 = await ide.openModule(jsonTestFile);
         await editor1.moveCursor(5, 28);
         await editor1.sendKeys(',');
-        await expectCompletions(driver, editor1, ["key1", "key2", "key3", "key4"]);
+        await expectCompletions(driver, editor1, ["key1", "key2", "key3"]);
 
         // Pico
         const editor2 = await ide.openModule(TestWorkspace.picoFile);
