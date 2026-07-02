@@ -35,7 +35,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
     <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
-    <log4j2.version>2.26.0</log4j2.version>
+    <log4j2.version>2.26.1</log4j2.version>
     <mockito.version>5.23.0</mockito.version>
     <sonar.organization>usethesource</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
