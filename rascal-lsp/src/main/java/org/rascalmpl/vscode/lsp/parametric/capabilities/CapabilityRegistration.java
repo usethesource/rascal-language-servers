@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
+import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -69,7 +71,6 @@ public class CapabilityRegistration {
 
     private final LanguageClient client;
     private final Executor exec;
-    private final CompletableFuture<Void> noop;
 
     private final Set<AbstractDynamicCapability<?>> dynamicCapabilities;
     private final Set<AbstractDynamicCapability<?>> staticCapabilities;
@@ -86,7 +87,6 @@ public class CapabilityRegistration {
     public CapabilityRegistration(LanguageClient client, Executor exec, ClientCapabilities clientCapabilities, AbstractDynamicCapability<?>... supportedCapabilities) {
         this.client = client;
         this.exec = exec;
-        this.noop = CompletableFutureUtils.completedFuture(null, exec);
 
         // Check whether to register capabilities dynamically or statically
         var dynamicCaps = new HashSet<AbstractDynamicCapability<?>>();
@@ -180,7 +180,7 @@ public class CapabilityRegistration {
                 if (registration == null) {
                     if (existingRegistration == null) {
                         logger.trace("Capability {} is still not supported by contributions", method);
-                        result = noop;
+                        result = NOOP;
                     } else {
                         logger.debug("Capability {} is no longer supported by contributions", method);
                         result = unregister(existingRegistration);
@@ -188,7 +188,7 @@ public class CapabilityRegistration {
                 } else if (existingRegistration != null) { // registration != null
                     if (Objects.deepEquals(registration.getRegisterOptions(), existingRegistration.getRegisterOptions())) {
                         logger.trace("Options for capability {} did not change since last registration", method);
-                        result = noop;
+                        result = NOOP;
                     } else {
                         logger.debug("Options for capability {} changed since the previous registration [options in trace]", method);
                         logger.trace("({} vs. {})", registration.getRegisterOptions(), existingRegistration.getRegisterOptions());
@@ -204,13 +204,13 @@ public class CapabilityRegistration {
                     if (t != null) {
                         // An error occurred. Inform the user and do not recurse.
                         handleError(t, cap);
-                        return noop;
+                        return NOOP;
                     }
 
                     // Ensure that the registration is eventually consistent.
                     if (Objects.equals(currentRegistrations.get(method), registration) && lastParams.get() == params) {
                         // Our update persisted and the contributions did not change in the meantime. Success!
-                        return noop;
+                        return NOOP;
                     }
 
                     // Something changed while we were busy.
@@ -235,7 +235,7 @@ public class CapabilityRegistration {
         var removed = currentRegistrations.remove(method, reg);
         if (!removed) {
             // We lost a race. Someone else claimed this registration already. Do nothing, and let out caller handle the rest.
-            return noop;
+            return NOOP;
         }
 
         logger.trace("Unregistering capability {}", reg.getMethod());
@@ -259,7 +259,7 @@ public class CapabilityRegistration {
         var updatedReg = currentRegistrations.compute(method, (k, v) -> Objects.equals(v, existingRegistration) ? reg : v); // atomically replace, but allow null value
         if (updatedReg != reg) {
             // We lost a race. Someone else claimed this registration already. Do nothing, and let out caller handle the rest.
-            return noop;
+            return NOOP;
         }
 
         logger.trace("Registering capability {}", reg.getMethod());
