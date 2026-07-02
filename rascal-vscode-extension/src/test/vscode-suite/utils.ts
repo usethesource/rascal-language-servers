@@ -606,18 +606,20 @@ export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench,
     await driver.wait(async () => (await ignoreFails(isLoading())) === false, doneTimeout, `${language} should stop ${message}`, pollInterval);
 }
 
-export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
-    await driver.wait(async () => {
+export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[] | Set<string>) {
+    const labels = await driver.wait(async () => {
         try {
             const completionMenu = new ContentAssist(editor);
+            if (!await completionMenu.isLoaded()) {
+                return undefined;
+            }
             const completions = await completionMenu.getItems();
-            const labels = await Promise.all(completions.map(c => c.getLabel()));
-            return labels.every(l => expectedLabels.includes(l))
-                && expectedLabels.every(l => labels.includes(l));
+            return await Promise.all(completions.map(c => c.getLabel()));
         } catch (e) {
-            return false;
+            return undefined;
         }
-    }, Delays.fast, `Completion items do not equal ${expectedLabels}`);
+    }, Delays.fast, "Completion items cannot be found");
+    expect(expectedLabels instanceof Set ? new Set<string>(labels) : labels).to.deep.equal(expectedLabels);
 }
 
 

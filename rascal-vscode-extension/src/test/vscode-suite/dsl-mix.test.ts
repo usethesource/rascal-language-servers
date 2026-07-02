@@ -26,7 +26,7 @@
  */
 import * as fs from 'fs/promises';
 import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, src, startsAndStopsLoading, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, src, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import path from 'path/posix';
 
@@ -37,6 +37,8 @@ describe('DSL [multi-language]', function () {
     let ide : IDEOperations;
 
     const languages = ["Pico", "JSON2"];
+    const jsonExampleDir = src(TestWorkspace.testProject, 'json2');
+    const jsonTestFile = path.join(jsonExampleDir, 'example.json2');
 
     this.timeout(Delays.extremelySlow * 2);
 
@@ -97,10 +99,8 @@ describe('DSL [multi-language]', function () {
     });
 
     it("reads unsaved editor contents across languages", async function() {
-        const exampleDir = src(TestWorkspace.testProject, 'json2');
-        const targetFile = path.join(exampleDir, "example-copy.json2");
-
-        const editor1 = await ide.openModule(path.join(exampleDir, 'example.json2'));
+        const targetFile = path.join(jsonExampleDir, "example-copy.json2");
+        const editor1 = await ide.openModule(jsonTestFile);
         try {
             await editor1.setTextAtLine(6, '}, "key5": "unsaved"');
             await fs.writeFile(targetFile, "{}");
@@ -115,5 +115,19 @@ describe('DSL [multi-language]', function () {
             await ide.revertOpenChanges();
             await fs.unlink(targetFile);
         }
+    });
+
+    it("completes by trigger character for multiple languages", async function() {
+        // JSON
+        const editor1 = await ide.openModule(jsonTestFile);
+        await editor1.moveCursor(5, 28);
+        await editor1.sendKeys(',');
+        await expectCompletions(driver, editor1, ["key1", "key2", "key3", "key4"]);
+
+        // Pico
+        const editor2 = await ide.openModule(TestWorkspace.picoFile);
+        await editor2.moveCursor(10, 10);
+        await editor2.typeText("  x :=");
+        await expectCompletions(driver, editor2, ["a", "b", "n", "x"]);
     });
 });
