@@ -33,8 +33,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -147,15 +147,24 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         return availableServerRouter().allRoutes(server -> server.thenApply(LanguageServer::getTextDocumentService));
     }
 
-    private CompletableFuture<Void> notifyAllRoutes(Consumer<TextDocumentService> notify) {
-        return CompletableFutureUtils.reduce(allRoutes(s -> {
-            try {
-                return s.thenAccept(notify);
-            } catch (Exception e) {
-                logger.catching(e);
-                return CompletableFutureUtils.<Void>completedFuture(null, exec);
-            }
-        }), exec).thenAccept(v -> {});
+    /**
+     * Notify all remote servers and wait for their response.
+     */
+    private <P> void notifyAllRemotes(BiConsumer<TextDocumentService, P> notify, P params) {
+        try {
+            CompletableFutureUtils.reduce(allRoutes(r -> {
+                try {
+                    return r.thenAccept(s -> notify.accept(s, params));
+                } catch (Exception e) {
+                    logger.error("Unexpected error while notifying all remote servers", e);
+                    return CompletableFutureUtils.<Void>completedFuture(null, exec);
+                }
+            }), exec).get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            logger.catching(e);
+        }
     }
 
     @Override
@@ -191,14 +200,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         openFile(params.getTextDocument(), l -> (loc, contents) -> CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().character(0), exec), timestamp, exec);
 
         // Inform all remote servers about this file, so they can maintain its state.
-        // Note: floating futures
-        try {
-            notifyAllRoutes(s -> s.didOpen(params)).get(1, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException | TimeoutException e) {
-            logger.catching(e);
-        }
+        notifyAllRemotes(TextDocumentService::didOpen, params);
     }
 
     @Override
@@ -207,14 +209,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         updateContents(params, timestamp);
 
         // Inform all remote servers about this file, so they can maintain its state.
-        // Note: floating futures
-        try {
-            notifyAllRoutes(s -> s.didChange(params)).get(1, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException | TimeoutException e) {
-            logger.catching(e);
-        }
+        notifyAllRemotes(TextDocumentService::didChange, params);
     }
 
     @Override
@@ -222,14 +217,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         closeFile(Locations.toLoc(params.getTextDocument()));
 
         // Inform all remote servers about this file, so they can maintain its state.
-        // Note: floating futures
-        try {
-            notifyAllRoutes(s -> s.didClose(params)).get(1, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException | TimeoutException e) {
-            logger.catching(e);
-        }
+        notifyAllRemotes(TextDocumentService::didClose, params);
     }
 
     @Override
