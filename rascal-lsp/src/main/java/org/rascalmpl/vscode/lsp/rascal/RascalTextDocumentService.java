@@ -105,6 +105,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
@@ -245,8 +246,17 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         triggerAnalyzer(changed, NORMAL_DEBOUNCE);
     }
 
+    private boolean isOpenInWorkspace(ISourceLocation loc) {
+        return availableWorkspaceServices().workspaceFolders()
+            .stream()
+            .map(f -> URIUtil.assumeCorrectLocation(f.getUri()))
+            .anyMatch(f -> URIUtil.isParentOf(f, loc));
+    }
+
     private void triggerAnalyzer(TextDocumentState state, Duration delay) {
-        availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
+        if (isOpenInWorkspace(state.getLocation())) {
+            availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
+        }
     }
 
 
