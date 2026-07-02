@@ -324,7 +324,7 @@
     "@tsconfig/strictest": "2.x",
     "@types/chai": "5.x",
     "@types/mocha": "10.x",
-    "@types/node": "20.x",
+    "@types/node": "26.x",
     "@types/vscode": "1.100.0",
     "@types/yauzl": "3.x",
     "@typescript-eslint/eslint-plugin": "7.x",
