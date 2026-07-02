@@ -137,7 +137,7 @@ set[LanguageService] testingLanguageServerWithRecovery() = testingLanguageServer
 set[LanguageService] testingLanguageServerSlowSummary() = testingLanguageServerSlowSummary(false);
 set[LanguageService] testingLanguageServerSlowSummaryWithRecovery() = testingLanguageServerSlowSummary(true);
 
-void register(bool errorRecovery=false) {
+void register(bool errorRecovery=true) {
     pcfg = getPicoPathConfig();
 
     // Since there might be an existing registration with a different error recovery setting, we unregister it here first.

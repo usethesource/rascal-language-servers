@@ -41,8 +41,65 @@ private Tree (str _input, loc _origin) jsonParser(bool allowRecovery) {
 }
 
 set[LanguageService] jsonLanguageServer() = {
-    parsing(jsonParser(true), usesSpecialCaseHighlighting = false)
+    parsing(jsonParser(true), usesSpecialCaseHighlighting = false),
+    completion(jsonCompletion, additionalTriggerCharacters = [",", "{", "[", ":"])
 };
+
+list[CompletionItem] builtinLiteralCompletion(int cc)
+    = [completionItem(constant(), completionEdit(cc, cc, cc, l), l) | l <- {"true", "false"}]
+    + [completionItem(constant(), completionEdit(cc, cc, cc, "null"), "null")]
+    ;
+
+list[CompletionItem] usedLiteralCompletion(Tree t, int cc)
+    = [completionItem(constant(), completionEdit(cc, cc, cc, v), v) | v <- collectLiterals(t)]
+    ;
+
+list[CompletionItem] usedKeyCompletion(Tree t, int cc)
+    = [completionItem(key(), completionEdit(cc, cc, cc, v), v) | v <- collectKeys(t)]
+    ;
+
+list[CompletionItem] objectCompletion(int cc)
+    = [completionItem(struct(), completionEdit(cc, cc, cc, "{${1:\"key\"}: ${2:\"value\"}}$0", snippet=true), "object")]
+    ;
+
+list[CompletionItem] jsonCompletion(Focus focus, int cursorOffset, character(":"))
+    = objectCompletion(cc)
+    + builtinLiteralCompletion(cc)
+    + usedLiteralCompletion(focus[-1], cc)
+    when cc := focus[0].src.begin.column + cursorOffset;
+
+list[CompletionItem] jsonCompletion(Focus focus, int cursorOffset, character(","))
+    = usedKeyCompletion(focus[-1], cc)
+    when isCompletingObject(focus)
+       , cc := focus[0].src.begin.column + cursorOffset;
+
+list[CompletionItem] jsonCompletion(Focus focus, int cursorOffset, character(","))
+    = objectCompletion(cc)
+    + builtinLiteralCompletion(cc)
+    + usedLiteralCompletion(focus[-1], cc)
+    when !isCompletingObject(focus)
+       , cc := focus[0].src.begin.column + cursorOffset;
+
+list[CompletionItem] jsonCompletion(Focus focus, int cursorOffset, character("{"))
+    = [completionItem(key(), completionEdit(cc, cc, cc, "\"$1\"", snippet=true), "key")]
+    + usedKeyCompletion(focus[-1], cc)
+    when cc := focus[0].src.begin.column + cursorOffset;
+
+default list[CompletionItem] jsonCompletion(Focus _focus, int cursorOffset, CompletionTrigger trigger) = [];
+
+bool isCompletingObject([*_, Object _, *_, Array _, *_]) = true;
+bool isCompletingObject([*_, Array _, *_, Object _, *_]) = false;
+bool isCompletingObject([*_, Object _, *_]) = true;
+bool isCompletingObject([*_, Array _, *_]) = false;
+default bool isCompletingObject(Focus _) = false;
+
+set[str] collectLiterals(Tree t)
+    = {"<v>" | /NumericLiteral v := t}
+    + {"<v>" | /StringLiteral v := t}
+    ;
+
+set[str] collectKeys(Tree t)
+    = {"<k>" | /(Member) `<StringLiteral k>: <Value _>` := t};
 
 PathConfig getJsonPathConfig() {
     loc root;
@@ -58,6 +115,7 @@ PathConfig getJsonPathConfig() {
 
 void register() {
     pcfg = getJsonPathConfig();
+    unregisterLanguage("JSON2", {"json2"});
     registerLanguage(
         language(
             pcfg,
