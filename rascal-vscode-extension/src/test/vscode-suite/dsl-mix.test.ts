@@ -26,7 +26,7 @@
  */
 import * as fs from 'fs/promises';
 import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, sleep, src, startsAndStopsLoading, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, src, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import path from 'path/posix';
 
@@ -35,6 +35,7 @@ describe('DSL [multi-language]', function () {
     let driver: WebDriver;
     let bench: Workbench;
     let ide : IDEOperations;
+    let protectedFiles: ProtectedFiles;
 
     const languages = ["Pico", "JSON2"];
     const jsonExampleDir = src(TestWorkspace.testProject, 'json2');
@@ -66,6 +67,7 @@ describe('DSL [multi-language]', function () {
         ide = new IDEOperations(browser);
         await ide.load();
         await loadLanguages();
+        protectedFiles = await ProtectedFiles.protect(jsonTestFile);
     });
 
     after(async () => {
@@ -96,6 +98,7 @@ describe('DSL [multi-language]', function () {
             await ide.screenshot(`DSL-mix-${this.test?.title}`);
         }
         await ide.cleanup();
+        await protectedFiles.restore();
     });
 
     it("reads unsaved editor contents across languages", async function() {
