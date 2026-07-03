@@ -333,13 +333,18 @@ export class IDEOperations {
 
     async openModule(file: string): Promise<TextEditor> {
         await this.browser.openResources(file);
+        return this.findOpenEditor(file);
+    }
+
+    async findOpenEditor(file: string, timeout = Delays.normal, message = `Could not open file: ${file}`) : Promise<TextEditor> {
         return this.driver.wait(async () => {
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }
             return undefined;
-        }, Delays.normal, `Could not open file: ${file}`) as Promise<TextEditor>;
+        }, timeout, message) as Promise<TextEditor>;
+
     }
 
     async appendSpace(editor: TextEditor, line = 1) {

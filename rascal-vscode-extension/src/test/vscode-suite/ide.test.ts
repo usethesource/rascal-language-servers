@@ -111,11 +111,6 @@ describe('IDE', function () {
         }
     }
 
-    function waitForActiveEditor(title: string, timeout: number, message: string) {
-        return driver.wait(async () =>
-            (await (await bench.getEditorView().getActiveTab())?.getTitle()) === title, timeout, message);
-    }
-
     it("has syntax highlighting and parsing errors", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
@@ -154,20 +149,20 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
+        const editorIO = await ide.findOpenEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
 
         // Warning: changes to `IO` might break the lookups/locations from here on.
         // Update the test expectations when this is the case.
-        await editor.selectText(selectId, 6);
-        const defLoc = await editor.getCoordinates();
+        await editorIO.selectText(selectId, 6);
+        const defLoc = await editorIO.getCoordinates();
 
-        await editor.selectText(selectId, 7);
-        const useLoc = await editor.getCoordinates();
+        await editorIO.selectText(selectId, 7);
+        const useLoc = await editorIO.getCoordinates();
 
         expect(useLoc).not.to.deep.equal(defLoc, "Expected cursor to be elsewhere - def and use location are equal");
         await bench.executeCommand("Go to Definition");
         await driver.wait(async () => {
-            const jumpLoc = await editor.getCoordinates();
+            const jumpLoc = await editorIO.getCoordinates();
             return jumpLoc[0] === defLoc[0]                    // Jump to def line
                 && jumpLoc[1] === defLoc[1] - selectId.length; // Jump to left side of def
         }, Delays.normal, "Expected cursor to jump to the definition");
@@ -178,7 +173,7 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
+        await ide.findOpenEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
     });
 
     it("outline works", async () => {

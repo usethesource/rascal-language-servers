@@ -316,7 +316,7 @@
   "dependencies": {
     "jsonc-parser": "3.x",
     "tar": "7.x",
-    "vscode-languageclient": "9.x",
+    "vscode-languageclient": "10.x",
     "yauzl": "3.x"
   },
   "devDependencies": {
