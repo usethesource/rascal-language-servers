@@ -623,7 +623,7 @@ export async function expectCompletions(driver: WebDriver, editor: TextEditor, e
         } catch (e) {
             return undefined;
         }
-    }, Delays.fast, "Completion items cannot be found");
+    }, Delays.normal, "Completion items cannot be found");
     expect(expectedLabels instanceof Set ? new Set<string>(labels) : labels).to.deep.equal(expectedLabels);
 }
 

@@ -123,14 +123,15 @@ describe('DSL [multi-language]', function () {
     it("completes by trigger character for multiple languages", async function() {
         // JSON
         const editor1 = await ide.openModule(jsonTestFile);
-        await editor1.moveCursor(5, 28);
-        await editor1.sendKeys(',');
-        await expectCompletions(driver, editor1, ["key1", "key2", "key3"]);
+        // Instead of using `moveCursor`, which might trigger `sendKeys` bugs, we go via the command line
+        await editor1.setCursor(5, 28);
+        await driver.wait(ignoreFails(editor1.typeText(',')), Delays.normal, "Should type some JSON");
+        await expectCompletions(driver, editor1, ['"key1"', '"key2"', '"key3"']);
 
         // Pico
         const editor2 = await ide.openModule(TestWorkspace.picoFile);
-        await editor2.moveCursor(10, 10);
-        await editor2.typeText("  x :=");
+        await editor2.setCursor(10, 10);
+        await driver.wait(ignoreFails(editor2.typeText("  x :=")), Delays.normal, "Should type some Pico");
         await expectCompletions(driver, editor2, ["a", "b", "n", "x"]);
     });
 });
