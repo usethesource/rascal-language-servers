@@ -18,7 +18,7 @@ jobs:
   normal-tests:
     runs-on: ubicloud-standard-2
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Assure different pom cache hit
         run: echo "  " >> rascal-lsp/pom.xml
       - uses: actions/setup-java@v5
@@ -55,7 +55,7 @@ jobs:
       CODE_VERSION: "1.100.0"
     runs-on:  ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Assure different pom cache hit
         run: echo " " >> rascal-lsp/pom.xml
       - uses: actions/setup-java@v5
@@ -84,7 +84,7 @@ jobs:
 
       - name: Cache vscode downloads 
         id: cache-vscode
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ./rascal-vscode-extension/uitests
           key: "vscode-${{matrix.os}}"
@@ -153,7 +153,7 @@ jobs:
       contents: write
     runs-on: ${{ startsWith(github.ref, 'refs/tags/v') && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
         with:
           java-version: 11
