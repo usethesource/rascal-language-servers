@@ -364,13 +364,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             return null;
         }
 
+        var requestPool = NamedThreadPool.single(String.format("parametric-lsp-router-%s", lang.getName().toLowerCase()));
         var serverLauncher = new Launcher.Builder<IBaseLanguageServerExtensions>()
             .setRemoteInterface(IBaseLanguageServerExtensions.class)
             .setLocalService(remoteClient)
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
             .configureGson(ActualRoutingLanguageServer::configureProxyGson)
-            .setExecutorService(NamedThreadPool.single(String.format("parametric-lsp-router-%s", lang.getName().toLowerCase())))
+            .setExecutorService(requestPool)
             .create();
 
         var runner = serverLauncher.startListening();
@@ -402,6 +403,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     serverParams.getRight().run();
                 } catch (Exception e) {
                     logger.error("Unexpected error while cleaning up connection to language server for {}", lang.getName(), e);
+                } finally {
+                    requestPool.shutdown();
                 }
             }
         });
