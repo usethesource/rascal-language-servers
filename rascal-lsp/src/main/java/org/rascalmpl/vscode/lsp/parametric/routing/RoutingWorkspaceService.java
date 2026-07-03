@@ -27,10 +27,10 @@
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import com.google.gson.JsonPrimitive;
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
@@ -70,7 +70,7 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
     }
 
     @Override
-    public Collection<CompletableFuture<WorkspaceService>> allRoutes() {
+    public Stream<CompletableFuture<WorkspaceService>> allRoutes() {
         return availableServerRouter().allRoutes(server -> server.thenApply(LanguageServer::getWorkspaceService));
     }
 

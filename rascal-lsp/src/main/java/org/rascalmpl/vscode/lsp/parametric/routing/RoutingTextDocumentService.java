@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -143,7 +144,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     }
 
     @Override
-    public Collection<CompletableFuture<TextDocumentService>> allRoutes() {
+    public Stream<CompletableFuture<TextDocumentService>> allRoutes() {
         return availableServerRouter().allRoutes(server -> server.thenApply(LanguageServer::getTextDocumentService));
     }
 
