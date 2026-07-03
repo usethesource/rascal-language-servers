@@ -58,6 +58,7 @@ import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -68,6 +69,8 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 public class CapabilityRegistration {
 
     private static final Logger logger = LogManager.getLogger(CapabilityRegistration.class);
+
+    public static final int ERROR_DUPLICATE_REGISTRATION_IGNORED = ResponseErrorCode.lspReservedErrorRangeEnd.getValue() - 1;
 
     private final LanguageClient client;
     private final Executor exec;
@@ -278,12 +281,21 @@ public class CapabilityRegistration {
             t = t.getCause();
         }
         if (t instanceof ResponseErrorException) {
-            var message = t.getMessage() != null
-                ? t.getMessage()
-                : String.format("(Un)registration of capability %s failed", cap.methodName());
+            var message = String.format("(Un)registration of capability %s failed", cap.methodName());
+            if (t.getMessage() != null) {
+                message += ": " + t.getMessage();
+            }
+
+            if (((ResponseErrorException) t).getResponseError().getCode() == ERROR_DUPLICATE_REGISTRATION_IGNORED) {
+                // No need to warn the user
+                logger.info(message, t);
+                return;
+            }
+            logger.error(message, t);
             client.showMessage(new MessageParams(MessageType.Error, message));
+        } else {
+            logger.error("Unexpected error while (un)registering capability {}", cap.methodName(), t);
         }
-        logger.error("Unexpected error while (un)registering capability {}", cap.methodName(), t);
     }
 
     private <T> CompletableFuture<@Nullable Registration> tryBuildRegistration(AbstractDynamicCapability<T> cap, Collection<ICapabilityParams> languages) {

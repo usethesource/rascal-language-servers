@@ -37,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -61,10 +60,13 @@ import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationChanged;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import io.usethesource.vallang.IInteger;
@@ -222,23 +224,21 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
     private CompletableFuture<Void> registerCapability(Registration r) {
         var c = currentRegistrations.computeIfAbsent(r.getMethod(), k -> new CopyOnWriteArraySet<>());
-        // Lock on the registrations for this method for a moment
-        synchronized (c) {
-            var similarRegOpt = c.stream().filter(rr -> Objects.equals(rr.getRegisterOptions(), r.getRegisterOptions())).findAny();
-            if (similarRegOpt.isPresent()) {
-                logger.trace("A registration for {} with the same options already exists; ignoring this one", r.getMethod());
-                logger.trace("{} vs. {}", similarRegOpt.get(), r);
-                return NOOP;
-            }
+        var similarRegOpt = c.stream().filter(rr -> Objects.equals(rr.getRegisterOptions(), r.getRegisterOptions())).findAny();
+        if (similarRegOpt.isPresent()) {
+            // Let's make this the problem of the remote server
+            throw new ResponseErrorException(new ResponseError(CapabilityRegistration.ERROR_DUPLICATE_REGISTRATION_IGNORED, String.format("A registration for %s with the same options already exists on the client; ignoring this one", r.getMethod()), similarRegOpt));
+        }
 
-            c.add(r);
-            return client.registerCapability(new RegistrationParams(List.of(r)))
-                .exceptionally(t -> {
+        c.add(r);
+        return client.registerCapability(new RegistrationParams(List.of(r)))
+            .whenComplete((v, t) -> {
+                if (t != null) {
+                    // An exception occurred; handle it and forward it to our caller
                     logger.error("Exception while registering {}", r,  t);
                     c.remove(r);
-                    return null;
-                });
-        }
+                }
+            });
     }
 
     @Override
@@ -256,32 +256,28 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             && r.getMethod().equals(u.getMethod());
     }
 
-    private Predicate<Registration> matches(Unregistration u) {
-        return r -> matches(r, u);
-    }
-
     private CompletableFuture<Void> unregisterCapability(Unregistration u) {
         var c = currentRegistrations.get(u.getMethod());
         if (c == null) {
+            // No registrations for this method exist; someone might have raced past us
+            logger.trace("No registrations for {} exist; ignoring this request: {}", u.getMethod(), u);
             return NOOP;
         }
 
-        synchronized (c) {
-            var cs = c.stream().filter(matches(u)).collect(Collectors.toSet());
-            if (cs.isEmpty()) {
-                logger.trace("No registrations for {} exist; ignoring this request: {}", u.getMethod(), u);
-                // No registrations => nothing to unregister
-                return NOOP;
-            }
-
-            c.removeAll(cs);
-            return client.unregisterCapability(new UnregistrationParams(List.of(u)))
-                .exceptionally(t -> {
-                    logger.error("Exception while unregistering {} ({})", u.getMethod(), u, t);
-                    c.addAll(cs);
-                    return null;
-                });
+        var cs = c.stream().filter(r -> matches(r, u)).collect(Collectors.toSet());
+        if (!c.removeAll(cs)) {
+            // No registrations for this UUID & method exist; someone might have raced past us
+            logger.trace("No registrations for {} exist; ignoring this request", u);
+            return NOOP;
         }
+
+        return client.unregisterCapability(new UnregistrationParams(List.of(u)))
+            .whenComplete((v, t) -> {
+                if (t != null) {
+                    logger.error("Exception while unregistering {}", u, t);
+                    c.addAll(cs);
+                }
+            });
     }
 
     @Override
