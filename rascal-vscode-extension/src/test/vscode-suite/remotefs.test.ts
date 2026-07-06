@@ -107,7 +107,8 @@ describe('RemoteFS', function () {
         await repl.execute("import IO;");
         await repl.execute("l = |compressed+tmp:///rascal-remotefs-test/rascal-test-file.gz|;");
         await repl.execute('writeFile(l, "hi")');
-        await repl.execute('readFile(|rascal-vscode-test:///remotefs-api-test/test-rascalfs-read|) == "hi"');
+        await repl.execute("l2 = |rascal-vscode-test:///remotefs-api-test/test-rascalfs-read|;");
+        await repl.execute('readFile(l2) == "hi"');
         expect(repl.lastOutput).is.equal("bool: true", "Reading from Rascal fs works");
     });
 
