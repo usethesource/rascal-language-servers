@@ -57,7 +57,6 @@ import org.eclipse.lsp4j.Unregistration;
 import org.eclipse.lsp4j.UnregistrationParams;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
-import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
@@ -68,8 +67,6 @@ import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 public class CapabilityRegistration {
 
     private static final Logger logger = LogManager.getLogger(CapabilityRegistration.class);
-
-    public static final int ERROR_DUPLICATE_REGISTRATION_IGNORED = ResponseErrorCode.lspReservedErrorRangeEnd.getValue() - 1;
 
     private final LanguageClient client;
     private final Executor exec;
@@ -218,7 +215,7 @@ public class CapabilityRegistration {
 
                     // Something changed while we were busy.
                     // Update this registration again, in order to reach a consistent state eventually.
-                    logger.trace("The capabilities changed while registering {}; iterate unti nothing changes", cap.methodName());
+                    logger.trace("The capabilities changed while registering {}; iterate until nothing changes", cap.methodName());
                     return updateRegistration(cap);
                 });
             }
@@ -253,7 +250,7 @@ public class CapabilityRegistration {
      */
     private CompletableFuture<@Nullable Registration> register(Registration reg, @Nullable Registration existingRegistration) {
         var method = reg.getMethod();
-        logger.trace("Registering capability {}", method);
+        logger.trace("Registering capability {} ({})", method, reg.getId());
         return client.registerCapability(new RegistrationParams(List.of(reg)))
             .handle((r, t) -> {
                 if (t != null) {
@@ -277,11 +274,6 @@ public class CapabilityRegistration {
                 message += ": " + t.getMessage();
             }
 
-            if (((ResponseErrorException) t).getResponseError().getCode() == ERROR_DUPLICATE_REGISTRATION_IGNORED) {
-                // No need to warn the user
-                logger.info(message, t);
-                return;
-            }
             logger.error(message, t);
             client.showMessage(new MessageParams(MessageType.Error, message));
         } else {
