@@ -615,6 +615,7 @@ export async function expectCompletions(driver: WebDriver, editor: TextEditor, e
     const labels = await driver.wait(async () => {
         try {
             const completionMenu = new ContentAssist(editor);
+            await completionMenu.waitForStable();
             if (!await completionMenu.isLoaded()) {
                 return undefined;
             }
