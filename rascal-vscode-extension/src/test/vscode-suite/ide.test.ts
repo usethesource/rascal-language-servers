@@ -253,7 +253,8 @@ describe('IDE', function () {
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
 
         // Add type error
-        await importeeEditor.typeTextAt(3, 1, "public str foo;");
+        await importeeEditor.setCursor(3, 1);
+        await importeeEditor.typeText("public str foo;");
         await ide.openModule(TestWorkspace.importerFile);
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
@@ -277,7 +278,8 @@ describe('IDE', function () {
 
     it("anno quickfix works", async () => {
         const editor = await ide.openModule(TestWorkspace.importeeFile);
-        await editor.typeTextAt(3, 1, "data X = y();\nanno int X@old;\nint calc(X x) = x@old;");
+        await editor.setCursor(3, 1);
+        await editor.typeText("data X = y();\nanno int X@old;\nint calc(X x) = x@old;");
 
         await ide.hasWarningSquiggly(editor, Delays.slow, "On a annotation we should have a warning that they are deprecated");
 
