@@ -30,14 +30,13 @@ import * as vscode from 'vscode';
 
 import { integer, URI } from'vscode-languageclient';
 import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
-import { RascalLanguageServer } from './lsp/RascalLanguageServer';
+import { RascalLanguageServer, toRascalUri } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
-import { RascalFileSystemInVSCode } from './fs/RascalFileSystemInVSCode';
 import { ISourceLocationRequest } from './fs/JsonRpcMessages';
 
 export class RascalExtension implements vscode.Disposable {
@@ -334,7 +333,7 @@ export class RascalExtension implements vscode.Disposable {
             }
             try {
                 await (await this.rascal.rascalClient).sendRequest("rascal/checkProject", <CheckProjectRequest>{
-                    loc: RascalFileSystemInVSCode.getLocation(projectRoot.uri),
+                    loc: toRascalUri(projectRoot.uri),
                     clean: clean
                 });
                 void vscode.window.showInformationMessage(`Rascal check project: finished checking project ${projectRoot.uri}`);
