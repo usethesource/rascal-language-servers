@@ -143,6 +143,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
     private static final Set<String> CONTAINER_SCHEMES = Set.of("jar", "zip", "compressed");
     private static final Set<String> IGNORED_SCHEMES = Set.of(
         URIUtil.unknownLocation().getScheme(), // invalid scheme, never read from this
+        "lib", // old scheme with only warnings, shouldn't even report these to VS Code
         "lsp", // an internal scheme that should not be exposed to VS Code
         "memory", // unclear whose memory
         "project",  "target", // an scheme that VS Code should never read as it should be translated to file paths to align with VS Code open file tabs
