@@ -224,7 +224,7 @@ end
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "  az := 2;");
-        await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
+        await editor.setCursor(9,3);                           // it's where the undeclared variable `az` is
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
 
         try {
@@ -239,7 +239,7 @@ end
     it("rename works", async function() {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.moveCursor(5, 6);
+        await editor.setCursor(5, 6);
 
         await ide.renameSymbol(editor, bench, "z");
 
@@ -306,7 +306,7 @@ end
         try {
             await editor.setTextAtLine(6, "     aa : natural;");
 
-            await editor.moveCursor(9, 4);
+            await editor.setCursor(9, 4);
             await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
             await expectCompletions(driver, editor, ["a", "aa"]);
         }
@@ -321,7 +321,7 @@ end
 
         const editor = await ide.openModule(TestWorkspace.picoFile);
         try {
-            await editor.moveCursor(10, 10);
+            await editor.setCursor(10, 10);
             await editor.typeText("  x :=");
             await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
         }
