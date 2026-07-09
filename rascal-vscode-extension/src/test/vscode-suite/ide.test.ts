@@ -178,7 +178,7 @@ describe('IDE', function () {
 
     it("outline works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await editor.moveCursor(1,1);
+        await editor.setCursor(1,1);
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
         const outline = await driver.wait(() => explorer.getContent().getSection("Outline"), Delays.normal) as ViewSection;
         await outline.expand();
@@ -191,7 +191,7 @@ describe('IDE', function () {
 
     it ("rename works", async() => {
         const editor = await ide.openModule(TestWorkspace.libFile);
-        await editor.moveCursor(7, 15);
+        await editor.setCursor(7, 15);
 
         // Before moving, check that Rascal is really loaded
         const checkRascalStatus = isLanguageLoading(bench, "Rascal");
@@ -237,7 +237,7 @@ describe('IDE', function () {
 
     it("code actions work", async() => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
-        await editor.moveCursor(1,8); // in the module name
+        await editor.setCursor(1,8); // in the module name
 
         try {
             await ide.triggerFirstCodeAction(editor, 'Add missing license header');
@@ -281,7 +281,7 @@ describe('IDE', function () {
 
         await ide.hasWarningSquiggly(editor, Delays.slow, "On a annotation we should have a warning that they are deprecated");
 
-        await editor.moveCursor(4,12); // at the `@old` part
+        await editor.setCursor(4,12); // at the `@old` part
 
         await ide.triggerFirstCodeAction(editor, "Upgrade all annotations");
         await ide.assertLineBecomes(editor, 4, "data X(int old = 0);", "annotations become a KW parameter", Delays.slow);
