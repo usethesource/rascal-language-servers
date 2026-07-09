@@ -29,7 +29,7 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
+import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -85,7 +85,7 @@ describe('IDE', function () {
         try {
             await ide.openModule(TestWorkspace.mainFile);
             let statusBarSeen = false;
-            const checkRascalStatus = ide.statusContains("Loading Rascal");
+            const checkRascalStatus = () => ignoreFails(isLanguageLoading(bench, "Rascal")());
 
             for (let tries = 0; tries < 10 && !statusBarSeen; tries++) {
                 if (await checkRascalStatus()) {
@@ -98,7 +98,7 @@ describe('IDE', function () {
             if (statusBarSeen) {
                 console.log("Waiting for startup of rascal core");
                 for (let tries = 0; tries < 70; tries++) {
-                    if (!await checkRascalStatus()) {
+                    if (await checkRascalStatus() === false) {
                         return;
                     }
                     await sleep(delay / 80);
@@ -109,11 +109,6 @@ describe('IDE', function () {
         finally {
             await ide.cleanup();
         }
-    }
-
-    function waitForActiveEditor(title: string, timeout: number, message: string) {
-        return driver.wait(async () =>
-            (await (await bench.getEditorView().getActiveTab())?.getTitle()) === title, timeout, message);
     }
 
     it("has syntax highlighting and parsing errors", async function () {
@@ -154,20 +149,20 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
+        const editorIO = await ide.findOpenEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
 
         // Warning: changes to `IO` might break the lookups/locations from here on.
         // Update the test expectations when this is the case.
-        await editor.selectText(selectId, 6);
-        const defLoc = await editor.getCoordinates();
+        await editorIO.selectText(selectId, 6);
+        const defLoc = await editorIO.getCoordinates();
 
-        await editor.selectText(selectId, 7);
-        const useLoc = await editor.getCoordinates();
+        await editorIO.selectText(selectId, 7);
+        const useLoc = await editorIO.getCoordinates();
 
         expect(useLoc).not.to.deep.equal(defLoc, "Expected cursor to be elsewhere - def and use location are equal");
         await bench.executeCommand("Go to Definition");
         await driver.wait(async () => {
-            const jumpLoc = await editor.getCoordinates();
+            const jumpLoc = await editorIO.getCoordinates();
             return jumpLoc[0] === defLoc[0]                    // Jump to def line
                 && jumpLoc[1] === defLoc[1] - selectId.length; // Jump to left side of def
         }, Delays.normal, "Expected cursor to jump to the definition");
@@ -178,12 +173,12 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
+        await ide.findOpenEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
     });
 
     it("outline works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await editor.moveCursor(1,1);
+        await editor.setCursor(1,1);
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
         const outline = await driver.wait(() => explorer.getContent().getSection("Outline"), Delays.normal) as ViewSection;
         await outline.expand();
@@ -196,11 +191,11 @@ describe('IDE', function () {
 
     it ("rename works", async() => {
         const editor = await ide.openModule(TestWorkspace.libFile);
-        await editor.moveCursor(7, 15);
+        await editor.setCursor(7, 15);
 
         // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = ide.statusContains("Loading Rascal");
-        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
+        await driver.wait(async () => await ignoreFails(checkRascalStatus()) === false, Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         await ide.renameSymbol(editor, bench, "i");
 
@@ -221,8 +216,8 @@ describe('IDE', function () {
         const libFile = await ide.openModule(TestWorkspace.libFile);
 
         // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = ide.statusContains("Loading Rascal");
-        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
+        await driver.wait(async () => await ignoreFails(checkRascalStatus()) === false, Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         await ide.moveFile("Lib.rsc", "lib", bench);
 
@@ -242,7 +237,7 @@ describe('IDE', function () {
 
     it("code actions work", async() => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
-        await editor.moveCursor(1,8); // in the module name
+        await editor.setCursor(1,8); // in the module name
 
         try {
             await ide.triggerFirstCodeAction(editor, 'Add missing license header');
@@ -258,7 +253,8 @@ describe('IDE', function () {
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
 
         // Add type error
-        await importeeEditor.typeTextAt(3, 1, "public str foo;");
+        await importeeEditor.setCursor(3, 1);
+        await importeeEditor.typeText("public str foo;");
         await ide.openModule(TestWorkspace.importerFile);
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
@@ -282,11 +278,12 @@ describe('IDE', function () {
 
     it("anno quickfix works", async () => {
         const editor = await ide.openModule(TestWorkspace.importeeFile);
-        await editor.typeTextAt(3, 1, "data X = y();\nanno int X@old;\nint calc(X x) = x@old;");
+        await editor.setCursor(3, 1);
+        await editor.typeText("data X = y();\nanno int X@old;\nint calc(X x) = x@old;");
 
         await ide.hasWarningSquiggly(editor, Delays.slow, "On a annotation we should have a warning that they are deprecated");
 
-        await editor.moveCursor(4,12); // at the `@old` part
+        await editor.setCursor(4,12); // at the `@old` part
 
         await ide.triggerFirstCodeAction(editor, "Upgrade all annotations");
         await ide.assertLineBecomes(editor, 4, "data X(int old = 0);", "annotations become a KW parameter", Delays.slow);

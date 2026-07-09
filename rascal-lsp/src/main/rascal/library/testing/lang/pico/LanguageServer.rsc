@@ -92,7 +92,9 @@ value picoExecutionService(showContents(str contents)) {
 }
 
 private loc declOffset(start[Program] input, int off)
-    = input.top.decls.decls[off].src;
+    = input.top.decls.decls[off]?
+    ? input.top.decls.decls[off].src
+    : |unknown:///|;
 
 lrel[loc, Command] testingCodeLensService(start[Program] input)
     = picoCodeLenseService(input)

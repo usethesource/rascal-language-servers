@@ -132,9 +132,15 @@ public class PathConfigs {
         }
     }
 
+
     private Pair<PathConfig, Instant> buildPathConfig(ISourceLocation projectRoot) {
         try {
             logger.debug("Building path config for: {}", projectRoot);
+            var scheme = projectRoot.getScheme();
+            if (scheme.startsWith("jar+") || scheme.equals("std") || scheme.equals("mvn")) {
+                logger.error("We're asked to build a path config for {} which is not something that is possible", projectRoot);
+                return Pair.of(new PathConfig(projectRoot), Instant.now());
+            }
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);

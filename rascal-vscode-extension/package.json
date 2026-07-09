@@ -199,26 +199,6 @@
         ]
       }
     ],
-    "grammars": [
-      {
-        "language": "rascalmpl",
-        "scopeName": "source.rascalmpl",
-        "path": "./syntaxes/rascal.tmGrammar.json",
-        "tokenTypes": {
-          "string": "other",
-          "comment": "other"
-        }
-      },
-      {
-        "language": "parametric-rascalmpl",
-        "scopeName": "source.parametric-rascalmpl",
-        "path": "./syntaxes/parametric.tmGrammar.json",
-        "tokenTypes": {
-          "string": "other",
-          "comment": "other"
-        }
-      }
-    ],
     "semanticTokenScopes": [
       {
         "language": "rascalmpl",
@@ -319,7 +299,7 @@
     "compile:tests": "npm run esbuild -- --tests",
     "pretest:ui": "npm run compile:tests",
     "pretest:normal": "npm run compile:tests",
-    "lint": "npx eslint",
+    "lint": "npx eslint src",
 
     "test:ui": "npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests",
     "test:normal": "npx mocha ./out/test/normal-suite/",
@@ -336,7 +316,7 @@
   "dependencies": {
     "jsonc-parser": "3.x",
     "tar": "7.x",
-    "vscode-languageclient": "9.x",
+    "vscode-languageclient": "10.x",
     "yauzl": "3.x"
   },
   "devDependencies": {

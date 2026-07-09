@@ -44,18 +44,15 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     void reportAnnotationDeprecation(Tree t) {
         if (!annotationAlreadyReported) {
             annotationAlreadyReported = true;
-            if (isWritable(t.src.top)) {
-                // only reporting issues for code we can rewrite
-                result += warning(
-                    "Annotations are no longer supported and will soon be removed, please use our build-in Quick Fix to refactor them into keyword parameters",
-                    t.src, fixes=[
-                        action(
-                            command=upgradeAnnotations(getPathConfig(t.src.top)),
-                            title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
-                        )
-                    ]
-                );
-            }
+            result += warning(
+                "Annotations are no longer supported and will soon be removed, please use our build-in Quick Fix to refactor all of them into keyword parameters",
+                t.src, fixes=[
+                    action(
+                        command=upgradeAnnotations(getPathConfig(t.src.top)),
+                        title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
+                    )
+                ]
+            );
         }
         // since the single Quick Fix fixes the whole project, it's not useful to report it multiple times
         // especially since a user might click "fix all" and then the upgrade would be run several times.

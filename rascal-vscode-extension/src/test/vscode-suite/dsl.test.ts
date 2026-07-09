@@ -26,7 +26,7 @@
  */
 
 import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -59,11 +59,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
-        const ide = new IDEOperations(browser);
-        const isPicoLoading = ide.statusContains("Pico");
-        await driver.wait(isPicoLoading, Delays.slow, "Pico DSL should start loading");
-        // now wait for the Pico loader to disappear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.extremelySlow, "Pico DSL should be finished starting", 100);
+        await startsAndStopsLoading(driver, bench, "Pico");
         await replExecuteMain;
         await repl.terminate();
     }
@@ -85,8 +81,6 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ide.load();
         await loadPico();
         protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
-        ide = new IDEOperations(browser);
-        await ide.load();
     });
 
     beforeEach(async function () {
@@ -106,13 +100,8 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     it("has highlighting and parse errors", async function () {
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        const isPicoLoading = ide.statusContains("Pico");
-        // we might miss this event, but we wait for it to show up
-        await ignoreFails(driver.wait(isPicoLoading, Delays.normal, "Pico parser generator should have started"));
-        // now wait for the Pico parser generator to disappear
-        await driver.wait(async () => !(await isPicoLoading()), Delays.verySlow, "Pico parser generator should have finished", 100);
+        await startsAndStopsLoading(driver, bench, "Pico", "generating a parser");
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
-        console.log("We got syntax highlighting");
         try {
             await editor.setTextAtLine(10, "b := ;");
             await ide.hasErrorSquiggly(editor, Delays.slow);
@@ -227,7 +216,7 @@ end
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await editor.setTextAtLine(9, "  az := 2;");
-        await editor.moveCursor(9,3);                   // it's where the undeclared variable `az` is
+        await editor.setCursor(9,3);                           // it's where the undeclared variable `az` is
         await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
 
         try {
@@ -242,7 +231,7 @@ end
     it("rename works", async function() {
         if (errorRecovery) { this.skip(); }
         const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.moveCursor(5, 6);
+        await editor.setCursor(5, 6);
 
         await ide.renameSymbol(editor, bench, "z");
 
@@ -309,7 +298,7 @@ end
         try {
             await editor.setTextAtLine(6, "     aa : natural;");
 
-            await editor.moveCursor(9, 4);
+            await editor.setCursor(9, 4);
             await bench.executeCommand("editor.action.triggerSuggest"); // 'completion', typically triggered with Ctrl+Space
             await expectCompletions(driver, editor, ["a", "aa"]);
         }
@@ -324,7 +313,7 @@ end
 
         const editor = await ide.openModule(TestWorkspace.picoFile);
         try {
-            await editor.moveCursor(10, 10);
+            await editor.setCursor(10, 10);
             await editor.typeText("  x :=");
             await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
         }

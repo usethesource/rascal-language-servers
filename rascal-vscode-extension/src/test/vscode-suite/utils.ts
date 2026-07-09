@@ -27,11 +27,12 @@
 
 import { assert, expect } from "chai";
 import { createHash } from "crypto";
-import { readFile, stat, unlink, writeFile } from "fs/promises";
+import { existsSync } from "fs";
+import { readdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import * as os from 'os';
 import path from "path/posix";
 import { env } from "process";
-import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, NotificationType, TerminalView, TextEditor, until, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -216,7 +217,7 @@ export class IDEOperations {
         this.driver = browser.driver;
     }
 
-    async load() {
+    async load(logLevel: LogLevel = "Debug") {
         await ignoreFails(this.browser.waitForWorkbench(Delays.slow));
         for (let t = 0; t < 5; t++) {
             try {
@@ -234,7 +235,7 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
-        await assureDebugLevelLoggingIsEnabled();
+        await setLogLevel(logLevel);
     }
 
     async cleanup() {
@@ -332,13 +333,18 @@ export class IDEOperations {
 
     async openModule(file: string): Promise<TextEditor> {
         await this.browser.openResources(file);
+        return this.findOpenEditor(file);
+    }
+
+    async findOpenEditor(file: string, timeout = Delays.normal, message = `Could not open file: ${file}`) : Promise<TextEditor> {
         return this.driver.wait(async () => {
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }
             return undefined;
-        }, Delays.normal, `Could not open file: ${file}`) as Promise<TextEditor>;
+        }, timeout, message) as Promise<TextEditor>;
+
     }
 
     async appendSpace(editor: TextEditor, line = 1) {
@@ -507,58 +513,102 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     return outputView;
 }
 
-let alreadySetup = false;
+type LogLevel = "Trace" | "Debug" | "Info" | "Warning" | "Error" | "Off";
 
-async function assureDebugLevelLoggingIsEnabled() {
-    if (alreadySetup) {
-        return;
-    }
-    alreadySetup = true; // to avoid doing this twice/parallel
+async function setLogLevel(logLevel: LogLevel) {
     const prompt = await new Workbench().openCommandPrompt();
     await prompt.setText(">workbench.action.setLogLevel");
     await prompt.confirm();
-    await prompt.setText("Debug");
+    await prompt.setText(logLevel);
     await prompt.confirm();
 }
 
 export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
 
     const ZOOM_OUT_FACTOR = 5;
+    const N_LOG_LINES = 250;
+    // We guess some locations where the logs can be, since we cannot easily retrieve those from VS Code.
+    const TEST_STORAGE_DIRS = [
+        path.join(path.resolve(), "uitests"),    // typical CI path
+        path.join(os.tmpdir(), "vscode-uitests") // typical local path
+    ];
+
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
-        const bbp = new BottomBarPanel();
-        try {
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomOut');
-            }
-            await bbp.maximize();
-            console.log('**********************************************');
-            console.log('***** Rascal MPL output for the failed tests: ');
-            let textLines: WebElement[] = [];
-            let tries = 0;
-            while (textLines.length === 0 && tries < 3) {
-                await showRascalOutput(bbp, channel);
-                textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
-                tries++;
-            }
-            if (textLines.length === 0) {
-                console.log("We could not capture the output lines");
-            }
 
-            for (const l of textLines) {
-                console.log(await l.getText());
+        console.log('**********************************************');
+        console.log(`***** ${channel} output for the failed tests: `);
+
+        let foundLogs = false;
+        for (const vsCodeDir of TEST_STORAGE_DIRS) {
+            try {
+                const logDir = path.join(vsCodeDir, "settings", "logs");
+                if (existsSync(logDir)) {
+                    for (const entry of await readdir(logDir, {recursive: true})) {
+                        if (entry.includes("usethesource.rascalmpl") && entry.includes(channel)) {
+                            console.log(`***** ${entry}`);
+                            const contents = await readFile(path.join(logDir, entry), {encoding: "utf-8"});
+                            console.log(contents.split('\n').splice(-N_LOG_LINES).join('\n'));
+                            foundLogs = true;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log(`Error capturing logs in ${vsCodeDir}: `, e);
             }
-        } catch (e) {
-            console.log('Error capturing output: ', e);
         }
-        finally {
-            console.log('*******End output*****************************');
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomIn');
+
+        if (!foundLogs) {
+            // Fall back to legacy copy-from-VS Code approach if there were no log files.
+            const bbp = new BottomBarPanel();
+            try {
+                for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+                    await new Workbench().executeCommand('workbench.action.zoomOut');
+                }
+                await bbp.maximize();
+                let textLines: WebElement[] = [];
+                let tries = 0;
+                while (textLines.length === 0 && tries < 3) {
+                    await showRascalOutput(bbp, channel);
+                    textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
+                    tries++;
+                }
+                if (textLines.length === 0) {
+                    console.log("We could not capture the output lines");
+                }
+
+                for (const l of textLines) {
+                    console.log(await l.getText());
+                }
+            } catch (e) {
+                console.log('Error capturing output: ', e);
             }
-            await bbp.closePanel();
+            finally {
+                for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+                    await new Workbench().executeCommand('workbench.action.zoomIn');
+                }
+                await bbp.closePanel();
+            }
         }
+
+        console.log('*******End output*****************************');
     });
+}
+
+export function isLanguageLoading(bench: Workbench, language: string): () => Promise<boolean> {
+    return async () => {
+        const center = await bench.openNotificationsCenter();
+        const notifications = await center.getNotifications(NotificationType.Info);
+        const messages = await Promise.all(notifications.map(n => n.getMessage()));
+        await center.close();
+        return messages.find(msg => msg.startsWith(`${language}`)) !== undefined;
+    };
+}
+
+export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", doneTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
+    const isLoading = isLanguageLoading(bench, language);
+    await driver.wait(ignoreFails(isLoading()), Delays.normal, `${language} should start ${message}`, pollInterval);
+    await driver.wait(async () => (await ignoreFails(isLoading())) === false, doneTimeout, `${language} should stop ${message}`, pollInterval);
 }
 
 export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {

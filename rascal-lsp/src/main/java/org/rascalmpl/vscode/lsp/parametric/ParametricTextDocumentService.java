@@ -63,7 +63,6 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
-import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
@@ -78,7 +77,6 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
-import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.FoldingRange;
@@ -100,7 +98,6 @@ import org.eclipse.lsp4j.PrepareRenameResult;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
-import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SelectionRange;
 import org.eclipse.lsp4j.SelectionRangeParams;
@@ -136,10 +133,8 @@ import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicServerCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.ICapabilityParams;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.SemanticTokensCapability;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
@@ -227,27 +222,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities
-            , new SemanticTokensCapability()
-            , new CompletionCapability()
-            , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
-        );
+        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName()));
         dynamicCapabilities.registerStaticCapabilities(result);
 
-        result.setDefinitionProvider(true);
+        // Register document sync statically
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
-        result.setHoverProvider(true);
-        result.setReferencesProvider(true);
-        result.setDocumentSymbolProvider(true);
-        result.setImplementationProvider(true);
-        result.setCodeActionProvider(true);
-        result.setCodeLensProvider(new CodeLensOptions(false));
-        result.setRenameProvider(new RenameOptions(true));
-        result.setExecuteCommandProvider(new ExecuteCommandOptions(Collections.singletonList(getRascalMetaCommandName())));
-        result.setInlayHintProvider(true);
-        result.setSelectionRangeProvider(true);
-        result.setFoldingRangeProvider(true);
-        result.setCallHierarchyProvider(true);
     }
 
     private String getRascalMetaCommandName() {
@@ -611,10 +590,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         var ext = extension(loc);
         if ("".equals(ext)) {
             if (contributions.size() == 1) {
-                logger.trace("file was opened without an extension; falling back to the single registered language for: {}", loc);
+                logger.trace("File was opened without an extension; falling back to the single registered language for: {}", loc);
                 return contributions.keySet().stream().findFirst();
             } else {
-                logger.error("file was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
+                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
                 return Optional.empty();
             }
         }
@@ -967,6 +946,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         ), (v1, v2) -> null);
     }
 
+    /**
+     * Update the dynamic capabilities and refresh open editors.
+     *
+     * 1. Updates the capabilties given the current state of the language parameters.
+     * 2. Refreshes open editors. Even when the capabilities did not change, the underlying language implementations might have. Therefore, a refresh is always required.
+     */
     private synchronized CompletableFuture<Void> updateCapabilities() {
         return availableCapabilities()
             .update(buildLanguageParams())
@@ -1017,6 +1002,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @Override
     public synchronized void unregisterLanguage(LanguageParameter lang) {
+        logger.info("unregisterLanguage({})", lang.getName());
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (!removeAll) {
             var contrib = contributions.get(lang.getName());

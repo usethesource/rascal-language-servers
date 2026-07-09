@@ -30,13 +30,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.ClientCapabilities;
-import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionOptions;
 import org.eclipse.lsp4j.CompletionRegistrationOptions;
+import org.eclipse.lsp4j.DynamicRegistrationCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentClientCapabilities;
-import org.rascalmpl.vscode.lsp.util.Nullables;
 
 import io.usethesource.vallang.IString;
 
@@ -45,18 +43,18 @@ import io.usethesource.vallang.IString;
  *
  * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion
  */
-public class CompletionCapability extends AbstractDynamicCapability<CompletionRegistrationOptions> {
+public class CompletionCapability extends TextDocumentCapability<CompletionRegistrationOptions> {
 
     public CompletionCapability() {
         this(false);
     }
 
     public CompletionCapability(boolean preferStaticRegistration) {
-        super("textDocument/completion", preferStaticRegistration);
+        super("completion", preferStaticRegistration);
     }
 
     @Override
-    protected CompletableFuture<@Nullable CompletionRegistrationOptions> options(ICapabilityParams params) {
+    public CompletableFuture<@Nullable CompletionRegistrationOptions> options(ICapabilityParams params) {
         return params.contributions().completionTriggerCharacters()
             .thenApply(triggers -> {
                 var trigList = triggers.stream()
@@ -68,23 +66,23 @@ public class CompletionCapability extends AbstractDynamicCapability<CompletionRe
     }
 
     @Override
-    protected CompletableFuture<Boolean> isProvidedBy(ICapabilityParams params) {
-        return params.contributions().providesCompletion();
-    }
-
-    @Override
-    protected CompletionRegistrationOptions mergeOptions(CompletionRegistrationOptions left, CompletionRegistrationOptions right) {
+    public CompletionRegistrationOptions mergeOptions(CompletionRegistrationOptions left, CompletionRegistrationOptions right) {
         return new CompletionRegistrationOptions(Stream.concat(left.getTriggerCharacters().stream(), right.getTriggerCharacters().stream()).distinct().collect(Collectors.toList()), false);
     }
 
     @Override
-    protected boolean isDynamicallySupportedBy(ClientCapabilities client) {
-        return Nullables.has(client.getTextDocument(), TextDocumentClientCapabilities::getCompletion, CompletionCapabilities::getDynamicRegistration);
+    public CompletableFuture<Boolean> isProvidedBy(ICapabilityParams language) {
+        return language.contributions().providesCompletion();
     }
 
     @Override
-    protected void registerStatically(ServerCapabilities serverCapabilities) {
-        serverCapabilities.setCompletionProvider(new CompletionOptions());
+    public void registerStatically(ServerCapabilities result) {
+        result.setCompletionProvider(new CompletionOptions());
+    }
+
+    @Override
+    public @Nullable DynamicRegistrationCapabilities getCapabilities(TextDocumentClientCapabilities caps) {
+        return caps.getCompletion();
     }
 
 }

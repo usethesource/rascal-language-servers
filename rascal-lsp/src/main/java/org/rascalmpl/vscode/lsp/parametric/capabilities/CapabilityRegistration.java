@@ -163,8 +163,8 @@ public class CapabilityRegistration {
         var params = lastParams.get();
         var method = cap.methodName();
 
-        return tryBuildRegistration(cap, params).thenCompose(registration -> {
-            // Synchronize on `currentRegistrations`, so we can reliable compute the required registration
+        return tryBuildRegistration(cap, params).thenComposeAsync(registration -> {
+            // Synchronize on `currentRegistrations`, so we can reliably compute the required registration
             // and update the current registration without interference from other threads.
             synchronized (currentRegistrations) {
                 // If someone else modified the contributions in the meantime, we need to restart.
@@ -182,7 +182,7 @@ public class CapabilityRegistration {
                         logger.trace("Capability {} is still not supported by contributions", method);
                         result = noop;
                     } else {
-                        logger.trace("Capability {} is no longer supported by contributions", method);
+                        logger.debug("Capability {} is no longer supported by contributions", method);
                         result = unregister(existingRegistration);
                     }
                 } else if (existingRegistration != null) { // registration != null
@@ -190,12 +190,13 @@ public class CapabilityRegistration {
                         logger.trace("Options for capability {} did not change since last registration", method);
                         result = noop;
                     } else {
-                        logger.trace("Options for capability {} changed since the previous registration ({} vs. {})", method, registration.getRegisterOptions(), existingRegistration.getRegisterOptions());
+                        logger.debug("Options for capability {} changed since the previous registration [options in trace]", method);
+                        logger.trace("({} vs. {})", registration.getRegisterOptions(), existingRegistration.getRegisterOptions());
                         // Unregister the existing registration before registering the updated one to prevent duplicate contributions
                         result = unregister(existingRegistration).thenCompose(_v -> register(registration, null));
                     }
                 } else { // registration != null && existingRegistration == null
-                    logger.trace("Capability {} is now supported", method);
+                    logger.debug("Capability {} is now supported", method);
                     result = register(registration, existingRegistration);
                 }
 
@@ -218,7 +219,7 @@ public class CapabilityRegistration {
                     return updateRegistration(cap);
                 }).thenCompose(Function.identity());
             }
-        });
+        }, exec);
     }
 
     /**
@@ -237,7 +238,7 @@ public class CapabilityRegistration {
             return noop;
         }
 
-        logger.debug("Unregistering capability {}", reg.getMethod());
+        logger.trace("Unregistering capability {}", reg.getMethod());
         return client.unregisterCapability(new UnregistrationParams(List.of(new Unregistration(reg.getId(), method))))
             .whenComplete((_v, t) -> {
                 if (t != null) {
@@ -261,7 +262,7 @@ public class CapabilityRegistration {
             return noop;
         }
 
-        logger.debug("Registering capability {}", reg.getMethod());
+        logger.trace("Registering capability {}", reg.getMethod());
         return client.registerCapability(new RegistrationParams(List.of(reg)))
             .whenComplete((_v, t) -> {
                 if (t != null) {
@@ -291,7 +292,7 @@ public class CapabilityRegistration {
         }
 
         // Filter contributions by providing this capability
-        return CompletableFutureUtils.filter(languages, cap::isProvidedBy).<@Nullable Registration>thenCompose(providingLanguages -> {
+        return CompletableFutureUtils.filter(languages, cap::isProvidedBy).<@Nullable Registration>thenComposeAsync(providingLanguages -> {
             if (providingLanguages.isEmpty()) {
                 return CompletableFutureUtils.completedFuture(null, exec);
             }
@@ -305,7 +306,7 @@ public class CapabilityRegistration {
                     return opts;
                 })
                 .thenApply(opts -> new Registration(cap.id(), cap.methodName(), opts));
-        });
+        }, exec);
     }
 
     /**
