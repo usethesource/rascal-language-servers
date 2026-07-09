@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
@@ -39,6 +40,7 @@ import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 
 import io.usethesource.vallang.IValue;
 
@@ -52,6 +54,7 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     void initialized();
     void registerLanguage(LanguageParameter lang);
     void unregisterLanguage(LanguageParameter lang);
+    CompletableFuture<Void> checkProject(CheckProjectRequest req);
 
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     Collection<String> extensions();

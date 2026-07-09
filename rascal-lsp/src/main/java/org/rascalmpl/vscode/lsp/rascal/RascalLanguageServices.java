@@ -45,9 +45,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
@@ -70,12 +73,14 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -265,16 +270,28 @@ public class RascalLanguageServices {
         });
     }
 
+    private ISet getWorkspaceFolders(BaseWorkspaceService workspaceService) {
+        return workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
+    }
 
     public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFile(ISourceLocation file, PathConfig pcfg,
         Executor exec) {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
-        var workspaceFolders = workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
 
         var shortModuleName = URIUtil.getLocationName(URIUtil.removeExtension(file));
         return runEvaluator("Rascal check (" + shortModuleName +")", compilerEvaluator,
-            e -> translateCheckResults((IMap) e.call("checkFile", file, workspaceFolders, makeParseTreeGetter(e), makePathConfigGetter(e))),
+            e -> translateCheckResults((IMap) e.call("checkFile", file, getWorkspaceFolders(workspaceService), makeParseTreeGetter(e), makePathConfigGetter(e))),
             Map.of(file, VF.set()), exec, false, client);
+    }
+
+    public void checkProject(ISourceLocation projectRoot, IBool clean, Executor exec) {
+        logger.debug("Check Rascal project: {}", projectRoot);
+
+        var shortName = URIUtil.getLocationName(projectRoot);
+        runEvaluator("Rascal check project (" + shortName +")", compilerEvaluator,
+            e -> translateCheckResults((IMap) e.call("checkProject", projectRoot, clean, getWorkspaceFolders(workspaceService), makeParseTreeGetter(e), makePathConfigGetter(e))),
+            Map.of(projectRoot, VF.set()), exec, false, client).thenAccept(r ->
+                rascalTextDocumentService.getFileFacts().reportTypeCheckerMessages(r));
     }
 
     private @Nullable ISourceLocation getFileLoc(ITree moduleTree) {

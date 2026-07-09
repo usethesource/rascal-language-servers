@@ -37,6 +37,7 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 
 @JsonSegment("rascal")
@@ -64,10 +65,14 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
     @JsonNotification
     void setMinimumLogLevel(String level);
 
-
     @JsonRequest("vfs/schemes")
     CompletableFuture<String[]> fileSystemSchemes();
 
     @JsonRequest("vfs/logical/resolve")
     CompletableFuture<SourceLocationResponse> resolve(ISourceLocationRequest req);
+    
+    @JsonRequest
+    default CompletableFuture<Void> checkProject(CheckProjectRequest req) {
+        throw new UnsupportedOperationException();
+    }
 }
