@@ -311,8 +311,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         .thenApply(v -> currentRegs);
                 }
 
-                // We received an unregistration for a registration that we do not know
-                // TODO Throw an error?
+                logger.debug("Received a client/unregisterCapability for a registration that is not currently registered: {}", u);
                 return CompletableFuture.completedFuture(currentRegs);
             })
         );

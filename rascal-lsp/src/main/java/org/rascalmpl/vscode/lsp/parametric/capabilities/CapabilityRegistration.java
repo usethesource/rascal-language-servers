@@ -132,7 +132,7 @@ public class CapabilityRegistration {
         */
         lastParams.set(List.copyOf(languages));
         return CompletableFutureUtils.reduce(dynamicCapabilities.stream().map(this::updateRegistration), exec)
-            .thenAccept(v -> logger.debug("Done updating dynamic capabilities"));
+            .thenAccept(_v -> logger.debug("Done updating dynamic capabilities"));
     }
 
     /**
