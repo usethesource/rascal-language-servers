@@ -278,17 +278,17 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
-        // TODO Mimick VS given certain file operation filters (capabilities)
+        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        // TODO Mimick VS given certain file operation filters (capabilities)
+        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
-        // TODO Mimick VS given certain file operation filters (capabilities)
+        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
     }
 
     @Override
