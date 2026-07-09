@@ -26,17 +26,20 @@
  */
 import * as fs from 'fs/promises';
 import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, RascalREPL, sleep, src, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, src, startsAndStopsLoading, TestWorkspace } from './utils';
 
-import path from 'path';
+import path from 'path/posix';
 
 describe('DSL [multi-language]', function () {
     let browser: VSBrowser;
     let driver: WebDriver;
     let bench: Workbench;
     let ide : IDEOperations;
+    let protectedFiles: ProtectedFiles;
 
     const languages = ["Pico", "JSON2"];
+    const jsonExampleDir = src(TestWorkspace.testProject, 'json2');
+    const jsonTestFile = path.join(jsonExampleDir, 'example.json2');
 
     this.timeout(Delays.extremelySlow * 2);
 
@@ -49,10 +52,7 @@ describe('DSL [multi-language]', function () {
         for (const lang of languages) {
             await repl.execute(`import testing::lang::${lang.toLowerCase()}::LanguageServer;`, false, Delays.extremelySlow);
             const replExecuteMain = repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`); // we don't wait yet, because we might miss language loading window
-            const isLoading = isLanguageLoading(bench, lang);
-            await driver.wait(isLoading, Delays.extremelySlow, `${lang} should start loading`);
-            // now wait for the loader to disappear
-            await driver.wait(async () => !(await isLoading()), Delays.extremelySlow, `${lang} should be finished starting`, 100);
+            await startsAndStopsLoading(driver, bench, lang);
             await replExecuteMain;
         }
 
@@ -67,8 +67,7 @@ describe('DSL [multi-language]', function () {
         ide = new IDEOperations(browser);
         await ide.load();
         await loadLanguages();
-        ide = new IDEOperations(browser);
-        await ide.load();
+        protectedFiles = await ProtectedFiles.protect(jsonTestFile);
     });
 
     after(async () => {
@@ -99,13 +98,12 @@ describe('DSL [multi-language]', function () {
             await ide.screenshot(`DSL-mix-${this.test?.title}`);
         }
         await ide.cleanup();
+        await protectedFiles.restore();
     });
 
     it("reads unsaved editor contents across languages", async function() {
-        const exampleDir = src(TestWorkspace.testProject, 'json2');
-        const targetFile = path.join(exampleDir, "example-copy.json2");
-
-        const editor1 = await ide.openModule(path.join(exampleDir, 'example.json2'));
+        const targetFile = path.join(jsonExampleDir, "example-copy.json2");
+        const editor1 = await ide.openModule(jsonTestFile);
         try {
             await editor1.setTextAtLine(6, '}, "key5": "unsaved"');
             await fs.writeFile(targetFile, "{}");
@@ -120,5 +118,20 @@ describe('DSL [multi-language]', function () {
             await ide.revertOpenChanges();
             await fs.unlink(targetFile);
         }
+    });
+
+    it("completes by trigger character for multiple languages", async function() {
+        // JSON
+        const editor1 = await ide.openModule(jsonTestFile);
+        // Instead of using `moveCursor`, which might trigger `sendKeys` bugs, we go via the command line
+        await editor1.setCursor(5, 28);
+        await driver.wait(ignoreFails(editor1.typeText(',')), Delays.normal, "Should type some JSON");
+        await expectCompletions(driver, editor1, ['"key1"', '"key2"', '"key3"']);
+
+        // Pico
+        const editor2 = await ide.openModule(TestWorkspace.picoFile);
+        await editor2.setCursor(10, 10);
+        await driver.wait(ignoreFails(editor2.typeText("  x :=")), Delays.normal, "Should type some Pico");
+        await expectCompletions(driver, editor2, ["a", "b", "n", "x"]);
     });
 });

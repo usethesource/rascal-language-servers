@@ -45,7 +45,6 @@ import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -60,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -78,6 +78,7 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.util.maven.MavenParser;
 import org.rascalmpl.util.maven.ModelResolutionError;
@@ -113,7 +114,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
     private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
 
-    private final MultipleClientProxy client = new MultipleClientProxy();
+    private @MonotonicNonNull MultipleClientProxy remoteClient;
     private @MonotonicNonNull InitializeParams initializeParams;
     private final JsonWriter logForwarder;
 
@@ -157,8 +158,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @Override
-    public Collection<CompletableFuture<IBaseLanguageServerExtensions>> allRoutes() {
-        return languageServers.values();
+    public Stream<CompletableFuture<IBaseLanguageServerExtensions>> allRoutes() {
+        return languageServers.values().parallelStream();
     }
 
     @Override
@@ -173,7 +174,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public void connect(LanguageClient client) {
         super.connect(client); // first let the super class proxy the client
-        this.client.connect(availableClient());
+        this.remoteClient = new MultipleClientProxy(availableClient(), getExecutor());
     }
 
     private static String extension(ISourceLocation doc) {
@@ -274,7 +275,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     , "-Xmx2048M"
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-                    , "--exitWhenEmpty"
+                    // , "--exitWhenEmpty" // TODO Shutdown of a server might race with a new registration. Fix.
                 )
                 .start();
 
@@ -349,6 +350,11 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
+        if (remoteClient == null) {
+            // This should never happen, since it's initialized by `connect` before we are able to receive any `registerLanguage` requests.
+            throw new IllegalStateException("Remote client is not initialized");
+        }
+
         var serverParams = BaseLanguageServer.DEPLOY_MODE
             ? startServerProcess(lang)
             : connectToServer(lang)
@@ -358,13 +364,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             return null;
         }
 
+        var requestPool = NamedThreadPool.single(String.format("parametric-lsp-router-%s", lang.getName().toLowerCase()));
         var serverLauncher = new Launcher.Builder<IBaseLanguageServerExtensions>()
             .setRemoteInterface(IBaseLanguageServerExtensions.class)
-            .setLocalService(client)
+            .setLocalService(remoteClient)
             .setInput(serverParams.getLeft())
             .setOutput(serverParams.getMiddle())
             .configureGson(ActualRoutingLanguageServer::configureProxyGson)
-            .setExecutorService(getExecutor())
+            .setExecutorService(requestPool)
             .create();
 
         var runner = serverLauncher.startListening();
@@ -396,6 +403,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     serverParams.getRight().run();
                 } catch (Exception e) {
                     logger.error("Unexpected error while cleaning up connection to language server for {}", lang.getName(), e);
+                } finally {
+                    requestPool.shutdown();
                 }
             }
         });
@@ -468,32 +477,26 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     public synchronized CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
 
-        var work = route(lang.getName())
-            .thenCompose(s -> s.sendUnregisterLanguage(lang));
-
-        // Note: this should be handled for the deployed scenario by the process onExit hook.
-        boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
-        if (removeAll) {
-            // clear the whole language
-            logger.trace("unregisterLanguage({}) completely", lang.getName());
+        if (ParametricTextDocumentService.isLanguageCompletelyRemoved(lang)) {
+            // Do not remove the connection to the server.
+            // For the deployed scenario, this is handled by the process onExit hook.
+            // For the development scenario, we maintain the connection, since the remote server does not exit.
 
             for (var extension : lang.getExtensions()) {
                 this.languagesByExtension.remove(extension);
             }
-            var removed = languageServers.remove(lang.getName());
-            if (removed != null) {
-                work = work
-                    .thenCompose(ignored -> removed)
-                    .thenCompose(server -> server.shutdown().thenAccept(ignored -> server.exit()));
-            }
         }
 
-        return work;
+        return route(lang.getName()).handle((s, t) ->
+            s == null
+            ? CompletableFutureUtils.<Void>completedFuture(null, getExecutor())
+            : s.sendUnregisterLanguage(lang)
+        ).thenCompose(Function.identity());
     }
 
     @Override
     public CompletableFuture<Object> shutdown() {
-        return CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenCompose(LanguageServer::shutdown)), getExecutor())
+        return CompletableFutureUtils.reduce(allRoutes(serverFut -> serverFut.thenCompose(LanguageServer::shutdown)), getExecutor())
             .thenCompose(ignored -> super.shutdown())
             .whenComplete((v, t) -> {
                 try {
@@ -507,7 +510,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public void exit() {
         try {
-            CompletableFutureUtils.reduce(allRoutes().stream().map(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor())
+            CompletableFutureUtils.reduce(allRoutes(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor())
                 .whenComplete((v, t) -> {
                     try {
                         logForwarder.close();
@@ -529,7 +532,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public void cancelProgress(WorkDoneProgressCancelParams params) {
         // Forward to everyone
-        allRoutes().forEach(r -> r.thenAccept(s -> s.cancelProgress(params)));
+        allRoutes(r -> r.thenAccept(s -> s.cancelProgress(params)));
     }
 
 }

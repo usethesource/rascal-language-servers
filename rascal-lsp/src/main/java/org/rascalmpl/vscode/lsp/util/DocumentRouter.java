@@ -26,7 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
-import java.util.Collection;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
@@ -66,6 +67,10 @@ public interface DocumentRouter<T> {
         return route(Locations.toLoc(id.getUri()));
     }
 
-    Collection<T> allRoutes();
+    Stream<T> allRoutes();
+
+    default <U> Stream<U> allRoutes(Function<T, U> f) {
+        return allRoutes().map(f);
+    }
 
 }
