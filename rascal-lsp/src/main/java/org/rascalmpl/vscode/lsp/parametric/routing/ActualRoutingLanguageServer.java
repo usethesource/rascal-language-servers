@@ -69,6 +69,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -377,8 +378,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var runner = serverLauncher.startListening();
         var server = serverLauncher.getRemoteProxy();
 
-        var initializedServer = CompletableFutureUtils.completedFuture(delegateInitializationParams(), getExecutor())
-            .thenCompose(server::initialize)
+        var initializedServer = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders()))
             // TODO Handle static server capabilities that are different than ours (because the remote has a different Rascal-LSP version)
             .thenApply(ignored -> server);
 
@@ -419,8 +419,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return initializeParams;
     }
 
-    // TODO If this function does not require any parameters, change to a constant
-    private InitializeParams delegateInitializationParams() {
+    private InitializeParams delegateInitializationParams(List<WorkspaceFolder> workspaceFolders) {
         var params = new InitializeParams();
         var clientParams = availableInitializeParams();
         params.setCapabilities(clientParams.getCapabilities()); // We support precisely the capabilities of VS Code
@@ -428,7 +427,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         params.setInitializationOptions(clientParams.getInitializationOptions());
         params.setLocale(clientParams.getLocale());
         params.setTrace(clientParams.getTrace());
-        // TODO Set open workspace folders at the time of starting the server
+        params.setWorkspaceFolders(workspaceFolders);
         try {
             params.setProcessId((int) ProcessHandle.current().pid());
         } catch (UnsupportedOperationException | SecurityException e) {

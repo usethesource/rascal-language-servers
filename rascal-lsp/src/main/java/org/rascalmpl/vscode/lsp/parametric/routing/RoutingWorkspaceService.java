@@ -34,6 +34,7 @@ import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
+import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -113,6 +114,12 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
         params.getFiles().stream()
             .collect(Collectors.groupingBy(f -> route(Locations.toLoc(f.getOldUri())))) // like VS Code, notify language associated with the old file name
             .forEach((r, renames) -> r.thenAccept(s -> s.didRenameFiles(new RenameFilesParams(renames))));
+    }
+
+    @Override
+    public void didChangeWorkspaceFolders(DidChangeWorkspaceFoldersParams params) {
+        super.didChangeWorkspaceFolders(params);
+        CompletableFutureUtils.reduce(allRoutes(f -> f.thenAccept(ws -> ws.didChangeWorkspaceFolders(params))), getExecutor());
     }
 
 }
