@@ -29,10 +29,7 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
@@ -116,13 +113,13 @@ import io.usethesource.vallang.IValue;
 /**
  * A language-parametric text document service that routes incoming requests to remote dedicated language servers.
  */
-public class RoutingTextDocumentService extends TextDocumentStateManager implements IBaseTextDocumentService, DocumentRouter<CompletableFuture<TextDocumentService>> {
+public class RoutingTextDocumentService extends TextDocumentStateManager implements IBaseTextDocumentService, DocumentRouter<TextDocumentService> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
     private final ExecutorService exec;
     private @MonotonicNonNull LanguageClient client;
-    private @MonotonicNonNull DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter;
+    private @MonotonicNonNull DocumentRouter<IBaseLanguageServerExtensions> serverRouter;
 
     @SuppressWarnings("unused")
     /*package*/ RoutingTextDocumentService(ExecutorService exec) {
@@ -131,11 +128,11 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
-    /*package*/ void setServerRouter(DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter) {
+    /*package*/ void setServerRouter(DocumentRouter<IBaseLanguageServerExtensions> serverRouter) {
         this.serverRouter = serverRouter;
     }
 
-    private DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> availableServerRouter() {
+    private DocumentRouter<IBaseLanguageServerExtensions> availableServerRouter() {
         if (serverRouter == null) {
             // This should only happen if we forgot to call `setServerRouter` before finishing initialization
             throw new IllegalStateException("No server router available");
@@ -144,38 +141,31 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     }
 
     @Override
-    public Stream<CompletableFuture<TextDocumentService>> allRoutes() {
-        return availableServerRouter().allRoutes(server -> server.thenApply(LanguageServer::getTextDocumentService));
+    public Stream<TextDocumentService> allRoutes() {
+        return availableServerRouter().allRoutes(LanguageServer::getTextDocumentService);
     }
 
     /**
      * Notify all remote servers and wait for their response.
      */
     private <P> void notifyAllRemotes(BiConsumer<TextDocumentService, P> notify, P params) {
-        try {
-            CompletableFutureUtils.reduce(allRoutes(r -> {
-                try {
-                    return r.thenAccept(s -> notify.accept(s, params));
-                } catch (Exception e) {
-                    logger.error("Unexpected error while notifying all remote servers", e);
-                    return CompletableFutureUtils.<Void>completedFuture(null, exec);
-                }
-            }), exec).get(1, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException | TimeoutException e) {
-            logger.catching(e);
-        }
+        allRoutes().forEach(s -> {
+            try {
+                notify.accept(s, params);
+            } catch (Exception e) {
+                logger.error("Unexpected error while notifying all remote servers", e);
+            }
+        });
     }
 
     @Override
-    public CompletableFuture<TextDocumentService> route(ISourceLocation loc) {
-        return availableServerRouter().route(loc).thenApply(LanguageServer::getTextDocumentService);
+    public TextDocumentService route(ISourceLocation loc) {
+        return availableServerRouter().route(loc).getTextDocumentService();
     }
 
     @Override
-    public CompletableFuture<TextDocumentService> route(String language) {
-        return availableServerRouter().route(language).thenApply(LanguageServer::getTextDocumentService);
+    public TextDocumentService route(String language) {
+        return availableServerRouter().route(language).getTextDocumentService();
     }
 
     private <P, R> CompletableFuture<R> route(TextDocumentIdentifier doc, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
@@ -186,8 +176,8 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         return routeCompose(route(loc), endpoint, params);
     }
 
-    private <P, R> CompletableFuture<R> routeCompose(CompletableFuture<TextDocumentService> sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
-        return sf.thenCompose(s -> endpoint.apply(s, params));
+    private <P, R> CompletableFuture<R> routeCompose(TextDocumentService sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
+        return endpoint.apply(sf, params);
     }
 
     @Override
@@ -225,7 +215,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     public void didSave(DidSaveTextDocumentParams params) {
         // Inform only the remote server for this language, since this does not change file state
         // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didSave(params));
+        route(params.getTextDocument()).didSave(params);
     }
 
     @Override

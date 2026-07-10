@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -56,7 +58,6 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -102,7 +103,7 @@ import io.usethesource.vallang.IValue;
 /**
  * A language server implementation that routes LSP requests to dedicated remote language servers.
  */
-public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> {
+public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements DocumentRouter<IBaseLanguageServerExtensions> {
 
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
@@ -112,7 +113,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     // 1. This map should only contains running server processes.
     // 2. Upon removal from this map, the process should be killed to avoid resource leaks.
     // NOTE To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
-    private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
+    private final Map<String, IBaseLanguageServerExtensions> languageServers = new ConcurrentHashMap<>();
     private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
 
     private @MonotonicNonNull MultipleClientProxy remoteClient;
@@ -150,24 +151,24 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @Override
-    public CompletableFuture<IBaseLanguageServerExtensions> route(String lang) {
+    public IBaseLanguageServerExtensions route(String lang) {
         var service = languageServers.get(lang);
         if (service == null) {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang)));
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
         }
         return service;
     }
 
     @Override
-    public Stream<CompletableFuture<IBaseLanguageServerExtensions>> allRoutes() {
+    public Stream<IBaseLanguageServerExtensions> allRoutes() {
         return languageServers.values().parallelStream();
     }
 
     @Override
-    public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation loc) {
+    public IBaseLanguageServerExtensions route(ISourceLocation loc) {
         var lang = ParametricTextDocumentService.languageByExtension(loc, languagesByExtension);
         if (lang.isEmpty()) {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension(loc))));
+            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension(loc)));
         }
         return route(lang.get());
     }
@@ -350,7 +351,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         GsonUtils.complexAsJsonObject().accept(builder);
     }
 
-    private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
+    private @Nullable IBaseLanguageServerExtensions startServer(LanguageParameter lang) {
         if (remoteClient == null) {
             // This should never happen, since it's initialized by `connect` before we are able to receive any `registerLanguage` requests.
             throw new IllegalStateException("Remote client is not initialized");
@@ -378,9 +379,13 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var runner = serverLauncher.startListening();
         var server = serverLauncher.getRemoteProxy();
 
-        var initializedServer = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders()))
+        try {
+            var initializeResult = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders())).get(10, TimeUnit.SECONDS);
             // TODO Handle static server capabilities that are different than ours (because the remote has a different Rascal-LSP version)
-            .thenApply(ignored -> server);
+        } catch (Exception e) {
+            logger.error("Unexpected error while initializing the server for {}", lang.getName(), e);
+            return null;
+        }
 
         getExecutor().execute(() -> {
             try {
@@ -392,7 +397,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 Thread.currentThread().interrupt();
             } finally {
                 synchronized (this) {
-                    if (languageServers.remove(lang.getName(), initializedServer)) {
+                    if (languageServers.remove(lang.getName(), server)) {
                         for (var ext : lang.getExtensions()) {
                             languagesByExtension.remove(ext, lang.getName());
                         }
@@ -409,7 +414,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             }
         });
 
-        return initializedServer; // When initialization is done, we can use the server
+        return server;
     }
 
     private InitializeParams availableInitializeParams() {
@@ -462,14 +467,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         // If we do not have a parametric server running for this language, start and initialize it.
-        var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable CompletableFuture<IBaseLanguageServerExtensions>>) ignored -> startServer(lang));
+        var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable IBaseLanguageServerExtensions>) _name -> startServer(lang));
         if (server == null) {
             throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
         }
         for (var ext : lang.getExtensions()) {
             languagesByExtension.put(ext, lang.getName());
         }
-        return server.thenCompose(s -> s.sendRegisterLanguage(lang));
+        return server.sendRegisterLanguage(lang);
     }
 
     @Override
@@ -486,52 +491,44 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             }
         }
 
-        return route(lang.getName()).handle((s, t) ->
-            s == null
-            ? CompletableFutureUtils.<Void>completedFuture(null, getExecutor())
-            : s.sendUnregisterLanguage(lang)
-        ).thenCompose(Function.identity());
+        try {
+            return route(lang.getName()).sendUnregisterLanguage(lang);
+        } catch (UnsupportedOperationException e) {
+            return NOOP;
+        }
     }
 
     @Override
     public CompletableFuture<Object> shutdown() {
-        return CompletableFutureUtils.reduce(allRoutes(serverFut -> serverFut.thenCompose(LanguageServer::shutdown)), getExecutor())
-            .thenCompose(ignored -> super.shutdown())
-            .whenComplete((v, t) -> {
+        return CompletableFutureUtils.reduce(allRoutes(LanguageServer::shutdown), getExecutor())
+            .thenCompose(_o -> super.shutdown())
+            .thenApply(o -> {
                 try {
                     logForwarder.flush();
                 } catch (IOException e) {
                     logger.catching(e);
                 }
+                return o;
             });
     }
 
     @Override
     public void exit() {
+        allRoutes().forEach(LanguageServer::exit);
         try {
-            CompletableFutureUtils.reduce(allRoutes(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor())
-                .whenComplete((v, t) -> {
-                    try {
-                        logForwarder.close();
-                    } catch (IOException e) {
-                        logger.catching(e);
-                    }
-                })
-                .get(10, TimeUnit.SECONDS);
-        } catch (ExecutionException | TimeoutException e) {
-            logger.error("Error while exiting child processes", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            destroyChildProcesses();
-            super.exit();
+            logForwarder.close();
+        } catch (IOException e) {
+            logger.catching(e);
         }
+
+        destroyChildProcesses();
+        super.exit();
     }
 
     @Override
     public void cancelProgress(WorkDoneProgressCancelParams params) {
         // Forward to everyone
-        allRoutes(r -> r.thenAccept(s -> s.cancelProgress(params)));
+        allRoutes().forEach(r -> r.cancelProgress(params));
     }
 
 }
