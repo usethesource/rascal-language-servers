@@ -293,7 +293,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     /**
      * Connects to a language server in a separate process, for debugging.
-     * Returns an pair of streams of bi-directional communication, and a runnable to clean up after the server terminates.
+     * Returns an pair of streams for bi-directional communication, and a runnable to clean up after the server terminates.
      */
     private @Nullable Triple<InputStream, OutputStream, Runnable> connectToServer(LanguageParameter lang) {
         // In development, we expect the server to have been launched on a pre-agreed port
@@ -326,7 +326,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     /**
      * Special GSON configuration that (un)wraps IValues as-is.
      *
-     * Encoding and decoding an {@link IValue} loses dynamic type information, hance a decoded value can not be encoded properly again.
+     * Encoding and decoding an {@link IValue} loses dynamic type information, hence a decoded value can not be encoded properly again.
      * `encode(decode(encode(v))) != encode(v)`
      * Since the router should just proxy values passed from remote servers, without changing them, it uses a special encoder/decoder.
      *
