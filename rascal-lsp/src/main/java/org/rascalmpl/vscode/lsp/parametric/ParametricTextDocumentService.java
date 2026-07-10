@@ -1055,7 +1055,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     public CompletableFuture<Void> checkProject(CheckProjectRequest req) {
-        // Do nothing
-        return CompletableFuture.completedFuture(null);
+        throw new UnsupportedOperationException("ParametricTextDocumentService cannot check Rascal projects");
     }
 }
