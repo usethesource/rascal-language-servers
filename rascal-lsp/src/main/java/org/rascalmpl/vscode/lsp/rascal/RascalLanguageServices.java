@@ -270,7 +270,7 @@ public class RascalLanguageServices {
         });
     }
 
-    private ISet getWorkspaceFolders(BaseWorkspaceService workspaceService) {
+    private ISet getWorkspaceFolders() {
         return workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
     }
 
@@ -280,7 +280,7 @@ public class RascalLanguageServices {
 
         var shortModuleName = URIUtil.getLocationName(URIUtil.removeExtension(file));
         return runEvaluator("Rascal check (" + shortModuleName +")", compilerEvaluator,
-            e -> translateCheckResults((IMap) e.call("checkFile", file, getWorkspaceFolders(workspaceService), makeParseTreeGetter(e), makePathConfigGetter(e))),
+            e -> translateCheckResults((IMap) e.call("checkFile", file, getWorkspaceFolders(), makeParseTreeGetter(e), makePathConfigGetter(e))),
             Map.of(file, VF.set()), exec, false, client);
     }
 
@@ -289,7 +289,7 @@ public class RascalLanguageServices {
 
         var shortName = URIUtil.getLocationName(projectRoot);
         runEvaluator("Rascal check project (" + shortName +")", compilerEvaluator,
-            e -> translateCheckResults((IMap) e.call("checkProject", projectRoot, clean, getWorkspaceFolders(workspaceService), makeParseTreeGetter(e), makePathConfigGetter(e))),
+            e -> translateCheckResults((IMap) e.call("checkProject", projectRoot, clean, getWorkspaceFolders(), makeParseTreeGetter(e), makePathConfigGetter(e))),
             Map.of(projectRoot, VF.set()), exec, false, client).thenAccept(r ->
                 rascalTextDocumentService.getFileFacts().reportTypeCheckerMessages(r));
     }
