@@ -140,7 +140,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
     checkOutdatedPathConfig(pcfg);
     msgs += check(rscFiles, rascalCompilerConfig(pcfg));
     return filterAndFix(msgs, workspaceFolders);
-}, totalWork=33333);
+}, totalWork=3);
 
 private tuple[start[Module], set[Message]] getParseTreeOrErrors(loc l, str name, loc errorLocation, start[Module](loc file) getParseTree) {
     try {
