@@ -31,6 +31,7 @@
   <groupId>org.rascalmpl</groupId>
   <artifactId>rascal-lsp</artifactId>
   <version>2.22.6-SNAPSHOT</version>
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
@@ -111,11 +112,12 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
   <build>
     <resources>
       <resource>
         <directory>META-INF</directory>
-        <targetPath>${project.build.outputDirectory}/META-INF</targetPath>  <!-- this way of framing it works around issue in m2e -->
+        <targetPath>${project.build.outputDirectory}/META-INF</targetPath> <!-- this way of framing it works around issue in m2e -->
         <filtering>false</filtering>
       </resource>
       <resource>
@@ -353,6 +355,7 @@
       </plugin>
     </plugins>
   </build>
+
   <licenses>
     <license>
       <name>BSD-2-Clause</name>
@@ -360,6 +363,7 @@
       <distribution>manual</distribution>
     </license>
   </licenses>
+
   <profiles>
     <profile>
       <id>coverage</id>
@@ -465,8 +469,6 @@
           <version>${checkerframework.version}</version>
         </dependency>
       </dependencies>
-
-
     </profile>
   </profiles>
 </project>
