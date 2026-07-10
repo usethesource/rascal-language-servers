@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.rascal.jsonrpc;
 
 import java.util.Objects;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.values.ValueFactoryFactory;
 
 import io.usethesource.vallang.IBool;
@@ -51,7 +52,7 @@ public class CheckProjectRequest {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj instanceof CheckProjectRequest) {
             var other = (CheckProjectRequest) obj;
             return Objects.equals(loc, other.loc)
