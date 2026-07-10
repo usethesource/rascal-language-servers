@@ -72,7 +72,5 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
     CompletableFuture<SourceLocationResponse> resolve(ISourceLocationRequest req);
     
     @JsonRequest
-    default CompletableFuture<Void> checkProject(CheckProjectRequest req) {
-        throw new UnsupportedOperationException();
-    }
+    CompletableFuture<Void> checkProject(CheckProjectRequest req);
 }
