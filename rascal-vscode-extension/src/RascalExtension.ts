@@ -336,7 +336,6 @@ export class RascalExtension implements vscode.Disposable {
                     loc: toRascalUri(projectRoot.uri),
                     clean: clean
                 });
-                void vscode.window.showInformationMessage(`Rascal check project: finished checking project ${projectRoot.uri}`);
             } catch (_e) {
                 void vscode.window.showErrorMessage(`Rascal check project: could not check ${projectRoot}`);
             }
