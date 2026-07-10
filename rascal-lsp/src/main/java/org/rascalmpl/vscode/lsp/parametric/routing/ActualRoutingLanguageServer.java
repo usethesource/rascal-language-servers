@@ -125,8 +125,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private NavigableSet<Integer> portPool = new ConcurrentSkipListSet<>();
 
     @SuppressWarnings("java:S106") // System.err
-    public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
-        super(onExit, exec, lspDocumentService, lspWorkspaceService);
+    public ActualRoutingLanguageServer(String serverName, Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
+        super(serverName, onExit, exec, lspDocumentService, lspWorkspaceService);
 
         // log4j loggers write to stderr. We wrap the same stream, so we can directly pipe log messages from our child processes to it.
         logForwarder = new JsonWriter(new BufferedWriter(new OutputStreamWriter(System.err)));
@@ -381,7 +381,17 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         try {
             var initializeResult = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders())).get(10, TimeUnit.SECONDS);
-            // TODO Handle static server capabilities that are different than ours (because the remote has a different Rascal-LSP version)
+            // In principle, we share our static capabilities with that of the parametric server via ParametricTextDocumentService::initializeStaticServerCapabilities (in the document service).
+            // If the version of Rascal-LSP in the remote server differs from the version of this router (which is exactly the point of starting a remote server), there are two scenarios:
+            // 1. The remote is **newer**. It might support capabilities that we do not support. Since this router can never communicate about functionality from the future, in this situation,
+            // the capabilities are bounded by the capabilities of the router.
+            // 2. The remote is **older**. In that case, the router might have registered some capabilities that are not supported by the remote. This might lead to some extra requests being \
+            // sent to the remote, only to return defaults.
+
+            if (!(Objects.equals(initializeResult.getCapabilities(), availableServerCapabilities()) && Objects.equals(availableServerCapabilities(), initializeResult.getCapabilities()))) {
+                logger.info("Static capabilities of {} are different to the ones registered with the client, which might lead to missing functionality.", lang.getName());
+                // TODO Compare `BaseLanguageServer::getVersion` to determine exactly what is going on, so we can inform the user about possible unexpected behaviour and the fix for this.
+            }
         } catch (Exception e) {
             logger.error("Unexpected error while initializing the server for {}", lang.getName(), e);
             return null;
