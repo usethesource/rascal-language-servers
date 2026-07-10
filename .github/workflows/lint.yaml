@@ -22,8 +22,40 @@ permissions:
 
 
 jobs:
+  seed-caches:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        id: java
+        with:
+          java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: setup node
+        id: node 
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+          cache: 'npm'
+          cache-dependency-path: rascal-vscode-extension/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: mvn download
+        if: steps.java.outputs.cache-hit != 'true'
+        working-directory: ./rascal-lsp
+        run: |
+          mvn -B dependency:go-offline dependency:resolve-plugins
+          mvn -Pchecker-framework -B dependency:go-offline dependency:resolve-plugins
+
+      - name: npm download
+        if: steps.node.outputs.cache-hit != 'true'
+        working-directory: ./rascal-vscode-extension
+        run: npm ci
 
   sonarcloud:
+    needs: seed-caches
     name: SonarCloud 
     runs-on: ubuntu-latest
     steps:
@@ -49,6 +81,7 @@ jobs:
         run: mvn -B -Pcoverage verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=usethesource_rascal-language-servers 
 
   eslint:
+    needs: seed-caches
     name: eslint
     runs-on: ubuntu-latest
     steps:
@@ -61,20 +94,24 @@ jobs:
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Package & compile extension 
+      - name:  install dependencies
         working-directory: ./rascal-vscode-extension
-        run: npm ci
+        run: |
+          npm ci
+          npm install --no-save @microsoft/eslint-formatter-sarif
 
-      - name: Run linters
-        uses: wearerequired/lint-action@v2
+      - name: Run ESLint with annotations
+        working-directory: ./rascal-vscode-extension
+        run: npx eslint . --ext .ts --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          eslint: true
-          eslint_dir: ./rascal-vscode-extension
-          eslint_args: "src"
-          eslint_extensions: ts
-          continue_on_error: false
+          sarif_file: rascal-vscode-extension/eslint-results.sarif
 
   checkstyle:
+    needs: seed-caches
     name: checkstyle 
     runs-on: ubuntu-latest
     steps:
@@ -90,6 +127,7 @@ jobs:
       - name: Run checkstyle and print errors
         run: mvn -B checkstyle:checkstyle checkstyle:check
         working-directory: ./rascal-lsp
+
       - name: Report build results
         uses: gmazzo/publish-report-annotations@v1 # target latest major
         if: ${{ !cancelled() }}
@@ -109,6 +147,7 @@ jobs:
           - language: typescript
             build-mode: none
     name: githubql
+    needs: seed-caches
     runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
@@ -149,16 +188,13 @@ jobs:
         with:
           category: "/language:${{matrix.language}}"   
 
-
   checker-framework:
+    needs: seed-caches
     name: checker-framework 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      - name: Assure different pom cache hit
-        run: echo "    " >> rascal-lsp/pom.xml
-        
       - uses: actions/setup-java@v5
         with:
           java-version: 11
