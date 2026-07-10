@@ -77,7 +77,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
 
     if ([] != dependencyMsgs) {
         // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
-        return (l: dependencyMsgs);
+        return (l: {*dependencyMsgs});
     }
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
@@ -155,8 +155,8 @@ private tuple[start[Module], set[Message]] getParseTreeOrErrors(loc l, str name,
     }
 }
 
-tuple[list[Message] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
-    list[Message] msgs = [];
+tuple[list[ModuleMessage] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+    list[ModuleMessage] msgs = [];
     set[loc] checkedForImports = {};
     rel[loc, loc] dependencies = {};
 
