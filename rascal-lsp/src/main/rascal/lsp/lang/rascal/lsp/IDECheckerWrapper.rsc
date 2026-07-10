@@ -73,7 +73,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     rel[loc, loc] dependencies = {};
 
     step("Dependency graph", 1);
-    <dependencyMsgs, checkedForImports, dependencies> = buildDependencyGraph(checkForImports, projectRoot, workspaceFolders, getParseTree, getPathConfig);
+    <dependencyMsgs, checkedForImports, dependencies> = buildDependencyGraph(checkForImports, openFileHeader.src, workspaceFolders, getParseTree, getPathConfig);
     // job("Building dependency graph", bool (void (str, int) step2) {
     //     while (tree <- checkForImports) {
     //         step2("Calculating imports for <tree.top.header.name>", 1);
@@ -105,7 +105,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     // }, totalWork=1);
 
     // if ({} != parseErrors) {
-    if ({} != dependencyMsgs) {
+    if ([] != dependencyMsgs) {
         // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
         // return (l: parseErrors);
         return (l: dependencyMsgs);
@@ -138,7 +138,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     step("Checking module <l>", 1);
     pcfg = getPathConfig(initialProject);
     checkOutdatedPathConfig(pcfg);
-    msgs += check(calculateOutdated(modulesPerProject[initialProject], pcfg) + [l], rascalCompilerConfig(pcfg));
+    msgs += check(calculateOutdated({f | f <- checkedForImports, initialProject := inferProjectRoot(f)}, pcfg) + [l], rascalCompilerConfig(pcfg));
     return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
