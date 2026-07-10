@@ -274,7 +274,7 @@ public class RascalLanguageServices {
         return workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
     }
 
-    public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFile(ISourceLocation file, PathConfig pcfg,
+    public InterruptibleFuture<Map<ISourceLocation, ISet>> checkFile(ISourceLocation file, PathConfig pcfg,
         Executor exec) {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
 

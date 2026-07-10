@@ -229,7 +229,7 @@ public class FileFacts implements DiagnosticsReporter {
             summary.invalidate();
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
-                rascal.compileFile(file, confs.lookupConfig(file), exec)
+                rascal.checkFile(file, confs.lookupConfig(file), exec)
                     .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerMessages(msgs)));
         }
