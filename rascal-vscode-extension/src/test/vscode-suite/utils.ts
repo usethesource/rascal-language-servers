@@ -48,7 +48,7 @@ export class Delays {
     public static readonly extremelySlow =sec(120) * this.delayFactor;
 }
 
-function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
+export function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
 function target(project : string) { return path.join(project, 'target', 'classes', 'rascal'); }
 export class TestWorkspace {
     private static readonly workspacePrefix = 'test-workspace';
@@ -306,7 +306,7 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                const title = await ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
                 await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
@@ -611,15 +611,21 @@ export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench,
     await driver.wait(async () => (await ignoreFails(isLoading())) === false, doneTimeout, `${language} should stop ${message}`, pollInterval);
 }
 
-export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
-    const completions = await driver.wait(async () => {
-        const completionMenu = new ContentAssist(editor);
-        return await ignoreFails(completionMenu.getItems());
-    }, Delays.fast, "Completion items not found");
-
-    expect(completions).to.have.length(expectedLabels.length);
-    const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
-    expect(labels).deep.equal(expectedLabels);
+export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[] | Set<string>) {
+    const labels = await driver.wait(async () => {
+        try {
+            const completionMenu = new ContentAssist(editor);
+            await completionMenu.waitForStable();
+            if (!await completionMenu.isLoaded()) {
+                return undefined;
+            }
+            const completions = await completionMenu.getItems();
+            return await Promise.all(completions.map(c => c.getLabel()));
+        } catch (e) {
+            return undefined;
+        }
+    }, Delays.normal, "Completion items cannot be found");
+    expect(expectedLabels instanceof Set ? new Set<string>(labels) : labels).to.deep.equal(expectedLabels);
 }
 
 

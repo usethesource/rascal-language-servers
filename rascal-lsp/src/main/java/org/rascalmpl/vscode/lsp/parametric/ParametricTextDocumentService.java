@@ -178,6 +178,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private final Set<String> extensionLessSchemes = new CopyOnWriteArraySet<>();
+    private final boolean exitWhenEmpty;
 
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
@@ -199,8 +200,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.abstractDataType(typeStore, "FileSystemChange"), "renamed", tf.sourceLocationType(), "from",
             tf.sourceLocationType(), "to");
 
-    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage) {
+    public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage, boolean exitWhenEmpty) {
         this.exec = exec;
+        this.exitWhenEmpty = exitWhenEmpty;
+
         if (dedicatedLanguage == null) {
             this.dedicatedLanguageName = "";
             this.dedicatedLanguage = null;
@@ -219,20 +222,28 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return dynamicCapabilities;
     }
 
+    @Override
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName()));
-        dynamicCapabilities.registerStaticCapabilities(result);
+        dynamicCapabilities = initializeDynamicServerCapabilities(availableClient(), dedicatedLanguageName, exec, clientCapabilities, result);
+        initializeStaticServerCapabilities(result);
+    }
 
-        // Register document sync statically
+    public static CapabilityRegistration initializeDynamicServerCapabilities(LanguageClient client, @Nullable String dedicatedLanguageName, ExecutorService exec, ClientCapabilities clientCapabilities, ServerCapabilities result) {
+        var dynamicCapabilities = new CapabilityRegistration(client, exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName(dedicatedLanguageName)));
+        dynamicCapabilities.registerStaticCapabilities(result);
+        return dynamicCapabilities;
+    }
+
+    public static void initializeStaticServerCapabilities(final ServerCapabilities result) {
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
     }
 
-    private String getRascalMetaCommandName() {
+    private static String getRascalMetaCommandName(@Nullable String dedicatedLanguageName) {
         // if we run in dedicated mode, we prefix the commands with our language name
         // to avoid ambiguity with other dedicated languages and the generic rascal plugin
-        if (!dedicatedLanguageName.isEmpty()) {
+        if (dedicatedLanguageName != null && !dedicatedLanguageName.isEmpty()) {
             return BaseWorkspaceService.RASCAL_META_COMMAND + "-" + dedicatedLanguageName;
         }
         return BaseWorkspaceService.RASCAL_META_COMMAND;
@@ -325,7 +336,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         logger.debug("Did Close file: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
         closeFile(loc);
-        facts(loc).close(loc);
+        if (safeLanguage(loc).isPresent()) {
+            facts(loc).close(loc);
+        }
         // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
         // we mimic a delete event to ensure all diagnostics are cleared.
         if (!URIResolverRegistry.getInstance().exists(loc)) {
@@ -365,11 +378,15 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private void triggerBuilder(TextDocumentIdentifier doc) {
-        logger.trace("Triggering builder for {}", doc.getUri());
         var location = Locations.toLoc(doc);
-        var fileFacts = facts(location);
-        fileFacts.invalidateBuilder(location);
-        fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
+        if (safeLanguage(location).isPresent()) {
+            logger.trace("Triggering builder for {}", doc.getUri());
+            var fileFacts = facts(location);
+            fileFacts.invalidateBuilder(location);
+            fileFacts.calculateBuilder(location, getFile(location).getCurrentTreeAsync(true));
+        } else {
+            logger.debug("Not triggering builder, since no language is registered for {}", location);
+        }
     }
 
     @Override
@@ -587,17 +604,22 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private Optional<String> safeLanguage(ISourceLocation loc) {
+        return languageByExtension(loc, registeredExtensions);
+    }
+
+    public static Optional<String> languageByExtension(ISourceLocation loc, Map<String, String> languagesByExtension) {
         var ext = extension(loc);
+        var languages = languagesByExtension.values().stream().collect(Collectors.toSet());
         if ("".equals(ext)) {
-            if (contributions.size() == 1) {
+            if (languages.size() == 1) {
                 logger.trace("File was opened without an extension; falling back to the single registered language for: {}", loc);
-                return contributions.keySet().stream().findFirst();
+                return languages.stream().findFirst();
             } else {
                 logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
                 return Optional.empty();
             }
         }
-        return Optional.ofNullable(registeredExtensions.get(ext));
+        return Optional.ofNullable(languagesByExtension.get(ext));
     }
 
     private String language(ISourceLocation loc) {
@@ -1000,10 +1022,14 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return lang.getMainFunction() + "::" + lang.getMainFunction();
     }
 
+    public static boolean isLanguageCompletelyRemoved(LanguageParameter lang) {
+        return lang.getMainModule() == null || lang.getMainModule().isEmpty();
+    }
+
     @Override
     public synchronized void unregisterLanguage(LanguageParameter lang) {
         logger.info("unregisterLanguage({})", lang.getName());
-        boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
+        boolean removeAll = isLanguageCompletelyRemoved(lang);
         if (!removeAll) {
             var contrib = contributions.get(lang.getName());
             if (contrib != null && !contrib.removeContributor(buildContributionKey(lang))) {
@@ -1030,7 +1056,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
 
         // Should be called from the main, single-threaded request pool
-        updateCapabilities();
+        updateCapabilities().thenAccept(v -> {
+            if (exitWhenEmpty && contributions.isEmpty()) {
+                logger.debug("Shutting down; no more registered languages");
+                System.exit(0);
+            }
+        });
     }
 
     @Override

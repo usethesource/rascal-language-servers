@@ -95,7 +95,7 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
             return ideState.getCurrentContent().get();
         }
         if (!URIResolverRegistry.getInstance().isFile(file)) {
-            logger.error("Trying to get the contents of a directory: {}", file);
+            logger.error("Trying to get the contents of a directory or non-existent file: {}", file);
             return "";
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
