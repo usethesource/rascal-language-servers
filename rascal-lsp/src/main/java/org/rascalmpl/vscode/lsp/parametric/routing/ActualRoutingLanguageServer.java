@@ -232,29 +232,36 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             try (var reader = new BufferedReader(new InputStreamReader(logStream))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    try {
-                        var json = JsonParser.parseString(line);
-                        prependThreadName(langName, json);
-                        // Lock, so we can make sure our JSON is followed by a newline.
-                        synchronized (System.err) {
-                            gson.toJson(json, logForwarder);
-                            logForwarder.flush();
-                            // One object per line; this is what log4j does as well.
-                            System.err.println();
-                        }
-                    } catch (JsonSyntaxException e) {
-                        // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
-                        // In this case, just forward the raw line.
-                        if (!line.isBlank()) {
-                            // No need to lock, since `println` takes care of that.
-                            System.err.println(line);
-                        }
-                    }
+                    forwardLogLine(langName, line);
                 }
             } catch (IOException e) {
-                logger.error("Error while reading logs for {}", langName, e);
+                logger.error("Error while reading/writing logs for {}", langName, e);
             }
         });
+    }
+
+    /**
+     * @throws IOException when the log writer is closed.
+     */
+    private void forwardLogLine(String langName, String line) throws IOException {
+        try {
+            var json = JsonParser.parseString(line);
+            prependThreadName(langName, json);
+            // Lock, so we can make sure our JSON is followed by a newline.
+            synchronized (System.err) {
+                gson.toJson(json, logForwarder);
+                logForwarder.flush();
+                // One object per line; this is what log4j does as well.
+                System.err.println();
+            }
+        } catch (JsonSyntaxException e) {
+            // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
+            // In this case, just forward the raw line.
+            if (!line.isBlank()) {
+                // No need to lock, since `println` takes care of that.
+                System.err.println(line);
+            }
+        }
     }
 
     /**
