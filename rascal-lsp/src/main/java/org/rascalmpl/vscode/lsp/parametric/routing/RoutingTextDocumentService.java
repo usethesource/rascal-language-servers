@@ -182,7 +182,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public Collection<String> extensions() {
-        throw new UnsupportedOperationException("extensions() should not be called on the routing server, but only on delegate servers.");
+        throw new UnsupportedOperationException("extensions() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
@@ -241,44 +241,46 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        // Nothing to do here
+        throw new UnsupportedOperationException("registerLanguage() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        // Nothing to do here
+        throw new UnsupportedOperationException("unregisterLanguage() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     public void cancelProgress(String progressId) {
-        // Nothing to do here
+        throw new UnsupportedOperationException("executeCommand() should not be called on the routing document service, but only on the routing server.");
     }
 
     @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
-        throw new UnsupportedOperationException("Call RoutingWorkspaceService::executeCommand instead");
+        throw new UnsupportedOperationException("executeCommand() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     protected DiagnosticsReporter getDiagnosticsReporter(ISourceLocation file) {
-        return (l, msgs) -> {
-            // NOP; we delegate diagnostic reporting to our dedicated remote servers
-        };
+        // NOP; we delegate diagnostic reporting to our dedicated remote servers
+        return (l, msgs) -> {};
     }
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
         // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        throw new UnsupportedOperationException("didCreateFiles() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
         // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        throw new UnsupportedOperationException("didRenameFiles() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        throw new UnsupportedOperationException("didDeleteFiles() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
