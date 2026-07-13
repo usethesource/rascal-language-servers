@@ -244,7 +244,7 @@ public abstract class BaseLanguageServer {
 
         private @MonotonicNonNull IDEServicesConfiguration remoteIDEServicesConfiguration;
         private @MonotonicNonNull IBaseLanguageClient client;
-        private @MonotonicNonNull ServerCapabilities serverCapabilities;
+        private @MonotonicNonNull InitializeResult initializeResult;
 
         protected ActualLanguageServer(String serverName, Runnable onExit, ExecutorService executor, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
             this.serverName = serverName;
@@ -313,7 +313,7 @@ public abstract class BaseLanguageServer {
             lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
             lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-            this.serverCapabilities = initializeResult.getCapabilities();
+            this.initializeResult = initializeResult;
             return CompletableFutureUtils.completedFuture(initializeResult, executor);
         }
 
@@ -367,11 +367,11 @@ public abstract class BaseLanguageServer {
             return client;
         }
 
-        protected ServerCapabilities availableServerCapabilities() {
-            if (serverCapabilities == null) {
+        protected InitializeResult availableInitialization() {
+            if (initializeResult == null) {
                 throw new IllegalStateException("Server has not been initialized yet");
             }
-            return serverCapabilities;
+            return initializeResult;
         }
 
         /**

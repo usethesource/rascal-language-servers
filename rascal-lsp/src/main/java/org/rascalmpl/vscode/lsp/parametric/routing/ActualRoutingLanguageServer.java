@@ -65,6 +65,7 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -390,18 +391,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var server = serverLauncher.getRemoteProxy();
 
         try {
-            var initializeResult = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders())).get(10, TimeUnit.SECONDS);
-            // In principle, we share our static capabilities with that of the parametric server via ParametricTextDocumentService::initializeStaticServerCapabilities (in the document service).
-            // If the version of Rascal-LSP in the remote server differs from the version of this router (which is exactly the point of starting a remote server), there are two scenarios:
-            // 1. The remote is **newer**. It might support capabilities that we do not support. Since this router can never communicate about functionality from the future, in this situation,
-            // the capabilities are bounded by the capabilities of the router.
-            // 2. The remote is **older**. In that case, the router might have registered some capabilities that are not supported by the remote. This might lead to some extra requests being \
-            // sent to the remote, only to return defaults.
-
-            if (!(Objects.equals(initializeResult.getCapabilities(), availableServerCapabilities()) && Objects.equals(availableServerCapabilities(), initializeResult.getCapabilities()))) {
-                logger.info("Static capabilities of {} are different to the ones registered with the client, which might lead to missing functionality.", lang.getName());
-                // TODO Compare `BaseLanguageServer::getVersion` to determine exactly what is going on, so we can inform the user about possible unexpected behaviour and the fix for this.
-            }
+            var remoteInitialization = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders())).get(10, TimeUnit.SECONDS);
+            checkCapabilityCompatibility(lang.getName(), remoteInitialization);
         } catch (Exception e) {
             logger.error("Unexpected error while initializing the server for {}", lang.getName(), e);
             return null;
@@ -435,6 +426,40 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         });
 
         return server;
+    }
+
+    /**
+     * In principle, we share our static capabilities with that of the parametric server via ParametricTextDocumentService::initializeStaticServerCapabilities (in the document service).
+     * If the version of Rascal-LSP in the remote server differs from the version of this router (which is exactly the point of starting a remote server), there are two scenarios:
+     * 1. The remote is **newer**. It might support capabilities that we do not support. Since this router can never communicate about functionality from the future, in this situation,
+     * the capabilities are bounded by the capabilities of the router.
+     * 2. The remote is **older**. In that case, the router might have registered some capabilities that are not supported by the remote. This might lead to some extra requests being
+     * sent to the remote, only to return defaults.
+     */
+    private void checkCapabilityCompatibility(String language, InitializeResult remoteInitialization) {
+        var initialization = availableInitialization();
+        var capabilities = initialization.getCapabilities();
+        if (Objects.equals(remoteInitialization.getCapabilities(), capabilities)) {
+            return;
+        }
+
+        logger.info("Static capabilities of {} are different to the ones registered with the client, which might lead to missing functionality.", language);
+        var routerVersionString = initialization.getServerInfo().getVersion();
+        var remoteVersionString = remoteInitialization.getServerInfo().getVersion();
+        if (routerVersionString != null && remoteVersionString != null) {
+            // Deployment mode; we can give the user useful hints here
+            var routerVersion = new ComparableVersion(routerVersionString);
+            var remoteVersion = new ComparableVersion(remoteVersionString);
+            if (routerVersion.compareTo(remoteVersion) > 0) {
+                // routerVersion > remoteVersion
+                logger.info("{} depends on version {} of Rascal-LSP, which is older than the version in the extension ({}).");
+            } else if (routerVersion.compareTo(remoteVersion) < 0) {
+                // routerVersion < remoteVersion
+                logger.info("{} depends on version {} of Rascal-LSP, which is newer than the version in the extension ({}). Some DSL features might not be fully supported. To fix this, update the extension.", language, remoteVersion, routerVersion);
+            } else {
+                logger.debug("Router and remote version are equal ({}), but the capabilities differ. This should never happen. Please report this as a bug via https://github.com/usethesource/rascal-language-servers/issues/new?template=bug_report.md", routerVersion);
+            }
+        }
     }
 
     private InitializeParams availableInitializeParams() {
