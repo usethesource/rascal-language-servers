@@ -48,6 +48,8 @@ import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -62,6 +64,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -195,7 +198,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal-lsp".equals(art.getCoordinate().getArtifactId());
     }
 
-    private static List<Path> classPath(LanguageParameter lang) throws IOException, ModelResolutionError {
+    private static Pair<@Nullable ComparableVersion, List<Path>> classPath(LanguageParameter lang) throws IOException, ModelResolutionError {
         var pcfg = PathConfig.parse(lang.getPathConfig());
         var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
         var maven = new MavenParser(Path.of(pom.getURI()));
@@ -211,14 +214,27 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
                 .filter(Objects::nonNull)
                 .collect(Collectors.<@NonNull Path>toList());
-            return Lists.union(List.of(target), depPaths);
+            var lspVersion = ActualRoutingLanguageServer.class.getPackage().getSpecificationVersion();
+            return Pair.of(
+                lspVersion == null ? null : new ComparableVersion(lspVersion),
+                Lists.union(List.of(target), depPaths)
+            );
         }
 
-        return deps.stream()
-            .filter(d -> isRascal(d) || isRascalLsp(d))
-            .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+        var lspVersion = deps.stream()
+            .filter(d -> isRascalLsp(d))
+            .map(Artifact::getCoordinate)
+            .map(c -> c.getVersion())
+            .findFirst();
+
+        return Pair.of(
+            lspVersion.isEmpty() ? null : new ComparableVersion(lspVersion.get()),
+            deps.stream()
+                .filter(d -> isRascal(d) || isRascalLsp(d))
+                .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList())
+        );
     }
 
     private static void prependThreadName(String langName, JsonElement json) {
@@ -275,22 +291,27 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         // In deployment, we start a process and connect to it via input/output streams
         try {
-            var classPath = String.join(File.pathSeparator, classPath(lang).stream().map(Path::toString).collect(Collectors.toList()));
+            var dependencies = classPath(lang);
+            var classPath = String.join(File.pathSeparator, dependencies.getRight().stream().map(Path::toString).collect(Collectors.toList()));
             logger.debug("{} runs with class path {}", lang.getName(), classPath);
 
-            var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
-                    , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
-                    , "-Dlog4j2.level=" + LogJsonConfiguration.getLogLevel()
-                    , "-Drascal.lsp.deploy=" + DEPLOY_MODE
-                    , "-Drascal.compilerClasspath=" + classPath
-                    , "-Drascal.remoteResolverRegistryPort=" + System.getProperty("rascal.remoteResolverRegistryPort")
-                    , "-Drascal.customRemoteResolverRegistryClass=" + System.getProperty("rascal.customRemoteResolverRegistryClass")
-                    , "-Xmx2048M"
-                    , "-cp", classPath
-                    , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-                    , "--exitWhenEmpty"
-                )
-                .start();
+            var serverArgs = new ArrayList<>(Arrays.asList(ProcessHandle.current().info().command().orElse("java")
+                , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
+                , "-Dlog4j2.level=" + LogJsonConfiguration.getLogLevel()
+                , "-Drascal.lsp.deploy=" + DEPLOY_MODE
+                , "-Drascal.compilerClasspath=" + classPath
+                , "-Drascal.remoteResolverRegistryPort=" + System.getProperty("rascal.remoteResolverRegistryPort")
+                , "-Drascal.customRemoteResolverRegistryClass=" + System.getProperty("rascal.customRemoteResolverRegistryClass")
+                , "-Xmx2048M"
+                , "-cp", classPath
+                , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
+            ));
+
+            if (dependencies.getLeft() == null || dependencies.getLeft().compareTo(new ComparableVersion("2.22.6")) >= 0) {
+                serverArgs.add("--exitWhenEmpty");
+            }
+
+            var proc = new ProcessBuilder(serverArgs).start();
 
             // Pipe logs from error stream
             forwardLogs(proc.getErrorStream(), lang.getName());
