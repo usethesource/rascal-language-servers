@@ -287,7 +287,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                     , "-Xmx2048M"
                     , "-cp", classPath
                     , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-                    // , "--exitWhenEmpty" // TODO Shutdown of a server might race with a new registration. Fix.
+                    , "--exitWhenEmpty"
                 )
                 .start();
 
@@ -486,15 +486,18 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     @Override
     public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
-        // If we do not have a parametric server running for this language, start and initialize it.
-        var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable IBaseLanguageServerExtensions>) _name -> startServer(lang));
-        if (server == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
-        }
-        for (var ext : lang.getExtensions()) {
-            languagesByExtension.put(ext, lang.getName());
-        }
-        return server.sendRegisterLanguage(lang);
+        // Sometimes, a registration races with an unregistration. In this case, we try again.
+        return CompletableFutureUtils.retry(() -> {
+            // If we do not have a parametric server running for this language, start and initialize it.
+            var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable IBaseLanguageServerExtensions>) _name -> startServer(lang));
+            if (server == null) {
+                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
+            }
+            return server.sendRegisterLanguage(lang)
+                .orTimeout(10, TimeUnit.SECONDS);
+        }, 1, getExecutor())
+            .thenCompose(Function.identity())
+            .thenAccept(_v -> Stream.of(lang.getExtensions()).forEach(ext -> languagesByExtension.put(ext, lang.getName())));
     }
 
     @Override

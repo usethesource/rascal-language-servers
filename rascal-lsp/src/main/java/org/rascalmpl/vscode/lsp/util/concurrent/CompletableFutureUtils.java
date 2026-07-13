@@ -34,17 +34,40 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
 
     public static final CompletableFuture<Void> NOOP = CompletableFuture.completedFuture(null);
+    private static final Logger logger = LogManager.getLogger(CompletableFutureUtils.class);
 
     public static <T> CompletableFuture<T> completedFuture(T value, Executor exec) {
         return CompletableFuture.supplyAsync(() -> value, exec);
+    }
+
+    public static <T> CompletableFuture<T> retry(Supplier<T> supplier, int times, Executor exec) {
+        return retry(CompletableFuture.supplyAsync(supplier, exec), times);
+    }
+
+    public static <T> CompletableFuture<T> retry(CompletableFuture<T> future, int times) {
+        var f = future;
+        for (int i = 0; i < times; i++) {
+            var time = i + 1;
+            f = f.handle((r, e) -> {
+                if (e != null) {
+                    logger.debug("Ignored exception, retry ({}/{})", time, times, e);
+                    return future;
+                }
+                return CompletableFuture.completedFuture(r);
+            }).thenCompose(Function.identity());
+        }
+        return f;
     }
 
     /**
