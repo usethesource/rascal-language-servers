@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import static org.rascalmpl.vscode.lsp.BaseLanguageServer.DEPLOY_MODE;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
 
 import com.google.gson.Gson;
@@ -279,7 +280,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
                     , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
                     , "-Dlog4j2.level=" + LogJsonConfiguration.getLogLevel()
-                    , "-Drascal.lsp.deploy=true"
+                    , "-Drascal.lsp.deploy=" + DEPLOY_MODE
                     , "-Drascal.compilerClasspath=" + classPath
                     , "-Drascal.remoteResolverRegistryPort=" + System.getProperty("rascal.remoteResolverRegistryPort")
                     , "-Drascal.customRemoteResolverRegistryClass=" + System.getProperty("rascal.customRemoteResolverRegistryClass")
