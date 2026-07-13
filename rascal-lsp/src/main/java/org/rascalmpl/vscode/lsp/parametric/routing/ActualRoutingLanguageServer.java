@@ -105,6 +105,8 @@ import io.usethesource.vallang.IValue;
  */
 public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements DocumentRouter<IBaseLanguageServerExtensions> {
 
+    private static final String THREAD_NAME_KEY = "threadName";
+
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
     private final Gson gson = new Gson();
@@ -220,7 +222,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private static void prependThreadName(String langName, JsonElement json) {
         try {
             var obj = json.getAsJsonObject();
-            obj.addProperty("threadName", langName + (obj.has("threadName") ? " | " + obj.getAsJsonPrimitive("threadName").getAsString() : ""));
+            obj.addProperty(THREAD_NAME_KEY, langName + (obj.has(THREAD_NAME_KEY) ? " | " + obj.getAsJsonPrimitive(THREAD_NAME_KEY).getAsString() : ""));
         } catch (Exception e) { /* ignored */ }
     }
 
