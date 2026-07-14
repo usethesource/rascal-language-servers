@@ -309,7 +309,10 @@ public abstract class BaseLanguageServer {
 
             logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
             logger.debug("LSP client capabilities: {}", params.getCapabilities());
-            final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities(), new ServerInfo(serverName, getClass().getPackage().getSpecificationVersion()));
+            var serverInfo = BaseLanguageServer.class.getPackage() == null
+                ? new ServerInfo(serverName)
+                : new ServerInfo(serverName, BaseLanguageServer.class.getPackage().getSpecificationVersion());
+            final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities(), serverInfo);
             lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
             lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
             logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);

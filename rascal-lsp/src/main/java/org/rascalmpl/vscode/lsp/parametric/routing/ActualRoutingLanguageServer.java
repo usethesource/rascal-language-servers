@@ -220,7 +220,9 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
                 .filter(Objects::nonNull)
                 .collect(Collectors.<@NonNull Path>toList());
-            var lspVersion = ActualRoutingLanguageServer.class.getPackage().getSpecificationVersion();
+            var lspVersion = ActualRoutingLanguageServer.class.getPackage() == null
+                ? null
+                : ActualRoutingLanguageServer.class.getPackage().getSpecificationVersion();
             return Pair.of(
                 lspVersion == null ? null : new ComparableVersion(lspVersion),
                 Lists.union(List.of(target), depPaths)
@@ -313,7 +315,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
             ));
 
-            if (dependencies.getLeft() == null || dependencies.getLeft().compareTo(new ComparableVersion("2.22.6")) >= 0) {
+            var lspVersion = dependencies.getLeft();
+            if (lspVersion == null || lspVersion.compareTo(new ComparableVersion("2.22.6")) >= 0) {
                 serverArgs.add("--exitWhenEmpty");
             }
 
