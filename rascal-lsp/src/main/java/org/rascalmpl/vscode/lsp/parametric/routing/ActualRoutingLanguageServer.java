@@ -61,6 +61,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -432,8 +433,13 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         try {
             var remoteInitialization = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders())).get(10, TimeUnit.SECONDS);
             checkCapabilityCompatibility(lang.getName(), remoteInitialization);
-        } catch (Exception e) {
-            logger.error("Unexpected error while initializing the server for {}", lang.getName(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.error("Initialization of the server for {} failed", lang.getName(), e);
+            return null;
+        } catch (TimeoutException e) {
+            logger.error("Initialization of the server for {} timed out", lang.getName(), e);
             return null;
         }
 
