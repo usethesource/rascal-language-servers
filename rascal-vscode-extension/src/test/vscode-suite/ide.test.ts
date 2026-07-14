@@ -296,7 +296,7 @@ describe('IDE', function () {
         // Fix type error to avoid a failing "after each" hook in CI
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
         await ide.openModule(TestWorkspace.importeeFile);
-        await importeeEditor.setTextAtLine(3, "public int foo;");
+        await importeeEditor.setTextAtLine(2, "public int foo;");
 
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
         const workspace = await explorer.getContent().getSection("test (Workspace)");
