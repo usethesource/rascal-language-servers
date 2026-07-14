@@ -204,7 +204,27 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal-lsp".equals(art.getCoordinate().getArtifactId());
     }
 
-    private static Pair<@Nullable ComparableVersion, List<Path>> classPath(LanguageParameter lang) throws IOException, ModelResolutionError {
+    private static Pair<@Nullable ComparableVersion, List<Path>> rascalLspDependencies(PathConfig pcfg, List<Artifact> mavenDependencies) {
+        // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
+        // Instead, we use its compiled classes and the JARs of all its dependencies.
+        var target = Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin())));
+        var depPaths = mavenDependencies.stream()
+            .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
+            .filter(Objects::nonNull)
+            .collect(Collectors.<@NonNull Path>toList());
+
+        var lspVersion = ActualRoutingLanguageServer.class.getPackage() == null
+            ? null
+            : ActualRoutingLanguageServer.class.getPackage().getSpecificationVersion();
+
+        return Pair.of(
+            lspVersion == null ? null : new ComparableVersion(lspVersion),
+            Lists.union(List.of(target), depPaths)
+        );
+
+    }
+
+    private static Pair<@Nullable ComparableVersion, List<Path>> resolveDependencies(LanguageParameter lang) throws IOException, ModelResolutionError {
         var pcfg = PathConfig.parse(lang.getPathConfig());
         var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
         var maven = new MavenParser(Path.of(pom.getURI()));
@@ -212,33 +232,22 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var project = maven.parseProject();
         var deps = project.resolveDependencies(Scope.COMPILE, maven);
 
+        // As always, the Rascal LSP project itself is a special case
         if (isRascalLsp(project)) {
-            // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
-            // Instead, we use its compiled classes and the JARs of all its dependencies.
-            var target = Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin())));
-            var depPaths = deps.stream()
-                .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
-                .filter(Objects::nonNull)
-                .collect(Collectors.<@NonNull Path>toList());
-            var lspVersion = ActualRoutingLanguageServer.class.getPackage() == null
-                ? null
-                : ActualRoutingLanguageServer.class.getPackage().getSpecificationVersion();
-            return Pair.of(
-                lspVersion == null ? null : new ComparableVersion(lspVersion),
-                Lists.union(List.of(target), depPaths)
-            );
+            return rascalLspDependencies(pcfg, deps);
         }
 
         var lspVersion = deps.stream()
             .filter(d -> isRascalLsp(d))
             .map(Artifact::getCoordinate)
             .map(c -> c.getVersion())
-            .findFirst();
+            .findFirst()
+            .map(ComparableVersion::new);
 
         return Pair.of(
-            lspVersion.isEmpty() ? null : new ComparableVersion(lspVersion.get()),
+            lspVersion.orElse(null),
             deps.stream()
-                .filter(d -> isRascal(d) || isRascalLsp(d))
+                .filter(d -> isRascal(d) || isRascalLsp(d)) // We only need Rascal and LSP to run the language server
                 .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList())
@@ -299,7 +308,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         // In deployment, we start a process and connect to it via input/output streams
         try {
-            var dependencies = classPath(lang);
+            var dependencies = resolveDependencies(lang);
             var classPath = String.join(File.pathSeparator, dependencies.getRight().stream().map(Path::toString).collect(Collectors.toList()));
             logger.debug("{} runs with class path {}", lang.getName(), classPath);
 
