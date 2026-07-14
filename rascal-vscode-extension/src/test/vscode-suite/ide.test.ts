@@ -28,7 +28,7 @@
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TextEditor, TreeItem, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
@@ -290,5 +290,22 @@ describe('IDE', function () {
         await ide.assertLineBecomes(editor, 5, "int calc(X x) = x.old;", "annotation should become a field deref", Delays.fast);
 
         await ide.checkNoDiagnosticsAnymore();
+    });
+
+    it.only("check project works", async () => {
+        // Fix type error to avoid a failing "after each" hook in CI
+        const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
+        await ide.openModule(TestWorkspace.importeeFile);
+        await importeeEditor.setTextAtLine(3, "public int foo;");
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+        const projectRoot = <TreeItem> await workspace.findItem("test-project");
+        await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
+        await driver.wait(async () => {
+            await workspace.openItem("test-project", "target", "classes", "rascal");
+            return await workspace.findItem("$Main.tpl") !== undefined;
+        }, Delays.extremelySlow, "tpl for Main.rsc should exist by now");
     });
 });
