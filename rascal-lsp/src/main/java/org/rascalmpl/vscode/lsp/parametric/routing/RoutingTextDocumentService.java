@@ -214,7 +214,6 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
         // Inform only the remote server for this language, since this does not change file state
-        // Note: floating future
         route(params.getTextDocument()).didSave(params);
     }
 
