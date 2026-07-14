@@ -87,7 +87,7 @@ public class RascalInterface {
             try {
                 languageRegistry.registerLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
-                monitor.warning("registerLanuage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
+                monitor.warning("registerLanguage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
                 Thread.currentThread().interrupt();
             } catch (ExecutionException | TimeoutException e) {
                 throw RuntimeExceptionFactory.io("Could not register language " + lang + "\n" + e);
@@ -102,7 +102,7 @@ public class RascalInterface {
             try {
                 languageRegistry.unregisterLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
-                monitor.warning("unregisterLanuage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
+                monitor.warning("unregisterLanguage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
                 Thread.currentThread().interrupt();
             } catch (ExecutionException | TimeoutException e) {
                 throw RuntimeExceptionFactory.io("Could not unregister language " + lang + "\n" + e);
