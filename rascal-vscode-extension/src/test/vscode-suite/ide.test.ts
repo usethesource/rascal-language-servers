@@ -292,7 +292,7 @@ describe('IDE', function () {
         await ide.checkNoDiagnosticsAnymore();
     });
 
-    it.only("check project works", async () => {
+    it("check project works", async () => {
         // Fix type error to avoid a failing "after each" hook in CI
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
         await ide.openModule(TestWorkspace.importeeFile);
