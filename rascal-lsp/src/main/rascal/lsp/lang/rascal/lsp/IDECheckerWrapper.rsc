@@ -155,8 +155,8 @@ private tuple[start[Module], set[Message]] getParseTreeOrErrors(loc l, str name,
     }
 }
 
-tuple[list[ModuleMessage] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
-    list[ModuleMessage] msgs = [];
+tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+    list[ModuleMessages] msgs = [];
     set[loc] checkedForImports = {};
     rel[loc, loc] dependencies = {};
 
@@ -193,10 +193,10 @@ tuple[list[ModuleMessage] messages, set[loc] checkedForImports, rel[loc, loc] de
     return <msgs, checkedForImports, dependencies>;
 }
 
-list[Message] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+list[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
-    list[Message] msgs = [];
+    list[ModuleMessages] msgs = [];
     job("Checking upstream dependencies", bool (void (str, int) step) {
         for (project <- upstreamDependencies) {
             step("Checked module in `<project.file>`", 1);
