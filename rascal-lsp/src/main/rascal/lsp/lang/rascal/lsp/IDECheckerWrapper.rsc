@@ -172,7 +172,7 @@ tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] d
                     for (ml <- locateRascalModules(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders)) {
                         if (<mlpt, importErrors> := getParseTreeOrErrors(ml, modName, errorLocation, getParseTree)) {
                             if ({} !:= importErrors) {
-                                msgs += [*importErrors];
+                                msgs += [*importErrors<1>];
                                 checkedForImports += currentSrc;
                                 continue;
                             }
