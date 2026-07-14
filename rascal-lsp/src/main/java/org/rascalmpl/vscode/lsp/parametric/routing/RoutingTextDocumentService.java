@@ -102,6 +102,7 @@ import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
+import org.rascalmpl.vscode.lsp.parametric.routing.ActualRoutingLanguageServer.NoLanguageException;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -213,8 +214,12 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
-        // Inform only the remote server for this language, since this does not change file state
-        route(params.getTextDocument()).didSave(params);
+        // Contrary to `didOpen`, `didChange` and `didClose`, inform only the remote server for this language, since this does not change file state
+        try {
+            route(params.getTextDocument()).didSave(params);
+        } catch (NoLanguageException e) {
+            logger.debug("Ignored save event for unknown language", e);
+        }
     }
 
     @Override

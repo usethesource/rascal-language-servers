@@ -110,6 +110,12 @@ import io.usethesource.vallang.IValue;
  */
 public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements DocumentRouter<IBaseLanguageServerExtensions> {
 
+    static class NoLanguageException extends RuntimeException {
+        public NoLanguageException(String message) {
+            super(message);
+        }
+    }
+
     private static final String THREAD_NAME_KEY = "threadName";
 
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
@@ -161,7 +167,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     public IBaseLanguageServerExtensions route(String lang) {
         var service = languageServers.get(lang);
         if (service == null) {
-            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
+            throw new NoLanguageException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
         }
         return service;
     }
@@ -175,7 +181,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     public IBaseLanguageServerExtensions route(ISourceLocation loc) {
         var lang = ParametricTextDocumentService.languageByExtension(loc, languagesByExtension);
         if (lang.isEmpty()) {
-            throw new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension(loc)));
+            throw new NoLanguageException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension(loc)));
         }
         return route(lang.get());
     }
@@ -562,7 +568,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         try {
             return route(lang.getName()).sendUnregisterLanguage(lang);
-        } catch (UnsupportedOperationException e) {
+        } catch (NoLanguageException e) {
             return NOOP;
         }
     }
