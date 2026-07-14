@@ -29,10 +29,7 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
@@ -105,6 +102,7 @@ import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
+import org.rascalmpl.vscode.lsp.parametric.routing.ActualRoutingLanguageServer.NoLanguageException;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -116,13 +114,13 @@ import io.usethesource.vallang.IValue;
 /**
  * A language-parametric text document service that routes incoming requests to remote dedicated language servers.
  */
-public class RoutingTextDocumentService extends TextDocumentStateManager implements IBaseTextDocumentService, DocumentRouter<CompletableFuture<TextDocumentService>> {
+public class RoutingTextDocumentService extends TextDocumentStateManager implements IBaseTextDocumentService, DocumentRouter<TextDocumentService> {
 
     private static final Logger logger = LogManager.getLogger(RoutingTextDocumentService.class);
 
     private final ExecutorService exec;
     private @MonotonicNonNull LanguageClient client;
-    private @MonotonicNonNull DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter;
+    private @MonotonicNonNull DocumentRouter<IBaseLanguageServerExtensions> serverRouter;
 
     @SuppressWarnings("unused")
     /*package*/ RoutingTextDocumentService(ExecutorService exec) {
@@ -131,11 +129,11 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
-    /*package*/ void setServerRouter(DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter) {
+    /*package*/ void setServerRouter(DocumentRouter<IBaseLanguageServerExtensions> serverRouter) {
         this.serverRouter = serverRouter;
     }
 
-    private DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> availableServerRouter() {
+    private DocumentRouter<IBaseLanguageServerExtensions> availableServerRouter() {
         if (serverRouter == null) {
             // This should only happen if we forgot to call `setServerRouter` before finishing initialization
             throw new IllegalStateException("No server router available");
@@ -144,38 +142,31 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     }
 
     @Override
-    public Stream<CompletableFuture<TextDocumentService>> allRoutes() {
-        return availableServerRouter().allRoutes(server -> server.thenApply(LanguageServer::getTextDocumentService));
+    public Stream<TextDocumentService> allRoutes() {
+        return availableServerRouter().allRoutes(LanguageServer::getTextDocumentService);
     }
 
     /**
      * Notify all remote servers and wait for their response.
      */
     private <P> void notifyAllRemotes(BiConsumer<TextDocumentService, P> notify, P params) {
-        try {
-            CompletableFutureUtils.reduce(allRoutes(r -> {
-                try {
-                    return r.thenAccept(s -> notify.accept(s, params));
-                } catch (Exception e) {
-                    logger.error("Unexpected error while notifying all remote servers", e);
-                    return CompletableFutureUtils.<Void>completedFuture(null, exec);
-                }
-            }), exec).get(1, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException | TimeoutException e) {
-            logger.catching(e);
-        }
+        allRoutes().forEach(s -> {
+            try {
+                notify.accept(s, params);
+            } catch (Exception e) {
+                logger.error("Unexpected error while notifying all remote servers", e);
+            }
+        });
     }
 
     @Override
-    public CompletableFuture<TextDocumentService> route(ISourceLocation loc) {
-        return availableServerRouter().route(loc).thenApply(LanguageServer::getTextDocumentService);
+    public TextDocumentService route(ISourceLocation loc) {
+        return availableServerRouter().route(loc).getTextDocumentService();
     }
 
     @Override
-    public CompletableFuture<TextDocumentService> route(String language) {
-        return availableServerRouter().route(language).thenApply(LanguageServer::getTextDocumentService);
+    public TextDocumentService route(String language) {
+        return availableServerRouter().route(language).getTextDocumentService();
     }
 
     private <P, R> CompletableFuture<R> route(TextDocumentIdentifier doc, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
@@ -186,13 +177,13 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         return routeCompose(route(loc), endpoint, params);
     }
 
-    private <P, R> CompletableFuture<R> routeCompose(CompletableFuture<TextDocumentService> sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
-        return sf.thenCompose(s -> endpoint.apply(s, params));
+    private <P, R> CompletableFuture<R> routeCompose(TextDocumentService sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
+        return endpoint.apply(sf, params);
     }
 
     @Override
     public Collection<String> extensions() {
-        throw new UnsupportedOperationException("extensions() should not be called on the routing server, but only on delegate servers.");
+        throw new UnsupportedOperationException("extensions() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
@@ -223,9 +214,12 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public void didSave(DidSaveTextDocumentParams params) {
-        // Inform only the remote server for this language, since this does not change file state
-        // Note: floating future
-        route(params.getTextDocument()).thenAccept(s -> s.didSave(params));
+        // Contrary to `didOpen`, `didChange` and `didClose`, inform only the remote server for this language, since this does not change file state
+        try {
+            route(params.getTextDocument()).didSave(params);
+        } catch (NoLanguageException e) {
+            logger.debug("Ignored save event for unknown language", e);
+        }
     }
 
     @Override
@@ -251,44 +245,46 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        // Nothing to do here
+        throw new UnsupportedOperationException("registerLanguage() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        // Nothing to do here
+        throw new UnsupportedOperationException("unregisterLanguage() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     public void cancelProgress(String progressId) {
-        // Nothing to do here
+        throw new UnsupportedOperationException("executeCommand() should not be called on the routing document service, but only on the routing server.");
     }
 
     @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
-        throw new UnsupportedOperationException("Call RoutingWorkspaceService::executeCommand instead");
+        throw new UnsupportedOperationException("executeCommand() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     protected DiagnosticsReporter getDiagnosticsReporter(ISourceLocation file) {
-        return (l, msgs) -> {
-            // NOP; we delegate diagnostic reporting to our dedicated remote servers
-        };
+        // NOP; we delegate diagnostic reporting to our dedicated remote servers
+        return (l, msgs) -> {};
     }
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
-        // TODO Mimick VS given certain file operation filters (capabilities)
+        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        throw new UnsupportedOperationException("didCreateFiles() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        // TODO Mimick VS given certain file operation filters (capabilities)
+        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        throw new UnsupportedOperationException("didRenameFiles() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
-        // TODO Mimick VS given certain file operation filters (capabilities)
+        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        throw new UnsupportedOperationException("didDeleteFiles() should not be called on the routing document service, but only on delegate document services.");
     }
 
     @Override
