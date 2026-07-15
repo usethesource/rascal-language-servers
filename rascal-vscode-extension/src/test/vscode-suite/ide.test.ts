@@ -304,8 +304,12 @@ describe('IDE', function () {
         const projectRoot = <TreeItem> await workspace.findItem("test-project");
         await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
         await driver.wait(async () => {
-            await workspace.openItem("test-project", "target", "classes", "rascal");
-            return await workspace.findItem("$Main.tpl") !== undefined;
+            try {
+                await workspace.openItem("test-project", "target", "classes", "rascal");
+                return await workspace.findItem("$Main.tpl") !== undefined;
+            } catch (_e) {
+                return false;
+            }
         }, Delays.extremelySlow, "tpl for Main.rsc should exist by now");
     });
 });
