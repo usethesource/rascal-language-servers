@@ -27,6 +27,7 @@
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 import { TextEditor, TreeItem, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
@@ -292,7 +293,11 @@ describe('IDE', function () {
         await ide.checkNoDiagnosticsAnymore();
     });
 
-    it("check project works", async () => {
+    it("check project works", async function () {
+        // Context menu does not work on macOS
+        if (os.type() === "Darwin") {
+            this.skip();
+        }
         // Fix type error to avoid a failing "after each" hook in CI
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
         await ide.openModule(TestWorkspace.importeeFile);
