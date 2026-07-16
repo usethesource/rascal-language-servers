@@ -103,7 +103,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
     rscFiles = sort({*find(src, "rsc") | src <- pcfg.srcs});
 
     //`pt` and `errors` are explicitly typed because of https://github.com/usethesource/rascal/issues/2818
-    parsed = (l : f | l <- rscFiles, f:<start[Module] pt, set[Message] errors> := getParseTreeOrErrors(l, "unknown", projectRoot, getParseTree));
+    parsed = (l : f | l <- rscFiles, f:<start[Module] pt, list[Message] errors> := getParseTreeOrErrors(l, "unknown", projectRoot, getParseTree));
 
     if (clean) {
         for (f <- find(pcfg.bin, "tpl")) {
@@ -303,7 +303,7 @@ loc inferDeepestProjectRoot(loc member) {
     return current;
 }
 
-map[loc, set[Message]] filterAndFix(set[ModuleMessages] messages, set[loc] workspaceFolders) {
+map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {
     set[Message] empty = {};
     map[loc, set[Message]] result = ( f.top : empty | program(f,_) <- messages);
     for (program(_, ms) <- messages, m <- ms, inWorkspace(workspaceFolders, m.at.top)) {
