@@ -305,7 +305,7 @@ loc inferDeepestProjectRoot(loc member) {
 
 map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {
     set[Message] empty = {};
-    map[loc, set[Message]] result = ( f.top : empty | program(f,_) <- messages);
+    map[loc, set[Message]] result = ( f.top : empty | program(f,_) <- messages, inWorkspace(workspaceFolders, f.top));
     for (program(_, ms) <- messages, m <- ms, inWorkspace(workspaceFolders, m.at.top)) {
         result[m.at.top]?empty += {m};
     }
