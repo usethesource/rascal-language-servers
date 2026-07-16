@@ -60,7 +60,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     // Note: check further down parses again, possibly leading to a different tree if the contents changed in the meantime.
     // We cannot fix that here, unless we pass `getParseTree` to `check`.
     <openFile, parseErrors> = getParseTreeOrErrors(l, "unknown", l, getParseTree);
-    if ({} != parseErrors) {
+    if ([] != parseErrors) {
         // No need to return the errors, since the language server will take care of parse errors in open modules
         return ();
     }
@@ -75,7 +75,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     step("Dependency graph", 1);
     <dependencyMsgs, checkedForImports, dependencies> = buildDependencyGraph(checkForImports, openFileHeader.src, workspaceFolders, getParseTree, getPathConfig);
 
-    if ({} != dependencyMsgs) {
+    if ([] != dependencyMsgs) {
         // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
         return (l: {*dependencyMsgs});
     }
@@ -115,7 +115,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
     checkedForImports = {};
     initialProject = projectRoot;
 
-    msgs = {*msgs | l <- parsed, <_pt, msgs> := parsed[l]};
+    msgs = [*msgs | l <- parsed, <_pt, msgs> := parsed[l]];
 
     rel[loc, loc] dependencies = {};
 
@@ -142,21 +142,21 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
     return filterAndFix(msgs, workspaceFolders);
 }, totalWork=3);
 
-private tuple[start[Module], set[Message]] getParseTreeOrErrors(loc l, str name, loc errorLocation, start[Module](loc file) getParseTree) {
+private tuple[start[Module], list[Message]] getParseTreeOrErrors(loc l, str name, loc errorLocation, start[Module](loc file) getParseTree) {
     try {
         t = getParseTree(l);
         errors = hasParseErrors(t)
-            ? {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation,
-                    causes=[error("Parse error around this position.", e.src) | e <- findBestParseErrors(t)])}
-            : {};
+            ? [error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation,
+                    causes=[error("Parse error around this position.", e.src) | e <- findBestParseErrors(t)])]
+            : [];
         return <t, errors>;
     } catch ParseError(loc err): {
-        return <(start[Module]) `module ModuleHadParseError`, {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation, causes=[error("Parse error(s).", err)])}>;
+        return <(start[Module]) `module ModuleHadParseError`, [error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation, causes=[error("Parse error(s).", err)])]>;
     }
 }
 
-tuple[set[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
-    set[ModuleMessages] msgs = {};
+tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+    list[ModuleMessages] msgs = [];
     set[loc] checkedForImports = {};
     rel[loc, loc] dependencies = {};
 
@@ -193,10 +193,10 @@ tuple[set[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] de
     return <msgs, checkedForImports, dependencies>;
 }
 
-set[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+list[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
-    set[ModuleMessages] msgs = {};
+    list[ModuleMessages] msgs = [];
     job("Checking upstream dependencies", bool (void (str, int) step) {
         for (project <- upstreamDependencies) {
             step("Checked module in `<project.file>`", 1);
