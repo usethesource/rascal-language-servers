@@ -75,7 +75,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     step("Dependency graph", 1);
     <dependencyMsgs, checkedForImports, dependencies> = buildDependencyGraph(checkForImports, openFileHeader.src, workspaceFolders, getParseTree, getPathConfig);
 
-    if ([] != dependencyMsgs) {
+    if ({} != dependencyMsgs) {
         // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
         return (l: {*dependencyMsgs});
     }
@@ -115,7 +115,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
     checkedForImports = {};
     initialProject = projectRoot;
 
-    msgs = [*msgs | l <- parsed, <_pt, msgs> := parsed[l]];
+    msgs = {*msgs | l <- parsed, <_pt, msgs> := parsed[l]};
 
     rel[loc, loc] dependencies = {};
 
@@ -126,7 +126,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
-        msgs += [error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l) | l <- rscFiles];
+        msgs += {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l) | l <- rscFiles};
         return msgs;
     }
 
@@ -155,8 +155,8 @@ private tuple[start[Module], set[Message]] getParseTreeOrErrors(loc l, str name,
     }
 }
 
-tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
-    list[ModuleMessages] msgs = [];
+tuple[set[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+    set[ModuleMessages] msgs = {};
     set[loc] checkedForImports = {};
     rel[loc, loc] dependencies = {};
 
@@ -193,10 +193,10 @@ tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] d
     return <msgs, checkedForImports, dependencies>;
 }
 
-list[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+set[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
-    list[ModuleMessages] msgs = [];
+    set[ModuleMessages] msgs = {};
     job("Checking upstream dependencies", bool (void (str, int) step) {
         for (project <- upstreamDependencies) {
             step("Checked module in `<project.file>`", 1);
@@ -303,7 +303,7 @@ loc inferDeepestProjectRoot(loc member) {
     return current;
 }
 
-map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {
+map[loc, set[Message]] filterAndFix(set[ModuleMessages] messages, set[loc] workspaceFolders) {
     set[Message] empty = {};
     map[loc, set[Message]] result = ( f.top : empty | program(f,_) <- messages);
     for (program(_, ms) <- messages, m <- ms, inWorkspace(workspaceFolders, m.at.top)) {
