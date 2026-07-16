@@ -281,11 +281,11 @@ public class RascalLanguageServices {
             Map.of(file, VF.set()), exec, false, client);
     }
 
-    public void checkProject(ISourceLocation projectRoot, IBool clean, Executor exec) {
+    public InterruptibleFuture<Void> checkProject(ISourceLocation projectRoot, IBool clean, Executor exec) {
         logger.debug("Check Rascal project: {}", projectRoot);
 
         var shortName = URIUtil.getLocationName(projectRoot);
-        runEvaluator("Rascal check project (" + shortName +")", compilerEvaluator,
+        return runEvaluator("Rascal check project (" + shortName +")", compilerEvaluator,
             e -> translateCheckResults((IMap) e.call("checkProject", projectRoot, clean, getWorkspaceFolders(), makeParseTreeGetter(e), makePathConfigGetter(e))),
             Map.of(projectRoot, VF.set()), exec, false, client).thenAccept(r ->
                 rascalTextDocumentService.getFileFacts().reportTypeCheckerMessages(r));

@@ -131,6 +131,7 @@ import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
@@ -659,10 +660,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     @Override
-    public CompletableFuture<Void> checkProject(CheckProjectRequest req) {
-        return CompletableFuture.supplyAsync(() -> {
-            availableRascalServices().checkProject(req.getLocation(), req.getClean(), exec);
-            return null;
-        });
+    public InterruptibleFuture<Void> checkProject(CheckProjectRequest req) {
+        return availableRascalServices().checkProject(req.getLocation(), req.getClean(), exec);
     }
 }

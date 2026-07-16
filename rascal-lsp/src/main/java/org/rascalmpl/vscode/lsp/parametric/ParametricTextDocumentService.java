@@ -1054,7 +1054,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             plex.cancelProgress(progressId));
     }
 
-    public CompletableFuture<Void> checkProject(CheckProjectRequest req) {
+    public InterruptibleFuture<Void> checkProject(CheckProjectRequest req) {
         throw new UnsupportedOperationException("ParametricTextDocumentService cannot check Rascal projects");
     }
 }
