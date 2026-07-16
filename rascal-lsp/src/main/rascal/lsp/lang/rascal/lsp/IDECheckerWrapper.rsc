@@ -126,7 +126,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
-        msgs += {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l) | l <- rscFiles};
+        msgs += [error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l) | l <- rscFiles];
         return msgs;
     }
 
