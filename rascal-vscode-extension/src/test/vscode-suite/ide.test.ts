@@ -308,13 +308,12 @@ describe('IDE', function () {
         await workspace.expand();
         const projectRoot = <TreeItem> await workspace.findItem("test-project");
         await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import IO;");
         await driver.wait(async () => {
-            try {
-                await workspace.openItem("test-project", "target", "classes", "rascal");
-                return await workspace.findItem("$Main.tpl") !== undefined;
-            } catch (_e) {
-                return false;
-            }
+            await repl.execute("exists(|target://test-project/rascal/$Main.tpl|)");
+            return repl.lastOutput === "bool: true";
         }, Delays.extremelySlow, "tpl for Main.rsc should exist by now");
     });
 });
