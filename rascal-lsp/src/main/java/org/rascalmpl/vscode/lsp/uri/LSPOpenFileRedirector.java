@@ -31,9 +31,9 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
@@ -66,15 +66,16 @@ public class LSPOpenFileRedirector {
     }
 
     public ISourceLocation resolve(ISourceLocation input) {
-        if (isFileManaged(input)) {
-            try {
+        try {
+            // If the file is currently open and can be modified, redirect to the contents in LSP.
+            if (isFileManaged(input) && URIResolverRegistry.getInstance().isWritable(input)) {
                 // The offset/length part of the source location is stripped off here.
                 // This is reinstated by `URIResolverRegistry::resolveAndFixOffsets`
                 // during logical resolution
                 return URIUtil.changeScheme(input.top(), "lsp+" + input.getScheme());
-            } catch (URISyntaxException e) {
-                // fall through
             }
+        } catch (URISyntaxException | IOException e) {
+            // fall through
         }
         return input;
     }
