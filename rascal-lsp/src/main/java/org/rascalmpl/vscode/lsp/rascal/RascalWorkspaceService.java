@@ -181,7 +181,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
                 if (message == null || message.isEmpty()) {
                     message = e.getClass().getName();
                 }
-                throw new ResponseErrorException(new ResponseError(-100, "Could not read " + params.getUri() + "due to: " + message, e));
+                throw new ResponseErrorException(new ResponseError(-100, "Could not read " + params.getUri() + " due to: " + message, e));
             }
         }, getExecutor());
     }
