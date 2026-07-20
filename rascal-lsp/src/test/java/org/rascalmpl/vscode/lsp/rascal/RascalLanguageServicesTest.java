@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.rascal;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.net.URISyntaxException;
 import org.junit.Test;
@@ -65,11 +64,10 @@ public class RascalLanguageServicesTest {
 
     @Test
     public void stdTplLoc() throws URISyntaxException {
-        // TODO Replace with location that does not use the sunset std scheme
-        var src = VF.sourceLocation("std", "", "util/Maybe.rsc");
+        var src = VF.sourceLocation("mvn","org.rascalmpl--rascal--0.43.0-SNAPSHOT", "util/Maybe.rsc");
         var actualTpl = RascalLanguageServices.libraryTplLocation(src);
-        assertEquals("jar+file", actualTpl.getScheme());
-        assertTrue(actualTpl.getPath().endsWith(".jar!/rascal/util/$Maybe.tpl"));
+        assertEquals("mvn", actualTpl.getScheme());
+        assertEquals("/rascal/util/$Maybe.tpl", actualTpl.getPath());
     }
 
     @Test
