@@ -31,9 +31,9 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
@@ -65,18 +65,26 @@ public class LSPOpenFileRedirector {
         return false;
     }
 
-    public ISourceLocation resolve(ISourceLocation input) {
-        if (isFileManaged(input)) {
-            try {
+    /**
+     * Redirect a URI to it's LSP-managed counterpart. Considers both the original and resolved URI.
+     * @param resolved The resolution of the original URI.
+     * @param original The URI as it came in from VS Code (possibly logical). This is the one that will often be registered as the 'managed' file.
+     * @return A redirected URI if the file is open in LSP. If not return the resolved URI if non-null, and the original otherwise.
+     */
+    public ISourceLocation redirect(@Nullable ISourceLocation resolved, ISourceLocation original) {
+        var r = resolved != null ? resolved : original;
+        try {
+            // If the file is currently open, redirect to the contents in LSP.
+            if ((resolved != null && isFileManaged(resolved)) || isFileManaged(original)) {
                 // The offset/length part of the source location is stripped off here.
                 // This is reinstated by `URIResolverRegistry::resolveAndFixOffsets`
                 // during logical resolution
-                return URIUtil.changeScheme(input.top(), "lsp+" + input.getScheme());
-            } catch (URISyntaxException e) {
-                // fall through
+                return URIUtil.changeScheme(r.top(), "lsp+" + r.getScheme());
             }
+        } catch (URISyntaxException e) {
+            // fall through
         }
-        return input;
+        return r;
     }
 
     private final List<IBaseTextDocumentService> textDocumentServices = new CopyOnWriteArrayList<>();
