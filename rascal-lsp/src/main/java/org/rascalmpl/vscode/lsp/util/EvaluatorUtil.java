@@ -346,7 +346,7 @@ public class EvaluatorUtil {
 
     public static PathConfig addRascalCompilerSources(PathConfig pcfg) {
         try {
-            var rascalJar = JarURIResolver.jarify(PathConfig.resolveCurrentRascalRuntimeJar());
+            var rascalJar = JarURIResolver.jarify(PathConfig.resolveCurrentRascalRuntime());
             return pcfg
                 .addSourceLoc(URIUtil.getChildLocation(rascalJar, "org/rascalmpl/compiler"))
                 .addSourceLoc(URIUtil.getChildLocation(rascalJar, "org/rascalmpl/typepal"))
