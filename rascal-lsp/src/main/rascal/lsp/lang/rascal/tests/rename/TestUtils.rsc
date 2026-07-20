@@ -325,16 +325,18 @@ bool testRename(str stmtsStr, int cursorAtOldNameOccurrence = 0, str oldName = "
 }
 
 public list[loc] calculateRascalLibs() {
-    rascalLib = resolveLocation(|std:///|);
-    if (/org.rascalmpl.library.?$/ := rascalLib.path) {
-        rascalLib = rascalLib.parent.parent.parent;
-    }
+    lspPcfg = getProjectPathConfig(|project://rascal-lsp|);
+    rascalLib = [lib | lib <- lspPcfg.libs, /\brascal\b/ := lib.path];
+    // rascalLib = resolveLocation(|std:///|);
+    // if (/org.rascalmpl.library.?$/ := rascalLib.path) {
+    //     rascalLib = rascalLib.parent.parent.parent;
+    // }
     props = getSystemEnvironment();
     if (props["ADDITIONAL_TPLS"]?) {
         loc additionalTpls = readTextValueString(#loc, props["ADDITIONAL_TPLS"]);
-        return [rascalLib, additionalTpls];
+        return rascalLib + additionalTpls;
     }
-    return [rascalLib];
+    return rascalLib;
 }
 
 
