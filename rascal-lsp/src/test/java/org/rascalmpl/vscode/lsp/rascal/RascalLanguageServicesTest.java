@@ -47,6 +47,7 @@ public class RascalLanguageServicesTest {
 
     @Test
     public void stdModuleName() throws URISyntaxException {
+        // TODO Replace with locations that do not use the sunset std scheme
         moduleNameTest(URIUtil.rootLocation("std"), "IO.rsc", "IO");
         moduleNameTest(URIUtil.rootLocation("std"), "util/Maybe.rsc", "util::Maybe");
     }
@@ -64,6 +65,7 @@ public class RascalLanguageServicesTest {
 
     @Test
     public void stdTplLoc() throws URISyntaxException {
+        // TODO Replace with location that does not use the sunset std scheme
         var src = VF.sourceLocation("std", "", "util/Maybe.rsc");
         var actualTpl = RascalLanguageServices.libraryTplLocation(src);
         assertEquals("jar+file", actualTpl.getScheme());
