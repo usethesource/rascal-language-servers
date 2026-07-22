@@ -125,12 +125,12 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
-import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -299,7 +299,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("textDocument/definition: {} at {}", params.getTextDocument(), params.getPosition());
 
         return recoverExceptions(availableFacts().getSummary(Locations.toLoc(params.getTextDocument()))
-            .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
+            .thenApply(s -> s.getDefinition(params.getPosition()))
             .thenApply(Either::forLeft)
         , () -> Either.forLeft(Collections.emptyList()));
     }
@@ -408,7 +408,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
         logger.debug("textDocument/hover: {} at {}", params.getTextDocument(), params.getPosition());
         return recoverExceptions(availableFacts().getSummary(Locations.toLoc(params.getTextDocument()))
-            .handle((t, r) -> (t == null ? (new SummaryBridge()) : t))
             .thenApply(s -> s.getTypeName(params.getPosition()))
             .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), () -> null);
     }
