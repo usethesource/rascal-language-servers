@@ -134,6 +134,13 @@ public class RascalLanguageServices {
         this.workspaceService = workspaceService;
     }
 
+    public boolean isOpenInWorkspace(ISourceLocation loc) {
+        return workspaceService.workspaceFolders()
+            .stream()
+            .map(f -> URIUtil.assumeCorrectLocation(f.getUri()))
+            .anyMatch(f -> f.toString().equalsIgnoreCase(loc.toString()) || URIUtil.isParentOf(f, loc));
+    }
+
     static String pathToModuleName(ISourceLocation l) {
         var p = l.getPath();
         if (isInsideJar(l)) {

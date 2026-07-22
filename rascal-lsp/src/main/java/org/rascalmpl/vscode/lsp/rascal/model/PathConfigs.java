@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.io.IOException;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -42,7 +44,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,9 +54,7 @@ import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -76,11 +75,13 @@ public class PathConfigs {
             .expireAfterAccess(Duration.ofMinutes(20))
             .build(PathConfigs::inferProjectRoot);
 
+    private final RascalLanguageServices rascal;
     private final Executor executor;
     private final PathConfigDiagnostics diagnostics;
 
 
-    public PathConfigs(Executor executor, PathConfigDiagnostics diagnostics) {
+    public PathConfigs(RascalLanguageServices rascal, Executor executor, PathConfigDiagnostics diagnostics) {
+        this.rascal = rascal;
         this.diagnostics = diagnostics;
         this.executor = executor;
         updater.start();
@@ -98,6 +99,11 @@ public class PathConfigs {
 
     public PathConfig lookupConfig(ISourceLocation forFile) {
         forFile = forFile.top();
+
+        if (!rascal.isOpenInWorkspace(forFile)) {
+            return new PathConfig();
+        }
+
         ISourceLocation projectRoot = translatedRoots.get(forFile);
         var entry = currentPathConfigs.compute(projectRoot, (project, current) -> shouldBeRecomputed(current) ? buildPathConfig(project) : current);
         if (entry == null) {
