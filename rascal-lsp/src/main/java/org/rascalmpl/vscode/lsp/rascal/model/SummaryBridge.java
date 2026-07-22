@@ -91,7 +91,7 @@ public class SummaryBridge {
         for (IValue v: binaryRel) {
             ITuple row = (ITuple)v;
             ISourceLocation fromLoc = (ISourceLocation)row.get(0);
-            if (!fromLoc.top().equals(self)) {
+            if (!fromLoc.top().toString().equalsIgnoreCase(self.toString())) {
                 // ignore rascal-core giving us entries that are not starting with our own base
                 continue;
             }
