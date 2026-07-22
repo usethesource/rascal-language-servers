@@ -157,7 +157,7 @@ public class Locations {
      */
     public static URI toUri(ISourceLocation loc) {
         var uri = loc.getURI();
-        if (OPAQUE_SCHEME.equals(uri.getScheme())) {
+        if (isWrappedOpaque(loc)) {
             // This URI was received from VS Code as a opaque URI, and wrapped by `toLoc`. Unwrap the original opaque URI.
             // Split the original scheme and scheme specific part
             try {
