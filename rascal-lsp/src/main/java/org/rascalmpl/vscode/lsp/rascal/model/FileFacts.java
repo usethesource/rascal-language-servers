@@ -96,31 +96,38 @@ public class FileFacts implements DiagnosticsReporter {
     }
 
     public void invalidate(ISourceLocation file) {
-        getFile(file).invalidate();
+        var f = get(file);
+        if (f != null) {
+            f.invalidate();
+        }
     }
 
     public void triggerAnalyzer(ISourceLocation file, CompletableFuture<Versioned<ITree>> currentTreeAsync,
         Versioned<String> versioned, Duration delay) {
-        getFile(file).triggerAnalyzer(currentTreeAsync, versioned, delay);
+        getOrOpen(file).triggerAnalyzer(currentTreeAsync, versioned, delay);
     }
 
     public CompletableFuture<@Nullable SummaryBridge> getSummary(ISourceLocation file) {
-        return getFile(file).getSummary();
+        return getOrOpen(file).getSummary();
     }
 
     @Override
     public void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
-        getFile(file).reportParseErrors(msgs);
+        getOrOpen(file).reportParseErrors(msgs);
     }
 
-    private FileFact getFile(ISourceLocation l) {
-        l = l.top();
-        ISourceLocation resolved = Locations.toClientLocation(l);
-        var fact = files.get(resolved);
+    private @Nullable FileFact get(ISourceLocation l) {
+        var resolved = Locations.toClientLocation(l.top());
+        return files.get(resolved);
+    }
+
+    private FileFact getOrOpen(ISourceLocation l) {
+        var fact = get(l);
         if (fact != null) {
             return fact;
         }
 
+        var resolved = Locations.toClientLocation(l.top());
         if (URIResolverRegistry.getInstance().exists(resolved)) {
             // The file exists, so there should be facts.
             // Someone might have raced past us, so we atomically check(again)-and-update and return the result.
@@ -136,7 +143,11 @@ public class FileFacts implements DiagnosticsReporter {
     }
 
     public void close(ISourceLocation file) {
-        getFile(file).close();
+        var f = get(file);
+        if (f != null) {
+            // No need to close what's not open!
+            f.close();
+        }
     }
 
     private @Nullable FileFact remove(ISourceLocation file) {
@@ -226,7 +237,7 @@ public class FileFacts implements DiagnosticsReporter {
             this.typeCheckResults.replace(
                 rascal.compileFile(file, confs.lookupConfig(file), exec)
                     .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
-            ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerMessages(msgs)));
+            ).thenAccept(m -> m.forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs)));
         }
 
         @Override
