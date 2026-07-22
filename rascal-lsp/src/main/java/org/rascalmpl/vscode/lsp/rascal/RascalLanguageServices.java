@@ -138,7 +138,7 @@ public class RascalLanguageServices {
         return workspaceService.workspaceFolders()
             .stream()
             .map(f -> URIUtil.assumeCorrectLocation(f.getUri()))
-            .anyMatch(f -> URIUtil.isParentOf(f, loc));
+            .anyMatch(f -> f.toString().equalsIgnoreCase(loc.toString()) || URIUtil.isParentOf(f, loc));
     }
 
     static String pathToModuleName(ISourceLocation l) {
