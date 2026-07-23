@@ -57,6 +57,7 @@ import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 
 public class FileFacts implements DiagnosticsReporter {
@@ -111,6 +112,10 @@ public class FileFacts implements DiagnosticsReporter {
     @Override
     public void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
         getFile(file).reportParseErrors(msgs);
+    }
+
+    public void reportTypeCheckerMessages(Map<ISourceLocation, ISet> messages) {
+        Diagnostics.translateMessages(messages, Set.of("rsc"), cm).forEach((f, msgs) -> getFile(f).reportTypeCheckerMessages(msgs));
     }
 
     private FileFact getFile(ISourceLocation l) {
@@ -224,7 +229,7 @@ public class FileFacts implements DiagnosticsReporter {
             summary.invalidate();
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
-                rascal.compileFile(file, confs.lookupConfig(file), exec)
+                rascal.checkFile(file, confs.lookupConfig(file), exec)
                     .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
             ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerMessages(msgs)));
         }

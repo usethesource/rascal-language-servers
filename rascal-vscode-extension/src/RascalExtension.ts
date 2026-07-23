@@ -30,13 +30,14 @@ import * as vscode from 'vscode';
 
 import { integer, URI } from'vscode-languageclient';
 import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
-import { RascalLanguageServer } from './lsp/RascalLanguageServer';
+import { RascalLanguageServer, toRascalUri } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
+import { ISourceLocationRequest } from './fs/JsonRpcMessages';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeFileSystemInRascal;
@@ -55,6 +56,7 @@ export class RascalExtension implements vscode.Disposable {
         this.registerMainRun();
         this.registerImportModule();
         this.registerCopySourceLocationCommand();
+        this.registerCheckProjectCommand();
         void checkForJVMUpdate();
 
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient, this.log));
@@ -313,12 +315,41 @@ export class RascalExtension implements vscode.Disposable {
         return jars.map(j => path.join(this.jarRootPath, j)).join(path.delimiter);
     }
 
+    private registerCheckProjectCommand() {
+        this.context.subscriptions.push(vscode.commands.registerCommand("rascalmpl.checkProject", this.checkProjectCommand(false)));
+        this.context.subscriptions.push(vscode.commands.registerCommand("rascalmpl.cleanAndCheckProject", this.checkProjectCommand(true)));
+    }
+
+    private checkProjectCommand(clean: boolean) {
+        return async (uri: vscode.Uri) => {
+            const projectRoot = vscode.workspace.getWorkspaceFolder(uri);
+            if (!projectRoot) {
+                void vscode.window.showErrorMessage(`Rascal check project: could not deduce the project root directory for ${uri}`);
+                return;
+            }
+            const rascalMF = vscode.Uri.joinPath(projectRoot.uri, "META-INF", "RASCAL.MF");
+            if (!await this.fileExists(rascalMF)) {
+                void vscode.window.showErrorMessage(`Rascal check project: ${projectRoot} is not a Rascal project`);
+            }
+            try {
+                await (await this.rascal.rascalClient).sendRequest("rascal/checkProject", <CheckProjectRequest>{
+                    loc: toRascalUri(projectRoot.uri),
+                    clean: clean
+                });
+            } catch (_e) {
+                void vscode.window.showErrorMessage(`Rascal check project: could not check ${projectRoot}`);
+            }
+        };
+    }
 }
 
 interface IDEServicesConfiguration {
     port:integer;
 }
 
+interface CheckProjectRequest extends ISourceLocationRequest {
+    clean: boolean;
+}
 
 
 function gb(amount: integer) {

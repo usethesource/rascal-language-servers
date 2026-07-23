@@ -27,9 +27,10 @@
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
-import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
+import { TextEditor, TreeItem, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -290,5 +291,29 @@ describe('IDE', function () {
         await ide.assertLineBecomes(editor, 5, "int calc(X x) = x.old;", "annotation should become a field deref", Delays.fast);
 
         await ide.checkNoDiagnosticsAnymore();
+    });
+
+    it("check project works", async function () {
+        // Context menu does not work on macOS
+        if (os.type() === "Darwin") {
+            this.skip();
+        }
+        // Fix type error to avoid a failing "after each" hook in CI
+        const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
+        await ide.openModule(TestWorkspace.importeeFile);
+        await importeeEditor.setTextAtLine(2, "public int foo;");
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+        const projectRoot = <TreeItem> await workspace.findItem("test-project");
+        await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import IO;");
+        await driver.wait(async () => {
+            await repl.execute("exists(|target://test-project/rascal/$Main.tpl|)");
+            return repl.lastOutput === "bool: true";
+        }, Delays.extremelySlow, "tpl for Main.rsc should exist by now");
     });
 });

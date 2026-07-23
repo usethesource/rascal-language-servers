@@ -29,6 +29,7 @@ module lang::rascal::lsp::IDECheckerWrapper
 
 import IO;
 import List;
+import Node;
 import Relation;
 import Set;
 import String;
@@ -36,6 +37,7 @@ import ValueIO;
 import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
+import util::IDEServices;
 import util::Monitor;
 import util::ParseErrorRecovery;
 
@@ -55,23 +57,10 @@ import lang::rascalcore::check::ModuleLocations;
 map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
     = job("Rascal check", map[loc, set[Message]](void(str, int) step) {
 
-    tuple[start[Module], set[Message]] getParseTreeOrErrors(loc l, str name, loc errorLocation) {
-        try {
-            t = getParseTree(l);
-            errors = hasParseErrors(t)
-                ? {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation,
-                        causes=[error("Parse error around this position.", e.src) | e <- findBestParseErrors(t)])}
-                : {};
-            return <t, errors>;
-        } catch ParseError(loc err): {
-            return <(start[Module]) `module ModuleHadParseError`, {error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation, causes=[error("Parse error(s).", err)])}>;
-        }
-    }
-
     // Note: check further down parses again, possibly leading to a different tree if the contents changed in the meantime.
     // We cannot fix that here, unless we pass `getParseTree` to `check`.
-    <openFile, parseErrors> = getParseTreeOrErrors(l, "unknown", l);
-    if ({} != parseErrors) {
+    <openFile, parseErrors> = getParseTreeOrErrors(l, "unknown", l, getParseTree);
+    if ([] != parseErrors) {
         // No need to return the errors, since the language server will take care of parse errors in open modules
         return ();
     }
@@ -84,20 +73,108 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     rel[loc, loc] dependencies = {};
 
     step("Dependency graph", 1);
-    job("Building dependency graph", bool (void (str, int) step2) {
+    <dependencyMsgs, checkedForImports, dependencies> = buildDependencyGraph(checkForImports, openFileHeader.src, workspaceFolders, getParseTree, getPathConfig);
+
+    if ([] != dependencyMsgs) {
+        // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
+        return (l: {*dependencyMsgs});
+    }
+
+    cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
+    if (cyclicDependencies != {}) {
+        return (l : {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)});
+    }
+
+    step("Checking upstream dependencies ", 1);
+    msgs = checkDependencies(checkedForImports, dependencies, initialProject, workspaceFolders, getParseTree, getPathConfig);
+
+    step("Checking module <l>", 1);
+    pcfg = getPathConfig(initialProject);
+    checkOutdatedPathConfig(pcfg);
+    msgs += check(calculateOutdated({f | f <- checkedForImports, initialProject := inferProjectRoot(f)}, pcfg) + [l], rascalCompilerConfig(pcfg));
+    return filterAndFix(msgs, workspaceFolders);
+}, totalWork=3);
+
+map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig)
+    = job("Rascal check project", map[loc, set[Message]](void(str, int) step) {
+
+    pcfg = getPathConfig(projectRoot);
+
+    rscFiles = sort({*find(src, "rsc") | src <- pcfg.srcs});
+
+    //`pt` and `errors` are explicitly typed because of https://github.com/usethesource/rascal/issues/2818
+    parsed = (l : f | l <- rscFiles, f:<start[Module] pt, list[Message] errors> := getParseTreeOrErrors(l, "unknown", projectRoot, getParseTree));
+
+    if (clean) {
+        for (f <- find(pcfg.bin, "tpl")) {
+            remove(f);
+        }
+    }
+
+    checkForImports = [pt | l <- parsed, <pt, {}> := parsed[l]];
+    checkedForImports = {};
+    initialProject = projectRoot;
+
+    msgs = [*msgs | l <- parsed, <_pt, msgs> := parsed[l]];
+
+    rel[loc, loc] dependencies = {};
+
+    step("Dependency graph", 1);
+    <dependencyMsgs, checkedForImports, dependencies> = buildDependencyGraph(checkForImports, projectRoot, workspaceFolders, getParseTree, getPathConfig);
+
+    msgs += dependencyMsgs;
+
+    cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
+    if (cyclicDependencies != {}) {
+        msgs += [error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l) | l <- rscFiles];
+        return msgs;
+    }
+
+    step("Checking upstream dependencies", 1);
+    upstreamMessages = checkDependencies(checkedForImports, dependencies, initialProject, workspaceFolders, getParseTree, getPathConfig);
+
+    msgs += upstreamMessages;
+
+    step("Checking project `<projectRoot.file>`", 1);
+    pcfg = getPathConfig(projectRoot);
+    checkOutdatedPathConfig(pcfg);
+    msgs += check(rscFiles, rascalCompilerConfig(pcfg));
+    return filterAndFix(msgs, workspaceFolders);
+}, totalWork=3);
+
+private tuple[start[Module], list[Message]] getParseTreeOrErrors(loc l, str name, loc errorLocation, start[Module](loc file) getParseTree) {
+    try {
+        t = getParseTree(l);
+        errors = hasParseErrors(t)
+            ? [error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation,
+                    causes=[error("Parse error around this position.", e.src) | e <- findBestParseErrors(t)])]
+            : [];
+        return <t, errors>;
+    } catch ParseError(loc err): {
+        return <(start[Module]) `module ModuleHadParseError`, [error("Cannot typecheck this module, since dependency `<name>` has parse error(s).", errorLocation, causes=[error("Parse error(s).", err)])]>;
+    }
+}
+
+tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] dependencies] buildDependencyGraph(list[start[Module]] checkForImports, loc errorLocation, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+    list[ModuleMessages] msgs = [];
+    set[loc] checkedForImports = {};
+    rel[loc, loc] dependencies = {};
+
+    jobName = "Building dependency graph";
+    job(jobName, bool (void (str, int) step) {
         while (tree <- checkForImports) {
-            step2("Calculating imports for <tree.top.header.name>", 1);
+            step("Calculating imports for <tree.top.header.name>", 1);
             currentSrc = tree.src.top;
             currentProject = inferProjectRoot(currentSrc);
             if (currentProject in workspaceFolders && currentProject.file notin {"rascal", "rascal-lsp"}) {
                 for (i <- tree.top.header.imports, i has \module) {
                     modName = "<i.\module>";
                     for (ml <- locateRascalModules(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders)) {
-                        if (<mlpt, importErrors> := getParseTreeOrErrors(ml, modName, openFileHeader.src)) {
-                            if ({} !:= importErrors) {
-                                parseErrors += importErrors;
-                                checkedForImports += currentSrc; // do not check this module again
-                                continue; // since there is an error in this module, we do not recurse into its imports
+                        if (<mlpt, importErrors> := getParseTreeOrErrors(ml, modName, errorLocation, getParseTree)) {
+                            if ([] !:= importErrors) {
+                                msgs += program(ml, importErrors);
+                                checkedForImports += currentSrc;
+                                continue;
                             }
                             if (mlpt.src.top notin checkedForImports) {
                                 checkForImports += mlpt;
@@ -112,26 +189,17 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
             checkForImports -= tree;
         }
         return true;
-    }, totalWork=1);
+    }, totalWork=size(checkForImports));
+    return <msgs, checkedForImports, dependencies>;
+}
 
-    if ({} != parseErrors) {
-        // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
-        return (l: parseErrors);
-    }
-
-    cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
-    if (cyclicDependencies != {}) {
-        return (l : {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)});
-    }
+list[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
-    msgs = [];
-
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
-
-    step("Checking upstream dependencies ", 1);
-    job("Checking upstream dependencies", bool (void (str, int) step3) {
+    list[ModuleMessages] msgs = [];
+    job("Checking upstream dependencies", bool (void (str, int) step) {
         for (project <- upstreamDependencies) {
-            step3("Checked module in `<project.file>`", 1);
+            step("Checked module in `<project.file>`", 1);
             pcfg = getPathConfig(project);
             checkOutdatedPathConfig(pcfg);
             modulesToCheck = calculateOutdated(modulesPerProject[project], pcfg);
@@ -141,13 +209,8 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
         }
         return true;
     }, totalWork=size(upstreamDependencies));
-
-    step("Checking module <l>", 1);
-    pcfg = getPathConfig(initialProject);
-    checkOutdatedPathConfig(pcfg);
-    msgs += check(calculateOutdated(modulesPerProject[initialProject], pcfg) + [l], rascalCompilerConfig(pcfg));
-    return filterAndFix(msgs, workspaceFolders);
-}, totalWork=3);
+    return msgs;
+}
 
 private bool inWorkspace(set[loc] workspaceFolders, loc lib) {
     try {
@@ -242,7 +305,7 @@ loc inferDeepestProjectRoot(loc member) {
 
 map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {
     set[Message] empty = {};
-    map[loc, set[Message]] result = ( f.top : empty | program(f,_) <- messages);
+    map[loc, set[Message]] result = ( f.top : empty | program(f,_) <- messages, inWorkspace(workspaceFolders, f.top));
     for (program(_, ms) <- messages, m <- ms, inWorkspace(workspaceFolders, m.at.top)) {
         result[m.at.top]?empty += {m};
     }
