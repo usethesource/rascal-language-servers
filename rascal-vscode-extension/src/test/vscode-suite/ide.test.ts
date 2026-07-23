@@ -30,7 +30,7 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { TextEditor, TreeItem, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
+import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -293,7 +293,7 @@ describe('IDE', function () {
         await ide.checkNoDiagnosticsAnymore();
     });
 
-    it.only("check project works", async function () {
+    it("check project works", async function () {
         // Context menu does not work on macOS
         if (os.type() === "Darwin") {
             this.skip();
@@ -303,22 +303,15 @@ describe('IDE', function () {
         await ide.openModule(TestWorkspace.importeeFile);
         await importeeEditor.setTextAtLine(2, "public int foo;");
 
-        await ide.screenshot("SCREENSHOT1");
-
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
         const workspace = await explorer.getContent().getSection("test (Workspace)");
         await workspace.expand();
-        await ide.screenshot("SCREENSHOT2");
         const projectRoot = <TreeItem> await workspace.findItem("test-project");
         await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
-        await ide.screenshot("SCREENSHOT3");
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import IO;");
-        let n = 4;
         await driver.wait(async () => {
-            await ide.screenshot(`SCREENSHOT${n}`);
-            n += 1;
             await repl.execute("exists(|target://test-project/rascal/$Main.tpl|)");
             return repl.lastOutput === "bool: true";
         }, Delays.extremelySlow, "tpl for Main.rsc should exist by now");
