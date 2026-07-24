@@ -64,6 +64,8 @@ export class TestWorkspace {
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
     public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
     public static readonly manifest = path.join(this.testProject, "META-INF", "RASCAL.MF");
+    public static readonly testProjectPom = path.join(this.testProject, "pom.xml");
+    public static readonly lspProjectPom = path.resolve("..", "rascal-lsp", "pom.xml");
 
     public static readonly importerFile = path.join(src(this.testProject), 'Importer.rsc');
     public static readonly importerTpl = path.join(target(this.testProject),'$Importer.tpl');
@@ -176,6 +178,10 @@ export class RascalREPL {
     async terminate() {
         await ignoreFails(this.execute(":quit", false));
         await ignoreFails(this.bench.executeCommand("workbench.action.terminal.killAll"));
+    }
+
+    async getText() {
+        return this.terminal.getText();
     }
 }
 
