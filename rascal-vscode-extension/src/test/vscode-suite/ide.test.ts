@@ -29,7 +29,7 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
+import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -117,6 +117,37 @@ describe('IDE', function () {
         await editor.setTextAtLine(1, "this should not parse");
         await ide.hasErrorSquiggly(editor);
     }).retries(2);
+
+    it("should open a REPL in the root of the project", async function () {
+        // Open a module so the REPL associates with this project
+        await ide.openModule(TestWorkspace.libCallFile);
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        const replText = await repl.getText();
+        const replRoot = replText.match(/Project root is \|([^|]+)\|/)?.[1] ?? "";
+
+        expect(replRoot).to.contain("test-project");
+    });
+
+    it("should use the standard library from the project POM", async () => {
+        // Open a module so the REPL associates with this project
+        await ide.openModule(TestWorkspace.libCallFile);
+
+        // Find Rascal version in POM
+        const pom = await fs.readFile(TestWorkspace.testProjectPom, {encoding: "utf8"});
+        const match = pom.match(/<artifactId>rascal<\/artifactId>\s+<version>([^<]+)<\/version>/);
+        const pomRascalVersion = match?.[1] ?? "unknown";
+
+        // Query Rascal version from stdlib
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import IO;");
+        await repl.execute("import util::Reflective;");
+        await repl.execute("println(getRascalVersion());");
+
+        expect(repl.lastOutput.replace("\nok", "")).is.equal(pomRascalVersion, "Stdlib version matches project POM version");
+    });
 
     it("error recovery works", async function() {
         const editor = await ide.openModule(TestWorkspace.mainFile);
