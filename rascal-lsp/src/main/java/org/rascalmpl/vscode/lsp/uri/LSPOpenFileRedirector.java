@@ -66,7 +66,7 @@ public class LSPOpenFileRedirector {
     }
 
     /**
-     * Redirect a URI to it's LSP-managed counterpart. Considers both the original and resolved URI.
+     * Redirect a URI to its LSP-managed counterpart. Considers both the original and resolved URI.
      * @param resolved The resolution of the original URI.
      * @param original The URI as it came in from VS Code (possibly logical). This is the one that will often be registered as the 'managed' file.
      * @return A redirected URI if the file is open in LSP. If not return the resolved URI if non-null, and the original otherwise.
