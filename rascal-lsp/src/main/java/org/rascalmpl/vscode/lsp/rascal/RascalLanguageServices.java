@@ -70,6 +70,7 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
@@ -161,7 +162,8 @@ public class RascalLanguageServices {
     }
 
     private static @Nullable ISourceLocation libraryTplRoot(ISourceLocation modPath) throws URISyntaxException {
-        modPath = Locations.toPhysicalIfPossible(modPath); // resolve logical paths like `std:///`
+        // Resolve logical paths, but get rid of the `lsp+` prefix, since we do not care about file contents
+        modPath = LSPOpenFileResolver.stripLspPrefix(Locations.toPhysicalIfPossible(modPath));
         if (isInsideJar(modPath)) {
             return URIUtil.getChildLocation(jarBasePath(modPath), "rascal");
         } else if ("mvn".equals(modPath.getScheme())) {
