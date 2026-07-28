@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
@@ -105,6 +106,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
@@ -156,6 +158,63 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
+    public static boolean isRascalLib(ISourceLocation loc) {
+        loc = Locations.toPhysicalIfPossible(loc);
+        switch (loc.getScheme()) {
+            case "mvn": {
+                try {
+                    var coords = MavenRepositoryURIResolver.getCoordinates(loc);
+                    return "org.rascalmpl".equals(coords.getGroupId())
+                        && "rascal".equals(coords.getArtifactId());
+                } catch (IOException e) {
+                    logger.error("Could not resolve location of Maven URI", e);
+                    return false;
+                }
+            }
+            case "file": {
+                var path = loc.getPath();
+                var i = path.lastIndexOf("target/classes");
+                if (i > 0) {
+                    path = path.substring(0, i);
+                }
+                if (path.endsWith("/")) {
+                    path = path.substring(0, path.length() - 1);
+                }
+                return path.endsWith("rascal");
+            }
+            case "project": {
+                return "rascal".equals(loc.getAuthority());
+            }
+            default: {
+                // TODO There's probably more...
+                return false;
+            }
+        }
+    }
+
+    @Override
+    public ISourceLocation lookupRascalClasses(ISourceLocation forFile) throws IOException {
+        var pcfg = facts.getPathConfig(forFile);
+        var rascal = pcfg.getLibs().stream()
+            .filter(ISourceLocation.class::isInstance)
+            .map(ISourceLocation.class::cast)
+            .map(l -> {
+                try {
+                    return URIResolverRegistry.getInstance().logicalToPhysical(l);
+                } catch (IOException e) {
+                    return l;
+                }
+            })
+            .filter(RascalTextDocumentService::isRascalLib)
+            .findFirst();
+
+        if (rascal.isPresent()) {
+            return rascal.get();
+        }
+
+        // If we could not find it, just fall back to the one in the extension
+        return PathConfig.resolveCurrentRascalRuntime();
+    }
 
     private LanguageClient availableClient() {
         if (client == null) {

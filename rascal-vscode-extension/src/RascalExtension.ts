@@ -30,13 +30,14 @@ import * as vscode from 'vscode';
 
 import { integer, URI } from'vscode-languageclient';
 import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
-import { RascalLanguageServer } from './lsp/RascalLanguageServer';
+import { RascalLanguageServer, toRascalUri } from './lsp/RascalLanguageServer';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
+import { ISourceLocationRequest, SourceLocationResponse } from './fs/JsonRpcMessages';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeFileSystemInRascal;
@@ -166,6 +167,7 @@ export class RascalExtension implements vscode.Disposable {
                     // do not try to figure out a rascal project path when the focus is not a rascal file
                     uri = undefined;
                 }
+
                 progress.report({increment: 5, message: "Checking basic project setup"});
                 if (uri) {
                     const [error, detail] = await this.verifyProjectSetup(uri);
@@ -175,13 +177,26 @@ export class RascalExtension implements vscode.Disposable {
                         }
                     }
                 }
-                progress.report({increment: 20, message: "Requesting remote IDE services configuration"});
+
+                progress.report({increment: 10, message: "Requesting remote IDE services configuration"});
                 const remoteIDEServicesConfiguration = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyRemoteIDEServicesConfiguration");
+
+                progress.report({increment: 10, message: "Looking up Rascal JAR"});
+                let rascalClasses: string | undefined = undefined;
+                if (uri !== undefined) {
+                    const lookupRes = await rascal.sendRequest<SourceLocationResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
+                        loc: toRascalUri(uri)
+                    });
+                    rascalClasses = lookupRes.loc !== undefined
+                        ? vscode.Uri.parse(lookupRes.loc).fsPath
+                        : undefined;
+                }
+
                 progress.report({increment: 50, message: "Creating terminal"});
                 const terminal = vscode.window.createTerminal({
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(this.log),
-                    shellArgs: await this.buildShellArgs(remoteIDEServicesConfiguration),
+                    shellArgs: await this.buildShellArgs(remoteIDEServicesConfiguration, rascalClasses),
                     isTransient: false, // right now we don't support transient terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 });
@@ -277,7 +292,7 @@ export class RascalExtension implements vscode.Disposable {
         return ['',''];
     }
 
-    private async buildShellArgs(remoteIDEServicesConfiguration: IDEServicesConfiguration, ...extraArgs: string[]) {
+    private async buildShellArgs(remoteIDEServicesConfiguration: IDEServicesConfiguration, rascalClasses: string | undefined, ...extraArgs: string[]) {
         const shellArgs = [
             calculateRascalREPLMemory()
         ];
@@ -287,10 +302,10 @@ export class RascalExtension implements vscode.Disposable {
         }
         shellArgs.push(
             '-cp'
-            , this.buildTerminalJVMPath()
+            , this.buildTerminalJVMPath(rascalClasses)
         );
         if (!this.isDeploy) {
-            // for development mode we always start the terminal with debuging ready to go
+            // for development mode we always start the terminal with debugging ready to go
             shellArgs.push(
                 '-Xdebug'
                 , '-Xrunjdwp:transport=dt_socket,address=9871,server=y,suspend=n'
@@ -308,9 +323,11 @@ export class RascalExtension implements vscode.Disposable {
         );
         return shellArgs.concat(extraArgs || []);
     }
-    private buildTerminalJVMPath() :string {
-        const jars = ['rascal-lsp.jar', 'rascal.jar'];
-        return jars.map(j => path.join(this.jarRootPath, j)).join(path.delimiter);
+
+    private buildTerminalJVMPath(rascalClasses: string | undefined): string {
+        const lsp = path.join(this.jarRootPath, 'rascal-lsp.jar');
+        const rascal = rascalClasses ?? path.join(this.jarRootPath, 'rascal.jar');
+        return [lsp, rascal].join(path.delimiter);
     }
 
 }

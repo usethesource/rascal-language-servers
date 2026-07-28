@@ -80,7 +80,6 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
-import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;

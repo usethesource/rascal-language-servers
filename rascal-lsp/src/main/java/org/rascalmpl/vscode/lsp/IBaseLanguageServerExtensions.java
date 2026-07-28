@@ -41,10 +41,13 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 
 @JsonSegment("rascal")
 public interface IBaseLanguageServerExtensions extends LanguageServer {
-    @JsonNotification
+    @JsonRequest
     default CompletableFuture<IDEServicesConfiguration> supplyRemoteIDEServicesConfiguration() {
         throw new UnsupportedOperationException();
     }
+
+    @JsonRequest
+    CompletableFuture<SourceLocationResponse> lookupRascalClasses(ISourceLocationRequest req);
 
     @JsonRequest
     default CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
