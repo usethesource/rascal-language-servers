@@ -26,7 +26,7 @@
  */
 
 import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, startsAndStopsLoading, TestWorkspace } from './utils';
+import { Delays, expectCompletions, getArtifactVersion, getOutput, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -47,7 +47,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Language Parametric Rascal');
+    printRascalOutputOnFailure('Language Parametric Rascal Language Server');
 
     async function unloadPico(repl: RascalREPL) {
         await repl.execute("import util::LanguageServer;");
@@ -396,9 +396,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.clickCodeLens(editor, "Show warning");
         await driver.wait(async () => {
-            const output = await bench.getBottomBar().openOutputView();
-            await output.selectChannel("Language Parametric Rascal Language Server");
-            const contents = await output.getText();
+            const contents = await getOutput("Language Parametric Rascal Language Server");
             return contents.split("\n")[-1]?.indexOf(": Test warning") !== -1;
         }, Delays.normal, "Test warning dialog should show");
     });
@@ -409,9 +407,7 @@ end
         const editor = await ide.openModule(TestWorkspace.picoFile);
         await ide.clickCodeLens(editor, "Show warning");
         await driver.wait(async () => {
-            const output = await bench.getBottomBar().openOutputView();
-            await output.selectChannel("Language Parametric Rascal Language Server");
-            const contents = await output.getText();
+            const contents = await getOutput("Language Parametric Rascal Language Server");
             return contents.split("\n")[-1]?.indexOf(": LOG Test warning") !== -1;
         }, Delays.normal, "Line should be logged");
     });
@@ -445,9 +441,7 @@ end
 
     it("uses the standard library from the project POM", async () => {
         // Find Rascal version in POM
-        const pom = await fs.readFile(TestWorkspace.testProjectPom, {encoding: "utf8"});
-        const match = pom.match(/<artifactId>rascal<\/artifactId>\s+<version>([^<]+)<\/version>/);
-        const pomRascalVersion = match?.[1] ?? "unknown";
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
 
         // Query Rascal version from stdlib
         const editor = await ide.openModule(TestWorkspace.picoFile);

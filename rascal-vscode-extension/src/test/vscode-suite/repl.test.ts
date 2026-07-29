@@ -26,9 +26,8 @@
  */
 
 import { expect } from 'chai';
-import * as fs from 'fs/promises';
 import { TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
+import { Delays, getArtifactVersion, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
 
 describe('REPL', function () {
     let browser: VSBrowser;
@@ -38,7 +37,7 @@ describe('REPL', function () {
 
     this.timeout(2 * Delays.extremelySlow);
 
-    printRascalOutputOnFailure('Rascal MPL');
+    printRascalOutputOnFailure('Rascal MPL Language Server');
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -66,8 +65,7 @@ describe('REPL', function () {
 
     it("uses the standard library from the extension", async () => {
         // Find Rascal version in POM
-        const pom = await fs.readFile(TestWorkspace.lspProjectPom, {encoding: "utf8"});
-        const pomRascalVersion = pom.match(/<artifactId>rascal<\/artifactId>\s+<version>([^<]+)<\/version>/)?.[1] ?? "unknown";
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
 
         // Query Rascal version from stdlib
         const repl = new RascalREPL(bench, driver);

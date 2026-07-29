@@ -29,7 +29,7 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
+import { Delays, getArtifactVersion, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -40,7 +40,7 @@ describe('IDE', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Rascal MPL');
+    printRascalOutputOnFailure('Rascal MPL Language Server');
 
     before(async () => {
         const files = ProtectedFiles.protect(
@@ -130,14 +130,12 @@ describe('IDE', function () {
         expect(replRoot).to.contain("test-project");
     });
 
-    it("uses the standard library from the project POM", async () => {
+    it("REPL uses the standard library from the project POM", async () => {
         // Open a module so the REPL associates with this project
         await ide.openModule(TestWorkspace.libCallFile);
 
         // Find Rascal version in POM
-        const pom = await fs.readFile(TestWorkspace.testProjectPom, {encoding: "utf8"});
-        const match = pom.match(/<artifactId>rascal<\/artifactId>\s+<version>([^<]+)<\/version>/);
-        const pomRascalVersion = match?.[1] ?? "unknown";
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
 
         // Query Rascal version from stdlib
         const repl = new RascalREPL(bench, driver);
