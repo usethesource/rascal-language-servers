@@ -59,11 +59,12 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         // instead we ignore all follow-up cases of the same error
     }
 
-    visit (tree) {
-        case l:(LocationLiteral)`|lib://<PathPart _>`:
-            result += error("lib scheme is not supported anymore. In most cases it can be replaced by either |project://|, |mvn://| or IO::getResource", l.src);
-        case l:(LocationLiteral)`|std://<PathPart _>`:
-            result += error("std scheme is not supported anymore; use a physical location instead (|mvn://|, |jar+file://|)", l.src);
+    v: visit (tree) {
+        case l:(LocationLiteral)`|<URLChars scheme>://<PathPart _>`: {
+            s = "<scheme>";
+            if (s notin illegalSchemeSuggestions<0>) fail v;
+            result += error("`<s>://` scheme is not supported anymore. In most cases it can be replaced by <illegalSchemeSuggestions[s]>", l.src);
+        }
 
         // annotation cases
         case t:(Declaration) `<Tags _> <Visibility _> anno <Type _> <Type _> @ <Name _>;`: reportAnnotationDeprecation(t);
@@ -78,3 +79,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     return result;
 }
 
+map[str, str] illegalSchemeSuggestions = (
+    "lib": "|project://|, |mvn://|, or IO::getResource",
+    "std": "|mvn://| or |jar+file://|"
+);
