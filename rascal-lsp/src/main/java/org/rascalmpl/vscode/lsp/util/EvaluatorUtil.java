@@ -80,7 +80,6 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
-import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IString;
@@ -346,7 +345,7 @@ public class EvaluatorUtil {
 
     public static PathConfig addRascalCompilerSources(PathConfig pcfg) {
         try {
-            var rascalJar = JarURIResolver.jarify(PathConfig.resolveCurrentRascalRuntimeJar());
+            var rascalJar = JarURIResolver.jarify(PathConfig.resolveCurrentRascalRuntime());
             return pcfg
                 .addSourceLoc(URIUtil.getChildLocation(rascalJar, "org/rascalmpl/compiler"))
                 .addSourceLoc(URIUtil.getChildLocation(rascalJar, "org/rascalmpl/typepal"))

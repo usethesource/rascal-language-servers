@@ -66,6 +66,7 @@ import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
+import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
@@ -249,6 +250,23 @@ public abstract class BaseLanguageServer {
                 return CompletableFuture.failedFuture(new IllegalStateException("No RemoteIDEServices configuration is set"));
             }
             return CompletableFutureUtils.completedFuture(remoteIDEServicesConfiguration, executor);
+        }
+
+        @Override
+        public CompletableFuture<SourceLocationResponse> lookupRascalClasses(ISourceLocationRequest req) {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    var rascal = lspDocumentService.lookupRascalClasses(req.getLocation());
+                    if ("mvn".equals(rascal.getScheme())) {
+                        var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
+                        rascal = mvn.resolveJar(rascal);
+                    }
+                    return new SourceLocationResponse(rascal);
+                } catch (IOException | URISyntaxException e) {
+                    logger.error("Could not locate Rascal classes for {}", req.getLocation(), e);
+                    return new SourceLocationResponse(null);
+                }
+            }, executor);
         }
 
         private static URI[] toURIArray(IList src) {
