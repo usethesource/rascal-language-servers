@@ -58,13 +58,13 @@ describe('REPL', function () {
         await ide.cleanup();
     });
 
-    it("should open without a project", async () => {
+    it("opens without a project", async () => {
         await new RascalREPL(bench, driver).start();
     }).retries(2);
 
     // TODO Add test for default REPL root
 
-    it("should use the standard library from the extension", async () => {
+    it("uses the standard library from the extension", async () => {
         // Find Rascal version in POM
         const pom = await fs.readFile(TestWorkspace.lspProjectPom, {encoding: "utf8"});
         const pomRascalVersion = pom.match(/<artifactId>rascal<\/artifactId>\s+<version>([^<]+)<\/version>/)?.[1] ?? "unknown";

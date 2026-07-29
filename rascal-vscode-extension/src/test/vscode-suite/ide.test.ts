@@ -118,7 +118,7 @@ describe('IDE', function () {
         await ide.hasErrorSquiggly(editor);
     }).retries(2);
 
-    it("should open a REPL in the root of the project", async function () {
+    it("opens a REPL in the root of the project", async function () {
         // Open a module so the REPL associates with this project
         await ide.openModule(TestWorkspace.libCallFile);
 
@@ -130,7 +130,7 @@ describe('IDE', function () {
         expect(replRoot).to.contain("test-project");
     });
 
-    it("should use the standard library from the project POM", async () => {
+    it("uses the standard library from the project POM", async () => {
         // Open a module so the REPL associates with this project
         await ide.openModule(TestWorkspace.libCallFile);
 
