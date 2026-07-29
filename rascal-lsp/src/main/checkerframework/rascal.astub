@@ -20,3 +20,13 @@ public abstract class TreeVisitor<E extends Throwable> extends IdentityVisitor<E
 	public abstract @Nullable ITree visitTreeChar(ITree arg) throws E;
 	public abstract @Nullable ITree visitTreeCycle(ITree arg) throws E;
 }
+
+package org.rascalmpl.uri.remote.jsonrpc;
+
+import io.usethesource.vallang.ISourceLocation;
+
+public class SourceLocationResponse {
+  private final @Nullable ISourceLocation loc;
+  public SourceLocationResponse(@Nullable ISourceLocation loc) {}
+  public @Nullable ISourceLocation getLocation() {}
+}
