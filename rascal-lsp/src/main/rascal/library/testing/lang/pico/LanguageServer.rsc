@@ -41,6 +41,7 @@ data Command
   | removeTodo(loc at)
   | showWarning(str message, loc at)
   | showContents(str contents)
+  | showRascalVersion()
   ;
 
 @synopsis{Command handler to test JSON serialization of various Rascal value types.}
@@ -91,6 +92,11 @@ value picoExecutionService(showContents(str contents)) {
     return ("result" : true);
 }
 
+value picoExecutionService(showRascalVersion()) {
+    showMessage(info("Rascal standard library version: <getRascalVersion()>", |unknown:///|));
+    return ("result": true);
+}
+
 private loc declOffset(start[Program] input, int off)
     = input.top.decls.decls[off]?
     ? input.top.decls.decls[off].src
@@ -105,7 +111,8 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
         <declOffset(input, 0), addTodo(input.src, title="Register TODO")>,
         <declOffset(input, 0), removeTodo(input.src, title="Unregister TODO")>,
         <declOffset(input, 0), showWarning("Test warning", input.src, title="Show warning")>,
-        <declOffset(input, 0), showContents("Some text", title="Show some text")>
+        <declOffset(input, 0), showContents("Some text", title="Show some text")>,
+        <declOffset(input, 1), showRascalVersion(title="Show Rascal version")>
     ];
 
 private set[LanguageService] amendContributions(set[LanguageService] contributions, set[LanguageService] replacements)

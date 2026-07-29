@@ -442,4 +442,24 @@ end
         // Dynamically registered capability
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
     });
+
+    it("uses the standard library from the project POM", async () => {
+        // Find Rascal version in POM
+        const pom = await fs.readFile(TestWorkspace.testProjectPom, {encoding: "utf8"});
+        const match = pom.match(/<artifactId>rascal<\/artifactId>\s+<version>([^<]+)<\/version>/);
+        const pomRascalVersion = match?.[1] ?? "unknown";
+
+        // Query Rascal version from stdlib
+        const editor = await ide.openModule(TestWorkspace.picoFile);
+        await ide.clickCodeLens(editor, "Show Rascal version");
+        const versionLine = await driver.wait(async () => {
+            const output = await bench.getBottomBar().openOutputView();
+            await output.selectChannel("Language Parametric Rascal Language Server");
+            const contents = await output.getText();
+            const lines = contents.split("\n");
+            return lines.find(l => l.indexOf("[INFO] Rascal standard library") !== -1);
+        }, Delays.normal, "Version should be logged");
+
+        expect(versionLine?.split("version: ")[1]).to.equal(pomRascalVersion);
+    });
 });
