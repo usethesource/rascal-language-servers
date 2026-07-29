@@ -194,7 +194,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     @Override
     public ISourceLocation lookupRascalClasses(ISourceLocation forFile) throws IOException {
-        var pcfg = facts.getPathConfig(forFile);
+        var pcfg = availableFacts().getPathConfig(forFile);
         var rascal = pcfg.getLibs().stream()
             .filter(ISourceLocation.class::isInstance)
             .map(ISourceLocation.class::cast)
