@@ -29,7 +29,7 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, getArtifactVersion, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
+import { captureOutput, Delays, getArtifactVersion, getOutput, IDEOperations, ignoreFails, isLanguageLoading, matchPathConfig, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -118,6 +118,12 @@ describe('IDE', function () {
         await ide.hasErrorSquiggly(editor);
     }).retries(2);
 
+    it("uses the type checker shipped with the extension", async function () {
+        const output = await getOutput("Rascal MPL Language Server");
+        const pcfg = matchPathConfig(output, "Rascal compiler");
+        expect(pcfg.sources).to.include("assets/jars/rascal.jar!/org/rascalmpl/compiler");
+    });
+
     it("opens a REPL in the root of the project", async function () {
         // Open a module so the REPL associates with this project
         await ide.openModule(TestWorkspace.libCallFile);
@@ -163,7 +169,15 @@ describe('IDE', function () {
 
     it("save runs type checker", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
+        const output = await captureOutput("Rascal MPL Language Server",
+            () => triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true));
+
+        const pcfg = matchPathConfig(output);
+
+        // Find Rascal version in POM
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
+
+        expect(pcfg.libs).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {

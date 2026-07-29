@@ -537,6 +537,34 @@ export async function getOutput(channel: OutputChannel): Promise<string> {
     return await output.getText();
 }
 
+export async function captureOutput<T>(channel: OutputChannel, action: () => Promise<T>, onlyLastNLines?: number): Promise<string> {
+    const beforeOutput = await getOutput(channel);
+    await action();
+    const afterOutput = await getOutput(channel);
+    const searchString = beforeOutput.slice(onlyLastNLines ? -onlyLastNLines : 0);
+    return afterOutput.substring(afterOutput.indexOf(searchString) + searchString.length);
+}
+
+export function matchPathConfig(input: string, prefix = "") {
+    const list = String.raw`\[[^\]]*\]`;
+    const loc = String.raw`\|[^|]+\|`;
+    const pcfg = new RegExp(`((?!projectRoot).)*${prefix}((?!projectRoot).)*projectRoot:\\s+(?<root>${loc})srcs\\s+:(?<srcs>${list})ignores:\\s+(?<ignores>${list})libs:\\s+(?<libs>${list})bin:\\s+(?<bin>${loc})resources:\\s+(?<resources>${list})messages:\\s+(?<messages>${list})`);
+
+    const match = input.match(pcfg);
+    if (!match) {
+        return {};
+    }
+
+    const projectRoot = match.groups?.["root"];
+    const sources = match.groups?.["srcs"];
+    const ignores = match.groups?.["ignores"];
+    const libs = match.groups?.["libs"];
+    const bin = match.groups?.["bin"];
+    const resources = match.groups?.["resources"];
+    const messages = match.groups?.["messages"];
+    return { projectRoot, sources, ignores, libs, bin, resources, messages };
+}
+
 export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike): Promise<string> {
     const pom = await readFile(pomPath, {encoding: "utf8"});
     return pom.match(new RegExp(`<groupId>${groupId}</groupId>\\s+<artifactId>${artifactId}</artifactId>\\s+<version>([^<]+)</version>`))?.[1] ?? "unknown";
