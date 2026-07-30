@@ -175,9 +175,11 @@ describe('IDE', function () {
         const pcfg = matchPathConfig(output);
 
         // Find Rascal version in POM
-        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
-
-        expect(pcfg.libs ?? "unknown").to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
+        const libs = pcfg.libs === undefined ? []
+            // Remove list brackets and split elements
+            : pcfg.libs.slice(1, -1).split(',').map(s => s.trim());
+        expect(libs).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {
