@@ -62,7 +62,7 @@ export async function activateLanguageClient(
         return `${normalizedScheme}/${normalizedAuthority}`;
     }
 
-    const uriMatcher = /^[^:]*:\/\/[^/]*\/(.*)&/;
+    const uriMatcher = /^[^:]*:\/\/[^/]*\/(.*)$/;
 
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
