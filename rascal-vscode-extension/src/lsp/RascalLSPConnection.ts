@@ -75,14 +75,16 @@ export async function activateLanguageClient(
             // of the authority can be restored when round-tripping (i.e., Rascal => VS Code => Rascal).
             code2Protocol: (uri: vscode.Uri) : string => {
                 const uriString = uri.toString();
-                const cachedCasing = getCachedCasing(uri);
 
-                if (cachedCasing) {
-                    // `Uri.with` followed by `Uri.toString` is not an option, as the latter performs the case normalization
-                    const match = uriMatcher.exec(uriString);
-                    if (match) {
-                        logger.info(`[RascalLSPConnection] Changed ${uriString} into ${`${match[1]}://${cachedCasing[1]}/${match[2]}`}`);
-                        return `${match[1]}://${cachedCasing[1]}/${match[2]}`;
+                if (uri.scheme !== "file" && uri.authority !== "") {
+                    const cachedCasing = getCachedCasing(uri);
+                    if (cachedCasing) {
+                        // `Uri.with` followed by `Uri.toString` is not an option, as the latter performs the case normalization
+                        const match = uriMatcher.exec(uriString);
+                        if (match) {
+                            logger.info(`[RascalLSPConnection] Changed ${uriString} into ${`${match[1]}://${cachedCasing[1]}/${match[2]}`}`);
+                            return `${match[1]}://${cachedCasing[1]}/${match[2]}`;
+                        }
                     }
                 }
 
@@ -90,12 +92,14 @@ export async function activateLanguageClient(
             },
             protocol2Code: (uriString: string): vscode.Uri => {
                 const parsed = vscode.Uri.parse(uriString);
-                const cachedCasing = getCachedCasing(parsed);
 
-                if (cachedCasing && !(cachedCasing[0] === parsed.scheme && cachedCasing[1] === parsed.authority)) {
-                    logger.warn(`Received scheme/authority casing |${parsed.scheme}://${parsed.authority}/| that is inconsistent with earlier |${cachedCasing[0]}://${cachedCasing[1]}/|. Round-tripping locations correctly is likely not possible`);
-                } else {
-                    storeCasing(parsed);
+                if (parsed.scheme !== "file" && parsed.authority !== "") {
+                    const cachedCasing = getCachedCasing(parsed);
+                    if (cachedCasing && !(cachedCasing[0] === parsed.scheme && cachedCasing[1] === parsed.authority)) {
+                        logger.warn(`Received scheme/authority casing |${parsed.scheme}://${parsed.authority}/| that is inconsistent with earlier |${cachedCasing[0]}://${cachedCasing[1]}/|. Round-tripping locations correctly is likely not possible`);
+                    } else {
+                        storeCasing(parsed);
+                    }
                 }
 
                 return parsed;
