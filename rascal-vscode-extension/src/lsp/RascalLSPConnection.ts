@@ -60,6 +60,8 @@ export async function activateLanguageClient(
         return `${normalizedScheme}/${normalizedAuthority}`;
     }
 
+    const uriMatcher = /^[^:]*:\/\/[^/]*\/(.*)&/;
+
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
         outputChannel: logger,
@@ -70,13 +72,17 @@ export async function activateLanguageClient(
                 // The casing of the schemes and autorities of incoming URIs is therefore stored, so the original casing
                 // can be restored when round-tripping (i.e., Rascal => VS Code => Rascal).
                 code2Protocol: (uri: vscode.Uri) : string => {
+                    const uriString = uri.toString();
                     const cachedCasing = getCachedCasing(uri);
 
                     if (cachedCasing) {
-                        uri = uri.with({ scheme: cachedCasing[0], authority: cachedCasing[1] });
+                        const match = uriMatcher.exec(uriString);
+                        if (match) {
+                            return `${cachedCasing[0]}://${cachedCasing[1]}/${match[1]}`;
+                        }
                     }
 
-                    return uri.toString();
+                    return uriString;
                 },
                 protocol2Code: (uriString: string): vscode.Uri => {
                     const parsed = vscode.Uri.parse(uriString);
