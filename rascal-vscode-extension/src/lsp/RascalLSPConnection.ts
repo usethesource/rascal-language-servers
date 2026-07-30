@@ -44,9 +44,54 @@ export async function activateLanguageClient(
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
+    const schemeAuthorityCasing: Map<string, [string, string]> = new Map();
+
+    function getCachedCasing(uri: vscode.Uri) : [string, string] | undefined {
+        return schemeAuthorityCasing.get(casingMapKey(uri));
+    }
+
+    function storeCasing(uri: vscode.Uri): void {
+        schemeAuthorityCasing.set(casingMapKey(uri), [uri.scheme, uri.authority]);
+    }
+
+    function casingMapKey(uri: vscode.Uri): string {
+        const normalizedScheme = uri.scheme.toLowerCase();
+        const normalizedAuthority = uri.authority.toLowerCase();
+        return `${normalizedScheme}/${normalizedAuthority}`;
+    }
+
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
         outputChannel: logger,
+        middleware: {
+            uriConverters: {
+                // VS Code may convert schemes and authorities to lower case (which is allowed by the standard).
+                // Some Rascal locations have schemes and/or authorities for which the casing does matter (e.g., |mvn:///| or |project:///|).
+                // The casing of the schemes and autorities of incoming URIs is therefore stored, so the original casing
+                // can be restored when round-tripping (i.e., Rascal => VS Code => Rascal).
+                code2Protocol: (uri: vscode.Uri) : string => {
+                    const cachedCasing = getCachedCasing(uri);
+
+                    if (cachedCasing) {
+                        uri = uri.with({ scheme: cachedCasing[0], authority: cachedCasing[1] });
+                    }
+
+                    return uri.toString();
+                },
+                protocol2Code: (uriString: string): vscode.Uri => {
+                    const parsed = vscode.Uri.parse(uriString);
+                    const cachedCasing = getCachedCasing(parsed);
+
+                    if (cachedCasing && !(cachedCasing[0] === parsed.scheme && cachedCasing[1] === parsed.authority)) {
+                        logger.warn(`Received scheme/authority casing |${parsed.scheme}://${parsed.authority}/| that is inconsistent with earlier |${cachedCasing[0]}://${cachedCasing[1]}/|. Round-tripping locations correctly is likely not possible`);
+                    } else {
+                        storeCasing(parsed);
+                    }
+
+                    return parsed;
+                }
+            }
+        }
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
