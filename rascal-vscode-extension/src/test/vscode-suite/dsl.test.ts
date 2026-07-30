@@ -439,7 +439,9 @@ end
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
     });
 
-    it("uses the standard library from the project POM", async () => {
+    it("uses the standard library from the project POM", async function () {
+        if (errorRecovery) { this.skip(); }
+
         // Find Rascal version in POM
         const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
 
