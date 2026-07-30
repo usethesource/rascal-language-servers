@@ -95,8 +95,10 @@ export async function activateLanguageClient(
 
                 if (parsed.scheme !== "file" && parsed.authority !== "") {
                     const cachedCasing = getCachedCasing(parsed);
-                    if (cachedCasing && !(cachedCasing[0] === parsed.scheme && cachedCasing[1] === parsed.authority)) {
-                        logger.warn(`Received scheme/authority casing |${parsed.scheme}://${parsed.authority}/| that is inconsistent with earlier |${cachedCasing[0]}://${cachedCasing[1]}/|. Round-tripping locations correctly is likely not possible`);
+                    if (cachedCasing) {
+                        if (!(cachedCasing[0] === parsed.scheme && cachedCasing[1] === parsed.authority)) {
+                            logger.warn(`Received scheme/authority casing |${parsed.scheme}://${parsed.authority}/| that is inconsistent with earlier |${cachedCasing[0]}://${cachedCasing[1]}/|. Round-tripping locations correctly is likely not possible`);
+                        }
                     } else {
                         storeCasing(parsed);
                     }
