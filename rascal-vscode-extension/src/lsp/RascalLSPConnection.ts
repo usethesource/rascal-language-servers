@@ -51,6 +51,7 @@ export async function activateLanguageClient(
     }
 
     function storeCasing(uri: vscode.Uri): void {
+        logger.info(`[RascalLSPConnection] Storing casing of uriString (${casingMapKey(uri)} => [${uri.scheme}, ${uri.authority}])`);
         schemeAuthorityCasing.set(casingMapKey(uri), [uri.scheme, uri.authority]);
     }
 
@@ -77,6 +78,7 @@ export async function activateLanguageClient(
                 if (cachedCasing) {
                     const match = uriMatcher.exec(uriString);
                     if (match) {
+                        logger.info(`[RascalLSPConnection] Changed ${uriString} into ${`${cachedCasing[0]}://${cachedCasing[1]}/${match[1]}`}`);
                         return `${cachedCasing[0]}://${cachedCasing[1]}/${match[1]}`;
                     }
                 }
