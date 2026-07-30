@@ -456,6 +456,7 @@ end
             return lines.find(l => l.indexOf("[INFO] Rascal standard library") !== -1);
         }, Delays.normal, "Version should be logged");
 
-        expect(versionLine?.split("version: ")[1]).to.equal(pomRascalVersion);
+        const loggedVersion = versionLine?.split("version: ")[1]?.trim();
+        expect(loggedVersion).to.equal(pomRascalVersion);
     });
 });
