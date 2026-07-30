@@ -548,7 +548,7 @@ export async function captureOutput<T>(channel: OutputChannel, action: () => Pro
 export function matchPathConfig(input: string, prefix = "") {
     const list = String.raw`\[[^\]]*\]`;
     const loc = String.raw`\|[^|]+\|`;
-    const pcfg = new RegExp(`((?!projectRoot).)*${prefix}((?!projectRoot).)*projectRoot:\\s+(?<root>${loc})srcs\\s+:(?<srcs>${list})ignores:\\s+(?<ignores>${list})libs:\\s+(?<libs>${list})bin:\\s+(?<bin>${loc})resources:\\s+(?<resources>${list})messages:\\s+(?<messages>${list})`);
+    const pcfg = new RegExp(`((?!projectRoot).)*${prefix}((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
 
     const match = input.match(pcfg);
     if (!match) {
@@ -567,7 +567,7 @@ export function matchPathConfig(input: string, prefix = "") {
 
 export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike): Promise<string> {
     const pom = await readFile(pomPath, {encoding: "utf8"});
-    return pom.match(new RegExp(`<groupId>${groupId}</groupId>\\s+<artifactId>${artifactId}</artifactId>\\s+<version>([^<]+)</version>`))?.[1] ?? "unknown";
+    return pom.match(new RegExp(`<groupId>${groupId}</groupId>\\s*<artifactId>${artifactId}</artifactId>\\s*<version>([^<]+)</version>`))?.[1] ?? "unknown";
 }
 
 export function printRascalOutputOnFailure(channel: OutputChannel) {
