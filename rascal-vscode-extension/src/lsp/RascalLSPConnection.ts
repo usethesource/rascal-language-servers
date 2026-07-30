@@ -63,16 +63,16 @@ export async function activateLanguageClient(
     }
 
     // This regular expression does not match opaque URIs. That is not a problem, since those never have an authority to correct
-    const uriMatcher = /^[^:]*:\/\/[^/]*\/(.*)$/;
+    const uriMatcher = /^([^:]*):\/\/[^/]*\/(.*)$/;
 
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
         outputChannel: logger,
         uriConverters: {
             // VS Code may convert schemes and authorities to lower case (which is allowed by the standard).
-            // Some Rascal locations have schemes and/or authorities for which the casing does matter (e.g., |mvn:///| or |project:///|).
+            // Some Rascal locations have authorities for which the casing does matter (e.g., |mvn:///| or |project:///|).
             // The casing of the schemes and autorities of incoming URIs is therefore stored, so the original casing
-            // can be restored when round-tripping (i.e., Rascal => VS Code => Rascal).
+            // of the authority can be restored when round-tripping (i.e., Rascal => VS Code => Rascal).
             code2Protocol: (uri: vscode.Uri) : string => {
                 const uriString = uri.toString();
                 const cachedCasing = getCachedCasing(uri);
@@ -81,8 +81,8 @@ export async function activateLanguageClient(
                     // `Uri.with` followed by `Uri.toString` is not an option, as the latter performs the case normalization
                     const match = uriMatcher.exec(uriString);
                     if (match) {
-                        logger.info(`[RascalLSPConnection] Changed ${uriString} into ${`${cachedCasing[0]}://${cachedCasing[1]}/${match[1]}`}`);
-                        return `${cachedCasing[0]}://${cachedCasing[1]}/${match[1]}`;
+                        logger.info(`[RascalLSPConnection] Changed ${uriString} into ${`${match[1]}://${cachedCasing[1]}/${match[2]}`}`);
+                        return `${match[1]}://${cachedCasing[1]}/${match[2]}`;
                     }
                 }
 
