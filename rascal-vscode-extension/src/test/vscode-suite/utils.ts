@@ -545,10 +545,22 @@ export async function captureOutput<T>(channel: OutputChannel, action: () => Pro
     return afterOutput.substring(afterOutput.indexOf(searchString) + searchString.length);
 }
 
-export function matchPathConfig(input: string, prefix = "") {
+function parseRascalList(input: string | undefined): Array<string> {
+    if (input === undefined) {
+        return [];
+    }
+
+    if (!input.match(/^\[.*\]$/)) {
+        throw new Error("Not a valid list; does not start/end with '['/']'");
+    }
+
+    return input.slice(1, -1).split(',').map(el => el.trim());
+}
+
+export function matchPathConfig(input: string) {
     const list = String.raw`\[[^\]]*\]`;
     const loc = String.raw`\|[^|]+\|`;
-    const pcfg = new RegExp(`((?!projectRoot).)*${prefix}((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
+    const pcfg = new RegExp(`((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
 
     const match = input.match(pcfg);
     if (!match) {
@@ -556,12 +568,12 @@ export function matchPathConfig(input: string, prefix = "") {
     }
 
     const projectRoot = match.groups?.["root"];
-    const sources = match.groups?.["srcs"];
-    const ignores = match.groups?.["ignores"];
-    const libs = match.groups?.["libs"];
+    const sources = parseRascalList(match.groups?.["srcs"]);
+    const ignores = parseRascalList(match.groups?.["ignores"]);
+    const libs = parseRascalList(match.groups?.["libs"]);
     const bin = match.groups?.["bin"];
-    const resources = match.groups?.["resources"];
-    const messages = match.groups?.["messages"];
+    const resources = parseRascalList(match.groups?.["resources"]);
+    const messages = parseRascalList(match.groups?.["messages"]);
     return { projectRoot, sources, ignores, libs, bin, resources, messages };
 }
 

@@ -30,6 +30,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { captureOutput, Delays, getArtifactVersion, getOutput, IDEOperations, ignoreFails, isLanguageLoading, matchPathConfig, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
+import { fail } from 'assert';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -120,8 +121,12 @@ describe('IDE', function () {
 
     it("uses the type checker shipped with the extension", async function () {
         const output = await getOutput("Rascal MPL Language Server");
-        const pcfg = matchPathConfig(output, "Rascal compiler");
-        expect(pcfg.sources ?? "unknown").to.include("assets/jars/rascal.jar!/org/rascalmpl/compiler");
+        const compilerOuput = output.split("Path config for").find(logs => logs.includes("Rascal compiler: Path configuration items:"));
+        if (compilerOuput === undefined) {
+            fail("No compiler path config found in logs");
+        }
+        const pcfg = matchPathConfig(compilerOuput);
+        expect(pcfg.sources ?? []).to.include("assets/jars/rascal.jar!/org/rascalmpl/compiler");
     });
 
     it("opens a REPL in the root of the project", async function () {
@@ -176,10 +181,7 @@ describe('IDE', function () {
 
         // Find Rascal version in POM
         const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
-        const libs = pcfg.libs === undefined ? []
-            // Remove list brackets and split elements
-            : pcfg.libs.slice(1, -1).split(',').map(s => s.trim());
-        expect(libs).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
+        expect(pcfg.libs ?? []).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {
