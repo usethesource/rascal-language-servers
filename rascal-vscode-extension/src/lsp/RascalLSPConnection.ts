@@ -75,7 +75,7 @@ export async function activateLanguageClient(
             code2Protocol: (uri: vscode.Uri) : string => {
                 const uriString = uri.toString();
 
-                if (uri.scheme !== "file" && uri.authority !== "") {
+                if (uri.authority !== "") {
                     const cachedCasing = getCachedCasing(uri);
                     if (cachedCasing) {
                         // `Uri.with` followed by `Uri.toString` is not an option, as the latter performs the case normalization
@@ -93,7 +93,7 @@ export async function activateLanguageClient(
             protocol2Code: (uriString: string): vscode.Uri => {
                 const parsed = vscode.Uri.parse(uriString);
 
-                if (parsed.scheme !== "file" && parsed.authority !== "") {
+                if (parsed.authority !== "") {
                     const cachedCasing = getCachedCasing(parsed);
                     if (cachedCasing) {
                         if (!(cachedCasing[0] === parsed.scheme && cachedCasing[1] === parsed.authority)) {
