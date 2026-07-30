@@ -121,7 +121,7 @@ describe('IDE', function () {
     it("uses the type checker shipped with the extension", async function () {
         const output = await getOutput("Rascal MPL Language Server");
         const pcfg = matchPathConfig(output, "Rascal compiler");
-        expect(pcfg.sources).to.include("assets/jars/rascal.jar!/org/rascalmpl/compiler");
+        expect(pcfg.sources ?? "unknown").to.include("assets/jars/rascal.jar!/org/rascalmpl/compiler");
     });
 
     it("opens a REPL in the root of the project", async function () {
@@ -177,7 +177,7 @@ describe('IDE', function () {
         // Find Rascal version in POM
         const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
 
-        expect(pcfg.libs).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
+        expect(pcfg.libs ?? "unknown").to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {
