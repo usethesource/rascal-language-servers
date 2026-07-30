@@ -141,9 +141,11 @@ void register(bool errorRecovery=false) {
     // Since there might be an existing registration with a different error recovery setting, we unregister it here first.
     // Note that in a typical usage scenario, `unregisterLanguage` should not be used.
     unregisterLanguage("Pico", {"pico", "pico-new"});
+
+    pcfg = getProjectPathConfig(|project://test-project|);
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "testing::lang::pico::LanguageServer",
@@ -152,7 +154,7 @@ void register(bool errorRecovery=false) {
     );
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "testing::lang::pico::LanguageServer",
