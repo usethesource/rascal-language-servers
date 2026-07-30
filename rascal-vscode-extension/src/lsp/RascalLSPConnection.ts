@@ -62,6 +62,7 @@ export async function activateLanguageClient(
         return `${normalizedScheme}/${normalizedAuthority}`;
     }
 
+    // This regular expression does not match opaque URIs. That is not a problem, since those never have an authority to correct
     const uriMatcher = /^[^:]*:\/\/[^/]*\/(.*)$/;
 
     const clientOptions = <LanguageClientOptions>{
@@ -77,6 +78,7 @@ export async function activateLanguageClient(
                 const cachedCasing = getCachedCasing(uri);
 
                 if (cachedCasing) {
+                    // `Uri.with` followed by `Uri.toString` is not an option, as the latter performs the case normalization
                     const match = uriMatcher.exec(uriString);
                     if (match) {
                         logger.info(`[RascalLSPConnection] Changed ${uriString} into ${`${cachedCasing[0]}://${cachedCasing[1]}/${match[1]}`}`);
