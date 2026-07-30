@@ -47,12 +47,11 @@ export async function activateLanguageClient(
     const schemeAuthorityCasing: Map<string, [string, string]> = new Map();
 
     function getCachedCasing(uri: vscode.Uri) : [string, string] | undefined {
-        logger.info(`[RascalLSPConnection] Retrieving casing of ${uri} (${casingMapKey(uri)} => [${schemeAuthorityCasing.get(casingMapKey(uri))})}])`);
         return schemeAuthorityCasing.get(casingMapKey(uri));
     }
 
     function storeCasing(uri: vscode.Uri): void {
-        logger.info(`[RascalLSPConnection] Storing casing of ${uri} (${casingMapKey(uri)} => [${uri.scheme}, ${uri.authority}])`);
+        logger.debug(`[RascalLSPConnection] Storing casing of ${uri} (${casingMapKey(uri)} => [${uri.scheme}, ${uri.authority}])`);
         schemeAuthorityCasing.set(casingMapKey(uri), [uri.scheme, uri.authority]);
     }
 
@@ -82,8 +81,9 @@ export async function activateLanguageClient(
                         // `Uri.with` followed by `Uri.toString` is not an option, as the latter performs the case normalization
                         const match = uriMatcher.exec(uriString);
                         if (match) {
-                            logger.info(`[RascalLSPConnection] Changed ${uriString} into ${`${match[1]}://${cachedCasing[1]}/${match[2]}`}`);
-                            return `${match[1]}://${cachedCasing[1]}/${match[2]}`;
+                            const denormalized = `${match[1]}://${cachedCasing[1]}/${match[2]}`;
+                            logger.debug(`[RascalLSPConnection] Changed ${uriString} into ${denormalized}`);
+                            return denormalized;
                         }
                     }
                 }
