@@ -126,7 +126,14 @@ describe('IDE', function () {
             fail("No compiler path config found in logs");
         }
         const pcfg = matchPathConfig(compilerOuput);
-        expect(pcfg.sources ?? []).to.include("assets/jars/rascal.jar!/org/rascalmpl/compiler");
+        const isRascalJar = (j: string): boolean => j.includes("rascal.jar") || j.match(/org\/rascalmpl\/rascal\/rascal-.*\.jar/) !== undefined;
+
+        const sources = pcfg.sources ?? [];
+        const extRascal = sources.findIndex(p => p.includes("assets/jars/rascal.jar!/org/rascalmpl/compiler"));
+        const otherRascal = sources.findIndex(isRascalJar);
+        if (extRascal < 0 || (otherRascal > 0 && otherRascal < extRascal)) {
+            fail("The type checker in use is not the version from the extension, but " + sources[otherRascal]);
+        }
     });
 
     it("opens a REPL in the root of the project", async function () {
