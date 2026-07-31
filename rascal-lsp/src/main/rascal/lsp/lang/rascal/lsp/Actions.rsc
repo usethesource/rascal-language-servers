@@ -48,6 +48,7 @@ data Command
     = visualImportGraphCommand(PathConfig pcfg)
     | sortImportsAndExtends(Header h)
     | upgradeAnnotations(PathConfig pcfg)
+    | addRascalToPom(loc l)
     ;
 
 
@@ -163,5 +164,10 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
 value evaluateRascalCommand(upgradeAnnotations(PathConfig pcfg)) {
     applyDocumentsEdits(editsPathConfig(pcfg));
     return ("result":true);
+}
+
+value evaluateRascalCommand(addRascalToPom(loc l)) {
+    
+    return ("result": true);
 }
 
