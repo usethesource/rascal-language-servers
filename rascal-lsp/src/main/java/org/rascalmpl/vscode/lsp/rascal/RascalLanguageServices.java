@@ -125,6 +125,9 @@ public class RascalLanguageServices {
         var pcfg = EvaluatorUtil.addLSPSources(new PathConfig(URIUtil.rootLocation("cwd")), true);
         var compilerPcfg = EvaluatorUtil.addRascalCompilerSources(pcfg);
 
+        logger.debug("Path config for Rascal language services: {}", pcfg);
+        logger.debug("Path config for Rascal compiler: {}", compilerPcfg);
+
         var context = new LSPContext(exec, docService, workspaceService, client);
 
         shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer");

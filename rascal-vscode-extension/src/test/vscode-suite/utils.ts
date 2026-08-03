@@ -27,7 +27,7 @@
 
 import { assert, expect } from "chai";
 import { createHash } from "crypto";
-import { existsSync } from "fs";
+import { existsSync, PathLike } from "fs";
 import { readdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import * as os from 'os';
 import path from "path/posix";
@@ -529,7 +529,60 @@ async function setLogLevel(logLevel: LogLevel) {
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
+export type OutputChannel = 'Language Parametric Rascal Language Server' | 'Rascal MPL Language Server';
+
+export async function getOutput(channel: OutputChannel): Promise<string> {
+    const output = await new Workbench().getBottomBar().openOutputView();
+    await output.selectChannel(channel);
+    return await output.getText();
+}
+
+export async function captureOutput<T>(channel: OutputChannel, action: () => Promise<T>, onlyLastNLines?: number): Promise<string> {
+    const beforeOutput = await getOutput(channel);
+    await action();
+    const afterOutput = await getOutput(channel);
+    const searchString = beforeOutput.slice(onlyLastNLines ? -onlyLastNLines : 0);
+    return afterOutput.substring(afterOutput.indexOf(searchString) + searchString.length);
+}
+
+function parseRascalList(input: string | undefined): Array<string> {
+    if (input === undefined) {
+        return [];
+    }
+
+    if (!input.match(/^\[.*\]$/)) {
+        throw new Error("Not a valid list; does not start/end with '['/']'");
+    }
+
+    return input.slice(1, -1).split(',').map(el => el.trim());
+}
+
+export function matchPathConfig(input: string) {
+    const list = String.raw`\[[^\]]*\]`;
+    const loc = String.raw`\|[^|]+\|`;
+    const pcfg = new RegExp(`((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
+
+    const match = input.match(pcfg);
+    if (!match) {
+        return {};
+    }
+
+    const projectRoot = match.groups?.["root"];
+    const sources = parseRascalList(match.groups?.["srcs"]);
+    const ignores = parseRascalList(match.groups?.["ignores"]);
+    const libs = parseRascalList(match.groups?.["libs"]);
+    const bin = match.groups?.["bin"];
+    const resources = parseRascalList(match.groups?.["resources"]);
+    const messages = parseRascalList(match.groups?.["messages"]);
+    return { projectRoot, sources, ignores, libs, bin, resources, messages };
+}
+
+export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike): Promise<string> {
+    const pom = await readFile(pomPath, {encoding: "utf8"});
+    return pom.match(new RegExp(`<groupId>${groupId}</groupId>\\s*<artifactId>${artifactId}</artifactId>\\s*<version>([^<]+)</version>`))?.[1] ?? "unknown";
+}
+
+export function printRascalOutputOnFailure(channel: OutputChannel) {
 
     const ZOOM_OUT_FACTOR = 5;
     const N_LOG_LINES = 250;
