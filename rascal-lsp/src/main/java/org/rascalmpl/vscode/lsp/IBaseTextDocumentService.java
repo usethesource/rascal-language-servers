@@ -39,6 +39,7 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
+import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -58,7 +59,7 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     Collection<String> extensions();
 
-    default ISourceLocation lookupRascalClasses(ISourceLocation forFile) throws IOException {
+    default List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError {
         throw new UnsupportedOperationException("Lookup of Rascal classes unsupported");
     }
 
