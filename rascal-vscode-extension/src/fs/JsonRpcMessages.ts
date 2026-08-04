@@ -123,6 +123,9 @@ export interface SourceLocationResponse {
     loc: ISourceLocation | undefined
 }
 
+export interface SourceLocationListResponse {
+    locs: ISourceLocation[] | undefined
+}
 
 export interface DirectoryListingResponse {
     entries: DirectoryEntry[]
