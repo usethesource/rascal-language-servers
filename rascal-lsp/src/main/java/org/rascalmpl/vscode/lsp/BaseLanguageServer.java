@@ -258,7 +258,7 @@ public abstract class BaseLanguageServer {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     return new SourceLocationListResponse(lspDocumentService.lookupRascalClasses(req.getLocation()));
-                } catch (IOException | ModelResolutionError e) {
+                } catch (IOException | ModelResolutionError | URISyntaxException e) {
                     logger.error("Could not locate Rascal classes for {}", req.getLocation(), e);
                     return new SourceLocationListResponse();
                 }

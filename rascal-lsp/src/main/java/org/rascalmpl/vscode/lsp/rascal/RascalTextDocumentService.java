@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.rascal;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
@@ -199,14 +200,14 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     @Override
-    public List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError {
+    public List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError, URISyntaxException {
         var root = PathConfig.inferProjectRoot(forFile);
 
         if (isRascal(root)) {
             var pom = PathConfig.getPomXmlLocation(root);
-            var mvn = new MavenParser(Path.of(Locations.toUri(pom)));
-            var rascal = mvn.parseProject();
-            var libs = rascal.resolveDependencies(Scope.COMPILE, mvn);
+            var parser = new MavenParser(Path.of(Locations.toUri(pom)));
+            var rascal = parser.parseProject();
+            var libs = rascal.resolveDependencies(Scope.COMPILE, parser);
             var classes = libs.stream()
                 .<@Nullable Path>map(Artifact::getResolved)
                 .filter(Objects::nonNull)
@@ -221,12 +222,14 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
             return classes;
         }
 
+        var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
         var pcfg = availableFacts().getPathConfig(forFile);
         var rascal = pcfg.getLibs().stream()
             .filter(ISourceLocation.class::isInstance)
             .map(ISourceLocation.class::cast)
             .map(Locations::toPhysicalIfPossible)
             .filter(RascalTextDocumentService::isRascal)
+            .map(l -> resolveMavenIfPossible(mvn, l))
             .collect(Collectors.toList());
 
         if (!rascal.isEmpty()) {
@@ -235,6 +238,18 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
         // If we could not find it, just fall back to the one in the extension
         return List.of(PathConfig.resolveCurrentRascalRuntime());
+    }
+
+    private static ISourceLocation resolveMavenIfPossible(MavenRepositoryURIResolver mvn, ISourceLocation loc) {
+        if (!"mvn".equals(loc.getScheme())) {
+            return loc;
+        }
+
+        try {
+            return mvn.resolveJar(loc);
+        } catch (IOException e) {
+            return loc;
+        }
     }
 
     private LanguageClient availableClient() {
