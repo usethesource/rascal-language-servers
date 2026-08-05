@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -59,7 +60,7 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     Collection<String> extensions();
 
-    default List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError {
+    default List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError, URISyntaxException {
         throw new UnsupportedOperationException("Lookup of Rascal classes unsupported");
     }
 
