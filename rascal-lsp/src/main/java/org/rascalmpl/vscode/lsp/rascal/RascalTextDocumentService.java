@@ -208,10 +208,14 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
             var rascal = mvn.parseProject();
             var libs = rascal.resolveDependencies(Scope.COMPILE, mvn);
             var classes = libs.stream()
-                .map(Artifact::getResolved)
+                .<@Nullable Path>map(Artifact::getResolved)
                 .filter(Objects::nonNull)
-                .map(Path::toUri)
-                .map(Locations::toLoc)
+                .map(p -> {
+                    if (p == null) {
+                        throw new RuntimeException("Can never happen");
+                    }
+                    return Locations.toLoc(p.toUri());
+                })
                 .collect(Collectors.toList());
             classes.add(0, URIUtil.getChildLocation(root, "target/classes"));
             return classes;
