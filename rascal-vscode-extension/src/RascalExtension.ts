@@ -37,7 +37,7 @@ import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
-import { ISourceLocationRequest, SourceLocationResponse } from './fs/JsonRpcMessages';
+import { ISourceLocationRequest, SourceLocationListResponse } from './fs/JsonRpcMessages';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeFileSystemInRascal;
@@ -163,10 +163,6 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({message: "Starting rascal-lsp"});
                 const rascal = await this.rascal.rascalClient;
                 this.log.debug(`Starting Rascal REPL: on ${uri} and with command: ${command}`);
-                if (uri && !uri.path.endsWith(".rsc")) {
-                    // do not try to figure out a rascal project path when the focus is not a rascal file
-                    uri = undefined;
-                }
 
                 progress.report({increment: 5, message: "Checking basic project setup"});
                 if (uri) {
@@ -182,13 +178,15 @@ export class RascalExtension implements vscode.Disposable {
                 const remoteIDEServicesConfiguration = await rascal.sendRequest<IDEServicesConfiguration>("rascal/supplyRemoteIDEServicesConfiguration");
 
                 progress.report({increment: 10, message: "Looking up Rascal JAR"});
-                let rascalClasses: string | undefined = undefined;
+                let rascalClasses: string[] | undefined = undefined;
+
                 if (uri !== undefined) {
-                    const lookupRes = await rascal.sendRequest<SourceLocationResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
+                    const lookupRes = await rascal.sendRequest<SourceLocationListResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
                         loc: toRascalUri(uri)
                     });
-                    rascalClasses = lookupRes.loc !== undefined
-                        ? vscode.Uri.parse(lookupRes.loc).fsPath
+
+                    rascalClasses = lookupRes.locs !== undefined
+                        ? lookupRes.locs.map(l => vscode.Uri.parse(l).fsPath)
                         : undefined;
                 }
 
@@ -292,7 +290,7 @@ export class RascalExtension implements vscode.Disposable {
         return ['',''];
     }
 
-    private async buildShellArgs(remoteIDEServicesConfiguration: IDEServicesConfiguration, rascalClasses: string | undefined, ...extraArgs: string[]) {
+    private async buildShellArgs(remoteIDEServicesConfiguration: IDEServicesConfiguration, rascalClasses: string[] | undefined, ...extraArgs: string[]) {
         const shellArgs = [
             calculateRascalREPLMemory()
         ];
@@ -324,10 +322,10 @@ export class RascalExtension implements vscode.Disposable {
         return shellArgs.concat(extraArgs || []);
     }
 
-    private buildTerminalJVMPath(rascalClasses: string | undefined): string {
+    private buildTerminalJVMPath(rascalClasses: string[] | undefined): string {
         const lsp = path.join(this.jarRootPath, 'rascal-lsp.jar');
-        const rascal = rascalClasses ?? path.join(this.jarRootPath, 'rascal.jar');
-        return [lsp, rascal].join(path.delimiter);
+        const rascal = rascalClasses ?? [path.join(this.jarRootPath, 'rascal.jar')];
+        return [lsp, ...rascal].join(path.delimiter);
     }
 
 }

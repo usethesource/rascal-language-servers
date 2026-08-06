@@ -66,15 +66,16 @@ import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.UnsupportedSchemeException;
-import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.util.NamedThreadPool;
+import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.SourceLocationListResponse;
 import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -253,18 +254,13 @@ public abstract class BaseLanguageServer {
         }
 
         @Override
-        public CompletableFuture<SourceLocationResponse> lookupRascalClasses(ISourceLocationRequest req) {
+        public CompletableFuture<SourceLocationListResponse> lookupRascalClasses(ISourceLocationRequest req) {
             return CompletableFuture.supplyAsync(() -> {
                 try {
-                    var rascal = lspDocumentService.lookupRascalClasses(req.getLocation());
-                    if ("mvn".equals(rascal.getScheme())) {
-                        var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
-                        rascal = mvn.resolveJar(rascal);
-                    }
-                    return new SourceLocationResponse(rascal);
-                } catch (IOException | URISyntaxException e) {
+                    return new SourceLocationListResponse(lspDocumentService.lookupRascalClasses(req.getLocation()));
+                } catch (IOException | ModelResolutionError | URISyntaxException e) {
                     logger.error("Could not locate Rascal classes for {}", req.getLocation(), e);
-                    return new SourceLocationResponse(null);
+                    return new SourceLocationListResponse();
                 }
             }, executor);
         }

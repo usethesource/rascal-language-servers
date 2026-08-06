@@ -29,7 +29,8 @@ import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
+import { captureOutput, Delays, getArtifactVersion, getOutput, IDEOperations, ignoreFails, isLanguageLoading, matchPathConfig, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
+import { fail } from 'assert';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -40,7 +41,7 @@ describe('IDE', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Rascal MPL');
+    printRascalOutputOnFailure('Rascal MPL Language Server');
 
     before(async () => {
         const files = ProtectedFiles.protect(
@@ -118,7 +119,24 @@ describe('IDE', function () {
         await ide.hasErrorSquiggly(editor);
     }).retries(2);
 
-    it("should open a REPL in the root of the project", async function () {
+    it("uses the type checker shipped with the extension", async function () {
+        const output = await getOutput("Rascal MPL Language Server");
+        const compilerOuput = output.split("Path config for").find(logs => logs.includes("Rascal compiler: Path configuration items:"));
+        if (compilerOuput === undefined) {
+            fail("No compiler path config found in logs");
+        }
+        const pcfg = matchPathConfig(compilerOuput);
+        const isRascalJar = (j: string): boolean => j.includes("rascal.jar") || j.match(/org\/rascalmpl\/rascal\/rascal-.*\.jar/) !== undefined;
+
+        const sources = pcfg.sources ?? [];
+        const extRascal = sources.findIndex(p => p.includes("assets/jars/rascal.jar!/org/rascalmpl/compiler"));
+        const otherRascal = sources.findIndex(isRascalJar);
+        if (extRascal < 0 || (otherRascal > 0 && otherRascal < extRascal)) {
+            fail("The type checker in use is not the version from the extension, but " + sources[otherRascal]);
+        }
+    });
+
+    it("opens a REPL in the root of the project", async function () {
         // Open a module so the REPL associates with this project
         await ide.openModule(TestWorkspace.libCallFile);
 
@@ -130,14 +148,12 @@ describe('IDE', function () {
         expect(replRoot).to.contain("test-project");
     });
 
-    it("should use the standard library from the project POM", async () => {
+    it("REPL uses the standard library from the project POM", async () => {
         // Open a module so the REPL associates with this project
         await ide.openModule(TestWorkspace.libCallFile);
 
         // Find Rascal version in POM
-        const pom = await fs.readFile(TestWorkspace.testProjectPom, {encoding: "utf8"});
-        const match = pom.match(/<artifactId>rascal<\/artifactId>\s+<version>([^<]+)<\/version>/);
-        const pomRascalVersion = match?.[1] ?? "unknown";
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
 
         // Query Rascal version from stdlib
         const repl = new RascalREPL(bench, driver);
@@ -165,7 +181,14 @@ describe('IDE', function () {
 
     it("save runs type checker", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
+        const output = await captureOutput("Rascal MPL Language Server",
+            () => triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true));
+
+        const pcfg = matchPathConfig(output);
+
+        // Find Rascal version in POM
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
+        expect(pcfg.libs ?? []).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {
