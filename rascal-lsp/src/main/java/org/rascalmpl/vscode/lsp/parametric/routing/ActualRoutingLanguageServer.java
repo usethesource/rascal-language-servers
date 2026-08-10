@@ -197,10 +197,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return URIUtil.getExtension(doc);
     }
 
-    private static boolean isRascal(Artifact art) {
-        return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal".equals(art.getCoordinate().getArtifactId());
-    }
-
     private static boolean isRascalLsp(Artifact art) {
         return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal-lsp".equals(art.getCoordinate().getArtifactId());
     }
@@ -219,7 +215,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             lspVersion == null ? null : new ComparableVersion(lspVersion),
             Lists.union(List.of(target), depPaths)
         );
-
     }
 
     private static Pair<@Nullable ComparableVersion, List<Path>> resolveDependencies(LanguageParameter lang) throws IOException, ModelResolutionError {
@@ -236,20 +231,16 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         }
 
         var lspVersion = deps.stream()
-            .filter(d -> isRascalLsp(d))
-            .map(Artifact::getCoordinate)
-            .map(c -> c.getVersion())
+            .filter(ActualRoutingLanguageServer::isRascalLsp)
             .findFirst()
-            .map(ComparableVersion::new);
+            .map(d -> new ComparableVersion(d.getCoordinate().getVersion()));
 
-        return Pair.of(
-            lspVersion.orElse(null),
-            deps.stream()
-                .filter(d -> isRascal(d) || isRascalLsp(d)) // We only need Rascal and LSP to run the language server
+        var classPath = deps.stream()
                 .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList())
-        );
+                .collect(Collectors.toList());
+
+        return Pair.of(lspVersion.orElse(null), classPath);
     }
 
     private static void prependThreadName(String langName, JsonElement json) {
