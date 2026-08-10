@@ -60,6 +60,16 @@
         "icon": "$(debug-disconnect-compact)"
       },
       {
+        "command": "rascalmpl.checkProject",
+        "title": "Rascal: check project",
+        "icon": "./assets/images/rascal-logo-v2.1.svg"
+      },
+      {
+        "command": "rascalmpl.cleanAndCheckProject",
+        "title": "Rascal: clean and check project",
+        "icon": "./assets/images/rascal-logo-v2.1.svg"
+      },
+      {
         "command": "rascalmpl.copySourceLocation",
         "title": "Copy Path as Rascal Location",
         "icon": "$(copy)"
@@ -69,6 +79,14 @@
       "commandPalette": [
         {
           "command": "rascalmpl.startDebuggerForRepl",
+          "when": "false"
+        },
+        {
+          "command": "rascalmpl.checkProject",
+          "when": "false"
+        },
+        {
+          "command": "rascalmpl.cleanAndCheckProject",
           "when": "false"
         },
         {
@@ -101,6 +119,14 @@
         }
       ],
       "explorer/context": [
+        {
+          "command": "rascalmpl.checkProject",
+          "group": "1_modification"
+        },
+        {
+          "command": "rascalmpl.cleanAndCheckProject",
+          "group": "1_modification"
+        },
         {
           "command": "rascalmpl.copySourceLocation",
           "group": "6_copypath@21"
