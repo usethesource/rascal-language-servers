@@ -494,12 +494,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             var remoteVersion = new ComparableVersion(remoteVersionString);
             if (routerVersion.compareTo(remoteVersion) > 0) {
                 // routerVersion > remoteVersion
-                logger.info("{} depends on version {} of Rascal-LSP, which is older than the version in the extension ({}).");
+                logger.debug("{} depends on version {} of Rascal-LSP, which is older than the version in the extension ({}). This should not cause any issues.", language, remoteVersionString, routerVersionString);
             } else if (routerVersion.compareTo(remoteVersion) < 0) {
                 // routerVersion < remoteVersion
-                logger.info("{} depends on version {} of Rascal-LSP, which is newer than the version in the extension ({}). Some DSL features might not be fully supported. To fix this, update the extension.", language, remoteVersion, routerVersion);
+                logger.info("{} depends on version {} of Rascal-LSP, which is newer than the version in the extension ({}). Some DSL features might not be fully supported. To fix this, update the extension.", language, remoteVersionString, routerVersionString);
             } else {
-                logger.debug("Router and remote version are equal ({}), but the capabilities differ. This should never happen. Please report this as a bug via https://github.com/usethesource/rascal-language-servers/issues/new?template=bug_report.md", routerVersion);
+                logger.error("Router and remote version are equal ({}), but the capabilities differ. This should never happen. Please report this as a bug via https://github.com/usethesource/rascal-language-servers/issues/new?template=bug_report.md", routerVersionString);
             }
         }
     }
