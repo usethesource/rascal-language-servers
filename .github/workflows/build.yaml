@@ -19,7 +19,7 @@ jobs:
     runs-on: ubicloud-standard-2
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5.6.0
+      - uses: actions/setup-java@v5
         id: java
         with:
           java-version: 11
@@ -54,7 +54,7 @@ jobs:
     needs: [seed-caches]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5.6.0
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
@@ -90,7 +90,7 @@ jobs:
     runs-on:  ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5.6.0
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
@@ -186,7 +186,7 @@ jobs:
     runs-on: ${{ startsWith(github.ref, 'refs/tags/v') && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5.6.0
+      - uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: 'temurin'
