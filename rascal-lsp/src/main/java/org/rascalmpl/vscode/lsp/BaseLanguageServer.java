@@ -50,6 +50,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
@@ -289,6 +290,16 @@ public abstract class BaseLanguageServer {
             }, executor);
         }
 
+        protected static @Nullable String getPomVersion() {
+            var pack = BaseLanguageServer.class.getPackage();
+            if (pack == null) {
+                // Should not happen, but we need to convince CF
+                return null;
+            }
+
+            return pack.getSpecificationVersion();
+        }
+
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
             logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
@@ -309,9 +320,7 @@ public abstract class BaseLanguageServer {
 
             logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
             logger.debug("LSP client capabilities: {}", params.getCapabilities());
-            var serverInfo = BaseLanguageServer.class.getPackage() == null
-                ? new ServerInfo(serverName)
-                : new ServerInfo(serverName, BaseLanguageServer.class.getPackage().getSpecificationVersion());
+            var serverInfo = new ServerInfo(serverName, getPomVersion());
             final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities(), serverInfo);
             lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
             lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());

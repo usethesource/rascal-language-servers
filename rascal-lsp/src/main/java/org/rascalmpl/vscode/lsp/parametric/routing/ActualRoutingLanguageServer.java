@@ -214,10 +214,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             .filter(Objects::nonNull)
             .collect(Collectors.<@NonNull Path>toList());
 
-        var lspVersion = ActualRoutingLanguageServer.class.getPackage() == null
-            ? null
-            : ActualRoutingLanguageServer.class.getPackage().getSpecificationVersion();
-
+        var lspVersion = getPomVersion();
         return Pair.of(
             lspVersion == null ? null : new ComparableVersion(lspVersion),
             Lists.union(List.of(target), depPaths)
