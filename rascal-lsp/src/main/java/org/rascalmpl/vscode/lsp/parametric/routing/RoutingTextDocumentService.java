@@ -183,7 +183,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public Collection<String> extensions() {
-        throw new UnsupportedOperationException("extensions() should not be called on the routing document service, but only on delegate document services.");
+        throw unsupportedRoutingOperation("extensions");
     }
 
     @Override
@@ -243,24 +243,28 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         // reserved for future use
     }
 
+    private static UnsupportedOperationException unsupportedRoutingOperation(String funcName) {
+        return new UnsupportedOperationException(String.format("%s() should not be called on the routing document service, but only on delegate document services.", funcName));
+    }
+
     @Override
     public void registerLanguage(LanguageParameter lang) {
-        throw new UnsupportedOperationException("registerLanguage() should not be called on the routing document service, but only on delegate document services.");
+        throw unsupportedRoutingOperation("registerLanguage");
     }
 
     @Override
     public void unregisterLanguage(LanguageParameter lang) {
-        throw new UnsupportedOperationException("unregisterLanguage() should not be called on the routing document service, but only on delegate document services.");
+        throw unsupportedRoutingOperation("unregisterLanguage");
     }
 
     @Override
     public void cancelProgress(String progressId) {
-        throw new UnsupportedOperationException("executeCommand() should not be called on the routing document service, but only on the routing server.");
+        throw unsupportedRoutingOperation("cancelProgress");
     }
 
     @Override
     public CompletableFuture<IValue> executeCommand(String languageName, String command) {
-        throw new UnsupportedOperationException("executeCommand() should not be called on the routing document service, but only on delegate document services.");
+        throw unsupportedRoutingOperation("executeCommand");
     }
 
     @Override
@@ -272,19 +276,19 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     @Override
     public void didCreateFiles(CreateFilesParams params) {
         // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
-        throw new UnsupportedOperationException("didCreateFiles() should not be called on the routing document service, but only on delegate document services.");
+        throw unsupportedRoutingOperation("didCreateFiles");
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
         // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
-        throw new UnsupportedOperationException("didRenameFiles() should not be called on the routing document service, but only on delegate document services.");
+        throw unsupportedRoutingOperation("didRenameFiles");
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
-        throw new UnsupportedOperationException("didDeleteFiles() should not be called on the routing document service, but only on delegate document services.");
+        throw unsupportedRoutingOperation("didDeleteFiles");
     }
 
     @Override
