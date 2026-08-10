@@ -57,8 +57,8 @@ public class CompletableFutureUtils {
 
     public static <T> CompletableFuture<T> retry(CompletableFuture<T> future, int times) {
         var f = future;
-        for (int i = 0; i < times; i++) {
-            var time = i + 1;
+        for (int i = 1; i <= times; i++) {
+            var time = i; // effectively final variable required for use in lambda
             f = f.handle((r, e) -> {
                 if (e != null) {
                     logger.debug("Ignored exception, retry ({}/{})", time, times, e);
