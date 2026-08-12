@@ -104,7 +104,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
@@ -125,12 +124,12 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
-import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
@@ -243,15 +242,8 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         triggerAnalyzer(changed, NORMAL_DEBOUNCE);
     }
 
-    private boolean isOpenInWorkspace(ISourceLocation loc) {
-        return availableWorkspaceServices().workspaceFolders()
-            .stream()
-            .map(f -> URIUtil.assumeCorrectLocation(f.getUri()))
-            .anyMatch(f -> URIUtil.isParentOf(f, loc));
-    }
-
     private void triggerAnalyzer(TextDocumentState state, Duration delay) {
-        if (isOpenInWorkspace(state.getLocation())) {
+        if (availableRascalServices().isOpenInWorkspace(state.getLocation())) {
             availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
         }
     }
@@ -262,9 +254,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("Close: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
         closeFile(loc);
-        if (facts != null) {
-            facts.close(loc);
-        }
+        availableFacts().close(loc);
         // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
         // we mimic a delete event to ensure all diagnostics are cleared.
         if (!URIResolverRegistry.getInstance().exists(loc)) {
@@ -287,9 +277,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("Save: {}", params.getTextDocument());
         // on save we don't get new file contents, that comes in via change
         // but we do trigger the type checker on save
-        if (facts != null) {
-            facts.invalidate(Locations.toLoc(params.getTextDocument()));
-        }
+        availableFacts().invalidate(Locations.toLoc(params.getTextDocument()));
     }
 
     @Override
@@ -301,15 +289,10 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("textDocument/definition: {} at {}", params.getTextDocument(), params.getPosition());
 
-        if (facts != null) {
-            return recoverExceptions(facts.getSummary(Locations.toLoc(params.getTextDocument()))
-                .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
-                .thenApply(Either::forLeft)
-            , () -> Either.forLeft(Collections.emptyList()));
-        }
-        else {
-            return CompletableFutureUtils.completedFuture(Either.forLeft(Collections.emptyList()), exec);
-        }
+        return recoverExceptions(availableFacts().getSummary(Locations.toLoc(params.getTextDocument()))
+            .thenApply(s -> s.getDefinition(params.getPosition()))
+            .thenApply(Either::forLeft)
+        , () -> Either.forLeft(Collections.emptyList()));
     }
 
     @Override
@@ -415,15 +398,9 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     @Override
     public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
         logger.debug("textDocument/hover: {} at {}", params.getTextDocument(), params.getPosition());
-        if (facts != null) {
-            return recoverExceptions(facts.getSummary(Locations.toLoc(params.getTextDocument()))
-                .handle((t, r) -> (t == null ? (new SummaryBridge()) : t))
-                .thenApply(s -> s.getTypeName(params.getPosition()))
-                .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), () -> null);
-        }
-        else {
-            return CompletableFutureUtils.completedFuture(null, exec);
-        }
+        return recoverExceptions(availableFacts().getSummary(Locations.toLoc(params.getTextDocument()))
+            .thenApply(s -> s.getTypeName(params.getPosition()))
+            .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), () -> null);
     }
 
     @Override
@@ -567,9 +544,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     /*package*/ void projectRemoved(ISourceLocation projectRoot) {
-        if (facts != null) {
-            facts.projectRemoved(projectRoot);
-        }
+        availableFacts().projectRemoved(projectRoot);
     }
 
     @Override

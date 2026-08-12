@@ -74,7 +74,7 @@ public class FileFacts implements DiagnosticsReporter {
         this.rascal = rascal;
         this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
+        this.confs = new PathConfigs(rascal, exec, new PathConfigDiagnostics(client, cm));
         this.nopFact = new FileFact() {
             @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs) { /* NOP */}
@@ -85,8 +85,8 @@ public class FileFacts implements DiagnosticsReporter {
             @Override public void clearDiagnostics() { /* NOP */ }
 
             @Override
-            public CompletableFuture<@Nullable SummaryBridge> getSummary() {
-                return CompletableFutureUtils.completedFuture(null, exec);
+            public CompletableFuture<SummaryBridge> getSummary() {
+                return CompletableFutureUtils.completedFuture(new SummaryBridge(), exec);
             }
         };
     }
@@ -104,7 +104,7 @@ public class FileFacts implements DiagnosticsReporter {
         getFile(file).triggerAnalyzer(currentTreeAsync, versioned, delay);
     }
 
-    public CompletableFuture<@Nullable SummaryBridge> getSummary(ISourceLocation file) {
+    public CompletableFuture<SummaryBridge> getSummary(ISourceLocation file) {
         return getFile(file).getSummary();
     }
 
@@ -151,7 +151,7 @@ public class FileFacts implements DiagnosticsReporter {
         void reportParseErrors(Versioned<List<Diagnostic>> msgs);
         void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs);
         void reportTypeCheckerMessages(List<Diagnostic> msgs);
-        CompletableFuture<@Nullable SummaryBridge> getSummary();
+        CompletableFuture<SummaryBridge> getSummary();
         void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay);
         void invalidate();
         void close();
@@ -160,7 +160,7 @@ public class FileFacts implements DiagnosticsReporter {
 
     private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
-        private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
+        private final LazyUpdateableReference<InterruptibleFuture<SummaryBridge>> summary;
         private final AtomicReference<Versioned<List<Diagnostic>>> parseMessages = Versioned.atomic(-1, Collections.emptyList());
         private final AtomicReference<Versioned<String>> analyzerLatestVersion = new AtomicReference<>();
         private final AtomicReference<Versioned<List<Diagnostic>>> analyzerMessages = Versioned.atomic(-1, Collections.emptyList());
@@ -178,7 +178,7 @@ public class FileFacts implements DiagnosticsReporter {
                     // (we cannot now global running type checkers, that is a different subject)
                     return InterruptibleFuture.flatten(typeCheckResults.get()
                         .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, confs::lookupConfig)), exec)
-                        .<@Nullable SummaryBridge>thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
+                        .thenApply(s -> s == null ? new SummaryBridge() : new SummaryBridge(file, s, cm));
                 });
         }
 
@@ -215,7 +215,7 @@ public class FileFacts implements DiagnosticsReporter {
         }
 
         @Override
-        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+        public CompletableFuture<SummaryBridge> getSummary() {
             return summary.get().get();
         }
 
