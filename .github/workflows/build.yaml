@@ -28,7 +28,7 @@ jobs:
 
       - name: setup node
         id: node 
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20.x
           cache: 'npm'
@@ -61,7 +61,7 @@ jobs:
           cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20.x
           cache: 'npm'
@@ -97,7 +97,7 @@ jobs:
           cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20.x
           cache: 'npm'
@@ -193,7 +193,7 @@ jobs:
           cache: 'maven'
 
       - name: setup node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20.x
           cache: 'npm'
