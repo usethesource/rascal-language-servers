@@ -647,10 +647,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
-        ParametricFileFacts fact = facts.get(language(doc));
+        var lang = language(doc);
+        ParametricFileFacts fact = facts.get(lang);
 
         if (fact == null) {
-            throw new ResponseErrorException(unknownFileError(doc, doc));
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Unknown language %s of file %s", lang, doc), null));
         }
 
         return fact;
