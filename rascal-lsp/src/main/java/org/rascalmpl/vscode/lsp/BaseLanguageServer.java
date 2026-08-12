@@ -323,12 +323,12 @@ public abstract class BaseLanguageServer {
             logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
             logger.debug("LSP client capabilities: {}", params.getCapabilities());
             var serverInfo = new ServerInfo(serverName, getPomVersion());
-            final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities(), serverInfo);
-            lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
-            lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
-            logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-            this.initializeResult = initializeResult;
-            return CompletableFutureUtils.completedFuture(initializeResult, executor);
+            var init = new InitializeResult(new ServerCapabilities(), serverInfo);
+            lspDocumentService.initializeServerCapabilities(params.getCapabilities(), init.getCapabilities());
+            lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), init.getCapabilities());
+            logger.debug("Initialized LSP connection with capabilities: {}", init);
+            this.initializeResult = init;
+            return CompletableFutureUtils.completedFuture(init, executor);
         }
 
         @Override
