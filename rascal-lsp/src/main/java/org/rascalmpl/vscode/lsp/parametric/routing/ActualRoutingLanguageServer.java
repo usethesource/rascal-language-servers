@@ -119,6 +119,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     private static final String THREAD_NAME_KEY = "threadName";
+    private static final ComparableVersion MINIMAL_COMPATIBLE_VERSION = new ComparableVersion("2.22.6-SNAPSHOT");
 
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
@@ -218,7 +219,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         );
     }
 
-    private static Pair<@Nullable ComparableVersion, List<Path>> resolveDependencies(LanguageParameter lang) throws IOException, ModelResolutionError {
+    private static Pair<ComparableVersion, List<Path>> resolveDependencies(LanguageParameter lang) throws IOException, ModelResolutionError {
         var pcfg = PathConfig.parse(lang.getPathConfig());
         var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
         var maven = new MavenParser(Path.of(pom.getURI()));
@@ -231,17 +232,17 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             return rascalLspDependencies(pcfg, deps);
         }
 
-        var lspVersion = deps.stream()
+        var lsp = deps.stream()
             .filter(ActualRoutingLanguageServer::isRascalLsp)
             .findFirst()
-            .map(d -> new ComparableVersion(d.getCoordinate().getVersion()));
+            .orElseThrow(() -> new IOException(String.format("No Rascal LSP dependency found for '%s'", lang.getName())));
 
         var classPath = deps.stream()
                 .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
-        return Pair.of(lspVersion.orElse(null), classPath);
+        return Pair.of(new ComparableVersion(lsp.getCoordinate().getVersion()), classPath);
     }
 
     private static void prependThreadName(String langName, JsonElement json) {
@@ -299,6 +300,11 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         // In deployment, we start a process and connect to it via input/output streams
         try {
             var dependencies = resolveDependencies(lang);
+            var lspVersion = dependencies.getLeft();
+            if (lspVersion.compareTo(MINIMAL_COMPATIBLE_VERSION) < 0) {
+                throw new IOException(String.format("'%s' depends on Rascal LSP version %s, which is not compatible with this version of the Rascal extension. Please update your language project to Rascal LSP %s (or newer).", lang.getName(), lspVersion, MINIMAL_COMPATIBLE_VERSION));
+            }
+
             var classPath = String.join(File.pathSeparator, dependencies.getRight().stream().map(Path::toString).collect(Collectors.toList()));
             logger.debug("{} runs with class path {}", lang.getName(), classPath);
 
@@ -312,12 +318,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 , memoryArg
                 , "-cp", classPath
                 , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
+                , "--exitWhenEmpty"
             ));
-
-            var lspVersion = dependencies.getLeft();
-            if (lspVersion == null || lspVersion.compareTo(new ComparableVersion("2.22.6")) >= 0) {
-                serverArgs.add("--exitWhenEmpty");
-            }
 
             var proc = new ProcessBuilder(serverArgs).start();
 
