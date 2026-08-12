@@ -203,7 +203,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal-lsp".equals(art.getCoordinate().getArtifactId());
     }
 
-    private static Pair<@Nullable ComparableVersion, List<Path>> rascalLspDependencies(PathConfig pcfg, List<Artifact> mavenDependencies) {
+    private static Pair<ComparableVersion, List<Path>> rascalLspDependencies(PathConfig pcfg, List<Artifact> mavenDependencies) {
         // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
         // Instead, we use its compiled classes and the JARs of all its dependencies.
         var target = Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin())));
@@ -214,7 +214,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
         var lspVersion = getPomVersion();
         return Pair.of(
-            lspVersion == null ? null : new ComparableVersion(lspVersion),
+            lspVersion == null ? MINIMAL_COMPATIBLE_VERSION : new ComparableVersion(lspVersion),
             Lists.union(List.of(target), depPaths)
         );
     }
