@@ -41,6 +41,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 public class CompletableFutureUtils {
     private CompletableFutureUtils() {/* hidden */ }
 
+    public static final CompletableFuture<Void> NOOP = CompletableFuture.completedFuture(null);
+
     public static <T> CompletableFuture<T> completedFuture(T value, Executor exec) {
         return CompletableFuture.supplyAsync(() -> value, exec);
     }

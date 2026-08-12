@@ -155,7 +155,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
-
     private LanguageClient availableClient() {
         if (client == null) {
             throw new IllegalStateException("Client has not been connected yet");
