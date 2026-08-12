@@ -97,6 +97,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.log.LogJsonConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.RegistrationParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.Lists;
@@ -292,7 +293,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
      * Starts a language server (dedicated to a single language) in a child process.
      * Returns an pair of streams of bi-directional communication, and a runnable to clean up after the server terminates.
      */
-    private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) {
+    private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang, String memoryArg) {
         logger.info("Starting LSP process for {}", lang.getName());
 
         // In deployment, we start a process and connect to it via input/output streams
@@ -308,7 +309,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 , "-Drascal.compilerClasspath=" + classPath
                 , "-Drascal.remoteResolverRegistryPort=" + System.getProperty("rascal.remoteResolverRegistryPort")
                 , "-Drascal.customRemoteResolverRegistryClass=" + System.getProperty("rascal.customRemoteResolverRegistryClass")
-                , "-Xmx2048M"
+                , memoryArg
                 , "-cp", classPath
                 , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
             ));
@@ -390,14 +391,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         GsonUtils.complexAsJsonObject().accept(builder);
     }
 
-    private @Nullable IBaseLanguageServerExtensions startServer(LanguageParameter lang) {
+    private @Nullable IBaseLanguageServerExtensions startServer(LanguageParameter lang, String memoryArg) {
         if (remoteClient == null) {
             // This should never happen, since it's initialized by `connect` before we are able to receive any `registerLanguage` requests.
             throw new IllegalStateException("Remote client is not initialized");
         }
 
         var serverParams = BaseLanguageServer.DEPLOY_MODE
-            ? startServerProcess(lang)
+            ? startServerProcess(lang, memoryArg)
             : connectToServer(lang)
             ;
 
@@ -542,16 +543,17 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @Override
-    public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+    public synchronized CompletableFuture<Void> sendRegisterLanguage(RegistrationParameter param) {
+        var lang = param.getLang();
         logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
         // Sometimes, a registration races with an unregistration. In this case, we try again.
         return CompletableFutureUtils.retry(() -> {
             // If we do not have a parametric server running for this language, start and initialize it.
-            var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable IBaseLanguageServerExtensions>) _name -> startServer(lang));
+            var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable IBaseLanguageServerExtensions>) _name -> startServer(lang, param.getRemoteMemoryArg()));
             if (server == null) {
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
             }
-            return server.sendRegisterLanguage(lang)
+            return server.sendRegisterLanguage(param)
                 .orTimeout(10, TimeUnit.SECONDS);
         }, 1, getExecutor())
             .thenCompose(Function.identity())

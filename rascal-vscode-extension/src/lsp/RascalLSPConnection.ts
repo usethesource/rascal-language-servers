@@ -162,7 +162,7 @@ async function buildRascalServerOptions(jarPath: string, isParametricServer: boo
     let mainClass: string;
     if (isParametricServer) {
         mainClass = 'org.rascalmpl.vscode.lsp.parametric.routing.RoutingLanguageServer';
-        commandArgs.push(calculateDSLMemoryReservation(dedicated));
+        commandArgs.push(calculateDSLMemoryReservation(!dedicated));
     }
     else {
         mainClass = 'org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer';
@@ -211,7 +211,13 @@ function calculateRascalMemoryReservation() {
     return "-Xmx800M";
 }
 
-function calculateDSLMemoryReservation(_dedicated: boolean) {
+export function calculateDSLMemoryReservation(isRouter: boolean) {
+    if (!isRouter) {
+        // The server is just a router. It needs ~650MB of base memory and hardly grows per language.
+        // We stay on the safe side.
+        return "-Xmx800M";
+    }
+
     const config = vscode.workspace.getConfiguration('rascal.parametric.lSP');
     if (config.has('maxHeapSize')) {
         const maxHeapSize = config.get('maxHeapSize');
