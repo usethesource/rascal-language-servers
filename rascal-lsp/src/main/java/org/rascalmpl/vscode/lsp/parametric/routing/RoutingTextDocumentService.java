@@ -28,6 +28,7 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
@@ -87,6 +88,7 @@ import org.eclipse.lsp4j.SemanticTokensRangeParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -124,6 +126,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @SuppressWarnings("unused")
     /*package*/ RoutingTextDocumentService(ExecutorService exec) {
+        super(ParametricTextDocumentService.LANGUAGE_ID);
         this.exec = exec;
 
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
@@ -179,6 +182,11 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     private <P, R> CompletableFuture<R> routeCompose(TextDocumentService sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
         return endpoint.apply(sf, params);
+    }
+
+    @Override
+    protected Set<TextDocumentItem> getOpenDocumentItems() {
+        return super.getOpenDocumentItems();
     }
 
     @Override

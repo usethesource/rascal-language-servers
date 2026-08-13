@@ -175,6 +175,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     private final ExecutorService exec;
 
+    public static final String LANGUAGE_ID = "parametric-rascalmpl";
+
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private final Set<String> extensionLessSchemes = new CopyOnWriteArraySet<>();
@@ -201,6 +203,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.sourceLocationType(), "to");
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage, boolean exitWhenEmpty) {
+        super(LANGUAGE_ID);
+
         this.exec = exec;
         this.exitWhenEmpty = exitWhenEmpty;
 

@@ -141,6 +141,8 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
 
+    private static final String LANGUAGE_ID = "rascalmpl";
+
     private final ExecutorService exec;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
 
@@ -151,6 +153,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     public RascalTextDocumentService(ExecutorService exec) {
+        super(LANGUAGE_ID);
         this.exec = exec;
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }

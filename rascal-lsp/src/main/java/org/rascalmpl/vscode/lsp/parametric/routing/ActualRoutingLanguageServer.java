@@ -73,6 +73,7 @@ import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
@@ -551,10 +552,21 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         // Sometimes, a registration races with an unregistration. In this case, we try again.
         return CompletableFutureUtils.retry(() -> {
             // If we do not have a parametric server running for this language, start and initialize it.
-            var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable IBaseLanguageServerExtensions>) _name -> startServer(lang, param.getRemoteMemoryArg()));
+            var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable IBaseLanguageServerExtensions>) _name -> {
+                var newServer = startServer(lang, param.getRemoteMemoryArg());
+                if (newServer != null) {
+                    // Since we just launched a new server, we should inform it about all the files that we already have open.
+                    var openFiles = getTextDocumentService().getOpenDocumentItems();
+                    logger.debug("Forwarding {} currently open files to remote server", openFiles.size());
+                    openFiles.forEach(doc -> newServer.getTextDocumentService().didOpen(new DidOpenTextDocumentParams(doc)));
+                }
+                return newServer;
+            });
+
             if (server == null) {
                 throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
             }
+
             return server.sendRegisterLanguage(param)
                 .orTimeout(10, TimeUnit.SECONDS);
         }, 1, getExecutor())
