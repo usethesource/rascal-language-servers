@@ -235,7 +235,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     public static CapabilityRegistration initializeDynamicServerCapabilities(LanguageClient client, @Nullable String dedicatedLanguageName, ExecutorService exec, ClientCapabilities clientCapabilities, ServerCapabilities result) {
-        var dynamicCapabilities = new CapabilityRegistration(client, exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName(dedicatedLanguageName)));
+        var dynamicCapabilities = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName(dedicatedLanguageName)));
         dynamicCapabilities.registerStaticCapabilities(result);
         return dynamicCapabilities;
     }
