@@ -34,7 +34,7 @@ import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 public class RascalLanguageServer extends BaseLanguageServer {
     public static void main(String[] args) {
         try {
-            startLanguageServer("rascal-lsp", "rascal", RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
+            startLanguageServer("Rascal", "rascal-lsp", "rascal", RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
         }
         catch (Throwable e) {
             final Logger logger = LogManager.getLogger(RascalLanguageServer.class);

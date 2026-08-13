@@ -175,6 +175,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     private final ExecutorService exec;
 
+    public static final String LANGUAGE_ID = "parametric-rascalmpl";
+
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private final Set<String> extensionLessSchemes = new CopyOnWriteArraySet<>();
@@ -201,6 +203,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.sourceLocationType(), "to");
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage, boolean exitWhenEmpty) {
+        super(LANGUAGE_ID);
+
         this.exec = exec;
         this.exitWhenEmpty = exitWhenEmpty;
 
@@ -231,7 +235,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     public static CapabilityRegistration initializeDynamicServerCapabilities(LanguageClient client, @Nullable String dedicatedLanguageName, ExecutorService exec, ClientCapabilities clientCapabilities, ServerCapabilities result) {
-        var dynamicCapabilities = new CapabilityRegistration(client, exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName(dedicatedLanguageName)));
+        var dynamicCapabilities = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName(dedicatedLanguageName)));
         dynamicCapabilities.registerStaticCapabilities(result);
         return dynamicCapabilities;
     }
@@ -647,10 +651,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
-        ParametricFileFacts fact = facts.get(language(doc));
+        var lang = language(doc);
+        ParametricFileFacts fact = facts.get(lang);
 
         if (fact == null) {
-            throw new ResponseErrorException(unknownFileError(doc, doc));
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Unknown language %s of file %s", lang, doc), null));
         }
 
         return fact;

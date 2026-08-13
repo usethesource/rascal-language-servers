@@ -68,6 +68,7 @@ public class CapabilityRegistration {
 
     private static final Logger logger = LogManager.getLogger(CapabilityRegistration.class);
 
+    private final String languageId;
     private final LanguageClient client;
     private final Executor exec;
 
@@ -84,7 +85,8 @@ public class CapabilityRegistration {
      * @param supportedCapabilities The capabilities to register with the client.
      * @param clientCapabilities The capabilities of the client. Determine whether dynamic registration is supported at all.
      */
-    public CapabilityRegistration(LanguageClient client, Executor exec, ClientCapabilities clientCapabilities, AbstractDynamicCapability<?>... supportedCapabilities) {
+    public CapabilityRegistration(String languageId, LanguageClient client, Executor exec, ClientCapabilities clientCapabilities, AbstractDynamicCapability<?>... supportedCapabilities) {
+        this.languageId = languageId;
         this.client = client;
         this.exec = exec;
 
@@ -311,8 +313,8 @@ public class CapabilityRegistration {
         // extension & scheme selectors
         var additionalSelectors = params.stream()
             .flatMap(c -> {
-                var extSelectors = c.fileExtensions().stream().map(ext -> new DocumentFilter("parametric-rascalmpl", null, Either.forLeft(String.format("**/*.%s", ext))));
-                var schemeSelectors = c.extensionLessSchemes().stream().map(scheme -> new DocumentFilter("parametric-rascalmpl", scheme, null));
+                var extSelectors = c.fileExtensions().stream().map(ext -> new DocumentFilter(languageId, null, Either.forLeft(String.format("**/*.%s", ext))));
+                var schemeSelectors = c.extensionLessSchemes().stream().map(scheme -> new DocumentFilter(languageId, scheme, null));
                 return Stream.concat(extSelectors, schemeSelectors);
             })
             .distinct();

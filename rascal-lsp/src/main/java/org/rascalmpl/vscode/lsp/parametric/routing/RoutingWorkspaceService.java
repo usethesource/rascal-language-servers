@@ -34,6 +34,7 @@ import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
+import org.eclipse.lsp4j.DidChangeWorkspaceFoldersParams;
 import org.eclipse.lsp4j.ExecuteCommandParams;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -49,19 +50,19 @@ import io.usethesource.vallang.ISourceLocation;
 /**
  * A language-parametric workspace service that routes incoming requests to remote dedicated language servers.
  */
-public class RoutingWorkspaceService extends BaseWorkspaceService implements DocumentRouter<CompletableFuture<WorkspaceService>> {
+public class RoutingWorkspaceService extends BaseWorkspaceService implements DocumentRouter<WorkspaceService> {
 
-    private @MonotonicNonNull DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> serverRouter;
+    private @MonotonicNonNull DocumentRouter<IBaseLanguageServerExtensions> serverRouter;
 
     public RoutingWorkspaceService(ExecutorService exec) {
         super(exec);
     }
 
-    /*package*/ void setServerRouter(DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> server) {
+    /*package*/ void setServerRouter(DocumentRouter<IBaseLanguageServerExtensions> server) {
         this.serverRouter = server;
     }
 
-    private DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> availableServerRouter() {
+    private DocumentRouter<IBaseLanguageServerExtensions> availableServerRouter() {
         if (serverRouter == null) {
             // This should only happen if we forgot to call `setServerRouter` before finishing initialization
             throw new IllegalStateException("No server router available");
@@ -70,25 +71,25 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
     }
 
     @Override
-    public Stream<CompletableFuture<WorkspaceService>> allRoutes() {
-        return availableServerRouter().allRoutes(server -> server.thenApply(LanguageServer::getWorkspaceService));
+    public Stream<WorkspaceService> allRoutes() {
+        return availableServerRouter().allRoutes(LanguageServer::getWorkspaceService);
     }
 
     @Override
-    public CompletableFuture<WorkspaceService> route(ISourceLocation loc) {
-        return availableServerRouter().route(loc).thenApply(LanguageServer::getWorkspaceService);
+    public WorkspaceService route(ISourceLocation loc) {
+        return availableServerRouter().route(loc).getWorkspaceService();
     }
 
     @Override
-    public CompletableFuture<WorkspaceService> route(String languageName) {
-        return availableServerRouter().route(languageName).thenApply(LanguageServer::getWorkspaceService);
+    public WorkspaceService route(String languageName) {
+        return availableServerRouter().route(languageName).getWorkspaceService();
     }
 
     @Override
     public CompletableFuture<Object> executeCommand(ExecuteCommandParams commandParams) {
         if (commandParams.getCommand().startsWith(RASCAL_META_COMMAND) || commandParams.getCommand().startsWith(RASCAL_COMMAND)) {
             var languageName = ((JsonPrimitive) commandParams.getArguments().get(0)).getAsString();
-            return route(languageName).thenCompose(s -> s.executeCommand(commandParams));
+            return route(languageName).executeCommand(commandParams);
         }
 
         return CompletableFutureUtils.completedFuture(commandParams.getCommand() + " was ignored, since it is not a Rascal LSP command.", getExecutor());
@@ -98,21 +99,27 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
     public void didCreateFiles(CreateFilesParams params) {
         params.getFiles().stream()
             .collect(Collectors.groupingBy(f -> route(Locations.toLoc(f.getUri()))))
-            .forEach((r, creates) -> r.thenAccept(s -> s.didCreateFiles(new CreateFilesParams(creates))));
+            .forEach((r, creates) -> r.didCreateFiles(new CreateFilesParams(creates)));
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         params.getFiles().stream()
             .collect(Collectors.groupingBy(f -> route(Locations.toLoc(f.getUri()))))
-            .forEach((r, deletes) -> r.thenAccept(s -> s.didDeleteFiles(new DeleteFilesParams(deletes))));
+            .forEach((r, deletes) -> r.didDeleteFiles(new DeleteFilesParams(deletes)));
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params) {
         params.getFiles().stream()
             .collect(Collectors.groupingBy(f -> route(Locations.toLoc(f.getOldUri())))) // like VS Code, notify language associated with the old file name
-            .forEach((r, renames) -> r.thenAccept(s -> s.didRenameFiles(new RenameFilesParams(renames))));
+            .forEach((r, renames) -> r.didRenameFiles(new RenameFilesParams(renames)));
+    }
+
+    @Override
+    public void didChangeWorkspaceFolders(DidChangeWorkspaceFoldersParams params) {
+        super.didChangeWorkspaceFolders(params);
+        allRoutes().forEach(f -> f.didChangeWorkspaceFolders(params));
     }
 
 }

@@ -36,6 +36,7 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.RegistrationParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 
 @JsonSegment("rascal")
@@ -46,7 +47,7 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
     }
 
     @JsonRequest
-    default CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+    default CompletableFuture<Void> sendRegisterLanguage(RegistrationParameter lang) {
         throw new UnsupportedOperationException();
     }
 

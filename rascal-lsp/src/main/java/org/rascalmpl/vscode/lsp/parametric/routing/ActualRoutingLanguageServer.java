@@ -26,6 +26,9 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import static org.rascalmpl.vscode.lsp.BaseLanguageServer.DEPLOY_MODE;
+import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -45,6 +48,8 @@ import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -60,15 +65,19 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
+import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
@@ -89,6 +98,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.log.LogJsonConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.RegistrationParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.Lists;
@@ -101,7 +111,16 @@ import io.usethesource.vallang.IValue;
 /**
  * A language server implementation that routes LSP requests to dedicated remote language servers.
  */
-public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements DocumentRouter<CompletableFuture<IBaseLanguageServerExtensions>> {
+public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLanguageServer implements DocumentRouter<IBaseLanguageServerExtensions> {
+
+    static class NoLanguageException extends RuntimeException {
+        public NoLanguageException(String message) {
+            super(message);
+        }
+    }
+
+    private static final String THREAD_NAME_KEY = "threadName";
+    private static final ComparableVersion MINIMAL_COMPATIBLE_VERSION = new ComparableVersion("2.22.6-SNAPSHOT");
 
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
 
@@ -111,7 +130,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     // 1. This map should only contains running server processes.
     // 2. Upon removal from this map, the process should be killed to avoid resource leaks.
     // NOTE To be able to route to arbitrary third-party language servers, remote servers should implement `LanguageServer` (instead of `IBaseLanguageServerExtensions`)
-    private final Map<String, CompletableFuture<IBaseLanguageServerExtensions>> languageServers = new ConcurrentHashMap<>();
+    private final Map<String, IBaseLanguageServerExtensions> languageServers = new ConcurrentHashMap<>();
     private final Map<String, String> languagesByExtension = new ConcurrentHashMap<>();
 
     private @MonotonicNonNull MultipleClientProxy remoteClient;
@@ -123,8 +142,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private NavigableSet<Integer> portPool = new ConcurrentSkipListSet<>();
 
     @SuppressWarnings("java:S106") // System.err
-    public ActualRoutingLanguageServer(Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
-        super(onExit, exec, lspDocumentService, lspWorkspaceService);
+    public ActualRoutingLanguageServer(String serverName, Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
+        super(serverName, onExit, exec, lspDocumentService, lspWorkspaceService);
 
         // log4j loggers write to stderr. We wrap the same stream, so we can directly pipe log messages from our child processes to it.
         logForwarder = new JsonWriter(new BufferedWriter(new OutputStreamWriter(System.err)));
@@ -149,24 +168,24 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @Override
-    public CompletableFuture<IBaseLanguageServerExtensions> route(String lang) {
+    public IBaseLanguageServerExtensions route(String lang) {
         var service = languageServers.get(lang);
         if (service == null) {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang)));
+            throw new NoLanguageException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with name '%s'", lang));
         }
         return service;
     }
 
     @Override
-    public Stream<CompletableFuture<IBaseLanguageServerExtensions>> allRoutes() {
+    public Stream<IBaseLanguageServerExtensions> allRoutes() {
         return languageServers.values().parallelStream();
     }
 
     @Override
-    public CompletableFuture<IBaseLanguageServerExtensions> route(ISourceLocation loc) {
+    public IBaseLanguageServerExtensions route(ISourceLocation loc) {
         var lang = ParametricTextDocumentService.languageByExtension(loc, languagesByExtension);
         if (lang.isEmpty()) {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension(loc))));
+            throw new NoLanguageException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension(loc)));
         }
         return route(lang.get());
     }
@@ -181,15 +200,27 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return URIUtil.getExtension(doc);
     }
 
-    private static boolean isRascal(Artifact art) {
-        return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal".equals(art.getCoordinate().getArtifactId());
-    }
-
     private static boolean isRascalLsp(Artifact art) {
         return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal-lsp".equals(art.getCoordinate().getArtifactId());
     }
 
-    private static List<Path> classPath(LanguageParameter lang) throws IOException, ModelResolutionError {
+    private static Pair<ComparableVersion, List<Path>> rascalLspDependencies(PathConfig pcfg, List<Artifact> mavenDependencies) {
+        // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
+        // Instead, we use its compiled classes and the JARs of all its dependencies.
+        var target = Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin())));
+        var depPaths = mavenDependencies.stream()
+            .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
+            .filter(Objects::nonNull)
+            .collect(Collectors.<@NonNull Path>toList());
+
+        var lspVersion = getPomVersion();
+        return Pair.of(
+            lspVersion == null ? MINIMAL_COMPATIBLE_VERSION : new ComparableVersion(lspVersion),
+            Lists.union(List.of(target), depPaths)
+        );
+    }
+
+    private static Pair<ComparableVersion, List<Path>> resolveDependencies(LanguageParameter lang) throws IOException, ModelResolutionError {
         var pcfg = PathConfig.parse(lang.getPathConfig());
         var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
         var maven = new MavenParser(Path.of(pom.getURI()));
@@ -197,28 +228,28 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var project = maven.parseProject();
         var deps = project.resolveDependencies(Scope.COMPILE, maven);
 
+        // As always, the Rascal LSP project itself is a special case
         if (isRascalLsp(project)) {
-            // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
-            // Instead, we use its compiled classes and the JARs of all its dependencies.
-            var target = Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin())));
-            var depPaths = deps.stream()
-                .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
-                .filter(Objects::nonNull)
-                .collect(Collectors.<@NonNull Path>toList());
-            return Lists.union(List.of(target), depPaths);
+            return rascalLspDependencies(pcfg, deps);
         }
 
-        return deps.stream()
-            .filter(d -> isRascal(d) || isRascalLsp(d))
-            .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+        var lsp = deps.stream()
+            .filter(ActualRoutingLanguageServer::isRascalLsp)
+            .findFirst()
+            .orElseThrow(() -> new IOException(String.format("No Rascal LSP dependency found for '%s'", lang.getName())));
+
+        var classPath = deps.stream()
+                .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return Pair.of(new ComparableVersion(lsp.getCoordinate().getVersion()), classPath);
     }
 
     private static void prependThreadName(String langName, JsonElement json) {
         try {
             var obj = json.getAsJsonObject();
-            obj.addProperty("threadName", langName + (obj.has("threadName") ? " | " + obj.getAsJsonPrimitive("threadName").getAsString() : ""));
+            obj.addProperty(THREAD_NAME_KEY, langName + (obj.has(THREAD_NAME_KEY) ? " | " + obj.getAsJsonPrimitive(THREAD_NAME_KEY).getAsString() : ""));
         } catch (Exception e) { /* ignored */ }
     }
 
@@ -228,56 +259,70 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             try (var reader = new BufferedReader(new InputStreamReader(logStream))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    try {
-                        var json = JsonParser.parseString(line);
-                        prependThreadName(langName, json);
-                        // Lock, so we can make sure our JSON is followed by a newline.
-                        synchronized (System.err) {
-                            gson.toJson(json, logForwarder);
-                            logForwarder.flush();
-                            // One object per line; this is what log4j does as well.
-                            System.err.println();
-                        }
-                    } catch (JsonSyntaxException e) {
-                        // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
-                        // In this case, just forward the raw line.
-                        if (!line.isBlank()) {
-                            // No need to lock, since `println` takes care of that.
-                            System.err.println(line);
-                        }
-                    }
+                    forwardLogLine(langName, line);
                 }
             } catch (IOException e) {
-                logger.error("Error while reading logs for {}", langName, e);
+                logger.error("Error while reading/writing logs for {}", langName, e);
             }
         });
+    }
+
+    /**
+     * @throws IOException when the log writer is closed.
+     */
+    private void forwardLogLine(String langName, String line) throws IOException {
+        try {
+            var json = JsonParser.parseString(line);
+            prependThreadName(langName, json);
+            // Lock, so we can make sure our JSON is followed by a newline.
+            synchronized (System.err) {
+                gson.toJson(json, logForwarder);
+                logForwarder.flush();
+                // One object per line; this is what log4j does as well.
+                System.err.println();
+            }
+        } catch (JsonSyntaxException e) {
+            // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
+            // In this case, just forward the raw line.
+            if (!line.isBlank()) {
+                // No need to lock, since `println` takes care of that.
+                System.err.println(line);
+            }
+        }
     }
 
     /**
      * Starts a language server (dedicated to a single language) in a child process.
      * Returns an pair of streams of bi-directional communication, and a runnable to clean up after the server terminates.
      */
-    private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang) {
+    private @Nullable Triple<InputStream, OutputStream, Runnable> startServerProcess(LanguageParameter lang, String memoryArg) {
         logger.info("Starting LSP process for {}", lang.getName());
 
         // In deployment, we start a process and connect to it via input/output streams
         try {
-            var classPath = String.join(File.pathSeparator, classPath(lang).stream().map(Path::toString).collect(Collectors.toList()));
+            var dependencies = resolveDependencies(lang);
+            var lspVersion = dependencies.getLeft();
+            if (lspVersion.compareTo(MINIMAL_COMPATIBLE_VERSION) < 0) {
+                throw new IOException(String.format("'%s' depends on Rascal LSP version %s, which is not compatible with this version of the Rascal extension. Please update your language project to Rascal LSP %s (or newer).", lang.getName(), lspVersion, MINIMAL_COMPATIBLE_VERSION));
+            }
+
+            var classPath = String.join(File.pathSeparator, dependencies.getRight().stream().map(Path::toString).collect(Collectors.toList()));
             logger.debug("{} runs with class path {}", lang.getName(), classPath);
 
-            var proc = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java")
-                    , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
-                    , "-Dlog4j2.level=" + LogJsonConfiguration.getLogLevel()
-                    , "-Drascal.lsp.deploy=true"
-                    , "-Drascal.compilerClasspath=" + classPath
-                    , "-Drascal.remoteResolverRegistryPort=" + System.getProperty("rascal.remoteResolverRegistryPort")
-                    , "-Drascal.customRemoteResolverRegistryClass=" + System.getProperty("rascal.customRemoteResolverRegistryClass")
-                    , "-Xmx2048M"
-                    , "-cp", classPath
-                    , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
-                    // , "--exitWhenEmpty" // TODO Shutdown of a server might race with a new registration. Fix.
-                )
-                .start();
+            var serverArgs = new ArrayList<>(Arrays.asList(ProcessHandle.current().info().command().orElse("java")
+                , "-Dlog4j2.configurationFactory=org.rascalmpl.vscode.lsp.log.LogJsonConfiguration"
+                , "-Dlog4j2.level=" + LogJsonConfiguration.getLogLevel()
+                , "-Drascal.lsp.deploy=" + DEPLOY_MODE
+                , "-Drascal.compilerClasspath=" + classPath
+                , "-Drascal.remoteResolverRegistryPort=" + System.getProperty("rascal.remoteResolverRegistryPort")
+                , "-Drascal.customRemoteResolverRegistryClass=" + System.getProperty("rascal.customRemoteResolverRegistryClass")
+                , memoryArg
+                , "-cp", classPath
+                , "org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer"
+                , "--exitWhenEmpty"
+            ));
+
+            var proc = new ProcessBuilder(serverArgs).start();
 
             // Pipe logs from error stream
             forwardLogs(proc.getErrorStream(), lang.getName());
@@ -292,7 +337,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     /**
      * Connects to a language server in a separate process, for debugging.
-     * Returns an pair of streams of bi-directional communication, and a runnable to clean up after the server terminates.
+     * Returns an pair of streams for bi-directional communication, and a runnable to clean up after the server terminates.
      */
     private @Nullable Triple<InputStream, OutputStream, Runnable> connectToServer(LanguageParameter lang) {
         // In development, we expect the server to have been launched on a pre-agreed port
@@ -325,7 +370,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     /**
      * Special GSON configuration that (un)wraps IValues as-is.
      *
-     * Encoding and decoding an {@link IValue} loses dynamic type information, hance a decoded value can not be encoded properly again.
+     * Encoding and decoding an {@link IValue} loses dynamic type information, hence a decoded value can not be encoded properly again.
      * `encode(decode(encode(v))) != encode(v)`
      * Since the router should just proxy values passed from remote servers, without changing them, it uses a special encoder/decoder.
      *
@@ -349,14 +394,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         GsonUtils.complexAsJsonObject().accept(builder);
     }
 
-    private @Nullable CompletableFuture<IBaseLanguageServerExtensions> startServer(LanguageParameter lang) {
+    private @Nullable IBaseLanguageServerExtensions startServer(LanguageParameter lang, String memoryArg) {
         if (remoteClient == null) {
             // This should never happen, since it's initialized by `connect` before we are able to receive any `registerLanguage` requests.
             throw new IllegalStateException("Remote client is not initialized");
         }
 
         var serverParams = BaseLanguageServer.DEPLOY_MODE
-            ? startServerProcess(lang)
+            ? startServerProcess(lang, memoryArg)
             : connectToServer(lang)
             ;
 
@@ -377,10 +422,18 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var runner = serverLauncher.startListening();
         var server = serverLauncher.getRemoteProxy();
 
-        var initializedServer = CompletableFutureUtils.completedFuture(delegateInitializationParams(), getExecutor())
-            .thenCompose(server::initialize)
-            // TODO Handle static server capabilities that are different than ours (because the remote has a different Rascal-LSP version)
-            .thenApply(ignored -> server);
+        try {
+            var remoteInitialization = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders())).get(10, TimeUnit.SECONDS);
+            checkCapabilityCompatibility(lang.getName(), remoteInitialization);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            logger.error("Initialization of the server for {} failed", lang.getName(), e);
+            return null;
+        } catch (TimeoutException e) {
+            logger.error("Initialization of the server for {} timed out", lang.getName(), e);
+            return null;
+        }
 
         getExecutor().execute(() -> {
             try {
@@ -392,7 +445,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 Thread.currentThread().interrupt();
             } finally {
                 synchronized (this) {
-                    if (languageServers.remove(lang.getName(), initializedServer)) {
+                    if (languageServers.remove(lang.getName(), server)) {
                         for (var ext : lang.getExtensions()) {
                             languagesByExtension.remove(ext, lang.getName());
                         }
@@ -409,7 +462,41 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             }
         });
 
-        return initializedServer; // When initialization is done, we can use the server
+        return server;
+    }
+
+    /**
+     * In principle, we share our static capabilities with that of the parametric server via ParametricTextDocumentService::initializeStaticServerCapabilities (in the document service).
+     * If the version of Rascal-LSP in the remote server differs from the version of this router (which is exactly the point of starting a remote server), there are two scenarios:
+     * 1. The remote is **newer**. It might support capabilities that we do not support. Since this router can never communicate about functionality from the future, in this situation,
+     * the capabilities are bounded by the capabilities of the router.
+     * 2. The remote is **older**. In that case, the router might have registered some capabilities that are not supported by the remote. This might lead to some extra requests being
+     * sent to the remote, only to return defaults.
+     */
+    private void checkCapabilityCompatibility(String language, InitializeResult remoteInitialization) {
+        var initialization = availableInitialization();
+        var capabilities = initialization.getCapabilities();
+        if (Objects.equals(remoteInitialization.getCapabilities(), capabilities)) {
+            return;
+        }
+
+        logger.info("Static capabilities of {} are different to the ones registered with the client, which might lead to missing functionality.", language);
+        var routerVersionString = initialization.getServerInfo().getVersion();
+        var remoteVersionString = remoteInitialization.getServerInfo().getVersion();
+        if (routerVersionString != null && remoteVersionString != null) {
+            // Deployment mode; we can give the user useful hints here
+            var routerVersion = new ComparableVersion(routerVersionString);
+            var remoteVersion = new ComparableVersion(remoteVersionString);
+            if (routerVersion.compareTo(remoteVersion) > 0) {
+                // routerVersion > remoteVersion
+                logger.debug("{} depends on version {} of Rascal-LSP, which is older than the version in the extension ({}). This should not cause any issues.", language, remoteVersionString, routerVersionString);
+            } else if (routerVersion.compareTo(remoteVersion) < 0) {
+                // routerVersion < remoteVersion
+                logger.info("{} depends on version {} of Rascal-LSP, which is newer than the version in the extension ({}). Some DSL features might not be fully supported. To fix this, update the extension.", language, remoteVersionString, routerVersionString);
+            } else {
+                logger.error("Router and remote version are equal ({}), but the capabilities differ. This should never happen. Please report this as a bug via https://github.com/usethesource/rascal-language-servers/issues/new?template=bug_report.md", routerVersionString);
+            }
+        }
     }
 
     private InitializeParams availableInitializeParams() {
@@ -419,8 +506,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return initializeParams;
     }
 
-    // TODO If this function does not require any parameters, change to a constant
-    private InitializeParams delegateInitializationParams() {
+    private InitializeParams delegateInitializationParams(List<WorkspaceFolder> workspaceFolders) {
         var params = new InitializeParams();
         var clientParams = availableInitializeParams();
         params.setCapabilities(clientParams.getCapabilities()); // We support precisely the capabilities of VS Code
@@ -428,7 +514,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         params.setInitializationOptions(clientParams.getInitializationOptions());
         params.setLocale(clientParams.getLocale());
         params.setTrace(clientParams.getTrace());
-        // TODO Set open workspace folders at the time of starting the server
+        params.setWorkspaceFolders(workspaceFolders);
         try {
             params.setProcessId((int) ProcessHandle.current().pid());
         } catch (UnsupportedOperationException | SecurityException e) {
@@ -460,17 +546,32 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @Override
-    public synchronized CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
+    public synchronized CompletableFuture<Void> sendRegisterLanguage(RegistrationParameter param) {
+        var lang = param.getLang();
         logger.debug("rascal/sendRegisterLanguage({}, {})", lang.getName(), lang.getMainFunction());
-        // If we do not have a parametric server running for this language, start and initialize it.
-        var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable CompletableFuture<IBaseLanguageServerExtensions>>) ignored -> startServer(lang));
-        if (server == null) {
-            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
-        }
-        for (var ext : lang.getExtensions()) {
-            languagesByExtension.put(ext, lang.getName());
-        }
-        return server.thenCompose(s -> s.sendRegisterLanguage(lang));
+        // Sometimes, a registration races with an unregistration. In this case, we try again.
+        return CompletableFutureUtils.retry(() -> {
+            // If we do not have a parametric server running for this language, start and initialize it.
+            var server = languageServers.computeIfAbsent(lang.getName(), (Function<String, @Nullable IBaseLanguageServerExtensions>) _name -> {
+                var newServer = startServer(lang, param.getRemoteMemoryArg());
+                if (newServer != null) {
+                    // Since we just launched a new server, we should inform it about all the files that we already have open.
+                    var openFiles = getTextDocumentService().getOpenDocumentItems();
+                    logger.debug("Forwarding {} currently open files to remote server", openFiles.size());
+                    openFiles.forEach(doc -> newServer.getTextDocumentService().didOpen(new DidOpenTextDocumentParams(doc)));
+                }
+                return newServer;
+            });
+
+            if (server == null) {
+                throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Connecting to LSP server for %s failed", lang.getName()), null));
+            }
+
+            return server.sendRegisterLanguage(param)
+                .orTimeout(10, TimeUnit.SECONDS);
+        }, 1, getExecutor())
+            .thenCompose(Function.identity())
+            .thenAccept(_v -> Stream.of(lang.getExtensions()).forEach(ext -> languagesByExtension.put(ext, lang.getName())));
     }
 
     @Override
@@ -487,52 +588,44 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             }
         }
 
-        return route(lang.getName()).handle((s, t) ->
-            s == null
-            ? CompletableFutureUtils.<Void>completedFuture(null, getExecutor())
-            : s.sendUnregisterLanguage(lang)
-        ).thenCompose(Function.identity());
+        try {
+            return route(lang.getName()).sendUnregisterLanguage(lang);
+        } catch (NoLanguageException e) {
+            return NOOP;
+        }
     }
 
     @Override
     public CompletableFuture<Object> shutdown() {
-        return CompletableFutureUtils.reduce(allRoutes(serverFut -> serverFut.thenCompose(LanguageServer::shutdown)), getExecutor())
-            .thenCompose(ignored -> super.shutdown())
-            .whenComplete((v, t) -> {
+        return CompletableFutureUtils.reduce(allRoutes(LanguageServer::shutdown), getExecutor())
+            .thenCompose(_o -> super.shutdown())
+            .thenApply(o -> {
                 try {
                     logForwarder.flush();
                 } catch (IOException e) {
                     logger.catching(e);
                 }
+                return o;
             });
     }
 
     @Override
     public void exit() {
+        allRoutes().forEach(LanguageServer::exit);
         try {
-            CompletableFutureUtils.reduce(allRoutes(serverFut -> serverFut.thenAccept(LanguageServer::exit)), getExecutor())
-                .whenComplete((v, t) -> {
-                    try {
-                        logForwarder.close();
-                    } catch (IOException e) {
-                        logger.catching(e);
-                    }
-                })
-                .get(10, TimeUnit.SECONDS);
-        } catch (ExecutionException | TimeoutException e) {
-            logger.error("Error while exiting child processes", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            destroyChildProcesses();
-            super.exit();
+            logForwarder.close();
+        } catch (IOException e) {
+            logger.catching(e);
         }
+
+        destroyChildProcesses();
+        super.exit();
     }
 
     @Override
     public void cancelProgress(WorkDoneProgressCancelParams params) {
         // Forward to everyone
-        allRoutes(r -> r.thenAccept(s -> s.cancelProgress(params)));
+        allRoutes().forEach(r -> r.cancelProgress(params));
     }
 
 }

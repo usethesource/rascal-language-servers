@@ -2,6 +2,11 @@
 
 We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
+## 0.13.6
+
+* Developing DSLs using `registerLanguage` now respects the Rascal and Rascal LSP versions from the language project's POM file.
+* Each language now runs in a dedicated process/JVM. A crash of one language does not affect others anymore, but increased memory usage may be observed.
+
 ## 0.13.5
 
 Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0)

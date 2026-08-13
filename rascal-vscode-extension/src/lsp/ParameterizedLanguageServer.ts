@@ -28,7 +28,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { BaseLanguageClient } from 'vscode-languageclient';
-import { activateLanguageClient } from './RascalLSPConnection';
+import { activateLanguageClient, calculateDSLMemoryReservation } from './RascalLSPConnection';
 import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 
 export class ParameterizedLanguageServer implements vscode.Disposable {
@@ -96,7 +96,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
     async registerLanguage(lang:LanguageParameter) {
         const client = await this.getLanguageClient();
         // first we load the new language into the parametric server
-        await client.sendRequest("rascal/sendRegisterLanguage", lang);
+        await client.sendRequest("rascal/sendRegisterLanguage", { lang, remoteMemoryArg: calculateDSLMemoryReservation(false) });
 
         if (this.dedicatedLanguage === undefined) {
             for (const doc of vscode.workspace.textDocuments) {
