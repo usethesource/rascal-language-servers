@@ -320,10 +320,8 @@ export class RascalExtension implements vscode.Disposable {
         return shellArgs.concat(extraArgs || []);
     }
 
-    private buildTerminalJVMPath(rascalClasses: string[] | undefined): string {
-        const lsp = path.join(this.jarRootPath, 'rascal-lsp.jar');
-        const rascal = rascalClasses ?? [path.join(this.jarRootPath, 'rascal.jar')];
-        return [lsp, ...rascal].join(path.delimiter);
+    private buildTerminalJVMPath(pomReplClasspath: string[] | undefined): string {
+        return (pomReplClasspath ?? [path.join(this.jarRootPath, 'rascal.jar')]).join(path.delimiter);
     }
 
 }
