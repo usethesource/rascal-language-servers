@@ -44,69 +44,29 @@ export async function activateLanguageClient(
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
-    const schemeAuthorityCasing: Map<string, [string, string]> = new Map();
+    // const schemeAuthorityCasing: Map<string, [string, string]> = new Map();
 
-    function getCachedCasing(uri: vscode.Uri) : [string, string] | undefined {
-        return schemeAuthorityCasing.get(casingMapKey(uri));
-    }
+    // function getCachedCasing(uri: vscode.Uri) : [string, string] | undefined {
+    //     return schemeAuthorityCasing.get(casingMapKey(uri));
+    // }
 
-    function storeCasing(uri: vscode.Uri): void {
-        logger.debug(`[RascalLSPConnection] Storing casing of ${uri} (${casingMapKey(uri)} => [${uri.scheme}, ${uri.authority}])`);
-        schemeAuthorityCasing.set(casingMapKey(uri), [uri.scheme, uri.authority]);
-    }
+    // function storeCasing(uri: vscode.Uri): void {
+    //     logger.debug(`[RascalLSPConnection] Storing casing of ${uri} (${casingMapKey(uri)} => [${uri.scheme}, ${uri.authority}])`);
+    //     schemeAuthorityCasing.set(casingMapKey(uri), [uri.scheme, uri.authority]);
+    // }
 
-    function casingMapKey(uri: vscode.Uri): string {
-        const normalizedScheme = uri.scheme.toLowerCase();
-        const normalizedAuthority = uri.authority.toLowerCase();
-        return `${normalizedScheme}/${normalizedAuthority}`;
-    }
+    // function casingMapKey(uri: vscode.Uri): string {
+    //     const normalizedScheme = uri.scheme.toLowerCase();
+    //     const normalizedAuthority = uri.authority.toLowerCase();
+    //     return `${normalizedScheme}/${normalizedAuthority}`;
+    // }
 
-    // This regular expression does not match opaque URIs. That is not a problem, since those never have an authority to correct
-    const uriMatcher = /^([^:]*):\/\/[^/]*\/(.*)$/;
+    // // This regular expression does not match opaque URIs. That is not a problem, since those never have an authority to correct
+    // const uriMatcher = /^([^:]*):\/\/[^/]*\/(.*)$/;
 
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
         outputChannel: logger,
-        uriConverters: {
-            // VS Code may convert schemes and authorities to lower case (which is allowed by the standard).
-            // Some Rascal locations have authorities for which the casing does matter (e.g., |mvn:///| or |project:///|).
-            // The casing of the schemes and autorities of incoming URIs is therefore stored, so the original casing
-            // of the authority can be restored when round-tripping (i.e., Rascal => VS Code => Rascal).
-            code2Protocol: (uri: vscode.Uri) : string => {
-                const uriString = uri.toString();
-
-                if (uri.authority !== "") {
-                    const cachedCasing = getCachedCasing(uri);
-                    if (cachedCasing) {
-                        // `Uri.with` followed by `Uri.toString` is not an option, as the latter performs the case normalization
-                        const match = uriMatcher.exec(uriString);
-                        if (match) {
-                            const denormalized = `${match[1]}://${cachedCasing[1]}/${match[2]}`;
-                            logger.debug(`[RascalLSPConnection] Changed ${uriString} into ${denormalized}`);
-                            return denormalized;
-                        }
-                    }
-                }
-
-                return uriString;
-            },
-            protocol2Code: (uriString: string): vscode.Uri => {
-                const parsed = vscode.Uri.parse(uriString);
-
-                if (parsed.authority !== "") {
-                    const cachedCasing = getCachedCasing(parsed);
-                    if (cachedCasing) {
-                        if (!(cachedCasing[0] === parsed.scheme && cachedCasing[1] === parsed.authority)) {
-                            logger.warn(`Received scheme/authority casing |${parsed.scheme}://${parsed.authority}/| that is inconsistent with earlier |${cachedCasing[0]}://${cachedCasing[1]}/|. Round-tripping locations correctly is likely not possible`);
-                        }
-                    } else {
-                        storeCasing(parsed);
-                    }
-                }
-
-                return parsed;
-            }
-        }
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);

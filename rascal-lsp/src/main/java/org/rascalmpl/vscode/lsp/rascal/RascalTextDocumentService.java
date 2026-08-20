@@ -106,6 +106,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
@@ -167,36 +168,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     public static boolean isRascal(ISourceLocation loc) {
         loc = Locations.toPhysicalIfPossible(loc);
-        switch (loc.getScheme()) {
-            case "mvn": {
-                try {
-                    var coords = MavenRepositoryURIResolver.getCoordinates(loc);
-                    return "org.rascalmpl".equals(coords.getGroupId())
-                        && "rascal".equals(coords.getArtifactId());
-                } catch (IOException e) {
-                    logger.error("Could not resolve location of Maven URI", e);
-                    return false;
-                }
-            }
-            case "file": {
-                var path = loc.getPath();
-                var i = path.lastIndexOf("target/classes");
-                if (i > 0) {
-                    path = path.substring(0, i);
-                }
-                if (path.endsWith("/")) {
-                    path = path.substring(0, path.length() - 1);
-                }
-                return path.endsWith("rascal");
-            }
-            case "project": {
-                return "rascal".equals(loc.getAuthority());
-            }
-            default: {
-                // TODO There's probably more...
-                return false;
-            }
-        }
+        return "rascal".equals(new RascalManifest().getProjectName(loc));
     }
 
     @Override
@@ -237,6 +209,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         }
 
         // If we could not find it, just fall back to the one in the extension
+        // TODO Warn the user about this
         return List.of(PathConfig.resolveCurrentRascalRuntime());
     }
 
