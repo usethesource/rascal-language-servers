@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -38,8 +40,10 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
+import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
+import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 
 public interface IBaseTextDocumentService extends TextDocumentService, ITextDocumentStateManager {
@@ -55,6 +59,10 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
 
     CompletableFuture<IValue> executeCommand(String languageName, String command);
     Collection<String> extensions();
+
+    default List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError, URISyntaxException {
+        throw new UnsupportedOperationException("Lookup of Rascal classes unsupported");
+    }
 
     void didCreateFiles(CreateFilesParams params);
     void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders);

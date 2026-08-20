@@ -41,6 +41,7 @@ import io.usethesource.vallang.ISourceLocation;
 
 public class LSPOpenFileResolver implements ISourceLocationInputOutput {
 
+    // Schemes should be normalized to lowercase
     public static final String LSP_OPEN_SCHEME = "lsp";
     private static final String LSP_SCHEME_PREFIX = LSP_OPEN_SCHEME + "+";
 

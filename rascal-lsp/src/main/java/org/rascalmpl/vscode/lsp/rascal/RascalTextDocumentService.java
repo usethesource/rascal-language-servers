@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
@@ -102,8 +104,11 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
+import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
+import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
@@ -155,6 +160,51 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
 
+    private static boolean isRascal(ISourceLocation loc) {
+        loc = Locations.toPhysicalIfPossible(loc);
+        return "rascal".equals(new RascalManifest().getProjectName(loc));
+    }
+
+    @Override
+    public List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError, URISyntaxException {
+        var pcfg = availableFacts().getPathConfig(forFile);
+        var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
+
+        if (isRascal(pcfg.getProjectRoot())) {
+            // When working on Rascal, all dependencies and target/ will be on the classpath.
+            // These will not contain Rascal LSP, since that should not be needed.
+            return pcfg.getLibsAndTarget().stream()
+                .map(ISourceLocation.class::cast)
+                .map(loc -> resolveMavenIfPossible(mvn, loc))
+                .collect(Collectors.toList());
+        }
+
+        var rascal = pcfg.getLibs().stream()
+            .map(ISourceLocation.class::cast)
+            .filter(l -> isRascal(l))
+            .findFirst()
+            .map(l -> resolveMavenIfPossible(mvn, l));
+
+        if (rascal.isPresent()) {
+            return List.of(rascal.get());
+        }
+
+        // Typically, the path config computation uses a fallback Rascal version, so this should not happen.
+        availableClient().showMessage(new MessageParams(MessageType.Info, "No Rascal dependency found in POM. REPL uses the Rascal version shipped with the extension."));
+        return List.of(PathConfig.resolveCurrentRascalRuntime());
+    }
+
+    private static ISourceLocation resolveMavenIfPossible(MavenRepositoryURIResolver mvn, ISourceLocation loc) {
+        if (!"mvn".equals(loc.getScheme())) {
+            return loc;
+        }
+
+        try {
+            return mvn.resolveJar(loc);
+        } catch (IOException e) {
+            return loc;
+        }
+    }
 
     private LanguageClient availableClient() {
         if (client == null) {

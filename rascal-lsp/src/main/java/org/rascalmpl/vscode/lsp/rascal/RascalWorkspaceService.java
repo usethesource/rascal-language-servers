@@ -139,6 +139,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
 
     }
 
+    // Schemes should be normalized to lowercase
     private static final Set<String> GENERIC_SCHEMES = Set.of("file", "http", "https", "ftp", "tmp" /* VS Code has this one for itself */);
     private static final Set<String> CONTAINER_SCHEMES = Set.of("jar", "zip", "compressed");
     private static final Set<String> IGNORED_SCHEMES = Set.of(
@@ -147,7 +148,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
         "lsp", // an internal scheme that should not be exposed to VS Code
         "memory", // unclear whose memory
         "project",  "target", // an scheme that VS Code should never read as it should be translated to file paths to align with VS Code open file tabs
-        "PATH", "cwd", "cwdrive" // unclear whose path / cwd
+        "path", "cwd", "cwdrive" // unclear whose path / cwd
     );
 
     private final Stream<String> allReadableSchemes() {
@@ -181,7 +182,7 @@ public class RascalWorkspaceService extends BaseWorkspaceService {
                 if (message == null || message.isEmpty()) {
                     message = e.getClass().getName();
                 }
-                throw new ResponseErrorException(new ResponseError(-100, "Could not read " + params.getUri() + "due to: " + message, e));
+                throw new ResponseErrorException(new ResponseError(-100, "Could not read " + params.getUri() + " due to: " + message, e));
             }
         }, getExecutor());
     }

@@ -27,7 +27,7 @@
 
 import { expect } from 'chai';
 import { TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
+import { Delays, getArtifactVersion, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
 
 describe('REPL', function () {
     let browser: VSBrowser;
@@ -37,7 +37,7 @@ describe('REPL', function () {
 
     this.timeout(2 * Delays.extremelySlow);
 
-    printRascalOutputOnFailure('Rascal MPL');
+    printRascalOutputOnFailure('Rascal MPL Language Server');
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -57,9 +57,26 @@ describe('REPL', function () {
         await ide.cleanup();
     });
 
-    it("should open without a project", async () => {
+    it("opens without a project", async () => {
         await new RascalREPL(bench, driver).start();
     }).retries(2);
+
+    // TODO Add test for default REPL root
+
+    it("uses the standard library from the extension", async () => {
+        // Find Rascal version in POM
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
+
+        // Query Rascal version from stdlib
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import IO;");
+        await repl.execute("import util::Reflective;");
+        await repl.execute("println(getRascalVersion());");
+        await repl.terminate();
+
+        expect(repl.lastOutput.replace("\nok", "")).is.equal(pomRascalVersion, "Stdlib version matches extension POM version");
+    });
 
     it("run basic rascal commands", async () => {
         const repl = new RascalREPL(bench, driver);

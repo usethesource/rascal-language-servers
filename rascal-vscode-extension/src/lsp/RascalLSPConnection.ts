@@ -44,6 +44,26 @@ export async function activateLanguageClient(
         : () => connectToRascalLanguageServerSocket(devPort) // we assume a server is running in debug mode
             .then((socket) => <StreamInfo> { writer: socket, reader: socket});
 
+    // const schemeAuthorityCasing: Map<string, [string, string]> = new Map();
+
+    // function getCachedCasing(uri: vscode.Uri) : [string, string] | undefined {
+    //     return schemeAuthorityCasing.get(casingMapKey(uri));
+    // }
+
+    // function storeCasing(uri: vscode.Uri): void {
+    //     logger.debug(`[RascalLSPConnection] Storing casing of ${uri} (${casingMapKey(uri)} => [${uri.scheme}, ${uri.authority}])`);
+    //     schemeAuthorityCasing.set(casingMapKey(uri), [uri.scheme, uri.authority]);
+    // }
+
+    // function casingMapKey(uri: vscode.Uri): string {
+    //     const normalizedScheme = uri.scheme.toLowerCase();
+    //     const normalizedAuthority = uri.authority.toLowerCase();
+    //     return `${normalizedScheme}/${normalizedAuthority}`;
+    // }
+
+    // // This regular expression does not match opaque URIs. That is not a problem, since those never have an authority to correct
+    // const uriMatcher = /^([^:]*):\/\/[^/]*\/(.*)$/;
+
     const clientOptions = <LanguageClientOptions>{
         documentSelector: [{ scheme: '*', language: language }],
         outputChannel: logger,
