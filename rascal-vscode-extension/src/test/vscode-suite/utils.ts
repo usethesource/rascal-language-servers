@@ -577,9 +577,10 @@ export function matchPathConfig(input: string) {
     return { projectRoot, sources, ignores, libs, bin, resources, messages };
 }
 
-export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike): Promise<string> {
+export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike, lowerCase: boolean = true): Promise<string> {
     const pom = await readFile(pomPath, {encoding: "utf8"});
-    return pom.match(new RegExp(`<groupId>${groupId}</groupId>\\s*<artifactId>${artifactId}</artifactId>\\s*<version>([^<]+)</version>`))?.[1] ?? "unknown";
+    const version = pom.match(new RegExp(`<groupId>${groupId}</groupId>\\s*<artifactId>${artifactId}</artifactId>\\s*<version>([^<]+)</version>`))?.[1] ?? "unknown";
+    return lowerCase ? version.toLowerCase() : version;
 }
 
 export function printRascalOutputOnFailure(channel: OutputChannel) {
