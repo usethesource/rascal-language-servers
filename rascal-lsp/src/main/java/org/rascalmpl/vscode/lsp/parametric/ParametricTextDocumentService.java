@@ -298,7 +298,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private void discoverExtensionLessScheme(URI uri) {
         var ext = URIUtil.getExtension(Locations.toLoc(uri));
         // We want the original scheme, not the one possibly modified when converting URI -> loc
-        if (ext.equals("") && extensionLessSchemes.add(uri.getScheme())) {
+        if (ext.equals("") && extensionLessSchemes.add(uri.getScheme().toLowerCase())) {
             // Should be called from the main, single-threaded request pool
             updateCapabilities();
         }
