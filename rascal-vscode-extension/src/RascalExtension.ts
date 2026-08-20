@@ -185,9 +185,7 @@ export class RascalExtension implements vscode.Disposable {
                         loc: toRascalUri(uri)
                     });
 
-                    rascalClasses = lookupRes.locs !== undefined
-                        ? lookupRes.locs.map(l => vscode.Uri.parse(l).fsPath)
-                        : undefined;
+                    rascalClasses = lookupRes.locs?.map(l => vscode.Uri.parse(l).fsPath);
                 }
 
                 progress.report({increment: 50, message: "Creating terminal"});
