@@ -312,15 +312,8 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         triggerAnalyzer(changed, NORMAL_DEBOUNCE);
     }
 
-    private boolean isOpenInWorkspace(ISourceLocation loc) {
-        return availableWorkspaceServices().workspaceFolders()
-            .stream()
-            .map(f -> URIUtil.assumeCorrectLocation(f.getUri()))
-            .anyMatch(f -> URIUtil.isParentOf(f, loc));
-    }
-
     private void triggerAnalyzer(TextDocumentState state, Duration delay) {
-        if (isOpenInWorkspace(state.getLocation())) {
+        if (availableRascalServices().isOpenInWorkspace(state.getLocation())) {
             availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
         }
     }

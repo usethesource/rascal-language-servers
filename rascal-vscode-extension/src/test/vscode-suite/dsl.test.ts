@@ -148,127 +148,34 @@ end
         }
     }).retries(2);
 
-    it("error recovery works", async function () {
-        if (!errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoNewFile);
-        await ide.hasSyntaxHighlighting(editor);
-        try {
-            // Introduce two parse errors
-            await editor.setTextAtLine(4, "n : x natural");
-            await editor.setTextAtLine(9, "     a := x 2;");
-            await ide.hasRecoveredErrors(editor, 2, Delays.slow);
+    // ERROR RECOVERY ONLY
+    if (errorRecovery) {
+        it("error recovery works", async function () {
+            const editor = await ide.openModule(TestWorkspace.picoNewFile);
             await ide.hasSyntaxHighlighting(editor);
-        } finally {
-            await ide.revertOpenChanges();
-        }
-    });
+            try {
+                // Introduce two parse errors
+                await editor.setTextAtLine(4, "n : x natural");
+                await editor.setTextAtLine(9, "     a := x 2;");
+                await ide.hasRecoveredErrors(editor, 2, Delays.slow);
+                await ide.hasSyntaxHighlighting(editor);
+            } finally {
+                await ide.revertOpenChanges();
+            }
+        });
 
-    it("have inlay hints", async function () {
-        if (errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.hasSyntaxHighlighting(editor);
-        await ide.hasInlayHint(editor);
-    });
-
-    it("change runs analyzer", async function () {
-        if (errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        try {
-            await editor.setTextAtLine(10, "bzzz := 3;");
-            await ide.hasErrorSquiggly(editor, Delays.slow);
-        } finally {
-            await ide.revertOpenChanges();
-        }
-    });
-
-    it("save runs builder", async function () {
-        if (errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        const line10 = await editor.getTextAtLine(10);
-        try {
-            await editor.setTextAtLine(10, "bzzz := 3;");
-            await editor.save();
-            await ide.hasWarningSquiggly(editor, Delays.slow);
-            await ide.hasErrorSquiggly(editor, Delays.slow);
-        } finally {
-            await editor.setTextAtLine(10, line10);
-            await editor.save();
-        }
-    });
-
-    it("go to definition works", async function() {
-        if (errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.triggerTypeChecker(editor, {checkName: "Pico check"});
-        await editor.selectText("x", 2);
-        await bench.executeCommand("Go to Definition");
-        await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
-    });
-
-    it("code lens works", async function() {
-        if (errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor, "Rename variables a to b.", Delays.verySlow, "Rename lens should be available");
-        await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
-    });
-
-    it("quick fix works", async function() {
-        if (errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.setTextAtLine(9, "  az := 2;");
-        await editor.setCursor(9,3);                           // it's where the undeclared variable `az` is
-        await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
-
-        try {
-            await ide.triggerFirstCodeAction(editor, 'Change to a');
-            await ide.assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
-        }
-        finally {
-            await ide.revertOpenChanges();
-        }
-    });
-
-    it("rename works", async function() {
-        if (errorRecovery) { this.skip(); }
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await editor.setCursor(5, 6);
-
-        await ide.renameSymbol(editor, bench, "z");
-
-        await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
-
-        const editorText = await editor.getText();
-        expect(editorText).to.contain("z : natural");
-        expect(editorText).to.contain("z := 2");
-    });
-
-    it("renaming files works", async function() {
-        if (errorRecovery) { this.skip(); }
-        const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
-        await fs.rm(newDir, {recursive: true, force: true});
-        const fromFile = path.join(newDir, "testing.pico");
-        const toDir = path.join(newDir, "dest");
-        await fs.mkdir(toDir, {recursive: true});
-
-        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
-        await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
-        const workspace = await explorer.getContent().getSection("test (Workspace)");
-        await workspace.expand();
-
-        await fs.copyFile(TestWorkspace.picoFile, fromFile);
-
-        // Open the test file before moving it, so we have the editor ready to inspect afterwards
-        const testFile = await ide.openModule(fromFile);
-
-        await ide.moveFile("testing.pico", "dest", bench);
-
-        await driver.wait(async() => {
-            const text = await ignoreFails(testFile.getText());
-            return text?.indexOf("%% File moved from") !== -1;
-        }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
-
-        await fs.rm(newDir, {recursive: true, force: true});
-    });
+        it("completion by trigger character works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            try {
+                await editor.setCursor(10, 10);
+                await editor.typeText("  x :=");
+                await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
+            }
+            finally {
+                await ide.revertOpenChanges();
+            }
+        });
+    }
 
     it("call hierarchy works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoCallsFile);
@@ -307,159 +214,227 @@ end
         }
     });
 
-    it("completion by trigger character works", async function() {
-        // We will be typing and introducing parse errors, so this only works with error recovery
-        if (!errorRecovery) { this.skip(); }
+    // NO ERROR RECOVERY ONLY
+    if (!errorRecovery) {
+        it("have inlay hints", async function () {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.hasSyntaxHighlighting(editor);
+            await ide.hasInlayHint(editor);
+        });
 
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        try {
-            await editor.setCursor(10, 10);
-            await editor.typeText("  x :=");
-            await expectCompletions(driver, editor, ["a", "b", "n", "x"]);
-        }
-        finally {
-            await ide.revertOpenChanges();
-        }
-    });
+        it("change runs analyzer", async function () {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            try {
+                await editor.setTextAtLine(10, "bzzz := 3;");
+                await ide.hasErrorSquiggly(editor, Delays.slow);
+            } finally {
+                await ide.revertOpenChanges();
+            }
+        });
 
-    it("serializes Rascal values as expected", async function() {
-        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
-        const actualJsonUri = "rascal-vscode-test:///test.json";
+        it("save runs builder", async function () {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            const line10 = await editor.getTextAtLine(10);
+            try {
+                await editor.setTextAtLine(10, "bzzz := 3;");
+                await editor.save();
+                await ide.hasWarningSquiggly(editor, Delays.slow);
+                await ide.hasErrorSquiggly(editor, Delays.slow);
+            } finally {
+                await editor.setTextAtLine(10, line10);
+                await editor.save();
+            }
+        });
 
-        // Open an editor with a link to the virtual file, so we can use the `Open Link` command
-        const linkEditor = await ide.newUntitledFile(bench, driver);
-        await linkEditor.setText(actualJsonUri);
-        await ide.hasLink(linkEditor);
+        it("go to definition works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.triggerTypeChecker(editor, {checkName: "Pico check"});
+            await editor.selectText("x", 2);
+            await bench.executeCommand("Go to Definition");
+            await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
+        });
 
-        // Open the virtual file with the serialized JSON
-        await bench.executeCommand("editor.action.openLink");
-        const resultEditor = await driver.wait(async () => {
-            const editor = new TextEditor();
-            return (await ignoreFails(editor.getTitle()) === path.basename(actualJsonUri)) ? editor : undefined;
-        }, Delays.normal, "Editor with JSON result should open");
+        it("code lens works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.clickCodeLens(editor, "Rename variables a to b.", Delays.verySlow, "Rename lens should be available");
+            await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
+        });
 
-        // Check JSON equivalence
-        const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
-        const actualJson = await resultEditor!.getText();
-        expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
-    });
+        it("quick fix works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await editor.setTextAtLine(9, "  az := 2;");
+            await editor.setCursor(9,3);                           // it's where the undeclared variable `az` is
+            await ide.hasErrorSquiggly(editor, Delays.verySlow);   // just make sure there is indeed something to fix
 
-    it("browses interactively", async function() {
-        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+            try {
+                await ide.triggerFirstCodeAction(editor, 'Change to a');
+                await ide.assertLineBecomes(editor, 9, "a := 2;", "a variable should be changed back to a", Delays.extremelySlow);
+            }
+            finally {
+                await ide.revertOpenChanges();
+            }
+        });
 
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor, "Browse Rascal site");
-        await driver.wait(async () => {
-            const view = new WebView();
-            return await ignoreFails(view.getTitle()) === "Rascal MPL";
-        }, Delays.normal, "Browser for rascal-mpl.org should open");
-    });
+        it("rename works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await editor.setCursor(5, 6);
 
-    it("opens editors", async function() {
-        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+            await ide.renameSymbol(editor, bench, "z");
 
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        const initialTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
-        await ide.clickCodeLens(editor, "Edit another file");
-        await driver.wait(async () => {
-            const currentTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
-            return currentTitle !== initialTitle;
-        }, Delays.normal, "Another editor should open");
-    });
+            await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
-    it("(un)registers diagnostics", async function() {
-        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+            const editorText = await editor.getText();
+            expect(editorText).to.contain("z : natural");
+            expect(editorText).to.contain("z := 2");
+        });
 
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor, "Register TODO");
-        await driver.wait(async () => {
-            const bottomBar = new Workbench().getBottomBar();
-            const problemsView = await bottomBar.openProblemsView();
-            const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
-            const labels = await Promise.all(markers.map(async m => await m.getLabel()));
-            return labels.includes("TODO");
-        }, Delays.slow, "TODO should be registered");
+        it("renaming files works", async function() {
+            const newDir = path.join(TestWorkspace.testProject, "src", "main", "pico", "rename-test");
+            await fs.rm(newDir, {recursive: true, force: true});
+            const fromFile = path.join(newDir, "testing.pico");
+            const toDir = path.join(newDir, "dest");
+            await fs.mkdir(toDir, {recursive: true});
 
-        await ide.clickCodeLens(editor, "Unregister TODO");
-        await driver.wait(async () => {
-            const bottomBar = new Workbench().getBottomBar();
-            const problemsView = await bottomBar.openProblemsView();
-            const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
-            const labels = await Promise.all(markers.map(async m => await m.getLabel()));
-            return !labels.includes("TODO");
-        }, Delays.slow, "TODO should be unregistered");
-    });
+            const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+            await bench.executeCommand("workbench.files.action.refreshFilesExplorer");
+            const workspace = await explorer.getContent().getSection("test (Workspace)");
+            await workspace.expand();
 
-    it("shows messages", async function() {
-        if (errorRecovery) { this.skip(); } // this does not depend on error recovery
+            await fs.copyFile(TestWorkspace.picoFile, fromFile);
 
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor, "Show warning");
-        await driver.wait(async () => {
-            const contents = await getOutput("Language Parametric Rascal Language Server");
-            return contents.split("\n")[-1]?.indexOf(": Test warning") !== -1;
-        }, Delays.normal, "Test warning dialog should show");
-    });
+            // Open the test file before moving it, so we have the editor ready to inspect afterwards
+            const testFile = await ide.openModule(fromFile);
 
-    it("logs messages", async function() {
-        if (errorRecovery) { this.skip(); }
+            await ide.moveFile("testing.pico", "dest", bench);
 
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor, "Show warning");
-        await driver.wait(async () => {
-            const contents = await getOutput("Language Parametric Rascal Language Server");
-            return contents.split("\n")[-1]?.indexOf(": LOG Test warning") !== -1;
-        }, Delays.normal, "Line should be logged");
-    });
+            await driver.wait(async() => {
+                const text = await ignoreFails(testFile.getText());
+                return text?.indexOf("%% File moved from") !== -1;
+            }, Delays.extremelySlow, "Pico file should contain evidence of move", Delays.normal);
 
-    it("shows interactive content", async function() {
-        if (errorRecovery) { this.skip(); }
+            await fs.rm(newDir, {recursive: true, force: true});
+        });
 
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor, "Show some text");
-        await driver.wait(async () => {
-            return "*static content*" === await (await bench.getEditorView().getActiveTab())?.getTitle();
-        }, Delays.normal, "Static content should be shown");
-    });
+        it("serializes Rascal values as expected", async function() {
+            const actualJsonUri = "rascal-vscode-test:///test.json";
 
-    it("updates open editors on registration", async function() {
-        if (errorRecovery) { this.skip(); }
+            // Open an editor with a link to the virtual file, so we can use the `Open Link` command
+            const linkEditor = await ide.newUntitledFile(bench, driver);
+            await linkEditor.setText(actualJsonUri);
+            await ide.hasLink(linkEditor);
 
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
-        await unloadPico(repl);
-        await repl.terminate();
+            // Open the virtual file with the serialized JSON
+            await bench.executeCommand("editor.action.openLink");
+            const resultEditor = await driver.wait(async () => {
+                const editor = new TextEditor();
+                return (await ignoreFails(editor.getTitle()) === path.basename(actualJsonUri)) ? editor : undefined;
+            }, Delays.normal, "Editor with JSON result should open");
 
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await setParametricLanguage(editor);
+            // Check JSON equivalence
+            const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
+            const actualJson = await resultEditor!.getText();
+            expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
+        });
 
-        await loadPico();
+        it("browses interactively", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.clickCodeLens(editor, "Browse Rascal site");
+            await driver.wait(async () => {
+                const view = new WebView();
+                return await ignoreFails(view.getTitle()) === "Rascal MPL";
+            }, Delays.normal, "Browser for rascal-mpl.org should open");
+        });
 
-        // Dynamically registered capability
-        await ide.hasSyntaxHighlighting(editor, Delays.slow);
-    });
+        it("opens editors", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            const initialTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
+            await ide.clickCodeLens(editor, "Edit another file");
+            await driver.wait(async () => {
+                const currentTitle = await (await bench.getEditorView().getActiveTab())?.getTitle();
+                return currentTitle !== initialTitle;
+            }, Delays.normal, "Another editor should open");
+        });
 
-    it("uses the standard library from LSP (TODO: the project POM)", async function () {
-        if (errorRecovery) { this.skip(); }
+        it("(un)registers diagnostics", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.clickCodeLens(editor, "Register TODO");
+            await driver.wait(async () => {
+                const bottomBar = new Workbench().getBottomBar();
+                const problemsView = await bottomBar.openProblemsView();
+                const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
+                const labels = await Promise.all(markers.map(async m => await m.getLabel()));
+                return labels.includes("TODO");
+            }, Delays.slow, "TODO should be registered");
 
-        // Find Rascal version in POM
-        // TODO When POM-leading is merged, we expect the Rascal version from the DSL POM here instead.
-        // https://github.com/usethesource/rascal-language-servers/pull/1090
-        // const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
-        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
+            await ide.clickCodeLens(editor, "Unregister TODO");
+            await driver.wait(async () => {
+                const bottomBar = new Workbench().getBottomBar();
+                const problemsView = await bottomBar.openProblemsView();
+                const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
+                const labels = await Promise.all(markers.map(async m => await m.getLabel()));
+                return !labels.includes("TODO");
+            }, Delays.slow, "TODO should be unregistered");
+        });
 
-        // Query Rascal version from stdlib
-        const editor = await ide.openModule(TestWorkspace.picoFile);
-        await ide.clickCodeLens(editor, "Show Rascal version");
-        const versionLine = await driver.wait(async () => {
-            const output = await bench.getBottomBar().openOutputView();
-            await output.selectChannel("Language Parametric Rascal Language Server");
-            const contents = await output.getText();
-            const lines = contents.split("\n");
-            return lines.find(l => l.indexOf("[INFO] Rascal standard library") !== -1);
-        }, Delays.normal, "Version should be logged");
+        it("shows messages", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.clickCodeLens(editor, "Show warning");
+            await driver.wait(async () => {
+                const contents = await getOutput("Language Parametric Rascal Language Server");
+                return contents.split("\n")[-1]?.indexOf(": Test warning") !== -1;
+            }, Delays.normal, "Test warning dialog should show");
+        });
 
-        const loggedVersion = versionLine?.split("version: ")[1]?.trim();
-        expect(loggedVersion).to.equal(pomRascalVersion);
-    });
+        it("logs messages", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.clickCodeLens(editor, "Show warning");
+            await driver.wait(async () => {
+                const contents = await getOutput("Language Parametric Rascal Language Server");
+                return contents.split("\n")[-1]?.indexOf(": LOG Test warning") !== -1;
+            }, Delays.normal, "Line should be logged");
+        });
+
+        it("shows interactive content", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.clickCodeLens(editor, "Show some text");
+            await driver.wait(async () => {
+                return "*static content*" === await (await bench.getEditorView().getActiveTab())?.getTitle();
+            }, Delays.normal, "Static content should be shown");
+        });
+
+        it("updates open editors on registration", async function() {
+            const repl = new RascalREPL(bench, driver);
+            await repl.start();
+            await unloadPico(repl);
+            await repl.terminate();
+
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await setParametricLanguage(editor);
+
+            await loadPico();
+
+            // Dynamically registered capability
+            await ide.hasSyntaxHighlighting(editor, Delays.slow);
+        });
+
+        it("uses the standard library from LSP (TODO: the project POM)", async function () {
+            // Find Rascal version in POM
+            // TODO When POM-leading is merged, we expect the Rascal version from the DSL POM here instead.
+            // https://github.com/usethesource/rascal-language-servers/pull/1090
+            // const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
+            const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
+
+            // Query Rascal version from stdlib
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.clickCodeLens(editor, "Show Rascal version");
+            const versionLine = await driver.wait(async () => {
+                const contents = await getOutput("Language Parametric Rascal Language Server");
+                const lines = contents.split("\n");
+                return lines.find(l => l.indexOf("[INFO] Rascal standard library") !== -1);
+            }, Delays.normal, "Version should be logged");
+
+            const loggedVersion = versionLine?.split("version: ")[1]?.trim();
+            expect(loggedVersion).to.equal(pomRascalVersion);
+        });
+    }
 });

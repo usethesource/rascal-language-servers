@@ -74,7 +74,7 @@ public class FileFacts implements DiagnosticsReporter {
         this.rascal = rascal;
         this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
+        this.confs = new PathConfigs(rascal, exec, new PathConfigDiagnostics(client, cm));
         this.nopFact = new FileFact() {
             @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs) { /* NOP */}
