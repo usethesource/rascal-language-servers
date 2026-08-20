@@ -413,23 +413,7 @@ public abstract class BaseLanguageServer {
             logger.trace("resolve: {}", req.getLocation());
             return CompletableFuture.supplyAsync(() -> {
                 var loc = toRascalLocation(req.getLocation());
-                ISourceLocation resolved = null;
-                if (!loc.getScheme().equals("std")) {
-                    // TODO: this works around the fact that `std` is a bit of a broken scheme in
-                    // VS Code, as REPL 1 might have a different std than REPL 2, and again different from the
-                    // rascal-lsp server
-                    // In a follow-up PR we should reconsider how we deal with std, but if we rewrite it here
-                    // debugging is broken.
-                    try {
-                        resolved = URIResolverRegistry.getInstance().logicalToPhysical(loc);
-                    } catch (IOException ignored) {
-                        logger.trace("Resolving {} failed, but we ignored it", loc, ignored);
-                    }
-                }
-                if (resolved == null) {
-                    resolved = loc;
-                }
-                return new SourceLocationResponse(resolved);
+                return new SourceLocationResponse(Locations.toPhysicalIfPossible(loc));
             }, executor);
         }
     }
