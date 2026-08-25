@@ -1,12 +1,15 @@
-module util::PomAnalyzer
+module lang::xml::PomAnalyzer
 
 import lang::xml::DOM;
 import lang::xml::IO;
+import analysis::diff::edits::ExecuteTextEdits;
 import analysis::diff::edits::TextEdits;
 
 import IO;
 import List;
 import Node;
+import String;
+import util::IDEServices;
 import util::Maybe;
 
 bool(node) hasProperty(str tagName, str tagValue) {
@@ -22,6 +25,13 @@ Maybe[&T](node) getProperty(type[&T] _, str tagName) {
         }
         return nothing();
     };
+}
+
+node getChildNode(node n, str name) {
+    if (node child <- getChildren(n), name := getName(child)) {
+        return child;
+    }
+    throw "No child with name \'<name>\' in \'<getName(n)>\': <[getName(c) | node c <- getChildren(n)]>";
 }
 
 bool(node) hasRascalMplGroup = hasProperty("groupid", "org.rascalmpl");
@@ -73,12 +83,17 @@ node dependencyTemplate(str artifactId, str version, str groupId="org.rascalmpl"
 node dependenciesTemplate(node dependencies...)
     = makeNode("dependencies", *dependencies);
 
+str prettyXML(node xml) {
+    prettied = xmlPretty(toXML(xml));
+    // `xmlPretty` assumes the node is a document and thus adds an `<?xml ...?>` tag at the start
+    return intercalate("\n", split("\n", prettied)[1..]);
+}
+
 void main(loc pomLoc = |project://rascal-vscode-extension/test-workspace/test-project/pom.xml|) {
     if (node pom := readXML(pomLoc, trackOrigins = true)) {
         // list[TextEdit] edits = [];
-        if ("#document" := getName(pom), node project <- getChildren(pom), "project" := getName(project)) {
-            projectChildren = getChildren(project);
-            if (node dependenciesBlock <- projectChildren, "dependencies" := getName(dependenciesBlock)) {
+        if (project := getChildNode(pom, "project")) {
+            if (dependenciesBlock := getChildNode(project, "dependencies")) {
                 dependencies = getChildren(dependenciesBlock);
                 if (just(rascal) := getRascalDependency(dependencies)) {
                     println("Found Rascal dependency: <getVersion(rascal)>");
@@ -89,14 +104,16 @@ void main(loc pomLoc = |project://rascal-vscode-extension/test-workspace/test-pr
                     println("No Rascal dependency found!");
                     rascalLsp = getRascalLspDependency(dependencies);
                     rascalVersion = inferRascalVersion(rascalLsp=getVersion(rascalLsp));
-                    rascalEdit = insertAfter(dependenciesBlock.src, xmlPretty(toXML(dependencyTemplate("rascal", rascalVersion))));
+                    insertionPoint = getFirstFrom(getChildren(dependenciesBlock));
+                    rascalEdit = insertAfter(dependenciesBlock.src, prettyXML(dependencyTemplate("rascal", rascalVersion)));
                     iprintln(rascalEdit);
+                    applyFileSystemEdits([changed([rascalEdit])]);
                 }
             } else {
                 println("No dependencies block found");
-                versionBlock = getFirstFrom([c | node c <- projectChildren, "version" := getName(c)]);
-                rascalEdit = insertAfter(versionBlock.src, xmlPretty(toXML(dependenciesTemplate(dependencyTemplate("rascal", inferRascalVersion())))));
+                rascalEdit = insertAfter(getChildNode(project, "version").src, xmlPretty(toXML(dependenciesTemplate(dependencyTemplate("rascal", inferRascalVersion())))));
                 iprintln(rascalEdit);
+                applyFileSystemEdits([changed([rascalEdit])]);
             }
         } else {
             println("Unrecoverably broken POM!");
