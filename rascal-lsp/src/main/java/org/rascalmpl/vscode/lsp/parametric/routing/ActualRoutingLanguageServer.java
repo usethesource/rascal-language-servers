@@ -47,6 +47,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,7 +73,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
@@ -85,13 +86,12 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.ideservices.GsonUtils;
+import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
 import org.rascalmpl.util.NamedThreadPool;
-import org.rascalmpl.util.maven.Artifact;
-import org.rascalmpl.util.maven.MavenParser;
-import org.rascalmpl.util.maven.ModelResolutionError;
-import org.rascalmpl.util.maven.Scope;
 import org.rascalmpl.vscode.lsp.BaseLanguageServer;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageServerExtensions;
@@ -101,9 +101,7 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.RegistrationParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
-import org.rascalmpl.vscode.lsp.util.Lists;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -200,50 +198,36 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return URIUtil.getExtension(doc);
     }
 
-    private static boolean isRascalLsp(Artifact art) {
-        return "org.rascalmpl".equals(art.getCoordinate().getGroupId()) && "rascal-lsp".equals(art.getCoordinate().getArtifactId());
+    private static boolean isRascalLsp(ISourceLocation root) {
+        return new RascalManifest().getProjectName(root).equals("rascal-lsp");
     }
 
-    private static Pair<ComparableVersion, List<Path>> rascalLspDependencies(PathConfig pcfg, List<Artifact> mavenDependencies) {
+    private static Pair<ComparableVersion, List<ISourceLocation>> rascalLspDependencies(PathConfig pcfg) {
         // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
         // Instead, we use its compiled classes and the JARs of all its dependencies.
-        var target = Path.of(Locations.toUri(Locations.toPhysicalIfPossible(pcfg.getBin())));
-        var depPaths = mavenDependencies.stream()
-            .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
-            .filter(Objects::nonNull)
-            .collect(Collectors.<@NonNull Path>toList());
-
-        var lspVersion = getPomVersion();
         return Pair.of(
-            lspVersion == null ? MINIMAL_COMPATIBLE_VERSION : new ComparableVersion(lspVersion),
-            Lists.union(List.of(target), depPaths)
+            Optional.ofNullable(getPomVersion()).map(ComparableVersion::new).orElse(MINIMAL_COMPATIBLE_VERSION),
+            pcfg.getLibsAndTarget().stream().map(ISourceLocation.class::cast).collect(Collectors.toList())
         );
     }
 
-    private static Pair<ComparableVersion, List<Path>> resolveDependencies(LanguageParameter lang) throws IOException, ModelResolutionError {
+    private static Pair<ComparableVersion, List<ISourceLocation>> resolveDependencies(LanguageParameter lang) throws IOException {
         var pcfg = PathConfig.parse(lang.getPathConfig());
-        var pom = Locations.toPhysicalIfPossible(URIUtil.getChildLocation(pcfg.getProjectRoot(), "pom.xml"));
-        var maven = new MavenParser(Path.of(pom.getURI()));
 
-        var project = maven.parseProject();
-        var deps = project.resolveDependencies(Scope.COMPILE, maven);
-
-        // As always, the Rascal LSP project itself is a special case
-        if (isRascalLsp(project)) {
-            return rascalLspDependencies(pcfg, deps);
+        if (isRascalLsp(pcfg.getProjectRoot())) {
+            return rascalLspDependencies(pcfg);
         }
 
-        var lsp = deps.stream()
+        var classPath = pcfg.getLibs().stream().map(ISourceLocation.class::cast).collect(Collectors.toList());
+        var lsp = classPath.stream()
             .filter(ActualRoutingLanguageServer::isRascalLsp)
-            .findFirst()
-            .orElseThrow(() -> new IOException(String.format("No Rascal LSP dependency found for '%s'", lang.getName())));
+            .findFirst();
 
-        var classPath = deps.stream()
-                .map((Function<Artifact, @Nullable Path>) Artifact::getResolved)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        if (lsp.isPresent()) {
+            return Pair.of(new ComparableVersion(getJarVersion(lsp.get())), classPath);
+        }
 
-        return Pair.of(new ComparableVersion(lsp.getCoordinate().getVersion()), classPath);
+        throw new IOException("No rascal-lsp dependency. Could not start language server");
     }
 
     private static void prependThreadName(String langName, JsonElement json) {
@@ -291,6 +275,18 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         }
     }
 
+    private static ISourceLocation tryResolveMavenJar(MavenRepositoryURIResolver mvn, ISourceLocation loc) {
+        if (!loc.getScheme().equals("mvn")) {
+            return loc;
+        }
+
+        try {
+            return mvn.resolveJar(loc);
+        } catch (IOException e) {
+            return loc;
+        }
+    }
+
     /**
      * Starts a language server (dedicated to a single language) in a child process.
      * Returns an pair of streams of bi-directional communication, and a runnable to clean up after the server terminates.
@@ -306,7 +302,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 throw new IOException(String.format("'%s' depends on Rascal LSP version %s, which is not compatible with this version of the Rascal extension. Please update your language project to Rascal LSP %s (or newer).", lang.getName(), lspVersion, MINIMAL_COMPATIBLE_VERSION));
             }
 
-            var classPath = String.join(File.pathSeparator, dependencies.getRight().stream().map(Path::toString).collect(Collectors.toList()));
+            var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
+            var classPath = String.join(File.pathSeparator, dependencies.getRight().stream()
+                .map(l -> tryResolveMavenJar(mvn, l))
+                .map(ISourceLocation::getURI)
+                .map(Path::of)
+                .map(Path::toString)
+                .collect(Collectors.toList()));
+
             logger.debug("{} runs with class path {}", lang.getName(), classPath);
 
             var serverArgs = new ArrayList<>(Arrays.asList(ProcessHandle.current().info().command().orElse("java")
@@ -329,7 +332,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
             logger.debug("Launched language server on process {}", proc.pid());
             return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
-        } catch (IOException | ModelResolutionError e) {
+        } catch (IOException | URISyntaxException e) {
             logger.error("Starting language server process for {} failed", lang.getName(), e);
             return null;
         }

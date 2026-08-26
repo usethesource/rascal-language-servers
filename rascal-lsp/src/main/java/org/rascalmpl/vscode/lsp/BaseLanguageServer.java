@@ -45,6 +45,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
+import java.util.jar.Manifest;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -66,7 +67,9 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.UnsupportedSchemeException;
+import org.rascalmpl.uri.jar.JarURIResolver;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
@@ -299,6 +302,13 @@ public abstract class BaseLanguageServer {
             }
 
             return pack.getSpecificationVersion();
+        }
+
+        protected static @Nullable String getJarVersion(ISourceLocation jarFile) throws IOException {
+            jarFile = JarURIResolver.jarify(jarFile);
+            var manifestLoc = URIUtil.getChildLocation(jarFile, "MANIFEST.MF");
+            var manifest = new Manifest(URIResolverRegistry.getInstance().getInputStream(manifestLoc));
+            return manifest.getMainAttributes().getValue("Specification-Version");
         }
 
         @Override
