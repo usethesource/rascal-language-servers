@@ -43,13 +43,11 @@
       },
       {
         "command": "rascalmpl.runMain",
-        "title": "Create New Rascal Terminal, Import Module, and Run Main Function",
-        "enablement": "editorLangId == rascalmpl"
+        "title": "Create New Rascal Terminal, Import Module, and Run Main Function"
       },
       {
         "command": "rascalmpl.importModule",
-        "title": "Create New Rascal Terminal and Import Module",
-        "enablement": "editorLangId == rascalmpl"
+        "title": "Create New Rascal Terminal and Import Module"
       },
       {
         "command": "rascalmpl.startDebuggerForRepl",

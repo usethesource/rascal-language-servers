@@ -163,6 +163,10 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({message: "Starting rascal-lsp"});
                 const rascal = await this.rascal.rascalClient;
                 this.log.debug(`Starting Rascal REPL: on ${uri} and with command: ${command}`);
+                if (uri && !uri.path.endsWith(".rsc")) {
+                    // do not try to figure out a rascal project path when the focus is not a rascal file
+                    uri = undefined;
+                }
 
                 progress.report({increment: 5, message: "Checking basic project setup"});
                 if (uri) {
