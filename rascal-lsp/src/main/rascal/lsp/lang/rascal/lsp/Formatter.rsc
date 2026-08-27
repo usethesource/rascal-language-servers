@@ -40,15 +40,5 @@ list[TextEdit] rascalFormattingService([start[Module] top], FormattingOptions op
     = treeEdits(#start[Module], toBox, opts = opts)(top);
 
 @synopsis{Range formatter for Rascal}
-default list[TextEdit] rascalFormattingService([Tree selected, *_], FormattingOptions opts) {
-    println("opts: <opts>");
-    println("input: <selected>");
-    x = subTreeEdits(#start[Module], toBox, opts = opts)(selected);
-    println("output: <x>");
-    return x;
-}
-
-
-private bool isSort(sort(_)) = true;
-private bool isSort(label(str _, sort(_))) = true;
-private default bool isSort(Symbol _) = false;
+default list[TextEdit] rascalFormattingService([Tree selected, *_], FormattingOptions opts)
+    = subTreeEdits(#start[Module], toBox, opts = opts)(selected);
