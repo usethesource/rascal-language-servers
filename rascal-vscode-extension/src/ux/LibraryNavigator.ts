@@ -69,7 +69,8 @@ abstract class RascalLibNode extends vscode.TreeItem {
 
 enum PathConfigMode {
     interpreter = 0,
-    compiler = 1
+    compiler = 1,
+    interpreterExternal = 2
 }
 class RascalProjectRoot extends RascalLibNode {
     constructor(readonly name: string, readonly loc: vscode.Uri, readonly rascalClient: Promise<BaseLanguageClient>, override readonly log: vscode.LogOutputChannel) {
