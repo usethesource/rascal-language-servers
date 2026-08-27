@@ -65,7 +65,7 @@ describe('REPL', function () {
 
     it("uses the standard library from the extension", async () => {
         // Find Rascal version in POM
-        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom, false);
 
         // Query Rascal version from stdlib
         const repl = new RascalREPL(bench, driver);

@@ -153,7 +153,7 @@ describe('IDE', function () {
         await ide.openModule(TestWorkspace.libCallFile);
 
         // Find Rascal version in POM
-        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom, false);
 
         // Query Rascal version from stdlib
         const repl = new RascalREPL(bench, driver);
