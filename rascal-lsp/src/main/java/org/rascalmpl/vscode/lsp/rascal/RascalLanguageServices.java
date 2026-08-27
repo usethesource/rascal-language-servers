@@ -72,6 +72,7 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
+import org.rascalmpl.vscode.lsp.util.FormattingOptionsTool;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
@@ -378,17 +379,10 @@ public class RascalLanguageServices {
     }
 
     public CompletableFuture<IList> format(IList focus, FormattingOptions options) {
-        // list[TextEdit] picoFormattingService(Focus focus, FormattingOptions opts)
-        // TODO: make these final constants, or reuse code from the parametric formatter PR.
-        // no need to code this twice.
-        Type FO = tf.abstractDataType(store, "FormattingOptions");
-        Type cons = tf.constructor(store, FO, "formattingOptions");
-        // TODO: map actual options to keyword fields (already done on the parametric formatter PR)
-        IConstructor opts = VF.constructor(cons);
         return runEvaluator(
             "Formatting",
             semanticEvaluator,
-            eval -> (IList) eval.call("rascalFormattingService", focus, opts),
+            eval -> (IList) eval.call("rascalFormattingService", focus, FormattingOptionsTool.translate(options)),
             VF.list(),
             exec,
             false,
