@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
@@ -128,7 +127,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     public CompletableFuture<Void> registerDiagnostics(RegisterDiagnosticsRequest req) {
         logger.trace("registerDiagnostics({})", req);
         return CompletableFuture.runAsync(() -> {
-            Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(req.getMessages(), docService.getColumnMaps());
+            Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(req.getMessages(), docService.extensions(), docService.getColumnMaps());
 
             for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
                 languageClient.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(entry.getKey()).toString(), entry.getValue()));

@@ -24,16 +24,50 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.parametric.capabilities;
+package org.rascalmpl.vscode.lsp.rascal.conversion;
 
-import java.util.Set;
-import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
+
+import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 
 /**
- * Provider of parameters required to compute which instances of {@link AbstractDynamicCapability} are supported and what options they should be registered with.
+ * Translates Rascal data-type representation of messages to the LSP representation.
  */
-public interface ICapabilityParams {
-    ILanguageContributions contributions();
-    Set<String> fileExtensions();
-    Set<String> extensionLessSchemes();
+public class Message {
+
+    private Message() { /* hide implicit constructor */ }
+
+    public static MessageParams toMessageParams(IConstructor message) {
+        var params = new MessageParams();
+        switch (message.getName()) {
+            case "error": {
+                params.setType(MessageType.Error);
+                break;
+            }
+            case "warning": {
+                params.setType(MessageType.Warning);
+                break;
+            }
+            case "info": {
+                params.setType(MessageType.Info);
+                break;
+            }
+            default: params.setType(MessageType.Log);
+        }
+
+        var msgText = ((IString) message.get("msg")).getValue();
+        if (message.has("at")) {
+            var at = Locations.toUri((ISourceLocation) message.get("at"));
+            params.setMessage(String.format("%s (at %s)", msgText, at));
+        } else {
+            params.setMessage(msgText);
+        }
+
+        return params;
+    }
+
 }

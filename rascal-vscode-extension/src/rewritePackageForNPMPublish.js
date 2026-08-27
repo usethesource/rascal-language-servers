@@ -46,7 +46,7 @@ packageContents["homepage"] = "https://github.com/usethesource/rascal-language-s
 
 // make new scripts block with just the things we need to publish to npm
 packageContents.scripts = {
-  "compile" : packageContents.scripts["compile-lib"],
+  "compile" : packageContents.scripts["compile:lib"],
   "prepare": "npm run compile",
 };
 

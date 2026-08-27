@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.rascal;
 
+import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -123,10 +125,10 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
-import org.rascalmpl.vscode.lsp.rascal.model.SummaryBridge;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -138,7 +140,6 @@ import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
-import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 
@@ -196,7 +197,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         result.setHoverProvider(true);
         result.setDocumentFormattingProvider(true);
         result.setDocumentRangeFormattingProvider(true);
-        result.setSemanticTokensProvider(tokenizer.options());
+        result.setSemanticTokensProvider(SemanticTokenizer.options());
         result.setCodeLensProvider(new CodeLensOptions(false));
         result.setFoldingRangeProvider(true);
         result.setRenameProvider(new RenameOptions(true));
@@ -224,6 +225,11 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         // e.g. dynamic registration of capabilities
     }
 
+    @Override
+    public Collection<String> extensions() {
+        return Set.of("rsc");
+    }
+
     // LSP interface methods
 
     @Override
@@ -232,23 +238,32 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("Open: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
+        triggerAnalyzer(file, NORMAL_DEBOUNCE);
     }
+
+
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.trace("Change: {}", params.getTextDocument());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
+        var changed = updateContents(params, timestamp);
+        triggerAnalyzer(changed, NORMAL_DEBOUNCE);
     }
+
+    private void triggerAnalyzer(TextDocumentState state, Duration delay) {
+        if (availableRascalServices().isOpenInWorkspace(state.getLocation())) {
+            availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
+        }
+    }
+
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
         logger.debug("Close: {}", params.getTextDocument());
         var loc = Locations.toLoc(params.getTextDocument());
         closeFile(loc);
-        if (facts != null) {
-            facts.close(loc);
-        }
+        availableFacts().close(loc);
         // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
         // we mimic a delete event to ensure all diagnostics are cleared.
         if (!URIResolverRegistry.getInstance().exists(loc)) {
@@ -271,9 +286,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("Save: {}", params.getTextDocument());
         // on save we don't get new file contents, that comes in via change
         // but we do trigger the type checker on save
-        if (facts != null) {
-            facts.invalidate(Locations.toLoc(params.getTextDocument()));
-        }
+        availableFacts().invalidate(Locations.toLoc(params.getTextDocument()));
     }
 
     @Override
@@ -285,15 +298,10 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(DefinitionParams params) {
         logger.debug("textDocument/definition: {} at {}", params.getTextDocument(), params.getPosition());
 
-        if (facts != null) {
-            return recoverExceptions(facts.getSummary(Locations.toLoc(params.getTextDocument()))
-                .thenApply(s -> s == null ? Collections.<Location>emptyList() : s.getDefinition(params.getPosition()))
-                .thenApply(Either::forLeft)
-            , () -> Either.forLeft(Collections.emptyList()));
-        }
-        else {
-            return CompletableFutureUtils.completedFuture(Either.forLeft(Collections.emptyList()), exec);
-        }
+        return recoverExceptions(availableFacts().getSummary(Locations.toLoc(params.getTextDocument()))
+            .thenApply(s -> s.getDefinition(params.getPosition()))
+            .thenApply(Either::forLeft)
+        , () -> Either.forLeft(Collections.emptyList()));
     }
 
     @Override
@@ -419,51 +427,17 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private void showMessages(ISet messages) {
         exec.submit(() -> {
             for (var msg : messages) {
-                availableClient().showMessage(setMessageParams((IConstructor) msg));
+                availableClient().showMessage(Message.toMessageParams((IConstructor) msg));
             }
         });
-    }
-
-    private MessageParams setMessageParams(IConstructor message) {
-        var params = new MessageParams();
-        switch (message.getName()) {
-            case "error": {
-                params.setType(MessageType.Error);
-                break;
-            }
-            case "warning": {
-                params.setType(MessageType.Warning);
-                break;
-            }
-            case "info": {
-                params.setType(MessageType.Info);
-                break;
-            }
-            default: params.setType(MessageType.Log);
-        }
-
-        var msgText = ((IString) message.get("msg")).getValue();
-        if (message.has("at")) {
-            var at = Locations.toUri((ISourceLocation) message.get("at"));
-            params.setMessage(String.format("%s (at %s)", msgText, at));
-        } else {
-            params.setMessage(msgText);
-        }
-        return params;
     }
 
     @Override
     public CompletableFuture<@Nullable Hover> hover(HoverParams params) {
         logger.debug("textDocument/hover: {} at {}", params.getTextDocument(), params.getPosition());
-        if (facts != null) {
-            return recoverExceptions(facts.getSummary(Locations.toLoc(params.getTextDocument()))
-                .handle((t, r) -> (t == null ? (new SummaryBridge()) : t))
-                .thenApply(s -> s.getTypeName(params.getPosition()))
-                .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), () -> null);
-        }
-        else {
-            return CompletableFutureUtils.completedFuture(null, exec);
-        }
+        return recoverExceptions(availableFacts().getSummary(Locations.toLoc(params.getTextDocument()))
+            .thenApply(s -> s.getTypeName(params.getPosition()))
+            .thenApply(n -> new Hover(new MarkupContent("plaintext", n))), () -> null);
     }
 
     @Override
@@ -520,10 +494,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     private String failureReason(ApplyWorkspaceEditResponse res) {
         return res.getFailureReason() != null ? (": " + res.getFailureReason()) : "";
-    }
-
-    private static <T> T last(List<T> l) {
-        return l.get(l.size() - 1);
     }
 
     private TextDocumentState open(TextDocumentItem doc, long timestamp) {
@@ -611,9 +581,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     /*package*/ void projectRemoved(ISourceLocation projectRoot) {
-        if (facts != null) {
-            facts.projectRemoved(projectRoot);
-        }
+        availableFacts().projectRemoved(projectRoot);
     }
 
     @Override

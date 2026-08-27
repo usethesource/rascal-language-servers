@@ -169,7 +169,7 @@ async function startAutoInstall(): Promise<string> {
 
 async function openSettings(): Promise<string> {
     await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:rascalmpl');
-    throw Error("User setup required for jdk " + currentJVMEngineMin);
+    throw new Error("User setup required for jdk " + currentJVMEngineMin);
 }
 
 async function downloadJDK(): Promise<string> {

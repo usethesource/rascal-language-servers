@@ -451,3 +451,20 @@ public class SemanticTokensCapabilities extends DynamicRegistrationCapabilities 
   public @Nullable Boolean getServerCancelSupport() {}
   public @Nullable Boolean getAugmentsSyntaxTokens() {}
 }
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class DocumentFilter {
+  public DocumentFilter(@Nullable String language, @Nullable String scheme, @Nullable Either<String, RelativePattern> pattern) {}
+}
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class Registration {
+  public Registration(String id, String method) {}
+  public Registration(String id, String method, @Nullable Object registerOptions) {}
+}

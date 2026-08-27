@@ -65,12 +65,14 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.ideservices.GsonUtils;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.UnsupportedSchemeException;
+import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
+import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
-import org.rascalmpl.vscode.lsp.uri.jsonrpc.RascalFileSystemInVSCode;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -226,7 +228,7 @@ public abstract class BaseLanguageServer {
             }
         }
     }
-    private static class ActualLanguageServer extends RascalFileSystemInVSCode implements IBaseLanguageServerExtensions, LanguageClientAware {
+    private static class ActualLanguageServer implements IBaseLanguageServerExtensions, LanguageClientAware {
         static final Logger logger = LogManager.getLogger(ActualLanguageServer.class);
         private final IBaseTextDocumentService lspDocumentService;
         private final BaseWorkspaceService lspWorkspaceService;
@@ -276,34 +278,32 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
-            return CompletableFuture.runAsync(() -> lspDocumentService.registerLanguage(lang), executor);
+            lspDocumentService.registerLanguage(lang);
+            return CompletableFutureUtils.completedFuture(null, executor);
         }
         @Override
         public CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
-            return CompletableFuture.runAsync(() -> lspDocumentService.unregisterLanguage(lang), executor);
+            lspDocumentService.unregisterLanguage(lang);
+            return CompletableFutureUtils.completedFuture(null, executor);
         }
 
         @Override
         public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
-            return CompletableFuture.supplyAsync(() -> {
-                logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
-                logger.debug("LSP client capabilities: {}", params.getCapabilities());
-                final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
-                lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
-                lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
-                logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
-                return initializeResult;
-            }, executor);
+            logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
+            logger.debug("LSP client capabilities: {}", params.getCapabilities());
+            final InitializeResult initializeResult = new InitializeResult(new ServerCapabilities());
+            lspDocumentService.initializeServerCapabilities(params.getCapabilities(), initializeResult.getCapabilities());
+            lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), initializeResult.getCapabilities());
+            logger.debug("Initialized LSP connection with capabilities: {}", initializeResult);
+            return CompletableFutureUtils.completedFuture(initializeResult, executor);
         }
 
         @Override
         @SuppressWarnings("unused") // InitializedParams is an empty interface
         public void initialized(InitializedParams params) {
-            executor.submit(() -> {
-                logger.debug("LSP connection initialized");
-                lspWorkspaceService.initialized();
-                lspDocumentService.initialized();
-            });
+            logger.debug("LSP connection initialized");
+            lspWorkspaceService.initialized();
+            lspDocumentService.initialized();
         }
 
         @Override
@@ -337,7 +337,6 @@ public abstract class BaseLanguageServer {
             var proxy = addShutdownDetectionTo(client);
             lspDocumentService.connect(proxy);
             lspWorkspaceService.connect(proxy);
-            connectRemoteRegistryClient(proxy);
             remoteIDEServicesConfiguration = RemoteIDEServicesThread.startRemoteIDEServicesServer(proxy, lspDocumentService, executor);
             logger.debug("Remote IDE Services Port {}", remoteIDEServicesConfiguration);
         }
@@ -380,11 +379,44 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<String[]> fileSystemSchemes() {
-            var reg = URIResolverRegistry.getInstance();
-            var inputs = reg.getRegisteredInputSchemes();
-            var logicals = reg.getRegisteredLogicalSchemes();
+            return CompletableFuture.supplyAsync(() -> {
+                var reg = URIResolverRegistry.getInstance();
+                var inputs = reg.getRegisteredInputSchemes();
+                var logicals = reg.getRegisteredLogicalSchemes();
+                return Sets.union(inputs, logicals).toArray(String[]::new);
+            }, executor);
+        }
 
-            return CompletableFutureUtils.completedFuture(Sets.union(inputs, logicals).toArray(String[]::new), executor);
+        private static ISourceLocation toRascalLocation(ISourceLocation loc) {
+            if (Locations.isWrappedOpaque(loc)) {
+                throw RemoteIOError.translate(new UnsupportedSchemeException("Opaque locations are not supported by Rascal: " + loc.getScheme()));
+            }
+            return Locations.toClientLocation(loc);
+        }
+
+        @Override
+        public CompletableFuture<SourceLocationResponse> resolve(ISourceLocationRequest req) {
+            logger.trace("resolve: {}", req.getLocation());
+            return CompletableFuture.supplyAsync(() -> {
+                var loc = toRascalLocation(req.getLocation());
+                ISourceLocation resolved = null;
+                if (!loc.getScheme().equals("std")) {
+                    // TODO: this works around the fact that `std` is a bit of a broken scheme in
+                    // VS Code, as REPL 1 might have a different std than REPL 2, and again different from the
+                    // rascal-lsp server
+                    // In a follow-up PR we should reconsider how we deal with std, but if we rewrite it here
+                    // debugging is broken.
+                    try {
+                        resolved = URIResolverRegistry.getInstance().logicalToPhysical(loc);
+                    } catch (IOException ignored) {
+                        logger.trace("Resolving {} failed, but we ignored it", loc, ignored);
+                    }
+                }
+                if (resolved == null) {
+                    resolved = loc;
+                }
+                return new SourceLocationResponse(resolved);
+            }, executor);
         }
     }
 }

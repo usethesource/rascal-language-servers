@@ -34,6 +34,8 @@ import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.eclipse.lsp4j.services.LanguageServer;
+import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
+import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 
@@ -62,6 +64,10 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
     @JsonNotification
     void setMinimumLogLevel(String level);
 
+
     @JsonRequest("vfs/schemes")
     CompletableFuture<String[]> fileSystemSchemes();
+
+    @JsonRequest("vfs/logical/resolve")
+    CompletableFuture<SourceLocationResponse> resolve(ISourceLocationRequest req);
 }

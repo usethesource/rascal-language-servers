@@ -26,11 +26,13 @@
  */
 
 import { assert, expect } from "chai";
-import { stat, unlink } from "fs/promises";
+import { createHash } from "crypto";
+import { existsSync } from "fs";
+import { readdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import * as os from 'os';
+import path from "path/posix";
 import { env } from "process";
-import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
-import path = require("path");
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, NotificationType, TerminalView, TextEditor, until, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -64,7 +66,9 @@ export class TestWorkspace {
     public static readonly manifest = path.join(this.testProject, "META-INF", "RASCAL.MF");
 
     public static readonly importerFile = path.join(src(this.testProject), 'Importer.rsc');
+    public static readonly importerTpl = path.join(target(this.testProject),'$Importer.tpl');
     public static readonly importeeFile = path.join(src(this.testProject), 'Importee.rsc');
+    public static readonly importeeTpl = path.join(target(this.testProject),'$Importee.tpl');
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
     public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
@@ -93,7 +97,7 @@ export class RascalREPL {
     private terminal: TerminalView;
 
 
-    constructor(private bench : Workbench, private driver: WebDriver) {
+    constructor(private readonly bench : Workbench, private driver: WebDriver) {
         this.terminal = new TerminalView();
     }
 
@@ -213,7 +217,7 @@ export class IDEOperations {
         this.driver = browser.driver;
     }
 
-    async load() {
+    async load(logLevel: LogLevel = "Debug") {
         await ignoreFails(this.browser.waitForWorkbench(Delays.slow));
         for (let t = 0; t < 5; t++) {
             try {
@@ -231,7 +235,7 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
-        await assureDebugLevelLoggingIsEnabled();
+        await setLogLevel(logLevel);
     }
 
     async cleanup() {
@@ -242,15 +246,26 @@ export class IDEOperations {
         await ignoreFails(center?.close());
 
         // There should be no more error diagnostics
+        await this.checkNoDiagnosticsAnymore();
+    }
+
+    async checkNoDiagnosticsAnymore() {
         const bottomBar = new Workbench().getBottomBar();
         const problemsView = await bottomBar.openProblemsView();
-        const allVisibleMarkers = await problemsView.getAllVisibleMarkers(MarkerType.Error);
-        expect(allVisibleMarkers.length, "Not all error diagnostics have been cleared").to.equal(0);
+        let allVisibleMarkers: string[] = [];
+        for (let i = 0; i < 5; i++) {
+            allVisibleMarkers = await Promise.all((await problemsView.getAllVisibleMarkers(MarkerType.Error)).map(m => m.getText()));
+            if (allVisibleMarkers.length === 0) {
+                break;
+            }
+            await sleep(Delays.fast); // give it some time for the diagnostic to clear
+        }
+        expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
         return this.driver.wait(async () => {
-            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
+            const currentContent = (await ignoreFails(editor.getTextAtLine(lineNumber)))?.trim();
             return currentContent === lineContents;
         }, wait, msg, 100);
     }
@@ -318,13 +333,18 @@ export class IDEOperations {
 
     async openModule(file: string): Promise<TextEditor> {
         await this.browser.openResources(file);
+        return this.findOpenEditor(file);
+    }
+
+    async findOpenEditor(file: string, timeout = Delays.normal, message = `Could not open file: ${file}`) : Promise<TextEditor> {
         return this.driver.wait(async () => {
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }
             return undefined;
-        }, Delays.normal, "Could not open file") as Promise<TextEditor>;
+        }, timeout, message) as Promise<TextEditor>;
+
     }
 
     async appendSpace(editor: TextEditor, line = 1) {
@@ -361,7 +381,7 @@ export class IDEOperations {
      * indeed becomes the first menu item.
      *
      * @param editor
-     * @param actionLabel
+     * @param actionLabel (can be a partial part of the label)
      */
     async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
         const inputarea = await editor.findElement(By.className('inputarea'));
@@ -493,58 +513,102 @@ async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     return outputView;
 }
 
-let alreadySetup = false;
+type LogLevel = "Trace" | "Debug" | "Info" | "Warning" | "Error" | "Off";
 
-async function assureDebugLevelLoggingIsEnabled() {
-    if (alreadySetup) {
-        return;
-    }
-    alreadySetup = true; // to avoid doing this twice/parallel
+async function setLogLevel(logLevel: LogLevel) {
     const prompt = await new Workbench().openCommandPrompt();
     await prompt.setText(">workbench.action.setLogLevel");
     await prompt.confirm();
-    await prompt.setText("Debug");
+    await prompt.setText(logLevel);
     await prompt.confirm();
 }
 
 export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
 
     const ZOOM_OUT_FACTOR = 5;
+    const N_LOG_LINES = 250;
+    // We guess some locations where the logs can be, since we cannot easily retrieve those from VS Code.
+    const TEST_STORAGE_DIRS = [
+        path.join(path.resolve(), "uitests"),    // typical CI path
+        path.join(os.tmpdir(), "vscode-uitests") // typical local path
+    ];
+
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
-        try {
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomOut');
-            }
-            const bbp = new BottomBarPanel();
-            await bbp.maximize();
-            console.log('**********************************************');
-            console.log('***** Rascal MPL output for the failed tests: ');
-            let textLines: WebElement[] = [];
-            let tries = 0;
-            while (textLines.length === 0 && tries < 3) {
-                await showRascalOutput(bbp, channel);
-                textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
-                tries++;
-            }
-            if (textLines.length === 0) {
-                console.log("We could not capture the output lines");
-            }
 
-            for (const l of textLines) {
-                console.log(await l.getText());
+        console.log('**********************************************');
+        console.log(`***** ${channel} output for the failed tests: `);
+
+        let foundLogs = false;
+        for (const vsCodeDir of TEST_STORAGE_DIRS) {
+            try {
+                const logDir = path.join(vsCodeDir, "settings", "logs");
+                if (existsSync(logDir)) {
+                    for (const entry of await readdir(logDir, {recursive: true})) {
+                        if (entry.includes("usethesource.rascalmpl") && entry.includes(channel)) {
+                            console.log(`***** ${entry}`);
+                            const contents = await readFile(path.join(logDir, entry), {encoding: "utf-8"});
+                            console.log(contents.split('\n').splice(-N_LOG_LINES).join('\n'));
+                            foundLogs = true;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log(`Error capturing logs in ${vsCodeDir}: `, e);
             }
-            await bbp.closePanel();
-        } catch (e) {
-            console.log('Error capturing output: ', e);
         }
-        finally {
-            console.log('*******End output*****************************');
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomIn');
+
+        if (!foundLogs) {
+            // Fall back to legacy copy-from-VS Code approach if there were no log files.
+            const bbp = new BottomBarPanel();
+            try {
+                for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+                    await new Workbench().executeCommand('workbench.action.zoomOut');
+                }
+                await bbp.maximize();
+                let textLines: WebElement[] = [];
+                let tries = 0;
+                while (textLines.length === 0 && tries < 3) {
+                    await showRascalOutput(bbp, channel);
+                    textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
+                    tries++;
+                }
+                if (textLines.length === 0) {
+                    console.log("We could not capture the output lines");
+                }
+
+                for (const l of textLines) {
+                    console.log(await l.getText());
+                }
+            } catch (e) {
+                console.log('Error capturing output: ', e);
+            }
+            finally {
+                for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+                    await new Workbench().executeCommand('workbench.action.zoomIn');
+                }
+                await bbp.closePanel();
             }
         }
+
+        console.log('*******End output*****************************');
     });
+}
+
+export function isLanguageLoading(bench: Workbench, language: string): () => Promise<boolean> {
+    return async () => {
+        const center = await bench.openNotificationsCenter();
+        const notifications = await center.getNotifications(NotificationType.Info);
+        const messages = await Promise.all(notifications.map(n => n.getMessage()));
+        await center.close();
+        return messages.find(msg => msg.startsWith(`${language}`)) !== undefined;
+    };
+}
+
+export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", doneTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
+    const isLoading = isLanguageLoading(bench, language);
+    await driver.wait(ignoreFails(isLoading()), Delays.normal, `${language} should start ${message}`, pollInterval);
+    await driver.wait(async () => (await ignoreFails(isLoading())) === false, doneTimeout, `${language} should stop ${message}`, pollInterval);
 }
 
 export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
@@ -556,4 +620,56 @@ export async function expectCompletions(driver: WebDriver, editor: TextEditor, e
     expect(completions).to.have.length(expectedLabels.length);
     const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
     expect(labels).deep.equal(expectedLabels);
+}
+
+
+export class ProtectedFiles {
+    private constructor(private readonly files: readonly ProtectedFile[]) {
+    }
+
+    public static async protect(...files: string[]) {
+        return new ProtectedFiles(await Promise.all(files.map(f => ProtectedFile.build(f))));
+    }
+
+    public async restore() {
+        return Promise.all(this.files.map(f => f.restore()));
+    }
+}
+
+class ProtectedFile {
+
+    constructor(
+        private readonly filename: string,
+        private readonly content: Buffer<ArrayBuffer>,
+        private readonly hash: Buffer<ArrayBuffer>
+    ) {
+    }
+
+    static async build(filename: string) {
+        const content = await readFile(filename);
+        const hash = calcHash(content);
+        return new ProtectedFile(filename, content, hash);
+    }
+
+    async restore() {
+        if (!(await exists(this.filename)) || !calcHash(await readFile(this.filename)).equals(this.hash)) {
+            await writeFile(this.filename, this.content);
+        }
+    }
+}
+
+async function exists(file: string) {
+    try {
+        return await stat(file) !== undefined;
+    }
+    catch (_ignored) {
+        return false;
+    }
+
+}
+
+function calcHash(content: Buffer<ArrayBuffer>): Buffer<ArrayBuffer> {
+    const hasher = createHash('sha256');
+    hasher.update(content);
+    return hasher.digest();
 }

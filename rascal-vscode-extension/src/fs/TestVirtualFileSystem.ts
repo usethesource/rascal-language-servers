@@ -27,7 +27,6 @@
 
 import path from 'path/posix';
 import * as vscode from 'vscode';
-import { RascalFileSystemInVSCode } from './RascalFileSystemInVSCode';
 
 /* This class is used to testing purposes of the VFS forwarding to rascal */
 export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.Disposable {
@@ -36,8 +35,6 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly root = new DirEntry(TestVirtualFileSystem.rootScheme);
     private readonly fs : vscode.Disposable;
-    private testFileWriteCounter: number = 0;
-    private testFileWatcher: vscode.FileSystemWatcher | undefined = undefined;
     private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], readonly [string, boolean][]> = new Map();
 
     constructor(private readonly logger: vscode.LogOutputChannel) {
@@ -49,7 +46,6 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     dispose() {
         this._emitter.dispose();
         this.fs.dispose();
-        this.testFileWatcher?.dispose();
     }
 
     private initializeTestFiles() {
@@ -70,44 +66,14 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
         const remotefsApiTestRoot = vscode.Uri.joinPath(TestVirtualFileSystem.rootScheme, "remotefs-api-test");
         this.createDirectory(remotefsApiTestRoot);
 
-        const rascalfsTestTmpDir = vscode.Uri.from({scheme: "tmp", path: "/rascal-remotefs-test/"});
 
-        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-initiate-watch"), async () => {
-            this.logger.debug("[TVFS] Creating test watch");
-            const watchPattern = new vscode.RelativePattern(rascalfsTestTmpDir, "rascalfs-watch-test");
-            this.logger.debug(`starting watch on ${watchPattern.toString()}`);
-            this.testFileWatcher = vscode.workspace.createFileSystemWatcher(watchPattern);
-            this.testFileWatcher.onDidChange(_e => {
-                this.logger.debug(`[TVFS] onDidChange triggered on test file`);
-                this.testFileWriteCounter += 1;
-            });
-            this.testFileWatcher.onDidCreate(_e => {
-                this.logger.debug(`[TVFS] onDidCreate triggered on test file`);
-                this.testFileWriteCounter += 1;
-            });
-            this.testFileWatcher.onDidDelete(_e => {
-                this.logger.debug(`[TVFS] onDidDelete triggered on test file`);
-                this.testFileWriteCounter += 1;
-            });
-            return Buffer.from("Started watch");
-        }, {create: true, overwrite: true});
-
-        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-counter"), async () => {
-            return Buffer.from(`${this.testFileWriteCounter}`);
-        }, {create: true, overwrite: true});
-
-        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-end-watch"), async () => {
-            this.logger.debug("[TVFS] Ending test watch");
-            await this.testFileWatcher?.dispose();
-            this.testFileWatcher = undefined;
-            return Buffer.from("Disposed of watch");
-        }, {create: true, overwrite: true});
-
-        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-write"), async () => {
-            const rascalTestFile = vscode.Uri.joinPath(rascalfsTestTmpDir, "rascal-test-file");
-            this.logger.debug("[TVFS] Writing test file");
-            await vscode.workspace.fs.writeFile(rascalTestFile, Buffer.from("hi"));
-            return Buffer.from("File written");
+        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-read"), async () => {
+            this.logger.debug("[TVFS] Reading test file");
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.from({
+                scheme: "compressed+tmp",
+                path: "/rascal-remotefs-test/rascal-test-file.gz"
+            }));
+            return Buffer.from(doc.getText(), 'utf-8');
         }, {create: true, overwrite: true});
     }
 
@@ -148,7 +114,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     watch(uri: vscode.Uri, options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
         this.logger.debug("[TVFS] watch ", uri);
         const watchKey: [vscode.Uri, boolean] = [uri, options.recursive];
-        this.activeWatches.set(watchKey, options.excludes.map(e => [e, RascalFileSystemInVSCode.isGlob(e)]));
+        this.activeWatches.set(watchKey, options.excludes.map(e => [e, TestVirtualFileSystem.isGlob(e)]));
 
         return new vscode.Disposable(async () => {
             this.logger.debug("[TVFS] Watch disposed");
@@ -158,8 +124,53 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     notifyWatchers(targetUri: vscode.Uri, type: vscode.FileChangeType) {
         this.logger.debug("[TVFS] notifyWatchers ", targetUri);
-        // Reusing the notification logic from RascalFileSystemInVSCode
-        RascalFileSystemInVSCode.notifyWatchers(targetUri, type, this.activeWatches, this._emitter, "TVFS", this.logger);
+        // Iterating over all active watches
+        watches: for (const [[uri, recursive], excludes] of this.activeWatches) {
+            if (targetUri.scheme !== uri.scheme || targetUri.authority !== uri.authority) {
+                // Scheme or authority does not match
+                continue;
+            }
+
+            // A non-recursive watch applies to a file, or a directory's direct children
+            if (!recursive && uri.path !== targetUri.path && TestVirtualFileSystem.ensureTrailingSlash(uri.path) !== TestVirtualFileSystem.ensureTrailingSlash(path.dirname(targetUri.path))) {
+                // Current watch does not apply to the event uri
+                continue;
+            }
+
+            // A recursive watch applies to a directory's children at arbitrary depth
+            if (recursive && !targetUri.path.startsWith(TestVirtualFileSystem.ensureTrailingSlash(uri.path))) {
+                // Current watch does not apply to the event uri
+                continue;
+            }
+
+            // Current watch does apply to the event uri; checking whether it is excluded in this watch
+            for (const [exclude, isGlob] of excludes) {
+                const isAbsolute = path.isAbsolute(exclude);
+                if (isAbsolute && TestVirtualFileSystem.excludeMatchesUri(targetUri.path, exclude, isGlob)
+                    || !isAbsolute && TestVirtualFileSystem.excludeMatchesUri(targetUri.path, path.join(uri.path, exclude), isGlob)) {
+                    // Event uri was excluded in current watch
+                    continue watches;
+                }
+            }
+
+            // Current watch applies to the event uri and no exclude matches
+            const callbackEvent: vscode.FileChangeEvent = { type: type, uri: targetUri };
+            this.logger.debug(`[TVFS] Emitting watch callback event`, callbackEvent);
+            this._emitter.fire([callbackEvent]);
+            break;
+        }
+    }
+
+    static ensureTrailingSlash(path: string): string {
+        return path.endsWith("/") ? path : path + "/";
+    }
+
+    static excludeMatchesUri(uri: string, exclude: string, isGlob: boolean) {
+        return (isGlob && path.matchesGlob(uri, exclude)) || (!isGlob && exclude === uri);
+    }
+
+    static isGlob(exclude: string): boolean {
+        return exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
     }
 
     stat(uri: vscode.Uri): vscode.FileStat {

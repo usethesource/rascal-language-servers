@@ -65,4 +65,5 @@ public interface IBaseLanguageClient extends LanguageClient, IRemoteResolverRegi
      */
     @JsonNotification
     void registerDebugServerPort(int processID, int serverPort);
+
 }

@@ -27,7 +27,6 @@
 package org.rascalmpl.vscode.lsp.uri.jsonrpc;
 
 import java.io.IOException;
-
 import org.rascalmpl.uri.remote.RemoteExternalResolverRegistry;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 
@@ -50,13 +49,10 @@ public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
 
     @Override
     public ISourceLocation resolve(ISourceLocation input) throws IOException {
-        ISourceLocation resolved;
+        ISourceLocation resolved = null;
         if (super.supportsLogical(input.getScheme())) {
             resolved = super.resolve(input);
         }
-        else {
-            resolved = input;
-        }
-        return LSPOpenFileRedirector.getInstance().resolve(resolved == null ? input : resolved);
+        return LSPOpenFileRedirector.getInstance().redirect(resolved, input);
     }
 }
