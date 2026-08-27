@@ -80,7 +80,7 @@ class RascalProjectRoot extends RascalLibNode {
     }
 
     async getChildren(): Promise<RascalLibNode[]> {
-        const paths = await (await this.rascalClient).sendRequest<[string, string[]][]>("rascal/supplyPathConfig", { uri: this.loc.toString(), mode: PathConfigMode.interpreter});
+        const paths = await (await this.rascalClient).sendRequest<[string, string[]][]>("rascal/supplyPathConfig", { uri: this.loc.toString(), mode: PathConfigMode.interpreterExternal});
         return paths.map(([n, u]) => new RascalPathNode(n, u, this));
     }
 }
