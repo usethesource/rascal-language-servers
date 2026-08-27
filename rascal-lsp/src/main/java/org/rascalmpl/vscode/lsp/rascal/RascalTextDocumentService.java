@@ -106,6 +106,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
 import org.rascalmpl.util.maven.ModelResolutionError;
@@ -167,7 +168,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     @Override
     public List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError, URISyntaxException {
-        var pcfg = availableFacts().getPathConfig(forFile);
+        var pcfg = PathConfig.fromSourceProjectMemberRascalManifest(forFile, RascalConfigMode.INTERPRETER_EXTERNAL);
         var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
 
         if (isRascal(pcfg.getProjectRoot())) {
