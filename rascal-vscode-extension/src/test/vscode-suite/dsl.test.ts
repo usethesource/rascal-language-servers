@@ -260,13 +260,6 @@ end
             await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
         });
 
-<<<<<<< HEAD
-        // Check JSON equivalence
-        const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
-        const actualJson = await resultEditor!.getText();
-        expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
-    });
-
     it("formatting files works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
 
@@ -302,7 +295,7 @@ end
         await bench.executeCommand("editor.action.formatSelection");
         await driver.wait(async () => unformattedText !== await editor.getSelectedText(), Delays.normal, "Selection should be formatted");
     });
-=======
+
         it("quick fix works", async function() {
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await editor.setTextAtLine(9, "  az := 2;");
@@ -464,5 +457,4 @@ end
             await ide.hasSyntaxHighlighting(editor, Delays.slow);
         });
     }
->>>>>>> main
 });
