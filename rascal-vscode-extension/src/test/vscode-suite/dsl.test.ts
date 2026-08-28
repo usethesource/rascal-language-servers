@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { InputBox, Key, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
+import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
@@ -258,42 +258,6 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Rename variables a to b.", Delays.verySlow, "Rename lens should be available");
             await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
-        });
-
-        it("formatting files works", async function() {
-            const editor = await ide.openModule(TestWorkspace.picoFile);
-
-            if (errorRecovery) {
-                // introduce a parse error
-                const lineText = (await editor.getTextAtLine(3)).trimEnd();
-                await editor.setTextAtLine(3, lineText.substring(0, lineText.length - 1));
-            }
-
-            const unformattedText = await editor.getText();
-            await bench.executeCommand("editor.action.formatDocument");
-            await driver.wait(async () => unformattedText !== await editor.getText(), Delays.normal, "Document should be formatted");
-        });
-
-        it("formatting selection works", async function() {
-            const editor = await ide.openModule(TestWorkspace.picoFile);
-
-            // some incorrectly formatted code
-            await editor.setTextAtLine(3, "x : natural, y : natural,");
-
-            if (errorRecovery) {
-                // introduce a parse error
-                const lineText = (await editor.getTextAtLine(3)).trimEnd();
-                await editor.setTextAtLine(3, lineText.substring(0, lineText.length - 1));
-            }
-
-            const unformattedText = await editor.getText();
-
-            // select line
-            await editor.moveCursor(3, 1);
-            await editor.safeSendKeys(Key.SHIFT, Key.END);
-
-            await bench.executeCommand("editor.action.formatSelection");
-            await driver.wait(async () => unformattedText !== await editor.getSelectedText(), Delays.normal, "Selection should be formatted");
         });
 
         it("quick fix works", async function() {

@@ -316,15 +316,6 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
     return sort(items, bool(CompletionItem i1, CompletionItem i2) {return i1.label < i2.label; });
 }
 
-@synopsis{Whole file formatting for Pico}
-default list[TextEdit] picoFormattingService([start[Program] tr], FormattingOptions opts)
-    = treeEdits(#start[Program], toBox, opts=opts)(tr);
-
-@synopsis{Selection formatting for Pico}
-list[TextEdit] picoFormattingService([Tree selection, *_], FormattingOptions opts)
-    = subTreeEdits(#start[Program], toBox, opts=opts)(selection);
-
-
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
 Register the Pico language and the contributions that supply the IDE with features.

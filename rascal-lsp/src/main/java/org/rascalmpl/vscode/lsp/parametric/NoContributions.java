@@ -200,11 +200,6 @@ public class NoContributions implements ILanguageContributions {
     }
 
     @Override
-    public InterruptibleFuture<IList> formatting(IList input, IConstructor formattingOptions) {
-        return interruptible(VF.list());
-    }
-
-    @Override
     public CompletableFuture<Boolean> providesAnalysis() {
         return falsy;
     }
@@ -281,11 +276,6 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> providesCompletion() {
-        return falsy;
-    }
-
-    @Override
-    public CompletableFuture<Boolean> providesFormatting() {
         return falsy;
     }
 

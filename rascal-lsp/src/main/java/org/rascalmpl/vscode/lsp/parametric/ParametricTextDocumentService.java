@@ -63,7 +63,6 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
-import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
@@ -76,17 +75,12 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
-import org.eclipse.lsp4j.DocumentFormattingParams;
-import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
-import org.eclipse.lsp4j.DocumentSymbolParams;
-import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
-import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.ImplementationParams;
@@ -104,7 +98,6 @@ import org.eclipse.lsp4j.PrepareRenameResult;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
-import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SelectionRange;
 import org.eclipse.lsp4j.SelectionRangeParams;
@@ -118,8 +111,6 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
-import org.eclipse.lsp4j.TextEdit;
-import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -129,7 +120,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
-import org.eclipse.lsp4j.util.Ranges;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -148,7 +138,6 @@ import org.rascalmpl.vscode.lsp.parametric.capabilities.ICapabilityParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup;
-import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.rascal.conversion.CallHierarchy;
 import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Completion;
@@ -160,7 +149,6 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
-import org.rascalmpl.vscode.lsp.util.FormattingOptionsTool;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -721,50 +709,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
         return CodeActions.mergeAndConvertCodeActions(this, dedicatedLanguageName, contribs.getName(), quickfixes, codeActions);
-    }
-
-    @Override
-    public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
-        logger.debug("Formatting: {}", params);
-
-        var uri = Locations.toLoc(params.getTextDocument());
-        final ILanguageContributions contribs = contributions(uri);
-
-        // call the `formatting` implementation of the relevant language contribution
-        return getFile(uri)
-            .getCurrentTreeAsync(true)
-            .thenApply(Versioned::get)
-            .thenCompose(tree -> {
-                final var opts = FormattingOptionsTool.translate(params.getOptions());
-                return contribs.formatting(VF.list(tree), opts).get();
-            })
-            .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps()));
-    }
-
-    @Override
-    public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
-        logger.debug("Formatting range: {}", params);
-
-        var uri = Locations.toLoc(params.getTextDocument());
-        Range range = params.getRange();
-        final ILanguageContributions contribs = contributions(uri);
-
-        // call the `formatting` implementation of the relevant language contribution
-        return getFile(uri)
-            .getCurrentTreeAsync(true)
-            .thenApply(Versioned::get)
-            .thenCompose(tree -> {
-                var r = Locations.setRange(uri, range, getColumnMaps());
-                var focus = TreeSearch.computeFocusList(tree, r.getBeginLine(), r.getBeginColumn(), r.getEndLine(), r.getEndColumn());
-
-                IConstructor opts = FormattingOptionsTool.translate(params.getOptions());
-                return contribs.formatting(focus, opts).get();
-            })
-            // convert the document changes
-            .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps())
-                .stream()
-                .filter(e -> Ranges.containsRange(range, e.getRange()))
-                .collect(Collectors.toList()));
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
