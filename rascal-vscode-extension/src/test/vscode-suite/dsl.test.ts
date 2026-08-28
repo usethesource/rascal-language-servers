@@ -57,7 +57,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     async function loadPico() {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
+        await repl.execute("import testing::lang::pico::LanguageServer;", true, Delays.extremelySlow);
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         await startsAndStopsLoading(driver, bench, "Pico");
         await replExecuteMain;
