@@ -26,7 +26,7 @@
  */
 
 import { InputBox, Key, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, startsAndStopsLoading, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
