@@ -9,7 +9,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <lsp.version>2.22.6-SNAPSHOT</lsp.version>
+    <lsp.version>2.22.5</lsp.version>
   </properties>
 
   <repositories>
