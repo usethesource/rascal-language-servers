@@ -422,7 +422,7 @@ end
             // TODO When POM-leading is merged, we expect the Rascal version from the DSL POM here instead.
             // https://github.com/usethesource/rascal-language-servers/pull/1090
             // const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
-            const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom);
+            const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom, false);
 
             // Query Rascal version from stdlib
             const editor = await ide.openModule(TestWorkspace.picoFile);
