@@ -260,49 +260,42 @@ end
             await ide.assertLineBecomes(editor, 9, "b := 2;", "a variable should be changed to b");
         });
 
-<<<<<<< HEAD
-        // Check JSON equivalence
-        const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
-        const actualJson = await resultEditor!.getText();
-        expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
-    });
+        it("formatting files works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
 
-    it("formatting files works", async function() {
-        const editor = await ide.openModule(TestWorkspace.picoFile);
+            if (errorRecovery) {
+                // introduce a parse error
+                const lineText = (await editor.getTextAtLine(3)).trimEnd();
+                await editor.setTextAtLine(3, lineText.substring(0, lineText.length - 1));
+            }
 
-        if (errorRecovery) {
-            // introduce a parse error
-            const lineText = (await editor.getTextAtLine(3)).trimEnd();
-            await editor.setTextAtLine(3, lineText.substring(0, lineText.length - 1));
-        }
+            const unformattedText = await editor.getText();
+            await bench.executeCommand("editor.action.formatDocument");
+            await driver.wait(async () => unformattedText !== await editor.getText(), Delays.normal, "Document should be formatted");
+        });
 
-        const unformattedText = await editor.getText();
-        await bench.executeCommand("editor.action.formatDocument");
-        await driver.wait(async () => unformattedText !== await editor.getText(), Delays.normal, "Document should be formatted");
-    });
+        it("formatting selection works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
 
-    it("formatting selection works", async function() {
-        const editor = await ide.openModule(TestWorkspace.picoFile);
+            // some incorrectly formatted code
+            await editor.setTextAtLine(3, "x : natural, y : natural,");
 
-        // some incorrectly formatted code
-        await editor.setTextAtLine(3, "x : natural, y : natural,");
+            if (errorRecovery) {
+                // introduce a parse error
+                const lineText = (await editor.getTextAtLine(3)).trimEnd();
+                await editor.setTextAtLine(3, lineText.substring(0, lineText.length - 1));
+            }
 
-        if (errorRecovery) {
-            // introduce a parse error
-            const lineText = (await editor.getTextAtLine(3)).trimEnd();
-            await editor.setTextAtLine(3, lineText.substring(0, lineText.length - 1));
-        }
+            const unformattedText = await editor.getText();
 
-        const unformattedText = await editor.getText();
+            // select line
+            await editor.moveCursor(3, 1);
+            await editor.safeSendKeys(Key.SHIFT, Key.END);
 
-        // select line
-        await editor.moveCursor(3, 1);
-        await editor.safeSendKeys(Key.SHIFT, Key.END);
+            await bench.executeCommand("editor.action.formatSelection");
+            await driver.wait(async () => unformattedText !== await editor.getSelectedText(), Delays.normal, "Selection should be formatted");
+        });
 
-        await bench.executeCommand("editor.action.formatSelection");
-        await driver.wait(async () => unformattedText !== await editor.getSelectedText(), Delays.normal, "Selection should be formatted");
-    });
-=======
         it("quick fix works", async function() {
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await editor.setTextAtLine(9, "  az := 2;");
@@ -464,5 +457,4 @@ end
             await ide.hasSyntaxHighlighting(editor, Delays.slow);
         });
     }
->>>>>>> main
 });

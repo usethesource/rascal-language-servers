@@ -317,7 +317,7 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
 }
 
 @synopsis{Whole file formatting for Pico}
-list[TextEdit] picoFormattingService([start[Program] tr], FormattingOptions opts)
+default list[TextEdit] picoFormattingService([start[Program] tr], FormattingOptions opts)
     = treeEdits(#start[Program], toBox, opts=opts)(tr);
 
 @synopsis{Selection formatting for Pico}
