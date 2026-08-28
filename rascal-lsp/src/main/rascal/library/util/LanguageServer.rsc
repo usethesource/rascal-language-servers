@@ -41,10 +41,10 @@ module util::LanguageServer
 
 import util::Reflective;
 extend analysis::diff::edits::AnnotatedTextEdits;
-import Exception;
 import IO;
-import Message;
 import ParseTree;
+import Message;
+import Exception;
 
 @synopsis{Definition of a language server by its meta-data.}
 @description{
@@ -232,7 +232,7 @@ hover documentation, definition with uses, references to declarations, implement
     * To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
     * Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
 
-    Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
+Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the

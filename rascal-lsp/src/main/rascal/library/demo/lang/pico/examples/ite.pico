@@ -1,8 +1,8 @@
-begin
-declare
-  input : natural,
+begin 
+declare 
+  input : natural,  
   output : natural;
-
+  
    input := 0;
    output := 1;
    if input then
