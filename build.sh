@@ -8,13 +8,13 @@ lint=0
 clean="clean"
 while getopts 'lfd' flag; do
   case "${flag}" in
-    f) extra_flags='-Drascal.compile.skip -Drascal.tutor.skip -DskipTests' ;;
+    f) extra_flags='-Drascal.compile.skip -Drascal.tutor.skip -DskipTests -Drascal.package.skip' ;;
     l) lint=1 ;;
     d) clean='' ;;
     *) printf "incorrect param, valid params:
     Use -f to skip rascal-compile and tests
     Use -d to skip cleaning the target folder
-    Use -l to skip linting
+    Use -l to trigger linting
 
 "
         exit 1 ;;

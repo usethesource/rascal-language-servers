@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,6 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -61,7 +63,6 @@ import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionParams;
 import org.eclipse.lsp4j.CodeLens;
-import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
@@ -78,7 +79,6 @@ import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
-import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FileRename;
 import org.eclipse.lsp4j.FoldingRange;
@@ -101,7 +101,6 @@ import org.eclipse.lsp4j.PrepareRenameResult;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameFilesParams;
-import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SelectionRange;
 import org.eclipse.lsp4j.SelectionRangeParams;
@@ -140,8 +139,7 @@ import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.CompletionCapability;
-import org.rascalmpl.vscode.lsp.parametric.capabilities.FileOperationCapability;
+import org.rascalmpl.vscode.lsp.parametric.capabilities.DynamicServerCapabilities;
 import org.rascalmpl.vscode.lsp.parametric.capabilities.ICapabilityParams;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricFileFacts;
 import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary;
@@ -153,6 +151,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
@@ -184,6 +183,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
+    private final Set<String> extensionLessSchemes = new CopyOnWriteArraySet<>();
+
     private @MonotonicNonNull LanguageClient client;
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
     private @MonotonicNonNull CapabilityRegistration dynamicCapabilities;
@@ -227,14 +228,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void initializeServerCapabilities(ClientCapabilities clientCapabilities, final ServerCapabilities result) {
         // Since the initialize request is the very first request after connecting, we can initialize the capabilities here
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
-        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities
-            , new CompletionCapability()
-            , /* new FileOperationCapability.DidCreateFiles(exec), */ new FileOperationCapability.DidRenameFiles(exec), new FileOperationCapability.DidDeleteFiles(exec)
-        );
+        dynamicCapabilities = new CapabilityRegistration(availableClient(), exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName()));
         dynamicCapabilities.registerStaticCapabilities(result);
 
-        result.setDefinitionProvider(true);
+        // Register document sync statically
         result.setTextDocumentSync(TextDocumentSyncKind.Full);
+<<<<<<< HEAD
         result.setHoverProvider(true);
         result.setReferencesProvider(true);
         result.setDocumentSymbolProvider(true);
@@ -250,6 +249,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         result.setSelectionRangeProvider(true);
         result.setFoldingRangeProvider(true);
         result.setCallHierarchyProvider(true);
+=======
+>>>>>>> main
     }
 
     private String getRascalMetaCommandName() {
@@ -308,15 +309,31 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         logger.debug("Did Open file: {}", params.getTextDocument());
         TextDocumentState file = open(params.getTextDocument(), timestamp);
         handleParsingErrors(file, file.getCurrentDiagnosticsAsync());
-        triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
+        triggerAnalyzer(file, NORMAL_DEBOUNCE);
+
+        // Discover capabilities
+        discoverExtensionLessScheme(URIUtil.assumeCorrect(params.getTextDocument().getUri()));
+    }
+
+    /**
+     * Captures extensions-less schemes and updates dynamic capabilities to apply to them.
+     * @param uri A URI that should be associated with the parametric server.
+     */
+    private void discoverExtensionLessScheme(URI uri) {
+        var ext = URIUtil.getExtension(Locations.toLoc(uri));
+        // We want the original scheme, not the one possibly modified when converting URI -> loc
+        if (ext.equals("") && extensionLessSchemes.add(uri.getScheme())) {
+            // Should be called from the main, single-threaded request pool
+            updateCapabilities();
+        }
     }
 
     @Override
     public void didChange(DidChangeTextDocumentParams params) {
         var timestamp = System.currentTimeMillis();
         logger.debug("Did Change file: {}", params.getTextDocument().getUri());
-        updateContents(params.getTextDocument(), last(params.getContentChanges()).getText(), timestamp);
-        triggerAnalyzer(params.getTextDocument(), NORMAL_DEBOUNCE);
+        var state = updateContents(params, timestamp);
+        triggerAnalyzer(state, NORMAL_DEBOUNCE);
     }
 
     @Override
@@ -359,21 +376,13 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
     }
 
-    private void triggerAnalyzer(TextDocumentItem doc, Duration delay) {
-        triggerAnalyzer(new VersionedTextDocumentIdentifier(doc.getUri(), doc.getVersion()), delay);
-    }
-
-    private void triggerAnalyzer(VersionedTextDocumentIdentifier doc, Duration delay) {
-        var location = Locations.toLoc(doc);
-        triggerAnalyzer(location, doc.getVersion(), delay);
-    }
-
-    private void triggerAnalyzer(ISourceLocation location, int version, Duration delay) {
-        if (safeLanguage(location).isPresent()) {
+    private void triggerAnalyzer(TextDocumentState state, Duration delay) {
+        var location = state.getLocation();
+        if (safeLanguage(state.getLocation()).isPresent()) {
             logger.trace("Triggering analyzer for {}", location);
             var fileFacts = facts(location);
             fileFacts.invalidateAnalyzer(location);
-            fileFacts.calculateAnalyzer(location, getFile(location).getCurrentTreeAsync(true), version, delay);
+            fileFacts.calculateAnalyzer(location, state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
         } else {
             logger.debug("Not triggering analyzer, since no language is registered for {}", location);
         }
@@ -473,33 +482,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
 
         for (var msg : messages) {
-            client.showMessage(setMessageParams((IConstructor) msg));
+            client.showMessage(Message.toMessageParams((IConstructor) msg));
         }
-    }
-
-    private static MessageParams setMessageParams(IConstructor message) {
-        var params = new MessageParams();
-        switch (message.getName()) {
-            case "warning": {
-                params.setType(MessageType.Warning);
-                break;
-            }
-            case "info": {
-                params.setType(MessageType.Info);
-                break;
-            }
-            default: params.setType(MessageType.Log);
-        }
-
-        var msgText = ((IString) message.get("msg")).getValue();
-        if (message.has("at")) {
-            var at = Locations.toUri((ISourceLocation) message.get("at"));
-            params.setMessage(String.format("%s (at %s)", msgText, at));
-        } else {
-            params.setMessage(msgText);
-        }
-
-        return params;
     }
 
     @Override
@@ -626,18 +610,14 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return new CodeLens(Locations.toRange(loc, getColumnMaps()), CodeActions.constructorToCommand(dedicatedLanguageName, languageName, command), null);
     }
 
-    private static <T> T last(List<T> l) {
-        return l.get(l.size() - 1);
-    }
-
     private Optional<String> safeLanguage(ISourceLocation loc) {
         var ext = extension(loc);
         if ("".equals(ext)) {
             if (contributions.size() == 1) {
-                logger.trace("file was opened without an extension; falling back to the single registered language for: {}", loc);
+                logger.trace("File was opened without an extension; falling back to the single registered language for: {}", loc);
                 return contributions.keySet().stream().findFirst();
             } else {
-                logger.error("file was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
+                logger.error("File was opened without an extension and there are multiple languages registered, so we cannot pick a fallback for: {}", loc);
                 return Optional.empty();
             }
         }
@@ -660,6 +640,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     private static String extension(ISourceLocation doc) {
         return URIUtil.getExtension(doc);
+    }
+
+    @Override
+    @SuppressWarnings("java:S1905") // cast necessary for CF
+    public Collection<String> extensions() {
+        return (Collection<String>) registeredExtensions.keySet();
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
@@ -1014,11 +1000,6 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             this.registeredExtensions.put(extension, lang.getName());
         }
 
-        // `CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
-        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
-        // Note: `CapabilityRegistration::update` returns a void future, which we do not have to wait on.
-        availableCapabilities().update(buildLanguageParams());
-
         // If we opened any files with this extension before, now associate them with contributions
         var extensions = Arrays.asList(lang.getExtensions());
         for (var f : getOpenFiles()) {
@@ -1027,6 +1008,38 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
                 refreshFileState(f);
             }
         }
+
+        // Do this last, after the parser for open editors has been updated,
+        // since this might trigger new requests on the editor contents.
+        // `updateCapabilities`/`CapabilityRegistration::update` should never be called asynchronously, since that might re-order incoming updates.
+        // Since `registerLanguage` is called from a single-threaded pool, calling it here is safe.
+        // Note: `updateCapabilities` returns a void future, which we do not have to wait on.
+        updateCapabilities();
+    }
+
+    private CompletableFuture<Void> refreshEditors() {
+        var client = availableClient();
+        // Do all in parallel, and return a future that completes when each of these completes
+        return CompletableFutureUtils.reduce(List.of(
+            client.refreshCodeLenses(),
+            client.refreshDiagnostics(),
+            client.refreshFoldingRanges(),
+            client.refreshInlayHints(),
+            client.refreshInlineValues(),
+            client.refreshSemanticTokens()
+        ), (v1, v2) -> null);
+    }
+
+    /**
+     * Update the dynamic capabilities and refresh open editors.
+     *
+     * 1. Updates the capabilties given the current state of the language parameters.
+     * 2. Refreshes open editors. Even when the capabilities did not change, the underlying language implementations might have. Therefore, a refresh is always required.
+     */
+    private synchronized CompletableFuture<Void> updateCapabilities() {
+        return availableCapabilities()
+            .update(buildLanguageParams())
+            .thenCompose(v -> refreshEditors());
     }
 
     /**
@@ -1045,6 +1058,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             public Set<String> fileExtensions() {
                 return extensionsByLang.getOrDefault(e.getKey(), Collections.emptySet());
             }
+
+            @Override
+            public Set<String> extensionLessSchemes() {
+                return extensionLessSchemes;
+            }
         }).collect(Collectors.toSet());
     }
 
@@ -1059,7 +1077,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         }
         // Update open editor
         handleParsingErrors(state, state.getCurrentDiagnosticsAsync());
-        triggerAnalyzer(f, state.getCurrentContent().version(), NORMAL_DEBOUNCE);
+        triggerAnalyzer(state, NORMAL_DEBOUNCE);
     }
 
     private static String buildContributionKey(LanguageParameter lang) {
@@ -1068,6 +1086,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     @Override
     public synchronized void unregisterLanguage(LanguageParameter lang) {
+        logger.info("unregisterLanguage({})", lang.getName());
         boolean removeAll = lang.getMainModule() == null || lang.getMainModule().isEmpty();
         if (!removeAll) {
             var contrib = contributions.get(lang.getName());
@@ -1094,7 +1113,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             contributions.remove(lang.getName());
         }
 
-        availableCapabilities().update(buildLanguageParams());
+        // Should be called from the main, single-threaded request pool
+        updateCapabilities();
     }
 
     @Override

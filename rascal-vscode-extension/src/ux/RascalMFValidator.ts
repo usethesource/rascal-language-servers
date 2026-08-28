@@ -64,6 +64,7 @@ export class RascalMFValidator implements vscode.Disposable {
         // we use the filesystem watcher since a user might not have the RASCAL.MF open, but we still want to warn them
         // note that warnings/errors are only cleared at a save
         const watcher = vscode.workspace.createFileSystemWatcher("**/" + MF_FILE, true, false, false);
+        watcher.onDidCreate(this.verifyRascalMF, this, this.toDispose);
         watcher.onDidChange(this.verifyRascalMF, this, this.toDispose);
         watcher.onDidDelete(e => this.diagnostics.delete(e), this, this.toDispose); // clear errors for a file
         this.toDispose.push(watcher);
@@ -92,10 +93,14 @@ export class RascalMFValidator implements vscode.Disposable {
             if (!/\/target\/classes\//.test(file.path)) {
                 const mfBody = await vscode.workspace.openTextDocument(file);
                 const diagnostics: vscode.Diagnostic[] = [];
-                checkMissingLastLine(mfBody, diagnostics);
-                checkIncorrectProjectName(mfBody, diagnostics);
-                checkPickySeparator(mfBody, diagnostics);
-                this.diagnostics.set(file, diagnostics);
+                try {
+                    checkMissingLastLine(mfBody, diagnostics);
+                    checkIncorrectProjectName(mfBody, diagnostics);
+                    checkPickySeparator(mfBody, diagnostics);
+                }
+                finally {
+                    this.diagnostics.set(file, diagnostics);
+                }
             }
         }
         catch (_error) {

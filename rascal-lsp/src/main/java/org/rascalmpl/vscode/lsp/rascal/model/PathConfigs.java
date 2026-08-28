@@ -26,6 +26,8 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.io.IOException;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -33,6 +35,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -41,7 +44,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -52,9 +54,7 @@ import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -75,11 +75,13 @@ public class PathConfigs {
             .expireAfterAccess(Duration.ofMinutes(20))
             .build(PathConfigs::inferProjectRoot);
 
+    private final RascalLanguageServices rascal;
     private final Executor executor;
     private final PathConfigDiagnostics diagnostics;
 
 
-    public PathConfigs(Executor executor, PathConfigDiagnostics diagnostics) {
+    public PathConfigs(RascalLanguageServices rascal, Executor executor, PathConfigDiagnostics diagnostics) {
+        this.rascal = rascal;
         this.diagnostics = diagnostics;
         this.executor = executor;
         updater.start();
@@ -97,6 +99,11 @@ public class PathConfigs {
 
     public PathConfig lookupConfig(ISourceLocation forFile) {
         forFile = forFile.top();
+
+        if (!rascal.isOpenInWorkspace(forFile)) {
+            return new PathConfig();
+        }
+
         ISourceLocation projectRoot = translatedRoots.get(forFile);
         var entry = currentPathConfigs.compute(projectRoot, (project, current) -> shouldBeRecomputed(current) ? buildPathConfig(project) : current);
         if (entry == null) {
@@ -131,9 +138,15 @@ public class PathConfigs {
         }
     }
 
+
     private Pair<PathConfig, Instant> buildPathConfig(ISourceLocation projectRoot) {
         try {
             logger.debug("Building path config for: {}", projectRoot);
+            var scheme = projectRoot.getScheme();
+            if (scheme.startsWith("jar+") || scheme.equals("std") || scheme.equals("mvn")) {
+                logger.error("We're asked to build a path config for {} which is not something that is possible", projectRoot);
+                return Pair.of(new PathConfig(projectRoot), Instant.now());
+            }
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
                 updater.watchFile(projectRoot, manifest);
@@ -232,7 +245,7 @@ public class PathConfigs {
             var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
             logger.debug("Path config for {}: {}", projectRoot, pathConfig);
             // Publish diagnostics in a background thread
-            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages()));
+            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages(), Set.of("rsc")));
             return Pair.of(pathConfig, time);
         }
 

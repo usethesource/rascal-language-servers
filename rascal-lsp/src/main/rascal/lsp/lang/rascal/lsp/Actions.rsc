@@ -29,6 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::Actions
 
 import lang::rascal::\syntax::Rascal;
+import lang::rascal::upgrade::UpgradeAnnotationsToKeywordParameters;
 import util::LanguageServer;
 import analysis::diff::edits::TextEdits;
 import ParseTree;
@@ -46,7 +47,9 @@ The commands must be evaluated by ((evaluateRascalCommand))
 data Command
     = visualImportGraphCommand(PathConfig pcfg)
     | sortImportsAndExtends(Header h)
+    | upgradeAnnotations(PathConfig pcfg)
     ;
+
 
 @synopsis{Detects (on-demand) source actions to register with specific places near the current cursor}
 list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
@@ -56,14 +59,16 @@ list[CodeAction] rascalCodeActions(Focus focus, PathConfig pcfg=pathConfig()) {
         result += addLicenseAction(top, pcfg);
     }
 
-    if ([*_, Toplevel t, *_] := focus) {
-        result += toplevelCodeActions(t);
-    }
-
-    if ([*_, Header h, *_] := focus) {
-        result += [action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph")]
-               +  [action(command=sortImportsAndExtends(h), title="Sort imports and extends")]
-               ;
+    for (Tree elem <- focus) {
+        switch(elem) {
+            case Toplevel t:
+                result += toplevelCodeActions(t);
+            case Header h:
+                result += [
+                    action(command=visualImportGraphCommand(pcfg), title="Visualize project import graph"),
+                    action(command=sortImportsAndExtends(h), title="Sort imports and extends")
+                ];
+        }
     }
 
     return result;
@@ -154,3 +159,9 @@ value evaluateRascalCommand(sortImportsAndExtends(Header h)) {
     applyDocumentsEdits([changed(h.src.top, [replace(h.imports.src, newHeader)])]);
     return ("result":true);
 }
+
+value evaluateRascalCommand(upgradeAnnotations(PathConfig pcfg)) {
+    applyDocumentsEdits(editsPathConfig(pcfg));
+    return ("result":true);
+}
+

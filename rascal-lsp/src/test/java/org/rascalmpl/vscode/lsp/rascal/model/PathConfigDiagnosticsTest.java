@@ -26,6 +26,18 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.Set;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
@@ -37,20 +49,12 @@ import org.junit.Test;
 import org.rascalmpl.library.Messages;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
-import org.rascalmpl.util.locations.ColumnMaps;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
-
-import static org.mockito.Mockito.*;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Arrays;
 
 public class PathConfigDiagnosticsTest {
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
@@ -131,38 +135,38 @@ public class PathConfigDiagnosticsTest {
 
     @Test
     public void testPublishFresh() {
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)), Set.of());
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(3, 7, MSG1)));
     }
 
     @Test
     public void testPublishMultiProject() {
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)), Set.of());
         // Expect the diagnostics for project A
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(3, 7, MSG1)));
 
-        sut.publishDiagnostics(projectB, VF.list(msg(POM_A, MSG2, 5, 7)));
+        sut.publishDiagnostics(projectB, VF.list(msg(POM_A, MSG2, 5, 7)), Set.of());
         // Expect the diagnostics for both projects
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(3, 7, MSG1), diag(4, 7, MSG2)));
     }
 
     @Test
     public void testDeleteOursButRetainTheirs() {
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)), Set.of());
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(3, 7, MSG1)));
 
-        sut.publishDiagnostics(projectB, VF.list(msg(POM_A, MSG2, 5, 7)));
+        sut.publishDiagnostics(projectB, VF.list(msg(POM_A, MSG2, 5, 7)), Set.of());
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(3, 7, MSG1), diag(4, 7, MSG2)));
 
         reset(mockedClient);
-        sut.publishDiagnostics(projectA, VF.list());
+        sut.publishDiagnostics(projectA, VF.list(), Set.of());
         verify(mockedClient).publishDiagnostics(params(pomAUrl, diag(4, 7, MSG2)));
     }
 
     @Test
     public void testClearDiagnostics() {
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
-        sut.publishDiagnostics(projectB, VF.list(msg(POM_A, MSG2, 5, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)), Set.of());
+        sut.publishDiagnostics(projectB, VF.list(msg(POM_A, MSG2, 5, 7)), Set.of());
 
         reset(mockedClient);
         sut.clearDiagnostics(projectA);
@@ -171,18 +175,18 @@ public class PathConfigDiagnosticsTest {
 
     @Test
     public void testDontPublishUnchangedDiags() {
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)), Set.of());
         reset(mockedClient);
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)), Set.of());
         verify(mockedClient, never()).publishDiagnostics(any());
     }
 
     @Test
     public void testMultiFileDiags() {
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)));
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_B, MSG2, 5, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_A, MSG1, 4, 7)), Set.of());
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_B, MSG2, 5, 7)), Set.of());
         reset(mockedClient);
-        sut.publishDiagnostics(projectA, VF.list(msg(POM_B, MSG1, 5, 7)));
+        sut.publishDiagnostics(projectA, VF.list(msg(POM_B, MSG1, 5, 7)), Set.of());
         verify(mockedClient).publishDiagnostics(params(pomBUrl, diag(4, 7, MSG1)));
     }
 

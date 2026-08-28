@@ -31,14 +31,13 @@ import * as vscode from 'vscode';
 
 import { integer, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import { getJavaExecutable } from '../auto-jvm/JavaLookup';
-import { RascalFileSystemInVSCode } from '../fs/RascalFileSystemInVSCode';
 import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 import { JsonParserOutputChannel } from './JsonOutputChannel';
 
 export async function activateLanguageClient(
     { language, title, jarPath, vfsServer, isParametricServer = false, deployMode = true, devPort = -1, dedicated = false, lspArg = "" } :
     {language: string, title: string, jarPath: string, vfsServer: VSCodeFileSystemInRascal, isParametricServer: boolean, deployMode: boolean, devPort: integer, dedicated: boolean, lspArg: string | undefined} )
-    : Promise<[LanguageClient, RascalFileSystemInVSCode]> {
+    : Promise<LanguageClient> {
     const logger = new JsonParserOutputChannel(title);
     const serverOptions: ServerOptions = deployMode
         ? await buildRascalServerOptions(jarPath, isParametricServer, dedicated, lspArg, await vfsServer.serverPort, logger)
@@ -51,7 +50,6 @@ export async function activateLanguageClient(
     };
 
     const client = new LanguageClient(language, title, serverOptions, clientOptions, !deployMode);
-
     await client.start();
     logger.setClient(client);
 
@@ -65,17 +63,10 @@ export async function activateLanguageClient(
         void openEditor(uri, range, viewColumn);
     });
 
+    void client.sendRequest<string[]>("rascal/vfs/schemes")
+        .then(schemes => vfsServer.ignoreSchemes(schemes));
 
-    const schemesReply = client.sendRequest<string[]>("rascal/vfs/schemes");
-
-    const rascalVFS = new RascalFileSystemInVSCode(client, logger);
-
-    void schemesReply.then( schemes => {
-        vfsServer.ignoreSchemes(schemes);
-        void rascalVFS.tryRegisterSchemes(schemes);
-    });
-
-    return [client, rascalVFS];
+    return client;
 }
 
 const contentPanels: Map<string, vscode.WebviewPanel> = new Map();

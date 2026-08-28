@@ -146,7 +146,7 @@ export class JsonParserOutputChannel implements vscode.LogOutputChannel {
         }
     }
 
-    private printPayloads(payload: string): void {
+    private tryLogJsonMessage(payload: string, fallbackLogger: (message: string) => void): void {
         for (const line of payload.trim().split("\n")) {
             try {
                 const log = JSON.parse(line);
@@ -160,7 +160,9 @@ export class JsonParserOutputChannel implements vscode.LogOutputChannel {
             } catch (e) {
                 if (e instanceof SyntaxError) {
                     // Regular, non-JSON log from somewhere
-                    this.logChannel.appendLine(line);
+                    fallbackLogger(line);
+                } else {
+                    throw e;
                 }
             }
         }
@@ -179,7 +181,7 @@ export class JsonParserOutputChannel implements vscode.LogOutputChannel {
 
     // This is called from the server side, a.k.a. with JSON payloads (possibly multiple, one per line)
     append(payload: string): void {
-        this.printPayloads(payload);
+        this.tryLogJsonMessage(payload, this.logChannel.append);
     }
 
     // This is called from the client with straight info messages
@@ -232,6 +234,11 @@ export class JsonParserOutputChannel implements vscode.LogOutputChannel {
     }
 
     error(error: string | Error, ...args: unknown[]): void {
-        this.logChannel.error(error, args);
+        // Since the language server logs to stderr, logs come in as errors. We try to log them as JSON payloads.
+        if (args.length === 0 && typeof(error) === 'string') {
+            this.tryLogJsonMessage(error, this.logChannel.error);
+        } else {
+            this.logChannel.error(error, args);
+        }
     }
 }

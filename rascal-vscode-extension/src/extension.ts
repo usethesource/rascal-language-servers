@@ -41,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
     const icon = vscode.Uri.joinPath(context.extensionUri, "assets", "images", "rascal-logo-v2.1.svg");
     const extension = new RascalExtension(context, jars, icon, deployMode);
     const logger= extension.logger();
-    logger.info(`Starting extension deployMode: ${deployMode} testDeployMode: ${testDeployMode}`)
+    logger.info(`Starting extension deployMode: ${deployMode} testDeployMode: ${testDeployMode}`);
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
     context.subscriptions.push(new VsCodeSettingsFixer());

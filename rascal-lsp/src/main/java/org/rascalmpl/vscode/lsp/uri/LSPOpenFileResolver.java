@@ -28,19 +28,18 @@ package org.rascalmpl.vscode.lsp.uri;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-
 import org.rascalmpl.uri.FileAttributes;
-import org.rascalmpl.uri.ISourceLocationInput;
-import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.ISourceLocationInputOutput;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.TextDocumentState;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import io.usethesource.vallang.ISourceLocation;
 
-public class LSPOpenFileResolver implements ISourceLocationInput {
+public class LSPOpenFileResolver implements ISourceLocationInputOutput {
 
     public static final String LSP_OPEN_SCHEME = "lsp";
     private static final String LSP_SCHEME_PREFIX = LSP_OPEN_SCHEME + "+";
@@ -57,6 +56,11 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
     @Override
     public Charset getCharset(ISourceLocation uri) throws IOException {
         return StandardCharsets.UTF_16;
+    }
+
+    @Override
+    public long created(ISourceLocation uri) throws IOException {
+        return getEditorState(uri).getAttributesOnDisk().created();
     }
 
     @Override
@@ -116,7 +120,7 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
 
     @Override
     public boolean isReadable(ISourceLocation uri) throws IOException {
-        return LSPOpenFileRedirector.getInstance().isFileManaged(stripLspPrefix(uri));
+        return exists(uri);
     }
 
     @Override
@@ -124,15 +128,45 @@ public class LSPOpenFileResolver implements ISourceLocationInput {
         if (!exists(uri)) {
             return new FileAttributes(false, false, -1, -1, false, false, 0);
         }
-        var current = getEditorState(uri).getCurrentContent();
-        var modified = current.getTimestamp();
-        var isWritable = URIResolverRegistry.getInstance().isWritable(stripLspPrefix(uri));
+        var state = getEditorState(uri);
+        var onDiskStat = state.getAttributesOnDisk();
+        var current = state.getCurrentContent();
         return new FileAttributes(
             true, true,
-            modified, modified, //We fix the creation timestamp to be equal to the last modified time
-            true, isWritable,
+            onDiskStat.created(), current.getTimestamp(),
+            true, onDiskStat.isWritable(),
             size(current)
         );
     }
 
+    private static IOException buildError(ISourceLocation loc) {
+        return new IOException("lsp+ is not a writable scheme. If you want to write to an file open in the editor use IDEServices::applyFileSystemEdits. Loc: " + loc);
+    }
+
+    @Override
+    public OutputStream getOutputStream(ISourceLocation uri, boolean append) throws IOException {
+        throw buildError(uri);
+    }
+
+    @Override
+    public boolean isWritable(ISourceLocation uri) throws IOException {
+        // this communicates that yes, it's a writable file system
+        // so if you indeed use `applyFileSystemEdits` it should succeed.
+        return getEditorState(uri).getAttributesOnDisk().isWritable();
+    }
+
+    @Override
+    public void mkDirectory(ISourceLocation uri) throws IOException {
+        throw buildError(uri);
+    }
+
+    @Override
+    public void remove(ISourceLocation uri) throws IOException {
+        throw buildError(uri);
+    }
+
+    @Override
+    public void setLastModified(ISourceLocation uri, long timestamp) throws IOException {
+        throw buildError(uri);
+    }
 }

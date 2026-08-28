@@ -24,7 +24,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-import { debug, DebugConfiguration, DebugSession, Terminal, window, EventEmitter } from "vscode";
+import { debug, DebugConfiguration, DebugSession, Terminal, window, EventEmitter, commands } from "vscode";
 import { RascalDebugAdapterDescriptorFactory } from "./RascalDebugAdapterDescriptorFactory";
 import { RascalDebugConfigurationProvider } from "./RascalDebugConfigurationProvider";
 
@@ -33,17 +33,17 @@ import { RascalDebugConfigurationProvider } from "./RascalDebugConfigurationProv
  * Debug Client that stores running debug sessions and available REPL ports for debug sessions.
  */
 export class RascalDebugClient {
-    rascalDescriptorFactory: RascalDebugAdapterDescriptorFactory;
-    debugSocketServersPorts: Map<number, number>; // Terminal processID -> socket server port for debug
-    runningDebugSessionsPorts: Set<number>; // Stores all running debug session server ports
+    readonly rascalDescriptorFactory: RascalDebugAdapterDescriptorFactory;
+    readonly debugSocketServersPorts: Map<number, number>; // Terminal processID -> socket server port for debug
+    readonly runningDebugSessions: Map<number, DebugSession>; // Debug server port -> DebugSession
 
     private portEventEmitter = new EventEmitter<{processId: number, serverPort: number}>();
     readonly portRegistrationEvent = this.portEventEmitter.event;
 
     constructor(){
         this.rascalDescriptorFactory = new RascalDebugAdapterDescriptorFactory();
-        this.debugSocketServersPorts = new Map<number, number>();
-        this.runningDebugSessionsPorts = new Set<number>();
+        this.debugSocketServersPorts = new Map();
+        this.runningDebugSessions = new Map();
 
         debug.registerDebugConfigurationProvider("rascalmpl", new RascalDebugConfigurationProvider(this));
         debug.registerDebugAdapterDescriptorFactory("rascalmpl", this.rascalDescriptorFactory);
@@ -53,27 +53,57 @@ export class RascalDebugClient {
             if(processId !== undefined && this.debugSocketServersPorts.has(processId)){
                 this.debugSocketServersPorts.delete(processId);
             }
+            await this.updateTerminalViewButton();
         });
 
         debug.onDidStartDebugSession(async (debugsession: DebugSession) => {
             const port = getDebugPort(debugsession);
             if(port !== undefined){
-                this.runningDebugSessionsPorts.add(port);
+                this.runningDebugSessions.set(port, debugsession);
             }
+            await this.updateTerminalViewButton();
         });
 
         debug.onDidTerminateDebugSession(async (debugsession: DebugSession) => {
             const port = getDebugPort(debugsession);
             if(port !== undefined){
-                this.runningDebugSessionsPorts.delete(port);
+                this.runningDebugSessions.delete(port);
             }
+            await this.updateTerminalViewButton();
         });
 
+        window.onDidChangeActiveTerminal(_ => this.updateTerminalViewButton());
+    }
+
+    async updateTerminalViewButton() {
+        let isRascalTerminal = false;
+        let isRascalTerminalDebugging = false;
+        const activeTerminal = window.activeTerminal;
+        if (activeTerminal) {
+            isRascalTerminal = activeTerminal.name.includes("Rascal terminal");
+            const processId = await activeTerminal.processId;
+            if (isRascalTerminal && processId) {
+                isRascalTerminalDebugging = this.isConnectedToDebugServer(processId);
+            }
+        }
+        await commands.executeCommand('setContext', 'rascalmpl.isRascalTerminalActive', isRascalTerminal);
+        await commands.executeCommand('setContext', 'rascalmpl.activeRascalTerminalIsDebugging', isRascalTerminalDebugging);
     }
 
     async startDebuggingSession(serverPort: number){
         const conf: DebugConfiguration = {type: "rascalmpl", name: "Rascal debugger", request: "attach", serverPort: serverPort};
         await debug.startDebugging(undefined, conf);
+    }
+
+    async startDebuggingSessionFromProcessId(processId: number) {
+        const serverPort = this.debugSocketServersPorts.get(processId);
+        if (serverPort) {
+            await this.startDebuggingSession(serverPort);
+        }
+    }
+
+    async stopDebuggingSession(processId: number){
+        await debug.stopDebugging(this.runningDebugSessions.get(processId));
     }
 
     registerDebugServerPort(processID: number, serverPort: number){
@@ -85,8 +115,9 @@ export class RascalDebugClient {
         return this.debugSocketServersPorts.get(processId);
     }
 
-    isConnectedToDebugServer(serverPort: number){
-        return this.runningDebugSessionsPorts.has(serverPort);
+    isConnectedToDebugServer(processId: number): boolean{
+        const serverPort = this.debugSocketServersPorts.get(processId);
+        return serverPort !== undefined && this.runningDebugSessions.has(serverPort);
     }
 
 }

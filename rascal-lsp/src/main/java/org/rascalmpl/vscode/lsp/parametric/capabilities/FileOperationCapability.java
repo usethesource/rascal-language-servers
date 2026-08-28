@@ -30,53 +30,48 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.DynamicRegistrationCapabilities;
 import org.eclipse.lsp4j.FileOperationFilter;
 import org.eclipse.lsp4j.FileOperationOptions;
 import org.eclipse.lsp4j.FileOperationPattern;
 import org.eclipse.lsp4j.FileOperationPatternKind;
 import org.eclipse.lsp4j.FileOperationPatternOptions;
 import org.eclipse.lsp4j.FileOperationsServerCapabilities;
-import org.eclipse.lsp4j.FileOperationsWorkspaceCapabilities;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.WorkspaceClientCapabilities;
 import org.eclipse.lsp4j.WorkspaceServerCapabilities;
 import org.rascalmpl.vscode.lsp.util.Nullables;
 import org.rascalmpl.vscode.lsp.util.Sets;
-import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 /**
  * Collection of capabilities related to file operations.
  */
-public abstract class FileOperationCapability extends AbstractDynamicCapability<FileOperationOptions> {
+public abstract class FileOperationCapability extends WorkspaceCapability<FileOperationOptions> {
 
-    private final Executor exec;
-
-    FileOperationCapability(String propertyName, Executor exec) {
+    FileOperationCapability(String propertyName) {
         super(propertyName);
-        this.exec = exec;
     }
 
     @Override
-    protected final boolean isDynamicallySupportedBy(ClientCapabilities clientCapabilities) {
-        return Nullables.has(clientCapabilities.getWorkspace(), WorkspaceClientCapabilities::getFileOperations, FileOperationsWorkspaceCapabilities::getDynamicRegistration);
+    public @Nullable DynamicRegistrationCapabilities getCapabilities(WorkspaceClientCapabilities caps) {
+        return caps.getFileOperations();
     }
 
     @Override
-    protected final CompletableFuture<Boolean> isProvidedBy(ICapabilityParams params) {
-        return CompletableFutureUtils.completedFuture(!params.fileExtensions().isEmpty(), exec);
+    public final CompletableFuture<Boolean> isProvidedBy(ICapabilityParams params) {
+        return CompletableFuture.completedFuture(!params.fileExtensions().isEmpty());
     }
 
     @Override
-    protected final FileOperationOptions mergeOptions(FileOperationOptions o1, FileOperationOptions o2) {
+    public final FileOperationOptions mergeOptions(FileOperationOptions o1, FileOperationOptions o2) {
         return new FileOperationOptions(new ArrayList<>(Sets.union(o1.getFilters(), o2.getFilters())));
     }
 
     @Override
-    protected final CompletableFuture<@Nullable FileOperationOptions> options(ICapabilityParams params) {
+    public final CompletableFuture<@Nullable FileOperationOptions> options(ICapabilityParams params) {
         var patterns = params.fileExtensions().stream()
             .map(FileOperationCapability::extensionFilter)
             .collect(Collectors.toList());
@@ -93,7 +88,7 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
             patterns.add(new FileOperationFilter(pattern));
         }
 
-        return CompletableFutureUtils.completedFuture(new FileOperationOptions(patterns), exec);
+        return CompletableFuture.completedFuture(new FileOperationOptions(patterns));
     }
 
     protected List<String> folderOperationGlobs() {
@@ -121,28 +116,14 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
         return new FileOperationFilter(pat);
     }
 
-    private static FileOperationsServerCapabilities fileOperationCapabilities(ServerCapabilities caps) {
+    @Override
+    public final void registerStatically(ServerCapabilities caps) {
         var workspace = Nullables.ensureNonNullAndGet(caps, ServerCapabilities::getWorkspace, ServerCapabilities::setWorkspace, WorkspaceServerCapabilities::new);
-        return Nullables.ensureNonNullAndGet(workspace, WorkspaceServerCapabilities::getFileOperations, WorkspaceServerCapabilities::setFileOperations, FileOperationsServerCapabilities::new);
+        var fileOps =  Nullables.ensureNonNullAndGet(workspace, WorkspaceServerCapabilities::getFileOperations, WorkspaceServerCapabilities::setFileOperations, FileOperationsServerCapabilities::new);
+        registerStatically(fileOps);
     }
 
-    /**
-     * File created notification capability.
-     *
-     * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#workspace_didCreateFiles
-     */
-    public static class DidCreateFiles extends FileOperationCapability {
-
-        public DidCreateFiles(Executor exec) {
-            super("workspace/didCreateFiles", exec);
-        }
-
-        @Override
-        protected void registerStatically(ServerCapabilities result) {
-            fileOperationCapabilities(result).setDidCreate(staticOptions());
-        }
-
-    }
+    protected abstract void registerStatically(FileOperationsServerCapabilities fileOperationCapabilities);
 
     /**
      * File deleted notification capability.
@@ -151,13 +132,13 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
      */
     public static class DidDeleteFiles extends FileOperationCapability {
 
-        public DidDeleteFiles(Executor exec) {
-            super("workspace/didDeleteFiles", exec);
+        public DidDeleteFiles() {
+            super("didDeleteFiles");
         }
 
         @Override
-        protected void registerStatically(ServerCapabilities result) {
-            fileOperationCapabilities(result).setDidDelete(staticOptions());
+        public void registerStatically(FileOperationsServerCapabilities result) {
+            result.setDidDelete(staticOptions());
         }
 
         @Override
@@ -175,13 +156,13 @@ public abstract class FileOperationCapability extends AbstractDynamicCapability<
      */
     public static class DidRenameFiles extends FileOperationCapability {
 
-        public DidRenameFiles(Executor exec) {
-            super("workspace/didRenameFiles", exec);
+        public DidRenameFiles() {
+            super("didRenameFiles");
         }
 
         @Override
-        protected void registerStatically(ServerCapabilities result) {
-            fileOperationCapabilities(result).setDidRename(staticOptions());
+        public void registerStatically(FileOperationsServerCapabilities result) {
+            result.setDidRename(staticOptions());
         }
 
     }
