@@ -37,8 +37,8 @@ import util::Formatters;
 // again and again.
 @synopsis{Whole file formatter for Rascal}
 list[TextEdit] rascalFormattingService([start[Module] top], FormattingOptions opts)
-    = treeEdits(#start[Module], toBox, opts = opts)(top);
+    = treeEditFormatter(#start[Module], toBox, opts = opts)(top);
 
 @synopsis{Range formatter for Rascal}
 default list[TextEdit] rascalFormattingService([Tree selected, *_], FormattingOptions opts)
-    = subTreeEdits(#start[Module], toBox, opts = opts)(selected);
+    = subTreeEditFormatter(#start[Module], toBox, opts = opts)(selected);
