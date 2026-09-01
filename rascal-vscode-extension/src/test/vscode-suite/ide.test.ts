@@ -296,14 +296,10 @@ describe('IDE', function () {
         const editor = await ide.openModule(TestWorkspace.uglyLibFile);
         await editor.setCursor(1, 1);
 
-        // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
-        await driver.wait(async () => await ignoreFails(checkRascalStatus()) === false, Delays.extremelySlow, "Rascal evaluators have not finished loading");
-
         try {
             await bench.executeCommand("editor.action.formatDocument");
 
-            await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Formatter should have resulted in changes in the editor");
+            await driver.wait(() => (editor.isDirty()), Delays.normal, "Formatter should have resulted in changes in the editor");
 
             const editorText = await editor.getText();
             expect(editorText.split("\n").length > 5);
@@ -316,15 +312,11 @@ describe('IDE', function () {
     it ("selection formatting works", async() => {
         const editor = await ide.openModule(TestWorkspace.uglyLibFile);
 
-        // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
-        await driver.wait(async () => await ignoreFails(checkRascalStatus()) === false, Delays.extremelySlow, "Rascal evaluators have not finished loading");
-
         try {
             await editor.setCursor(1, 34); // this is on the `if` keyword
             await bench.executeCommand("editor.action.formatSelection"); // should apply to a focus on the entire if statement
 
-            await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Formatter should have resulted in changes in the editor");
+            await driver.wait(() => (editor.isDirty()), Delays.normal, "Formatter should have resulted in changes in the editor");
 
             const editorText = await editor.getText();
             // the rest of the file remains on one line, but the if-then is formatted
