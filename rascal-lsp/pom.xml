@@ -65,7 +65,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.43.0-RC15-PREVIEW-REGULAR-PARSERS</version>
+      <version>0.43.0-RC13</version>
     </dependency>
     <!-- Rascal tests require JUnit 4 -->
     <dependency>
