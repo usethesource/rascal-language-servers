@@ -31,6 +31,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { TextEditor, TreeItem, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, TestWorkspace } from './utils';
+import { stat } from 'fs/promises';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -309,13 +310,7 @@ describe('IDE', function () {
         await workspace.expand();
         const projectRoot = <TreeItem> await workspace.findItem("test-project");
         await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
-        await repl.execute("import IO;");
-        await driver.wait(async () => {
-            await repl.execute("exists(|target://test-project/rascal/$Main.tpl|)");
-            return repl.lastOutput === "bool: true";
-        }, Delays.extremelySlow, "tpl for Main.rsc should exist by now");
+        await driver.wait(() => ignoreFails(stat(TestWorkspace.importerTpl)), Delays.verySlow, `${TestWorkspace.importerTpl} should exist by now`);
     });
 
     it("full file formatting works", async() => {
