@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
@@ -71,8 +72,10 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
+import org.rascalmpl.vscode.lsp.util.FormattingOptionsTool;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -129,11 +132,18 @@ public class RascalLanguageServices {
         var context = new LSPContext(exec, docService, workspaceService, client);
 
         shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer");
-        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
+        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions", "lang::rascal::lsp::Formatter");
         compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
         rascalTextDocumentService = docService;
         this.workspaceService = workspaceService;
+    }
+
+    public boolean isOpenInWorkspace(ISourceLocation loc) {
+        return workspaceService.workspaceFolders()
+            .stream()
+            .map(f -> URIUtil.assumeCorrectLocation(f.getUri()))
+            .anyMatch(f -> f.equals(loc) || URIUtil.isParentOf(f, loc));
     }
 
     static String pathToModuleName(ISourceLocation l) {
@@ -163,7 +173,8 @@ public class RascalLanguageServices {
     }
 
     private static @Nullable ISourceLocation libraryTplRoot(ISourceLocation modPath) throws URISyntaxException {
-        modPath = Locations.toPhysicalIfPossible(modPath); // resolve logical paths like `std:///`
+        // Resolve logical paths, but get rid of the `lsp+` prefix, since we do not care about file contents
+        modPath = LSPOpenFileResolver.stripLspPrefix(Locations.toPhysicalIfPossible(modPath));
         if (isInsideJar(modPath)) {
             return URIUtil.getChildLocation(jarBasePath(modPath), "rascal");
         } else if ("mvn".equals(modPath.getScheme())) {
@@ -395,6 +406,18 @@ public class RascalLanguageServices {
             }
         }
         return result;
+    }
+
+    public CompletableFuture<IList> format(IList focus, FormattingOptions options) {
+        return runEvaluator(
+            "Formatting",
+            semanticEvaluator,
+            eval -> (IList) eval.call("rascalFormattingService", focus, FormattingOptionsTool.translate(options)),
+            VF.list(),
+            exec,
+            false,
+            client
+        ).get();
     }
 
     public CompletableFuture<IList> parseCodeActions(String command) {

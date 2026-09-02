@@ -24,35 +24,36 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc;
+package org.rascalmpl.vscode.lsp.util;
 
-import java.io.IOException;
-import org.rascalmpl.uri.remote.RemoteExternalResolverRegistry;
-import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
+import java.util.Map;
 
-import io.usethesource.vallang.ISourceLocation;
+import org.rascalmpl.values.IRascalValueFactory;
 
-/**
- * Wrapper for RemoteExternalResolverRegistry handling LSP-specifics.
- * In particular, locations from LSP are mapped to Rascal-friendly locations.
- */
-public class VSCodeFileSystemInRascal extends RemoteExternalResolverRegistry {
-    public VSCodeFileSystemInRascal(int remoteResolverRegistryPort) {
-        super(remoteResolverRegistryPort);
+import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
+import org.eclipse.lsp4j.FormattingOptions;
+
+public class FormattingOptionsTool {
+
+    public static IConstructor translate(FormattingOptions options) {
+        TypeStore typeStore = new TypeStore();
+        TypeFactory tf = TypeFactory.getInstance();
+        IRascalValueFactory VF = IRascalValueFactory.getInstance();
+
+        var optionsType = tf.abstractDataType(typeStore, "FormattingOptions");
+        var consType = tf.constructor(typeStore, optionsType, "formattingOptions");
+        var opts = Map.of(
+            "tabSize", VF.integer(options.getTabSize()),
+            "insertSpaces", VF.bool(options.isInsertSpaces()),
+            "trimTrailingWhitespace", VF.bool(options.isTrimTrailingWhitespace()),
+            "insertFinalNewline", VF.bool(options.isInsertFinalNewline()),
+            "trimFinalNewlines", VF.bool(options.isTrimFinalNewlines())
+        );
+        return VF.constructor(consType, new IValue[0], opts);
     }
 
-    @Override
-    public boolean supportsLogical(String scheme) {
-        return true;
-    }
 
-
-    @Override
-    public ISourceLocation resolve(ISourceLocation input) throws IOException {
-        ISourceLocation resolved = null;
-        if (super.supportsLogical(input.getScheme())) {
-            resolved = super.resolve(input);
-        }
-        return LSPOpenFileRedirector.getInstance().redirect(resolved, input);
-    }
 }
