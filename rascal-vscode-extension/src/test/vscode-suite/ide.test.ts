@@ -30,7 +30,6 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { TextEditor, TreeItem, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { stat } from 'fs/promises';
 import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
@@ -310,7 +309,7 @@ describe('IDE', function () {
         await workspace.expand();
         const projectRoot = <TreeItem> await workspace.findItem("test-project");
         await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
-        await driver.wait(() => ignoreFails(stat(TestWorkspace.importerTpl)), Delays.verySlow, `${TestWorkspace.importerTpl} should exist by now`);
+        await driver.wait(() => ignoreFails(fs.stat(TestWorkspace.importerTpl)), Delays.verySlow, `${TestWorkspace.importerTpl} should exist by now`);
     });
 
     it("full file formatting works", async() => {
