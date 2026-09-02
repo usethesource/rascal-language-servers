@@ -38,6 +38,7 @@ import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
 import { ISourceLocationRequest } from './fs/JsonRpcMessages';
+import { buildMFChildPath } from './ux/RascalMFValidator';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeFileSystemInRascal;
@@ -268,7 +269,7 @@ export class RascalExtension implements vscode.Disposable {
             return [`The file: ${uri.path} is not located inside of a Workspace folder, the REPL cannot be correctly configured`, ''];
         }
         const requiredFiles : [string, vscode.Uri][] = [
-            ["RASCAL.MF", vscode.Uri.joinPath(projectFolder.uri, "META-INF", "RASCAL.MF")],
+            ["RASCAL.MF", buildMFChildPath(projectFolder.uri)],
             ["pom.xml", vscode.Uri.joinPath(projectFolder.uri, "pom.xml")],
         ];
         for (const [name, path] of requiredFiles) {
