@@ -19,7 +19,7 @@ env:
 permissions:
   checks: write
   contents: write
-  security-events: read
+  security-events: write
 
 
 jobs:
