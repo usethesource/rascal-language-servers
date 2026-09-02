@@ -27,8 +27,9 @@
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
-import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { TextEditor, TreeItem, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
 
 describe('IDE', function () {
@@ -292,7 +293,26 @@ describe('IDE', function () {
         await ide.checkNoDiagnosticsAnymore();
     });
 
-    it ("full file formatting works", async() => {
+    it("check project works", async function () {
+        // Context menu does not work on macOS
+        if (os.type() === "Darwin") {
+            this.skip();
+        }
+        // Fix type error to avoid a failing "after each" hook in CI
+        const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
+        await ide.openModule(TestWorkspace.importeeFile);
+        await importeeEditor.setCursor(2, 1);
+        await importeeEditor.typeText("public int foo;");
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+        const projectRoot = <TreeItem> await workspace.findItem("test-project");
+        await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
+        await driver.wait(() => ignoreFails(fs.stat(TestWorkspace.importerTpl)), Delays.verySlow, `${TestWorkspace.importerTpl} should exist by now`);
+    });
+
+    it("full file formatting works", async() => {
         const editor = await ide.openModule(TestWorkspace.uglyLibFile);
         await editor.setCursor(1, 1);
 
@@ -309,7 +329,7 @@ describe('IDE', function () {
         }
     });
 
-    it ("selection formatting works", async() => {
+    it("selection formatting works", async() => {
         const editor = await ide.openModule(TestWorkspace.uglyLibFile);
 
         try {

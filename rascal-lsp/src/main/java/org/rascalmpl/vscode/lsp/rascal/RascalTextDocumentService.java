@@ -38,6 +38,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -126,10 +127,12 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
@@ -157,7 +160,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         this.exec = exec;
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
-
 
     private LanguageClient availableClient() {
         if (client == null) {
@@ -253,7 +255,6 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
             availableFacts().triggerAnalyzer(state.getLocation(), state.getCurrentTreeAsync(true), state.getCurrentContent(), delay);
         }
     }
-
 
     @Override
     public void didClose(DidCloseTextDocumentParams params) {
@@ -663,5 +664,10 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     @Override
     public void cancelProgress(String progressId) {
         exec.submit(() -> availableRascalServices().cancelProgress(progressId));
+    }
+
+    @Override
+    public InterruptibleFuture<Void> checkProject(CheckProjectRequest req) {
+        return availableRascalServices().checkProject(req.getLocation(), req.getClean(), exec);
     }
 }
