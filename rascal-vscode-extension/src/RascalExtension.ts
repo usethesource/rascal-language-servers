@@ -328,7 +328,7 @@ export class RascalExtension implements vscode.Disposable {
                 void vscode.window.showErrorMessage(`Rascal check project: could not deduce the project root directory for ${uri}`);
                 return;
             }
-            const rascalMF = vscode.Uri.joinPath(projectRoot.uri, "META-INF", "RASCAL.MF");
+            const rascalMF = buildMFChildPath(projectRoot.uri);
             if (!await this.fileExists(rascalMF)) {
                 void vscode.window.showErrorMessage(`Rascal check project: ${projectRoot} is not a Rascal project`);
             }
