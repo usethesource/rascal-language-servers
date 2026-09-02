@@ -291,4 +291,39 @@ describe('IDE', function () {
 
         await ide.checkNoDiagnosticsAnymore();
     });
+
+    it ("full file formatting works", async() => {
+        const editor = await ide.openModule(TestWorkspace.uglyLibFile);
+        await editor.setCursor(1, 1);
+
+        try {
+            await bench.executeCommand("editor.action.formatDocument");
+
+            await driver.wait(() => (editor.isDirty()), Delays.normal, "Formatter should have resulted in changes in the editor");
+
+            const editorText = await editor.getText();
+            expect(editorText.split("\n").length > 5);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
+    });
+
+    it ("selection formatting works", async() => {
+        const editor = await ide.openModule(TestWorkspace.uglyLibFile);
+
+        try {
+            await editor.setCursor(1, 34); // this is on the `if` keyword
+            await bench.executeCommand("editor.action.formatSelection"); // should apply to a focus on the entire if statement
+
+            await driver.wait(() => (editor.isDirty()), Delays.normal, "Formatter should have resulted in changes in the editor");
+
+            const editorText = await editor.getText();
+            // the rest of the file remains on one line, but the if-then is formatted
+            expect(editorText.split("\n").length > 3);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
+    });
 });
