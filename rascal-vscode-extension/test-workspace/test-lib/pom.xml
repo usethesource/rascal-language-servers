@@ -31,11 +31,6 @@
       <artifactId>rascal</artifactId>
       <version>0.43.0-RC13-PREVIEW-NO-STD</version>
     </dependency>
-    <dependency>
-      <groupId>org.rascalmpl</groupId>
-      <artifactId>rascal-lsp</artifactId>
-      <version>2.22.6-RC1</version>
-    </dependency>
   </dependencies>
 
   <build>

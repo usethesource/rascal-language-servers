@@ -55,6 +55,9 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     }
 
     async function loadPico() {
+        // Make sure REPL opens on project with LSP dependency
+        await ide.openModule(TestWorkspace.libCallFile);
+
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
@@ -403,6 +406,9 @@ end
         });
 
         it("updates open editors on registration", async function() {
+            // Make sure REPL opens on project with LSP dependency
+            await ide.openModule(TestWorkspace.libCallFile);
+
             const repl = new RascalREPL(bench, driver);
             await repl.start();
             await unloadPico(repl);
