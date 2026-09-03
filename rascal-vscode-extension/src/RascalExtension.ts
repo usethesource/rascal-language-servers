@@ -195,13 +195,19 @@ export class RascalExtension implements vscode.Disposable {
                 }
 
                 progress.report({increment: 50, message: "Creating terminal"});
-                const terminal = vscode.window.createTerminal({
+
+                const options: vscode.TerminalOptions = {
                     iconPath: this.icon,
                     shellPath: await getJavaExecutable(this.log),
                     shellArgs: await this.buildShellArgs(remoteIDEServicesConfiguration, rascalClasses),
                     isTransient: false, // right now we don't support transient terminals yet
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
-                });
+                };
+                if (!uri) {
+                    // Make sure the REPL does not open in a project if no editor is open
+                    options.cwd = os.homedir();
+                }
+                const terminal = vscode.window.createTerminal(options);
 
                 terminal.show(false);
                 if (command) {

@@ -28,6 +28,7 @@
 import { expect } from 'chai';
 import { TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, getArtifactVersion, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
+import { fail } from 'assert';
 
 describe('REPL', function () {
     let browser: VSBrowser;
@@ -58,10 +59,16 @@ describe('REPL', function () {
     });
 
     it("opens without a project", async () => {
-        await new RascalREPL(bench, driver).start();
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        const text = await repl.getText();
+        const match = text.match(/Project root is \|file:\/\/\/([^|]+)\|/);
+        if (!match || !match[1]) {
+            fail(`No project root found in ${text}`);
+        }
+        // Expect home (or something that looks like home), but definitely not within the project
+        expect(match[1]).not.to.include('rascal-language-servers');
     }).retries(2);
-
-    // TODO Add test for default REPL root
 
     it("uses the standard library from the extension", async () => {
         // Find Rascal version in POM
