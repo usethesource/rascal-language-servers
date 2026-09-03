@@ -105,9 +105,11 @@ import org.rascalmpl.vscode.lsp.TextDocumentStateManager;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -391,6 +393,11 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     @Override
     public CompletableFuture<List<SelectionRange>> selectionRange(SelectionRangeParams params) {
         return route(params.getTextDocument(), TextDocumentService::selectionRange, params);
+    }
+
+    @Override
+    public InterruptibleFuture<Void> checkProject(CheckProjectRequest req) {
+        throw new UnsupportedOperationException("RoutingTextDocumentService cannot check Rascal projects");
     }
 
 }

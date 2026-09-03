@@ -71,6 +71,7 @@ import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
 import org.rascalmpl.vscode.lsp.util.Sets;
@@ -295,6 +296,11 @@ public abstract class BaseLanguageServer {
             logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
             lspDocumentService.unregisterLanguage(lang);
             return CompletableFutureUtils.completedFuture(null, executor);
+        }
+
+        @Override
+        public CompletableFuture<Void> checkProject(CheckProjectRequest req) {
+            return CompletableFuture.runAsync(() -> lspDocumentService.checkProject(req), executor);
         }
 
         @Override

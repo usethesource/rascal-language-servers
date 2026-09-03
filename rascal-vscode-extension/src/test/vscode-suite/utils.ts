@@ -62,6 +62,7 @@ export class TestWorkspace {
     public static readonly licenseFile = path.join(this.testProject, 'LICENSE');
     public static readonly libCallFileTpl = path.join(target(this.testProject),'$LibCall.tpl');
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
+    public static readonly uglyLibFile = path.join(src(this.libProject), 'UglyLib.rsc');
     public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
     public static readonly manifest = path.join(this.testProject, "META-INF", "RASCAL.MF");
 
