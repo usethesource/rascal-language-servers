@@ -55,11 +55,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     }
 
     async function loadPico() {
-        // Make sure REPL opens on project with LSP dependency
-        await ide.openModule(TestWorkspace.libCallFile);
-
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
+        const repl = await RascalREPL.startWithLSP(ide, bench, driver);
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         await startsAndStopsLoading(driver, bench, "Pico");
@@ -406,10 +402,7 @@ end
         });
 
         it("updates open editors on registration", async function() {
-            // Make sure REPL opens on project with LSP dependency
-            await ide.openModule(TestWorkspace.libCallFile);
-
-            const repl = new RascalREPL(bench, driver);
+            const repl = await RascalREPL.startWithLSP(ide, bench, driver);
             await repl.start();
             await unloadPico(repl);
             await repl.terminate();
