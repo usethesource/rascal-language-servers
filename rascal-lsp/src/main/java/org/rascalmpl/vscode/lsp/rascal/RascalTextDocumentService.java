@@ -174,6 +174,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     @Override
     public List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError, URISyntaxException {
+        logger.debug("lookupRascalClasses: {}", forFile);
         var pcfg = PathConfig.fromSourceProjectMemberRascalManifest(forFile, RascalConfigMode.INTERPRETER_EXTERNAL);
         var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
 
