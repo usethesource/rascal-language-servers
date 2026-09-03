@@ -24,30 +24,36 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
+package org.rascalmpl.vscode.lsp.util;
 
-import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import java.util.Map;
 
-public enum PathConfigMode {
-    INTERPRETER(0),
-    COMPILER(1),
-    INTERPRETER_EXTERNAL(2);
+import org.rascalmpl.values.IRascalValueFactory;
 
-    private final int value;
+import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IValue;
+import io.usethesource.vallang.type.TypeFactory;
+import io.usethesource.vallang.type.TypeStore;
+import org.eclipse.lsp4j.FormattingOptions;
 
-    PathConfigMode(int value) {
-        this.value = value;
+public class FormattingOptionsTool {
+
+    public static IConstructor translate(FormattingOptions options) {
+        TypeStore typeStore = new TypeStore();
+        TypeFactory tf = TypeFactory.getInstance();
+        IRascalValueFactory VF = IRascalValueFactory.getInstance();
+
+        var optionsType = tf.abstractDataType(typeStore, "FormattingOptions");
+        var consType = tf.constructor(typeStore, optionsType, "formattingOptions");
+        var opts = Map.of(
+            "tabSize", VF.integer(options.getTabSize()),
+            "insertSpaces", VF.bool(options.isInsertSpaces()),
+            "trimTrailingWhitespace", VF.bool(options.isTrimTrailingWhitespace()),
+            "insertFinalNewline", VF.bool(options.isInsertFinalNewline()),
+            "trimFinalNewlines", VF.bool(options.isTrimFinalNewlines())
+        );
+        return VF.constructor(consType, new IValue[0], opts);
     }
-    public int getValue() {
-        return value;
-    }
 
-    public RascalConfigMode mapConfigMode() {
-        switch (this) {
-            case INTERPRETER: return RascalConfigMode.INTERPRETER;
-            case COMPILER: return RascalConfigMode.COMPILER;
-            case INTERPRETER_EXTERNAL: return RascalConfigMode.INTERPRETER_EXTERNAL;
-            default: throw new IllegalArgumentException("Missing case: " + this);
-        }
-    }
+
 }

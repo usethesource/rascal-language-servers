@@ -116,7 +116,7 @@ function addCoordinates(uri: string, coordinates: IRascalCoordinates | undefined
 
 // VS Code omits the leading two slashes from URIs if the autority is empty *and* the scheme is not equal to "file"
 // Rascal does not support this style of URIs, so we add the slashes before sending the URI over
-function toRascalUri(uri: vscode.Uri): string {
+export function toRascalUri(uri: vscode.Uri): string {
     const uriString = uri.toString();
     if (uri.authority === "" && uri.scheme !== "file") {
         const colon = uri.scheme.length + 1;

@@ -45,9 +45,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
@@ -73,10 +75,12 @@ import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
+import org.rascalmpl.vscode.lsp.util.FormattingOptionsTool;
 import org.rascalmpl.vscode.lsp.util.RascalServices;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -125,10 +129,13 @@ public class RascalLanguageServices {
         var pcfg = EvaluatorUtil.addLSPSources(new PathConfig(URIUtil.rootLocation("cwd")), true);
         var compilerPcfg = EvaluatorUtil.addRascalCompilerSources(pcfg);
 
+        logger.debug("Path config for Rascal language services: {}", pcfg);
+        logger.debug("Path config for Rascal compiler: {}", compilerPcfg);
+
         var context = new LSPContext(exec, docService, workspaceService, client);
 
         shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer");
-        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions");
+        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions", "lang::rascal::lsp::Formatter");
         compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
         rascalTextDocumentService = docService;
@@ -274,16 +281,28 @@ public class RascalLanguageServices {
         });
     }
 
+    private ISet getWorkspaceFolders() {
+        return workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
+    }
 
-    public InterruptibleFuture<Map<ISourceLocation, ISet>> compileFile(ISourceLocation file, PathConfig pcfg,
+    public InterruptibleFuture<Map<ISourceLocation, ISet>> checkFile(ISourceLocation file, PathConfig pcfg,
         Executor exec) {
         logger.debug("Running Rascal check for: {} with {}", file, pcfg);
-        var workspaceFolders = workspaceService.workspaceFolders().stream().map(f -> Locations.toLoc(f.getUri())).collect(VF.setWriter());
 
         var shortModuleName = URIUtil.getLocationName(URIUtil.removeExtension(file));
         return runEvaluator("Rascal check (" + shortModuleName +")", compilerEvaluator,
-            e -> translateCheckResults((IMap) e.call("checkFile", file, workspaceFolders, makeParseTreeGetter(e), makePathConfigGetter(e))),
+            e -> translateCheckResults((IMap) e.call("checkFile", file, getWorkspaceFolders(), makeParseTreeGetter(e), makePathConfigGetter(e))),
             Map.of(file, VF.set()), exec, false, client);
+    }
+
+    public InterruptibleFuture<Void> checkProject(ISourceLocation projectRoot, IBool clean, Executor exec) {
+        logger.debug("Check Rascal project: {}", projectRoot);
+
+        var shortName = URIUtil.getLocationName(projectRoot);
+        return runEvaluator("Rascal check project (" + shortName +")", compilerEvaluator,
+            e -> translateCheckResults((IMap) e.call("checkProject", projectRoot, clean, getWorkspaceFolders(), makeParseTreeGetter(e), makePathConfigGetter(e))),
+            Map.of(projectRoot, VF.set()), exec, false, client).thenAccept(r ->
+                rascalTextDocumentService.getFileFacts().reportTypeCheckerMessages(r));
     }
 
     private @Nullable ISourceLocation getFileLoc(ITree moduleTree) {
@@ -390,6 +409,18 @@ public class RascalLanguageServices {
             }
         }
         return result;
+    }
+
+    public CompletableFuture<IList> format(IList focus, FormattingOptions options) {
+        return runEvaluator(
+            "Formatting",
+            semanticEvaluator,
+            eval -> (IList) eval.call("rascalFormattingService", focus, FormattingOptionsTool.translate(options)),
+            VF.list(),
+            exec,
+            false,
+            client
+        ).get();
     }
 
     public CompletableFuture<IList> parseCodeActions(String command) {

@@ -74,11 +74,14 @@ import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.util.NamedThreadPool;
+import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.RegistrationParameter;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.terminal.RemoteIDEServicesThread;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.SourceLocationListResponse;
 import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -269,6 +272,18 @@ public abstract class BaseLanguageServer {
             return CompletableFutureUtils.completedFuture(remoteIDEServicesConfiguration, executor);
         }
 
+        @Override
+        public CompletableFuture<SourceLocationListResponse> lookupRascalClasses(ISourceLocationRequest req) {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    return new SourceLocationListResponse(lspDocumentService.lookupRascalClasses(req.getLocation()));
+                } catch (IOException | ModelResolutionError | URISyntaxException e) {
+                    logger.error("Could not locate Rascal classes for {}", req.getLocation(), e);
+                    return new SourceLocationListResponse();
+                }
+            }, executor);
+        }
+
         private static URI[] toURIArray(IList src) {
             return src.stream()
                 .map(ISourceLocation.class::cast)
@@ -323,6 +338,11 @@ public abstract class BaseLanguageServer {
             logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
             lspDocumentService.unregisterLanguage(lang);
             return CompletableFutureUtils.completedFuture(null, executor);
+        }
+
+        @Override
+        public CompletableFuture<Void> checkProject(CheckProjectRequest req) {
+            return CompletableFuture.runAsync(() -> lspDocumentService.checkProject(req), executor);
         }
 
         @Override
@@ -460,23 +480,7 @@ public abstract class BaseLanguageServer {
             logger.trace("resolve: {}", req.getLocation());
             return CompletableFuture.supplyAsync(() -> {
                 var loc = toRascalLocation(req.getLocation());
-                ISourceLocation resolved = null;
-                if (!loc.getScheme().equals("std")) {
-                    // TODO: this works around the fact that `std` is a bit of a broken scheme in
-                    // VS Code, as REPL 1 might have a different std than REPL 2, and again different from the
-                    // rascal-lsp server
-                    // In a follow-up PR we should reconsider how we deal with std, but if we rewrite it here
-                    // debugging is broken.
-                    try {
-                        resolved = URIResolverRegistry.getInstance().logicalToPhysical(loc);
-                    } catch (IOException ignored) {
-                        logger.trace("Resolving {} failed, but we ignored it", loc, ignored);
-                    }
-                }
-                if (resolved == null) {
-                    resolved = loc;
-                }
-                return new SourceLocationResponse(resolved);
+                return new SourceLocationResponse(Locations.toPhysicalIfPossible(loc));
             }, executor);
         }
     }

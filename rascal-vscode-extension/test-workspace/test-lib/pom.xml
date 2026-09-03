@@ -29,7 +29,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.40.3-RC3</version>
+      <version>0.43.0-RC13-PREVIEW-NO-STD</version>
     </dependency>
   </dependencies>
 

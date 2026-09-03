@@ -19,7 +19,7 @@ jobs:
     runs-on: ubicloud-standard-2
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         id: java
         with:
           java-version: 11
@@ -54,7 +54,7 @@ jobs:
     needs: [seed-caches]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           java-version: 11
           distribution: 'temurin'
@@ -90,7 +90,7 @@ jobs:
     runs-on:  ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           java-version: 11
           distribution: 'temurin'
@@ -104,9 +104,13 @@ jobs:
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Package & compile rascal-lsp
+      - name: Package & install rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean package
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean install
+
+      - name: Set LSP dependency version in tests
+        shell: bash
+        run: ./update-test-dependencies.sh
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
@@ -186,7 +190,7 @@ jobs:
     runs-on: ${{ startsWith(github.ref, 'refs/tags/v') && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           java-version: 11
           distribution: 'temurin'

@@ -3,6 +3,7 @@
         "target": false
     },
     "search.exclude": {
-        "target": true
+		"target": true,
+		"/target/": true
     },
 }

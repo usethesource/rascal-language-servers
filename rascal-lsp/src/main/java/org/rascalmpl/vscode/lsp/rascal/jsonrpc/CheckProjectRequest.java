@@ -24,30 +24,45 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
+package org.rascalmpl.vscode.lsp.rascal.jsonrpc;
 
-import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import java.util.Objects;
 
-public enum PathConfigMode {
-    INTERPRETER(0),
-    COMPILER(1),
-    INTERPRETER_EXTERNAL(2);
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.rascalmpl.values.ValueFactoryFactory;
 
-    private final int value;
+import io.usethesource.vallang.IBool;
+import io.usethesource.vallang.ISourceLocation;
 
-    PathConfigMode(int value) {
-        this.value = value;
+public class CheckProjectRequest {
+    private final ISourceLocation loc;
+    private final boolean clean;
+
+    public CheckProjectRequest(ISourceLocation loc, boolean clean) {
+        this.loc = loc;
+        this.clean = clean;
     }
-    public int getValue() {
-        return value;
+
+    public ISourceLocation getLocation() {
+        return loc;
     }
 
-    public RascalConfigMode mapConfigMode() {
-        switch (this) {
-            case INTERPRETER: return RascalConfigMode.INTERPRETER;
-            case COMPILER: return RascalConfigMode.COMPILER;
-            case INTERPRETER_EXTERNAL: return RascalConfigMode.INTERPRETER_EXTERNAL;
-            default: throw new IllegalArgumentException("Missing case: " + this);
+    public IBool getClean() {
+        return ValueFactoryFactory.getValueFactory().bool(clean);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+        if (obj instanceof CheckProjectRequest) {
+            var other = (CheckProjectRequest) obj;
+            return Objects.equals(loc, other.loc)
+                && clean == other.clean;
         }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(loc, clean);
     }
 }

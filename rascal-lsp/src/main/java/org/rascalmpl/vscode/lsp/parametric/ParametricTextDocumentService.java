@@ -148,6 +148,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -313,7 +314,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private void discoverExtensionLessScheme(URI uri) {
         var ext = URIUtil.getExtension(Locations.toLoc(uri));
         // We want the original scheme, not the one possibly modified when converting URI -> loc
-        if (ext.equals("") && extensionLessSchemes.add(uri.getScheme())) {
+        if (ext.equals("") && extensionLessSchemes.add(uri.getScheme().toLowerCase())) {
             // Should be called from the main, single-threaded request pool
             updateCapabilities();
         }
@@ -1086,5 +1087,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void cancelProgress(String progressId) {
         contributions.values().forEach(plex ->
             plex.cancelProgress(progressId));
+    }
+
+    @Override
+    public InterruptibleFuture<Void> checkProject(CheckProjectRequest req) {
+        throw new UnsupportedOperationException("ParametricTextDocumentService cannot check Rascal projects");
     }
 }

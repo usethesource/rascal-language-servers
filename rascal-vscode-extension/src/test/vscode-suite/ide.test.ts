@@ -27,9 +27,11 @@
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
-import { TextEditor, until, ViewSection, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, isLanguageLoading, printRascalOutputOnFailure, ProtectedFiles, sleep, TestWorkspace } from './utils';
+import { TextEditor, TreeItem, VSBrowser, ViewSection, WebDriver, Workbench, until } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ProtectedFiles, RascalREPL, TestWorkspace, captureOutput, getArtifactVersion, getOutput, ignoreFails, isLanguageLoading, matchPathConfig, printRascalOutputOnFailure, sleep } from './utils';
+import { fail } from 'assert';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -40,7 +42,7 @@ describe('IDE', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Rascal MPL');
+    printRascalOutputOnFailure('Rascal MPL Language Server');
 
     before(async () => {
         const files = ProtectedFiles.protect(
@@ -118,6 +120,64 @@ describe('IDE', function () {
         await ide.hasErrorSquiggly(editor);
     }).retries(2);
 
+    it("uses the type checker shipped with the extension", async function () {
+        const output = await getOutput("Rascal MPL Language Server");
+        const compilerOuput = output.split("Path config for").find(logs => logs.includes("Rascal compiler: Path configuration items:"));
+        if (compilerOuput === undefined) {
+            fail("No compiler path config found in logs");
+        }
+        const pcfg = matchPathConfig(compilerOuput);
+        const isRascalJar = (j: string): boolean => j.includes("rascal.jar") || j.match(/org\/rascalmpl\/rascal\/rascal-.*\.jar/) !== undefined;
+
+        const sources = pcfg.sources ?? [];
+        const extRascal = sources.findIndex(p => p.includes("assets/jars/rascal.jar!/org/rascalmpl/compiler"));
+        const otherRascal = sources.findIndex(isRascalJar);
+        if (extRascal < 0 || (otherRascal > 0 && otherRascal < extRascal)) {
+            fail("The type checker in use is not the version from the extension, but " + sources[otherRascal]);
+        }
+    });
+
+    it("opens a REPL in the root of the project", async function () {
+        // Open a module so the REPL associates with this project
+        await ide.openModule(TestWorkspace.libCallFile);
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        const root = await repl.getProjectRoot();
+        await repl.terminate();
+
+        expect(root).to.contain("test-project");
+    });
+
+    it("opens a REPL in the root of the library project", async function () {
+        // Open a module so the REPL associates with this project
+        await ide.openModule(TestWorkspace.libFile);
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        const root = await repl.getProjectRoot();
+        await repl.terminate();
+
+        expect(root).to.contain("test-lib");
+    });
+
+    it("REPL uses the standard library from the project POM", async () => {
+        // Open a module so the REPL associates with this project
+        await ide.openModule(TestWorkspace.libCallFile);
+
+        // Find Rascal version in POM
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom, false);
+
+        // Query Rascal version from stdlib
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import IO;");
+        await repl.execute("import util::Reflective;");
+        await repl.execute("println(getRascalVersion());");
+
+        expect(repl.lastOutput.replace("\nok", "")).is.equal(pomRascalVersion, "Stdlib version matches project POM version");
+    });
+
     it("error recovery works", async function() {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await ide.hasSyntaxHighlighting(editor);
@@ -134,7 +194,14 @@ describe('IDE', function () {
 
     it("save runs type checker", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
+        const output = await captureOutput("Rascal MPL Language Server",
+            () => triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true));
+
+        const pcfg = matchPathConfig(output);
+
+        // Find Rascal version in POM
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
+        expect(pcfg.libs ?? []).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {
@@ -290,5 +357,59 @@ describe('IDE', function () {
         await ide.assertLineBecomes(editor, 5, "int calc(X x) = x.old;", "annotation should become a field deref", Delays.fast);
 
         await ide.checkNoDiagnosticsAnymore();
+    });
+
+    it("check project works", async function () {
+        // Context menu does not work on macOS
+        if (os.type() === "Darwin") {
+            this.skip();
+        }
+        // Fix type error to avoid a failing "after each" hook in CI
+        const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
+        await ide.openModule(TestWorkspace.importeeFile);
+        await importeeEditor.setCursor(2, 1);
+        await importeeEditor.typeText("public int foo;");
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+        const projectRoot = <TreeItem> await workspace.findItem("test-project");
+        await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
+        await driver.wait(() => ignoreFails(fs.stat(TestWorkspace.importerTpl)), Delays.verySlow, `${TestWorkspace.importerTpl} should exist by now`);
+    });
+
+    it("full file formatting works", async() => {
+        const editor = await ide.openModule(TestWorkspace.uglyLibFile);
+        await editor.setCursor(1, 1);
+
+        try {
+            await bench.executeCommand("editor.action.formatDocument");
+
+            await driver.wait(() => (editor.isDirty()), Delays.normal, "Formatter should have resulted in changes in the editor");
+
+            const editorText = await editor.getText();
+            expect(editorText.split("\n").length > 5);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
+    });
+
+    it("selection formatting works", async() => {
+        const editor = await ide.openModule(TestWorkspace.uglyLibFile);
+
+        try {
+            await editor.setCursor(1, 34); // this is on the `if` keyword
+            await bench.executeCommand("editor.action.formatSelection"); // should apply to a focus on the entire if statement
+
+            await driver.wait(() => (editor.isDirty()), Delays.normal, "Formatter should have resulted in changes in the editor");
+
+            const editorText = await editor.getText();
+            // the rest of the file remains on one line, but the if-then is formatted
+            expect(editorText.split("\n").length > 3);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 });
