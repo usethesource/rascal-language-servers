@@ -143,10 +143,10 @@ describe('IDE', function () {
 
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        const replText = await repl.getText();
-        const replRoot = replText.match(/Project root is \|([^|]+)\|/)?.[1] ?? "";
+        const root = await repl.getProjectRoot();
+        await repl.terminate();
 
-        expect(replRoot).to.contain("test-project");
+        expect(root).to.contain("test-project");
     });
 
     it("opens a REPL in the root of the library project", async function () {
