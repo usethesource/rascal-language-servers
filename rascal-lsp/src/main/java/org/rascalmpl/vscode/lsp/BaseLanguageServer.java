@@ -51,7 +51,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
@@ -309,21 +308,29 @@ public abstract class BaseLanguageServer {
             }, executor);
         }
 
-        protected static @Nullable String getPomVersion() {
+        protected static String getPomVersion() throws IOException {
             var pack = BaseLanguageServer.class.getPackage();
             if (pack == null) {
-                // Should not happen, but we need to convince CF
-                return null;
+                // Should not happen
+                throw new IOException("No package");
             }
 
-            return pack.getSpecificationVersion();
+            var specVersion = pack.getSpecificationVersion();
+            if (specVersion == null) {
+                throw new IOException("No specification version found for running LSP");
+            }
+            return specVersion;
         }
 
-        protected static @Nullable String getJarVersion(ISourceLocation jarFile) throws IOException {
+        protected static String getJarVersion(ISourceLocation jarFile) throws IOException {
             jarFile = JarURIResolver.jarify(jarFile);
-            var manifestLoc = URIUtil.getChildLocation(jarFile, "MANIFEST.MF");
+            var manifestLoc = URIUtil.getChildLocation(jarFile, "META-INF/MANIFEST.MF");
             var manifest = new Manifest(URIResolverRegistry.getInstance().getInputStream(manifestLoc));
-            return manifest.getMainAttributes().getValue("Specification-Version");
+            var specVersion = manifest.getMainAttributes().getValue("Specification-Version");
+            if (specVersion == null) {
+                throw new IOException(String.format("No Specification-Version in %s", manifest));
+            }
+            return specVersion;
         }
 
         @Override
@@ -352,7 +359,13 @@ public abstract class BaseLanguageServer {
 
             logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
             logger.debug("LSP client capabilities: {}", params.getCapabilities());
-            var serverInfo = new ServerInfo(serverName, getPomVersion());
+            ServerInfo serverInfo;
+            try {
+                serverInfo = new ServerInfo(serverName, getPomVersion());
+            } catch (IOException e) {
+                logger.catching(e);
+                serverInfo = new ServerInfo(serverName);
+            }
             var init = new InitializeResult(new ServerCapabilities(), serverInfo);
             lspDocumentService.initializeServerCapabilities(params.getCapabilities(), init.getCapabilities());
             lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), init.getCapabilities());

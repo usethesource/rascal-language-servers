@@ -55,7 +55,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -202,11 +201,11 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return new RascalManifest().getProjectName(root).equals("rascal-lsp");
     }
 
-    private static Pair<ComparableVersion, List<ISourceLocation>> rascalLspDependencies(PathConfig pcfg) {
+    private static Pair<ComparableVersion, List<ISourceLocation>> rascalLspDependencies(PathConfig pcfg) throws IOException {
         // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
         // Instead, we use its compiled classes and the JARs of all its dependencies.
         return Pair.of(
-            Optional.ofNullable(getPomVersion()).map(ComparableVersion::new).orElse(MINIMAL_COMPATIBLE_VERSION),
+            new ComparableVersion(getPomVersion()),
             pcfg.getLibsAndTarget().stream().map(ISourceLocation.class::cast).collect(Collectors.toList())
         );
     }
