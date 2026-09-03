@@ -148,6 +148,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Message;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
@@ -1081,5 +1082,9 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public void cancelProgress(String progressId) {
         contributions.values().forEach(plex ->
             plex.cancelProgress(progressId));
+    }
+
+    public InterruptibleFuture<Void> checkProject(CheckProjectRequest req) {
+        throw new UnsupportedOperationException("ParametricTextDocumentService cannot check Rascal projects");
     }
 }
