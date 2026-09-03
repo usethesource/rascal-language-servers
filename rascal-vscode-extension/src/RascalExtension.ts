@@ -178,6 +178,16 @@ export class RascalExtension implements vscode.Disposable {
                             return;
                         }
                     }
+                } else {
+                    const workspaceFolders = vscode.workspace.workspaceFolders;
+                    if (workspaceFolders && workspaceFolders.length === 1) {
+                        const singleProject = workspaceFolders[0]!.uri;
+                        const [error, _detail] = await this.verifyProjectSetup(singleProject);
+                        if (error === '') {
+                            // If there is a single Rascal project in the workspace, open a REPL for that project
+                            uri = singleProject;
+                        }
+                    }
                 }
 
                 progress.report({increment: 10, message: "Requesting remote IDE services configuration"});
@@ -204,7 +214,7 @@ export class RascalExtension implements vscode.Disposable {
                     name: `Rascal terminal (${this.getTerminalOrigin(uri, command??"")})`,
                 };
                 if (!uri) {
-                    // Make sure the REPL does not open in a project if no editor is open
+                    // Make sure the REPL does not open in a project if no editor is open in an empty or multi-project workspace
                     options.cwd = os.homedir();
                 }
                 const terminal = vscode.window.createTerminal(options);

@@ -12,7 +12,7 @@ RESTORE_LSP_VERSION=$( ( cd rascal-vscode-extension/test-workspace/test-project 
 restore_versions() {
     cd .. && ./update-test-dependencies.sh "$RESTORE_LSP_VERSION"
 }
-trap "restore_versions" EXIT
+trap "restore_versions" EXIT SIGINT SIGTERM SIGHUP
 
 # Bootstrap LSP version
 ./update-test-dependencies.sh
