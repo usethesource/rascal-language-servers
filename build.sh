@@ -17,6 +17,7 @@ while getopts 'lfdi' flag; do
     Use -f to skip rascal-compile and tests
     Use -d to skip cleaning the target folder
     Use -l to trigger linting
+    Use -i to install rascal-lsp into the local .m2 repository
 
 "
         exit 1 ;;
