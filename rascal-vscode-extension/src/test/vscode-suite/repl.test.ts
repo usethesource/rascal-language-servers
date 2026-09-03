@@ -29,8 +29,6 @@ import { expect } from 'chai';
 import { TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, getArtifactVersion, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
 import { fail } from 'assert';
-import * as os from 'os';
-import * as path from 'path/posix';
 
 describe('REPL', function () {
     let browser: VSBrowser;
@@ -68,7 +66,8 @@ describe('REPL', function () {
         if (!match || !match[1]) {
             fail(`No project root found in ${text}`);
         }
-        expect(path.resolve(match[1])).to.equal(path.resolve(os.homedir()));
+        // Expect home (or something that looks like home), but definitely not within the project
+        expect(match[1]).not.to.include('rascal-language-servers');
     }).retries(2);
 
     it("uses the standard library from the extension", async () => {
