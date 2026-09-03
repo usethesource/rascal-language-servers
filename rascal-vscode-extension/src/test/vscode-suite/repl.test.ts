@@ -61,13 +61,9 @@ describe('REPL', function () {
     it("opens without a project", async () => {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        const text = await repl.getText();
-        const match = text.match(/Project root is \|file:\/\/\/([^|]+)\|/);
-        if (!match || !match[1]) {
-            fail(`No project root found in ${text}`);
-        }
+        const root = await repl.getProjectRoot();
         // Expect home (or something that looks like home), but definitely not within the project
-        expect(match[1]).not.to.include('rascal-language-servers');
+        expect(root).not.to.include('rascal-language-servers');
     }).retries(2);
 
     it("uses the standard library from the extension", async () => {
