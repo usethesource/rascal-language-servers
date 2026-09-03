@@ -431,12 +431,9 @@ end
             await ide.hasSyntaxHighlighting(editor, Delays.slow);
         });
 
-        it("uses the standard library from LSP (TODO: the project POM)", async function () {
+        it("uses the standard library from the POM", async function () {
             // Find Rascal version in POM
-            // TODO When POM-leading is merged, we expect the Rascal version from the DSL POM here instead.
-            // https://github.com/usethesource/rascal-language-servers/pull/1090
-            // const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
-            const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom, false);
+            const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom, false);
 
             // Query Rascal version from stdlib
             const editor = await ide.openModule(TestWorkspace.picoFile);
