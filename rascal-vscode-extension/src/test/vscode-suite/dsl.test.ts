@@ -87,6 +87,8 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     });
 
     after(async() => {
+        await ide.openModule(TestWorkspace.libCallFile);
+
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);

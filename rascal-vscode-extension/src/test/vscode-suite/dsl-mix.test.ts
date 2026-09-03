@@ -46,6 +46,8 @@ describe('DSL [multi-language]', function () {
     printRascalOutputOnFailure('Language Parametric Rascal Language Server');
 
     async function loadLanguages() {
+        await ide.openModule(TestWorkspace.libCallFile);
+
         const repl = new RascalREPL(bench, driver);
         await repl.start();
 
@@ -71,6 +73,8 @@ describe('DSL [multi-language]', function () {
     });
 
     after(async () => {
+        await ide.openModule(TestWorkspace.libCallFile);
+
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import util::LanguageServer;");
