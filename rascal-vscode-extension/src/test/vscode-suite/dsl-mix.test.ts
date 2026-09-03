@@ -43,7 +43,7 @@ describe('DSL [multi-language]', function () {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Language Parametric Rascal');
+    printRascalOutputOnFailure('Language Parametric Rascal Language Server');
 
     async function loadLanguages() {
         const repl = new RascalREPL(bench, driver);
