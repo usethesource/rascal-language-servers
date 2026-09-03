@@ -104,9 +104,13 @@ jobs:
           cache-dependency-path: rascal-vscode-extension/package-lock.json
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Package & compile rascal-lsp
+      - name: Package & install rascal-lsp
         working-directory: ./rascal-lsp
-        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean package
+        run: mvn -B '-Drascal.compile.skip' '-Drascal.tutor.skip' -DskipTests clean install
+
+      - name: Set LSP dependency version in tests
+        shell: bash
+        run: ./update-test-dependencies.sh
 
       - name: Package & compile extension 
         working-directory: ./rascal-vscode-extension
