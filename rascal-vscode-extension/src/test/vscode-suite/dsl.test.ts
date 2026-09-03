@@ -26,7 +26,7 @@
  */
 
 import { InputBox, MarkerType, SideBarView, TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, startsAndStopsLoading, TestWorkspace } from './utils';
+import { Delays, expectCompletions, getArtifactVersion, getOutput, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
@@ -47,7 +47,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Language Parametric Rascal');
+    printRascalOutputOnFailure('Language Parametric Rascal Language Server');
 
     async function unloadPico(repl: RascalREPL) {
         await repl.execute("import util::LanguageServer;");
@@ -55,6 +55,9 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     }
 
     async function loadPico() {
+        // Make sure REPL opens on project with LSP dependency
+        await ide.openModule(TestWorkspace.libCallFile);
+
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
@@ -380,9 +383,7 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Show warning");
             await driver.wait(async () => {
-                const output = await bench.getBottomBar().openOutputView();
-                await output.selectChannel("Language Parametric Rascal Language Server");
-                const contents = await output.getText();
+                const contents = await getOutput("Language Parametric Rascal Language Server");
                 return contents.split("\n")[-1]?.indexOf(": Test warning") !== -1;
             }, Delays.normal, "Test warning dialog should show");
         });
@@ -391,9 +392,7 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Show warning");
             await driver.wait(async () => {
-                const output = await bench.getBottomBar().openOutputView();
-                await output.selectChannel("Language Parametric Rascal Language Server");
-                const contents = await output.getText();
+                const contents = await getOutput("Language Parametric Rascal Language Server");
                 return contents.split("\n")[-1]?.indexOf(": LOG Test warning") !== -1;
             }, Delays.normal, "Line should be logged");
         });
@@ -407,6 +406,9 @@ end
         });
 
         it("updates open editors on registration", async function() {
+            // Make sure REPL opens on project with LSP dependency
+            await ide.openModule(TestWorkspace.libCallFile);
+
             const repl = new RascalREPL(bench, driver);
             await repl.start();
             await unloadPico(repl);
@@ -419,6 +421,26 @@ end
 
             // Dynamically registered capability
             await ide.hasSyntaxHighlighting(editor, Delays.slow);
+        });
+
+        it("uses the standard library from LSP (TODO: the project POM)", async function () {
+            // Find Rascal version in POM
+            // TODO When POM-leading is merged, we expect the Rascal version from the DSL POM here instead.
+            // https://github.com/usethesource/rascal-language-servers/pull/1090
+            // const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
+            const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom, false);
+
+            // Query Rascal version from stdlib
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.clickCodeLens(editor, "Show Rascal version");
+            const versionLine = await driver.wait(async () => {
+                const contents = await getOutput("Language Parametric Rascal Language Server");
+                const lines = contents.split("\n");
+                return lines.find(l => l.indexOf("[INFO] Rascal standard library") !== -1);
+            }, Delays.normal, "Version should be logged");
+
+            const loggedVersion = versionLine?.split("version: ")[1]?.trim();
+            expect(loggedVersion).to.equal(pomRascalVersion);
         });
     }
 });
