@@ -81,6 +81,11 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
     });
 
+    after(async () => {
+        await unloadPico();
+        await repl.terminate();
+    });
+
     beforeEach(async function () {
         if (this.test?.title) {
             await ide.screenshot(`DSL-${errorRecovery}-` + this.test?.title);
