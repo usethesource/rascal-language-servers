@@ -28,7 +28,6 @@
 import { expect } from 'chai';
 import { TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
 import { Delays, getArtifactVersion, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
-import { fail } from 'assert';
 
 describe('REPL', function () {
     let browser: VSBrowser;
