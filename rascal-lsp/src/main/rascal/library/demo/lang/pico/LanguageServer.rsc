@@ -314,11 +314,11 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
 PathConfig getPicoPathConfig() {
     loc root;
     try {
-        // Try to resolve the LSP project.
-        root = resolveLocation(|project://rascal-lsp|);
+        // Try to resolve the test project.
+        root = resolveLocation(|project://test-project|);
     } catch SchemeNotSupported(_): {
-        // Otherwise, we are in the nested pico workspace. Resolve the LSP project from there.
-        root = resolveLocation(|cwd:///../../../rascal-lsp|);
+        // Otherwise, we probably have LSP open. Try that
+        root = resolveLocation(|project://rascal-lsp|);
     }
     return getProjectPathConfig(root, mode=interpreter());
 }
