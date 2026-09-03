@@ -149,6 +149,18 @@ describe('IDE', function () {
         expect(replRoot).to.contain("test-project");
     });
 
+    it("opens a REPL in the root of the library project", async function () {
+        // Open a module so the REPL associates with this project
+        await ide.openModule(TestWorkspace.libFile);
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        const root = await repl.getProjectRoot();
+        await repl.terminate();
+
+        expect(root).to.contain("test-lib");
+    });
+
     it("REPL uses the standard library from the project POM", async () => {
         // Open a module so the REPL associates with this project
         await ide.openModule(TestWorkspace.libCallFile);

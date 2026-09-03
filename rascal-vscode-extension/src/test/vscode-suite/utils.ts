@@ -184,6 +184,11 @@ export class RascalREPL {
     async getText() {
         return this.terminal.getText();
     }
+
+    async getProjectRoot(): Promise<string> {
+        const text = await this.getText();
+        return text.match(/Project root is \|([^|]+)\|/)?.[1] ?? "";
+    }
 }
 
 function scopedElementLocated(scope:WebElement, selector: Locator): WebElementCondition {
