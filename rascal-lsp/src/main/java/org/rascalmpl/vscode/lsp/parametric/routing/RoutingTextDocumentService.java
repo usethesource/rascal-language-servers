@@ -405,7 +405,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public InterruptibleFuture<Void> checkProject(CheckProjectRequest req) {
-        throw new UnsupportedOperationException("ParametricTextDocumentService cannot check Rascal projects");
+        throw new UnsupportedOperationException("RoutingTextDocumentService cannot check Rascal projects");
     }
 
 }
