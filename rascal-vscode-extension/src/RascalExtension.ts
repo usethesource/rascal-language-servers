@@ -335,6 +335,7 @@ export class RascalExtension implements vscode.Disposable {
             '-Dfile.encoding=UTF8'
             , `-Drascal.languageRegistryPort=${await this.rascal.languageRegistry.serverPort}`
             , `-Drascal.remoteResolverRegistryPort=${vfsServerPort}`
+            , '-Dlog4j.provider=org.apache.logging.log4j.simple.internal.SimpleProvider'
             , 'org.rascalmpl.shell.RascalShell'
             , '--remoteIDEServicesPort'
             , '' + remoteIDEServicesConfiguration.port
