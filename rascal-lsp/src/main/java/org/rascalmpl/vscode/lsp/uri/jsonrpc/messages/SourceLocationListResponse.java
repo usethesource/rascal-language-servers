@@ -26,28 +26,33 @@
  */
 package org.rascalmpl.vscode.lsp.uri.jsonrpc.messages;
 
-import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import java.util.List;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-public enum PathConfigMode {
-    INTERPRETER(0),
-    COMPILER(1),
-    INTERPRETER_EXTERNAL(2);
+import io.usethesource.vallang.ISourceLocation;
 
-    private final int value;
+public class SourceLocationListResponse {
+    private final @Nullable List<ISourceLocation> locs;
 
-    PathConfigMode(int value) {
-        this.value = value;
-    }
-    public int getValue() {
-        return value;
+    public SourceLocationListResponse() {
+        this.locs = null;
     }
 
-    public RascalConfigMode mapConfigMode() {
-        switch (this) {
-            case INTERPRETER: return RascalConfigMode.INTERPRETER;
-            case COMPILER: return RascalConfigMode.COMPILER;
-            case INTERPRETER_EXTERNAL: return RascalConfigMode.INTERPRETER_EXTERNAL;
-            default: throw new IllegalArgumentException("Missing case: " + this);
+    public SourceLocationListResponse(List<ISourceLocation> locs) {
+        this.locs = locs;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+        if (obj instanceof SourceLocationListResponse) {
+            return Objects.equals(locs, ((SourceLocationListResponse)obj).locs);
         }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(locs);
     }
 }

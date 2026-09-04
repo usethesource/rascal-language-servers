@@ -96,7 +96,7 @@ public class LSPIDEServices implements IDEServices {
     @Override
     public ISourceLocation resolveProjectLocation(ISourceLocation input) {
         for (var folder : workspaceService.workspaceFolders()) {
-            if (folder.getName().equals(input.getAuthority())) {
+            if (folder.getName().equalsIgnoreCase(input.getAuthority())) {
                 return buildProjectChildLoc(folder, input);
             }
         }

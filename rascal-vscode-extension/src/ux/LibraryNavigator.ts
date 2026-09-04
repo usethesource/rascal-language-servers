@@ -69,7 +69,8 @@ abstract class RascalLibNode extends vscode.TreeItem {
 
 enum PathConfigMode {
     interpreter = 0,
-    compiler = 1
+    compiler = 1,
+    interpreterExternal = 2
 }
 class RascalProjectRoot extends RascalLibNode {
     constructor(readonly name: string, readonly loc: vscode.Uri, readonly rascalClient: Promise<BaseLanguageClient>, override readonly log: vscode.LogOutputChannel) {
@@ -79,7 +80,7 @@ class RascalProjectRoot extends RascalLibNode {
     }
 
     async getChildren(): Promise<RascalLibNode[]> {
-        const paths = await (await this.rascalClient).sendRequest<[string, string[]][]>("rascal/supplyPathConfig", { uri: this.loc.toString(), mode: PathConfigMode.interpreter});
+        const paths = await (await this.rascalClient).sendRequest<[string, string[]][]>("rascal/supplyPathConfig", { uri: this.loc.toString(), mode: PathConfigMode.interpreterExternal});
         return paths.map(([n, u]) => new RascalPathNode(n, u, this));
     }
 }

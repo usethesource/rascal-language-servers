@@ -45,13 +45,6 @@ public class RascalLanguageServicesTest {
     }
 
     @Test
-    public void stdModuleName() throws URISyntaxException {
-        // TODO Replace with locations that do not use the sunset std scheme
-        moduleNameTest(URIUtil.rootLocation("std"), "IO.rsc", "IO");
-        moduleNameTest(URIUtil.rootLocation("std"), "util/Maybe.rsc", "util::Maybe");
-    }
-
-    @Test
     public void mvnModuleName() throws URISyntaxException {
         moduleNameTest(VF.sourceLocation("mvn", "org.rascalmpl--rascal--0.42.2", ""), "String.rsc", "String");
         moduleNameTest(VF.sourceLocation("mvn", "org.rascalmpl--typepal--0.16.6", ""), "analysis/typepal/Collector.rsc", "analysis::typepal::Collector");

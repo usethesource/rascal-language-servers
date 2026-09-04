@@ -206,8 +206,7 @@ list[TextEdit] getChanges(loc f, PathConfig wsProject, lrel[str oldName, str new
         }
         return edits;
     }
-    catch Java("ParseError", str msg): return getChangesByContents(f, contents, wsProject, qualifiedNameChanges, registerMessage);
-    catch JavaException("ParseError", str msg): return getChangesByContents(f, contents, wsProject, qualifiedNameChanges, registerMessage);
+    catch ParseError(loc at): return getChangesByContents(f, contents, wsProject, qualifiedNameChanges, registerMessage);
     // Catch all
     catch e: registerMessage(error("<e>", f));
     return [];

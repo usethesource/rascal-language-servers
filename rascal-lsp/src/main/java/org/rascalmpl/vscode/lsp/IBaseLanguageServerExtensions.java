@@ -37,7 +37,9 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.PathConfigParameter;
+import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.SourceLocationListResponse;
 
 @JsonSegment("rascal")
 public interface IBaseLanguageServerExtensions extends LanguageServer {
@@ -47,7 +49,7 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
     }
 
     @JsonRequest
-    CompletableFuture<SourceLocationResponse> lookupRascalClasses(ISourceLocationRequest req);
+    CompletableFuture<SourceLocationListResponse> lookupRascalClasses(ISourceLocationRequest req);
 
     @JsonRequest
     default CompletableFuture<Void> sendRegisterLanguage(LanguageParameter lang) {
@@ -67,10 +69,12 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
     @JsonNotification
     void setMinimumLogLevel(String level);
 
-
     @JsonRequest("vfs/schemes")
     CompletableFuture<String[]> fileSystemSchemes();
 
     @JsonRequest("vfs/logical/resolve")
     CompletableFuture<SourceLocationResponse> resolve(ISourceLocationRequest req);
+    
+    @JsonRequest
+    CompletableFuture<Void> checkProject(CheckProjectRequest req);
 }

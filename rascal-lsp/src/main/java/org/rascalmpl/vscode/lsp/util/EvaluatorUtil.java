@@ -81,7 +81,6 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.LSPIDEServices;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
-import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServer;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 
 import io.usethesource.vallang.IConstructor;
@@ -392,8 +391,6 @@ public class EvaluatorUtil {
                     logWriter(customLog, Level.ERROR),
                     services
                 );
-
-                eval.addClassLoader(RascalLanguageServer.class.getClassLoader());
 
                 eval.doImport(services, imports);
 
