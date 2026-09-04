@@ -86,6 +86,16 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
     });
 
+    after(async() => {
+        await ide.openModule(TestWorkspace.libCallFile);
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
+        await unloadPico(repl);
+        await repl.terminate();
+    });
+
     beforeEach(async function () {
         if (this.test?.title) {
             await ide.screenshot(`DSL-${errorRecovery}-` + this.test?.title);

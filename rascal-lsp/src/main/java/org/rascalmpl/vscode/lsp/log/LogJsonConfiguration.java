@@ -63,11 +63,16 @@ public class LogJsonConfiguration extends ConfigurationFactory {
         return buildConfiguration();
     }
 
-    private Configuration buildConfiguration() {
-        Level targetLevel = Level.getLevel(System.getProperty("log4j2.level", "INFO"));
+    public static Level getLogLevel() {
+        var targetLevel = Level.getLevel(System.getProperty("log4j2.level", "INFO"));
         if (targetLevel == null) {
-            targetLevel = Level.INFO;
+            return Level.INFO;
         }
+        return targetLevel;
+    }
+
+    private Configuration buildConfiguration() {
+        Level targetLevel = getLogLevel();
 
         ConfigurationBuilder<BuiltConfiguration> builder = ConfigurationBuilderFactory.newConfigurationBuilder();
         builder.setConfigurationName("JsonLogger");
