@@ -42,6 +42,7 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
         } else {
             startLanguageServer(
                 ActualRoutingLanguageServer::new,
+                "Parametric Rascal (routing)",
                 "parametric-lsp-router",
                 "parametric-router",
                 RoutingTextDocumentService::new,
