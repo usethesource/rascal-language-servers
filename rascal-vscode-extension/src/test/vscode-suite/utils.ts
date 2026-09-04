@@ -147,6 +147,20 @@ export class RascalREPL {
         }
     }
 
+    static async startFor(file: string, ide: IDEOperations, bench: Workbench, driver: WebDriver) {
+        await ide.openModule(file);
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        return repl;
+    }
+
+    static async startWithLSP(ide: IDEOperations, bench: Workbench, driver: WebDriver): Promise<RascalREPL> {
+        // Open a file from a project with a dependency on LSP, so we can use modules from LSP
+        const repl = await this.startFor(TestWorkspace.libCallFile, ide, bench, driver);
+        await repl.execute("import util::LanguageServer;");
+        return repl;
+    }
+
     async start() {
         await new Workbench().executeCommand("rascalmpl.createTerminal");
         return this.connect();

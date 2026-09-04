@@ -100,11 +100,7 @@ describe('REPL', function () {
     }).timeout(Delays.extremelySlow * 3);
 
     it("open module editor via repl", async() => {
-        // Make sure REPL opens on project with LSP dependency
-        await ide.openModule(TestWorkspace.libCallFile);
-
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
+        const repl = await RascalREPL.startFor(TestWorkspace.libCallFile, ide, bench, driver);
         await repl.execute(":edit demo::lang::pico::LanguageServer", true, Delays.extremelySlow);
 
         await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.slow, "LanguageServer should be opened");

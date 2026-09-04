@@ -43,28 +43,22 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     let driver: WebDriver;
     let bench: Workbench;
     let ide : IDEOperations;
+    let repl: RascalREPL;
     let protectedFiles : ProtectedFiles;
 
     this.timeout(Delays.extremelySlow * 2);
 
     printRascalOutputOnFailure('Language Parametric Rascal Language Server');
 
-    async function unloadPico(repl: RascalREPL) {
-        await repl.execute("import util::LanguageServer;");
+    async function unloadPico() {
         await repl.execute('unregisterLanguage("Pico", {"pico", "pico-new"});');
     }
 
     async function loadPico() {
-        // Make sure REPL opens on project with LSP dependency
-        await ide.openModule(TestWorkspace.libCallFile);
-
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
         await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
         const replExecuteMain = repl.execute(`register(errorRecovery=${errorRecovery});`); // we don't wait yet, because we might miss pico loading window
         await startsAndStopsLoading(driver, bench, "Pico");
         await replExecuteMain;
-        await repl.terminate();
     }
 
     async function setParametricLanguage(editor: TextEditor) {
@@ -82,8 +76,14 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         await ignoreFails(browser.waitForWorkbench());
         ide = new IDEOperations(browser);
         await ide.load();
+        repl = await RascalREPL.startWithLSP(ide, bench, driver);
         await loadPico();
         protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
+    });
+
+    after(async () => {
+        await unloadPico();
+        await repl.terminate();
     });
 
     beforeEach(async function () {
@@ -406,13 +406,7 @@ end
         });
 
         it("updates open editors on registration", async function() {
-            // Make sure REPL opens on project with LSP dependency
-            await ide.openModule(TestWorkspace.libCallFile);
-
-            const repl = new RascalREPL(bench, driver);
-            await repl.start();
-            await unloadPico(repl);
-            await repl.terminate();
+            await unloadPico();
 
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await setParametricLanguage(editor);
