@@ -61,6 +61,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
@@ -437,6 +438,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             return null;
         }
 
+        addExitHook(runner, lang, server, serverParams.getRight(), requestPool);
+
+        return server;
+    }
+
+    private void addExitHook(Future<Void> runner, LanguageParameter lang, IBaseLanguageServerExtensions server, Runnable exitHook, ExecutorService pool) {
         getExecutor().execute(() -> {
             try {
                 runner.get();
@@ -455,16 +462,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
                 }
                 try {
                     // Run exit hook
-                    serverParams.getRight().run();
+                    exitHook.run();
                 } catch (Exception e) {
                     logger.error("Unexpected error while cleaning up connection to language server for {}", lang.getName(), e);
                 } finally {
-                    requestPool.shutdown();
+                    pool.shutdown();
                 }
             }
         });
-
-        return server;
     }
 
     /**
