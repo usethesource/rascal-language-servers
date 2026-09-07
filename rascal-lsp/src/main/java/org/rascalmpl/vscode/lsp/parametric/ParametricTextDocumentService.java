@@ -909,11 +909,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
+        var clientCopy = (IBaseLanguageClient) availableClient();
         var multiplexer = contributions.computeIfAbsent(lang.getName(),
             t -> new LanguageContributionsMultiplexer(lang.getName(), exec)
         );
         var fact = facts.computeIfAbsent(lang.getName(), t ->
-            new ParametricFileFacts(exec, getColumnMaps(), multiplexer)
+            new ParametricFileFacts(clientCopy, exec, getColumnMaps(), multiplexer)
         );
 
         var parserConfig = lang.getPrecompiledParser();
@@ -933,12 +934,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             }
         }
 
-        var clientCopy = availableClient();
         multiplexer.addContributor(buildContributionKey(lang),
-            new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
+            new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), clientCopy, exec));
 
         fact.reloadContributions();
-        fact.setClient(clientCopy);
 
         for (var extension: lang.getExtensions()) {
             this.registeredExtensions.put(extension, lang.getName());
