@@ -211,7 +211,7 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
         return Collections.unmodifiableSet(files.keySet());
     }
 
-    protected Set<TextDocumentItem> getOpenDocumentItems() {
+    public Set<TextDocumentItem> getOpenDocumentItems() {
         return files.values().stream()
             .map(this::toDocumentItem)
             .collect(Collectors.toSet());
