@@ -273,6 +273,7 @@ export class IDEOperations {
             await sleep(Delays.fast); // give it some time for the diagnostic to clear
         }
         expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
+        await bottomBar.closePanel();
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
@@ -538,9 +539,12 @@ async function setLogLevel(logLevel: LogLevel) {
 export type OutputChannel = 'Language Parametric Rascal Language Server' | 'Rascal MPL Language Server';
 
 export async function getOutput(channel: OutputChannel): Promise<string> {
-    const output = await new Workbench().getBottomBar().openOutputView();
+    const bottomBar = new Workbench().getBottomBar();
+    const output = await bottomBar.openOutputView();
     await output.selectChannel(channel);
-    return await output.getText();
+    const text = await output.getText();
+    await bottomBar.closePanel();
+    return text;
 }
 
 export async function captureOutput<T>(channel: OutputChannel, action: () => Promise<T>, onlyLastNLines?: number): Promise<string> {
