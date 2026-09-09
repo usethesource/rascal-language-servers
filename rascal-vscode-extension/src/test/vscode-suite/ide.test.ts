@@ -129,11 +129,10 @@ describe('IDE', function () {
         const pcfg = matchPathConfig(compilerOuput);
         const isRascalJar = (j: string): boolean => j.includes("rascal.jar") || j.match(/org\/rascalmpl\/rascal\/rascal-.*\.jar/) !== undefined;
 
-        const sources = pcfg.sources ?? [];
-        const extRascal = sources.findIndex(p => p.includes("assets/jars/rascal.jar!/org/rascalmpl/compiler"));
-        const otherRascal = sources.findIndex(isRascalJar);
+        const extRascal = pcfg.srcs.findIndex(p => p.includes("assets/jars/rascal.jar!/org/rascalmpl/compiler"));
+        const otherRascal = pcfg.srcs.findIndex(isRascalJar);
         if (extRascal < 0 || (otherRascal > 0 && otherRascal < extRascal)) {
-            fail("The type checker in use is not the version from the extension, but " + sources[otherRascal]);
+            fail("The type checker in use is not the version from the extension, but " + pcfg.srcs[otherRascal]);
         }
     });
 
@@ -201,7 +200,7 @@ describe('IDE', function () {
 
         // Find Rascal version in POM
         const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
-        expect(pcfg.libs ?? []).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
+        expect(pcfg.libs).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {

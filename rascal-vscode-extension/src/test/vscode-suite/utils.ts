@@ -25,6 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { fail } from "assert";
 import { assert, expect } from "chai";
 import { createHash } from "crypto";
 import { existsSync, PathLike } from "fs";
@@ -567,24 +568,30 @@ function parseRascalList(input: string | undefined): Array<string> {
     return input.slice(1, -1).split(',').map(el => el.trim());
 }
 
-export function matchPathConfig(input: string) {
+export function matchPathConfig(input: string): {projectRoot: string, srcs: string[], ignores: string[], libs: string[], bin: string, resources: string[], messages: string[]} {
     const list = String.raw`\[[^\]]*\]`;
     const loc = String.raw`\|[^|]+\|`;
     const pcfg = new RegExp(`((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
 
     const match = input.match(pcfg);
     if (!match) {
-        return {};
+        fail(`Could not match path config in input:\n${input}`);
     }
 
     const projectRoot = match.groups?.["root"];
-    const sources = parseRascalList(match.groups?.["srcs"]);
+    const srcs = parseRascalList(match.groups?.["srcs"]);
     const ignores = parseRascalList(match.groups?.["ignores"]);
     const libs = parseRascalList(match.groups?.["libs"]);
     const bin = match.groups?.["bin"];
     const resources = parseRascalList(match.groups?.["resources"]);
     const messages = parseRascalList(match.groups?.["messages"]);
-    return { projectRoot, sources, ignores, libs, bin, resources, messages };
+    if (projectRoot === undefined) {
+        fail(`Could not match projectRoot in path config:\n${pcfg}`);
+    }
+    if (bin === undefined) {
+        fail(`Could not match bin in path config:\n${pcfg}`);
+    }
+    return { projectRoot, srcs, ignores, libs, bin, resources, messages };
 }
 
 export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike, lowerCase: boolean = true): Promise<string> {
