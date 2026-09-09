@@ -359,19 +359,21 @@ end
         });
 
         it("(un)registers diagnostics", async function() {
+            const bench = new Workbench();
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Register TODO");
             await driver.wait(async () => {
-                const bottomBar = new Workbench().getBottomBar();
+                const bottomBar = bench.getBottomBar();
                 const problemsView = await bottomBar.openProblemsView();
                 const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
                 const labels = await Promise.all(markers.map(async m => await m.getLabel()));
                 return labels.includes("TODO");
             }, Delays.slow, "TODO should be registered");
 
+            await bench.getBottomBar().closePanel();
             await ide.clickCodeLens(editor, "Unregister TODO");
             await driver.wait(async () => {
-                const bottomBar = new Workbench().getBottomBar();
+                const bottomBar = bench.getBottomBar();
                 const problemsView = await bottomBar.openProblemsView();
                 const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
                 const labels = await Promise.all(markers.map(async m => await m.getLabel()));
