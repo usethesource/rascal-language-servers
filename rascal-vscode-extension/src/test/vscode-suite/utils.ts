@@ -548,7 +548,7 @@ export async function getOutput(channel: OutputChannel): Promise<string> {
     return text;
 }
 
-export async function captureOutput<T>(channel: OutputChannel, action: () => Promise<T>, onlyLastNLines?: number): Promise<string> {
+export async function captureOutput<T>(channel: OutputChannel, action: () => Promise<T>, onlyLastNLines?: 100): Promise<string> {
     const beforeOutput = await getOutput(channel);
     await action();
     const afterOutput = await getOutput(channel);
