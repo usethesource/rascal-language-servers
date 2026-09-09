@@ -49,6 +49,12 @@ describe('REPL', function () {
         await browser.waitForWorkbench();
     });
 
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("REPL-"+this.test?.title);
+        }
+    });
+
     afterEach(async function () {
         if (this.test?.title) {
             await ide.screenshot("REPL-"+this.test?.title);
