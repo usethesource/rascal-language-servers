@@ -121,7 +121,7 @@ describe('IDE', function () {
     }).retries(2);
 
     it("uses the type checker shipped with the extension", async function () {
-        const output = await getOutput("Rascal MPL Language Server");
+        const output = await getOutput("Rascal MPL Language Server", driver);
         const compilerOuput = output.split("Path config for").find(logs => logs.includes("Rascal compiler: Path configuration items:"));
         if (compilerOuput === undefined) {
             fail("No compiler path config found in logs");
@@ -193,7 +193,7 @@ describe('IDE', function () {
 
     it("save runs type checker", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        const output = await captureOutput("Rascal MPL Language Server",
+        const output = await captureOutput("Rascal MPL Language Server", driver,
             () => triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true));
 
         const pcfg = matchPathConfig(output);

@@ -539,19 +539,21 @@ async function setLogLevel(logLevel: LogLevel) {
 
 export type OutputChannel = 'Language Parametric Rascal Language Server' | 'Rascal MPL Language Server';
 
-export async function getOutput(channel: OutputChannel): Promise<string> {
+export async function getOutput(channel: OutputChannel, driver: WebDriver): Promise<string> {
     const bottomBar = new Workbench().getBottomBar();
     const output = await bottomBar.openOutputView();
     await output.selectChannel(channel);
+    await output.waitForStable();
+    await driver.wait(async () => (await output.getText()).length > 0, Delays.fast, "Output channel should load");
     const text = await output.getText();
     await bottomBar.closePanel();
     return text;
 }
 
-export async function captureOutput<T>(channel: OutputChannel, action: () => Promise<T>, onlyLastNLines?: 100): Promise<string> {
-    const beforeOutput = await getOutput(channel);
+export async function captureOutput<T>(channel: OutputChannel, driver: WebDriver, action: () => Promise<T>, onlyLastNLines?: 100): Promise<string> {
+    const beforeOutput = await getOutput(channel, driver);
     await action();
-    const afterOutput = await getOutput(channel);
+    const afterOutput = await getOutput(channel, driver);
     const searchString = beforeOutput.slice(onlyLastNLines ? -onlyLastNLines : 0);
     return afterOutput.substring(afterOutput.indexOf(searchString) + searchString.length);
 }

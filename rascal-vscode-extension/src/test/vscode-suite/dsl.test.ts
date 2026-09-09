@@ -383,7 +383,7 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Show warning");
             await driver.wait(async () => {
-                const contents = await getOutput("Language Parametric Rascal Language Server");
+                const contents = await getOutput("Language Parametric Rascal Language Server", driver);
                 return contents.split("\n")[-1]?.indexOf(": Test warning") !== -1;
             }, Delays.normal, "Test warning dialog should show");
         });
@@ -392,7 +392,7 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Show warning");
             await driver.wait(async () => {
-                const contents = await getOutput("Language Parametric Rascal Language Server");
+                const contents = await getOutput("Language Parametric Rascal Language Server", driver);
                 return contents.split("\n")[-1]?.indexOf(": LOG Test warning") !== -1;
             }, Delays.normal, "Line should be logged");
         });
@@ -434,7 +434,7 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Show Rascal version");
             const versionLine = await driver.wait(async () => {
-                const contents = await getOutput("Language Parametric Rascal Language Server");
+                const contents = await getOutput("Language Parametric Rascal Language Server", driver);
                 const lines = contents.split("\n");
                 return lines.find(l => l.indexOf("[INFO] Rascal standard library") !== -1);
             }, Delays.normal, "Version should be logged");
