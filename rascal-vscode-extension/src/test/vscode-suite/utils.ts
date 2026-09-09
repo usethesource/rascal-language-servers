@@ -260,6 +260,8 @@ export class IDEOperations {
 
         // There should be no more error diagnostics
         await this.checkNoDiagnosticsAnymore();
+
+        await ignoreFails(new Workbench().getBottomBar().closePanel());
     }
 
     async checkNoDiagnosticsAnymore() {
