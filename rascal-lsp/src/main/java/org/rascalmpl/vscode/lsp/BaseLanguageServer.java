@@ -363,7 +363,6 @@ public abstract class BaseLanguageServer {
             try {
                 serverInfo = new ServerInfo(serverName, getPomVersion());
             } catch (IOException e) {
-                logger.catching(e);
                 serverInfo = new ServerInfo(serverName);
             }
             var init = new InitializeResult(new ServerCapabilities(), serverInfo);
