@@ -182,23 +182,32 @@ end
 
     it("call hierarchy works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoCallsFile);
-        await editor.selectText("multiply");
-        await bench.executeCommand("view.showCallHierarchy");
+
+        const selectAndExecute = async(command: string) =>
+            driver.wait(async () => {
+                try {
+                    await editor.selectText("multiply");
+                    await bench.executeCommand(command);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }, Delays.normal, `Should select 'multiply' and execute '${command}'`);
+
+        await selectAndExecute("view.showCallHierarchy");
         await driver.wait(async () => (await new SideBarView().getTitlePart().getTitle()).toLowerCase().startsWith("references"), Delays.normal, "References panel should open.");
 
-        await editor.selectText("multiply");
-        await bench.executeCommand("view.showIncomingCalls");
+        await selectAndExecute("view.showIncomingCalls");
         await driver.wait(async () => {
             const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
-            const items = await ignoreFails(outgoing!.getVisibleItems());
+            const items = await ignoreFails(outgoing?.getVisibleItems());
             return items?.length === 2;
         }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
 
-        await editor.selectText("multiply");
-        await bench.executeCommand("view.showOutgoingCalls");
+        await selectAndExecute("view.showOutgoingCalls");
         await driver.wait(async () => {
             const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
-            const items = await ignoreFails(incoming!.getVisibleItems());
+            const items = await ignoreFails(incoming?.getVisibleItems());
             return items?.length === 3;
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
     });
@@ -370,7 +379,7 @@ end
                 return labels.includes("TODO");
             }, Delays.slow, "TODO should be registered");
 
-            await bench.getBottomBar().closePanel();
+            await ignoreFails(bench.getBottomBar().closePanel());
             await ide.clickCodeLens(editor, "Unregister TODO");
             await driver.wait(async () => {
                 const bottomBar = bench.getBottomBar();

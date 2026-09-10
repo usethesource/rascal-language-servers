@@ -670,7 +670,7 @@ export function printRascalOutputOnFailure(channel: OutputChannel) {
                 for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
                     await new Workbench().executeCommand('workbench.action.zoomIn');
                 }
-                await bbp.closePanel();
+                await ignoreFails(bbp.closePanel());
             }
         }
 
