@@ -277,7 +277,7 @@ export class IDEOperations {
             await sleep(Delays.fast); // give it some time for the diagnostic to clear
         }
         expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
-        await bottomBar.closePanel();
+        await ignoreFails(bottomBar.closePanel());
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
@@ -474,9 +474,9 @@ export class IDEOperations {
         }
     }
 
-    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
-        // Always scroll up, where the lenses typically are
-        await editor.setCursor(1, 1);
+    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`, scrollToLine = 1): Promise<void> {
+        // Scroll the file, such that all test lenses are visible in the editor
+        await editor.setCursor(scrollToLine, 1);
         await this.driver.wait(async () => {
             try {
                 const lens = await editor.getCodeLens(name);
@@ -555,7 +555,7 @@ export async function getOutput(channel: OutputChannel, driver: WebDriver): Prom
     if (text.trim().length === 0) {
         fail("No output found!");
     }
-    await bottomBar.closePanel();
+    await ignoreFails(bottomBar.closePanel());
     return text;
 }
 
@@ -579,7 +579,9 @@ function parseRascalList(input: string | undefined): Array<string> {
     return input.slice(1, -1).split(',').map(el => el.trim());
 }
 
-export function matchPathConfig(input: string): {projectRoot: string, srcs: string[], ignores: string[], libs: string[], bin: string, resources: string[], messages: string[]} {
+export type PathConfig = {projectRoot: string, srcs: string[], ignores: string[], libs: string[], bin: string, resources: string[], messages: string[]};
+
+export function matchPathConfig(input: string): PathConfig {
     const list = String.raw`\[[^\]]*\]`;
     const loc = String.raw`\|[^|]+\|`;
     const pcfg = new RegExp(`((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
