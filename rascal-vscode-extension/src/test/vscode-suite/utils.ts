@@ -25,6 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { fail } from "assert";
 import { assert, expect } from "chai";
 import { createHash } from "crypto";
 import { existsSync, PathLike } from "fs";
@@ -251,6 +252,7 @@ export class IDEOperations {
     }
 
     async cleanup() {
+        await ignoreFails(new Workbench().executeCommand("workbench.action.zoomReset"));
         await ignoreFails(this.revertOpenChanges());
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
@@ -259,6 +261,8 @@ export class IDEOperations {
 
         // There should be no more error diagnostics
         await this.checkNoDiagnosticsAnymore();
+
+        await ignoreFails(new Workbench().getBottomBar().closePanel());
     }
 
     async checkNoDiagnosticsAnymore() {
@@ -273,6 +277,7 @@ export class IDEOperations {
             await sleep(Delays.fast); // give it some time for the diagnostic to clear
         }
         expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
+        await ignoreFails(bottomBar.closePanel());
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
@@ -318,7 +323,7 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                const title = await ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
                 await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
@@ -469,7 +474,9 @@ export class IDEOperations {
         }
     }
 
-    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
+    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`, scrollToLine = 1): Promise<void> {
+        // Scroll the file, such that all test lenses are visible in the editor
+        await editor.setCursor(scrollToLine, 1);
         await this.driver.wait(async () => {
             try {
                 const lens = await editor.getCodeLens(name);
@@ -537,16 +544,23 @@ async function setLogLevel(logLevel: LogLevel) {
 
 export type OutputChannel = 'Language Parametric Rascal Language Server' | 'Rascal MPL Language Server';
 
-export async function getOutput(channel: OutputChannel): Promise<string> {
-    const output = await new Workbench().getBottomBar().openOutputView();
+export async function getOutput(channel: OutputChannel, driver: WebDriver): Promise<string> {
+    const bottomBar = new Workbench().getBottomBar();
+    const output = await bottomBar.openOutputView();
     await output.selectChannel(channel);
-    return await output.getText();
+    await output.waitForStable();
+    await driver.wait(() => output.getText(), Delays.fast, "Channel should contain some output");
+    // Sometimes, we seem to get the text before everything is loaded in the window. Wait a little bit until all text is loaded.
+    await sleep(100);
+    const text = await output.getText();
+    await ignoreFails(bottomBar.closePanel());
+    return text;
 }
 
-export async function captureOutput<T>(channel: OutputChannel, action: () => Promise<T>, onlyLastNLines?: number): Promise<string> {
-    const beforeOutput = await getOutput(channel);
+export async function captureOutput<T>(channel: OutputChannel, driver: WebDriver, action: () => Promise<T>, onlyLastNLines?: 100): Promise<string> {
+    const beforeOutput = await getOutput(channel, driver);
     await action();
-    const afterOutput = await getOutput(channel);
+    const afterOutput = await getOutput(channel, driver);
     const searchString = beforeOutput.slice(onlyLastNLines ? -onlyLastNLines : 0);
     return afterOutput.substring(afterOutput.indexOf(searchString) + searchString.length);
 }
@@ -563,24 +577,32 @@ function parseRascalList(input: string | undefined): Array<string> {
     return input.slice(1, -1).split(',').map(el => el.trim());
 }
 
-export function matchPathConfig(input: string) {
+export type PathConfig = {projectRoot: string, srcs: string[], ignores: string[], libs: string[], bin: string, resources: string[], messages: string[]};
+
+export function matchPathConfig(input: string): PathConfig {
     const list = String.raw`\[[^\]]*\]`;
     const loc = String.raw`\|[^|]+\|`;
     const pcfg = new RegExp(`((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
 
     const match = input.match(pcfg);
     if (!match) {
-        return {};
+        fail(`Could not match path config in input:\n${input}`);
     }
 
     const projectRoot = match.groups?.["root"];
-    const sources = parseRascalList(match.groups?.["srcs"]);
+    const srcs = parseRascalList(match.groups?.["srcs"]);
     const ignores = parseRascalList(match.groups?.["ignores"]);
     const libs = parseRascalList(match.groups?.["libs"]);
     const bin = match.groups?.["bin"];
     const resources = parseRascalList(match.groups?.["resources"]);
     const messages = parseRascalList(match.groups?.["messages"]);
-    return { projectRoot, sources, ignores, libs, bin, resources, messages };
+    if (projectRoot === undefined) {
+        fail(`Could not match projectRoot in path config:\n${pcfg}`);
+    }
+    if (bin === undefined) {
+        fail(`Could not match bin in path config:\n${pcfg}`);
+    }
+    return { projectRoot, srcs, ignores, libs, bin, resources, messages };
 }
 
 export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike, lowerCase: boolean = true): Promise<string> {
@@ -653,7 +675,7 @@ export function printRascalOutputOnFailure(channel: OutputChannel) {
                 for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
                     await new Workbench().executeCommand('workbench.action.zoomIn');
                 }
-                await bbp.closePanel();
+                await ignoreFails(bbp.closePanel());
             }
         }
 

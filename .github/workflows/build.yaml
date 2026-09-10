@@ -122,7 +122,7 @@ jobs:
         id: cache-vscode
         uses: actions/cache@v6
         with:
-          path: ./rascal-vscode-extension/uitests
+          path: ./uitests
           key: "vscode-${{matrix.os}}"
 
       - name: "UI test (windows)"
@@ -132,7 +132,7 @@ jobs:
           DELAY_FACTOR: 10
           RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G'
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage ../uitests
 
       - name: "UI test (mac)"
         shell: bash
@@ -142,7 +142,7 @@ jobs:
           DELAY_FACTOR: 15
           RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G'
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage ../uitests
 
       - name: "UI test (ubuntu)"
         shell: bash
@@ -154,14 +154,14 @@ jobs:
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 # workaround for issue with Ubuntu 24.04 https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#openresources-not-working-with-apparmor-2404
-          xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage uitests
+          xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage ../uitests
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: screenshots-${{ matrix.os }}
-          path: ./rascal-vscode-extension/uitests/screenshots/**/*.png
+          path: ./uitests/screenshots/**/*.png
           retention-days: 5
           if-no-files-found: error
 
@@ -170,7 +170,7 @@ jobs:
         if: failure()
         with:
           name: logs-${{ matrix.os }}
-          path: ./rascal-vscode-extension/uitests/settings/logs/**/usethesource.rascalmpl/*.log
+          path: ./uitests/settings/logs/**/usethesource.rascalmpl/*.log
           retention-days: 5
           if-no-files-found: error
 
@@ -178,7 +178,7 @@ jobs:
         shell: bash
         if: always()
         continue-on-error: true 
-        run: rm -rf ./rascal-vscode-extension/uitests/screenshots
+        run: rm -rf ./uitests/screenshots
 
   build:
     needs: [seed-caches, ui-test, normal-tests]
