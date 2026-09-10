@@ -192,26 +192,35 @@ end
 
     it("call hierarchy works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoCallsFile);
-        await editor.selectText("multiply");
-        await bench.executeCommand("view.showCallHierarchy");
+
+        const selectAndExecute = async(command: string) =>
+            driver.wait(async () => {
+                try {
+                    await editor.selectText("multiply");
+                    await bench.executeCommand(command);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }, Delays.normal, `Should select 'multiply' and execute '${command}'`);
+
+        await selectAndExecute("view.showCallHierarchy");
         await driver.wait(async () => (await new SideBarView().getTitlePart().getTitle()).toLowerCase().startsWith("references"), Delays.normal, "References panel should open.");
 
-        await editor.selectText("multiply");
-        await bench.executeCommand("view.showIncomingCalls");
+        await selectAndExecute("view.showIncomingCalls");
         await driver.wait(async () => {
             const outgoing = await ignoreFails(new SideBarView().getContent().getSection("Callers Of"));
-            const items = await ignoreFails(outgoing!.getVisibleItems());
+            const items = await ignoreFails(outgoing?.getVisibleItems());
             return items?.length === 2;
         }, Delays.normal, "Call hierarchy should show `multiply` and its recursive call.");
 
-        await editor.selectText("multiply");
-        await bench.executeCommand("view.showOutgoingCalls");
+        await selectAndExecute("view.showOutgoingCalls");
         await driver.wait(async () => {
             const incoming = await ignoreFails(new SideBarView().getContent().getSection("Calls From"));
-            const items = await ignoreFails(incoming!.getVisibleItems());
+            const items = await ignoreFails(incoming?.getVisibleItems());
             return items?.length === 3;
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
-    });
+    }).retries(2); // sometimes, this test cannot execute the call hierarchy commands
 
     it("completion works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
@@ -369,19 +378,21 @@ end
         });
 
         it("(un)registers diagnostics", async function() {
+            const bench = new Workbench();
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Register TODO");
             await driver.wait(async () => {
-                const bottomBar = new Workbench().getBottomBar();
+                const bottomBar = bench.getBottomBar();
                 const problemsView = await bottomBar.openProblemsView();
                 const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
                 const labels = await Promise.all(markers.map(async m => await m.getLabel()));
                 return labels.includes("TODO");
             }, Delays.slow, "TODO should be registered");
 
+            await ignoreFails(bench.getBottomBar().closePanel());
             await ide.clickCodeLens(editor, "Unregister TODO");
             await driver.wait(async () => {
-                const bottomBar = new Workbench().getBottomBar();
+                const bottomBar = bench.getBottomBar();
                 const problemsView = await bottomBar.openProblemsView();
                 const markers = await problemsView.getAllVisibleMarkers(MarkerType.Any);
                 const labels = await Promise.all(markers.map(async m => await m.getLabel()));
@@ -393,7 +404,7 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Show warning");
             await driver.wait(async () => {
-                const contents = await getOutput("Language Parametric Rascal Language Server");
+                const contents = await getOutput("Language Parametric Rascal Language Server", driver);
                 return contents.split("\n")[-1]?.indexOf(": Test warning") !== -1;
             }, Delays.normal, "Test warning dialog should show");
         });
@@ -402,7 +413,7 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Show warning");
             await driver.wait(async () => {
-                const contents = await getOutput("Language Parametric Rascal Language Server");
+                const contents = await getOutput("Language Parametric Rascal Language Server", driver);
                 return contents.split("\n")[-1]?.indexOf(": LOG Test warning") !== -1;
             }, Delays.normal, "Line should be logged");
         });
@@ -444,7 +455,7 @@ end
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Show Rascal version");
             const versionLine = await driver.wait(async () => {
-                const contents = await getOutput("Language Parametric Rascal Language Server");
+                const contents = await getOutput("Language Parametric Rascal Language Server", driver);
                 const lines = contents.split("\n");
                 return lines.find(l => l.indexOf("[INFO] Rascal standard library") !== -1);
             }, Delays.normal, "Version should be logged");
