@@ -29,7 +29,7 @@ import {posix} from 'path'; // posix path join is always correct, also on window
 
 
 export const MF_FILE = "RASCAL.MF";
-const MF_DIR = "META-INF";
+export const MF_DIR = "META-INF";
 
 /**
  * Check for common errors in RASCAL.MF files, and try and fix them if possible

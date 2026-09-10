@@ -32,6 +32,7 @@ import { RascalExtension } from './RascalExtension';
 import { RascalMFValidator } from './ux/RascalMFValidator';
 import { RascalProjectValidator } from './ux/RascalProjectValidator';
 import { VsCodeSettingsFixer } from './ux/VsCodeSettingsFixer';
+import { PomXmlValidator } from './ux/PomXmlValidator';
 
 const testDeployMode = (process.env['RASCAL_LSP_DEV_DEPLOY'] || "false") === "true";
 const deployMode = (process.env['RASCAL_LSP_DEV'] || "false") !== "true";
@@ -44,6 +45,7 @@ export function activate(context: vscode.ExtensionContext) {
     logger.info(`Starting extension deployMode: ${deployMode} testDeployMode: ${testDeployMode}`);
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
+    context.subscriptions.push(new PomXmlValidator(logger));
     context.subscriptions.push(new VsCodeSettingsFixer());
     context.subscriptions.push(new RascalProjectValidator(logger));
     if (!deployMode || testDeployMode) {
