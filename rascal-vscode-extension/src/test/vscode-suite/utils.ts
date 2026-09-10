@@ -252,6 +252,7 @@ export class IDEOperations {
     }
 
     async cleanup() {
+        await ignoreFails(new Workbench().executeCommand("workbench.action.zoomReset"));
         await ignoreFails(this.revertOpenChanges());
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
