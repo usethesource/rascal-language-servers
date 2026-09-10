@@ -549,8 +549,10 @@ export async function getOutput(channel: OutputChannel, driver: WebDriver): Prom
     const output = await bottomBar.openOutputView();
     await output.selectChannel(channel);
     await output.waitForStable();
-    // Sometimes, we seem to get the text before everything is loaded in the window. If that happens, we might need an extra condition or sleep here.
-    const text = await driver.wait(() => output.getText(), Delays.fast, "Channel should contain some output");
+    await driver.wait(() => output.getText(), Delays.fast, "Channel should contain some output");
+    // Sometimes, we seem to get the text before everything is loaded in the window. Wait a little bit until all text is loaded.
+    await sleep(100);
+    const text = await output.getText();
     await ignoreFails(bottomBar.closePanel());
     return text;
 }
