@@ -474,6 +474,8 @@ export class IDEOperations {
     }
 
     async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
+        // Always scroll up, where the lenses typically are
+        await editor.setCursor(1, 1);
         await this.driver.wait(async () => {
             try {
                 const lens = await editor.getCodeLens(name);
