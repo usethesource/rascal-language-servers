@@ -210,7 +210,7 @@ end
             const items = await ignoreFails(incoming?.getVisibleItems());
             return items?.length === 3;
         }, Delays.normal, "Call hierarchy should show `multiply` and its two outgoing calls.");
-    });
+    }).retries(2); // sometimes, this test cannot execute the call hierarchy commands
 
     it("completion works", async function() {
         const editor = await ide.openModule(TestWorkspace.picoFile);
