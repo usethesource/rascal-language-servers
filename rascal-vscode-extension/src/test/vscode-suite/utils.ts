@@ -550,6 +550,10 @@ export async function getOutput(channel: OutputChannel, driver: WebDriver): Prom
     await output.waitForStable();
     await driver.wait(async () => (await output.getText()).length > 0, Delays.fast, "Output channel should load");
     const text = await output.getText();
+
+    if (text.trim().length === 0) {
+        fail("No output found!");
+    }
     await bottomBar.closePanel();
     return text;
 }
