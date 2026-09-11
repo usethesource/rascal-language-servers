@@ -34,6 +34,7 @@ import org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer;
  */
 public class RoutingLanguageServer extends ParametricLanguageServer {
 
+    @SuppressWarnings("java:S9149") // hides `ParametricLanguageServer::main`
     public static void main(String[] args) {
         var serverArgs = parseArgs(args);
         if (serverArgs.getDedicatedLanguage() != null) {
@@ -51,4 +52,5 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
             );
         }
     }
+
 }
