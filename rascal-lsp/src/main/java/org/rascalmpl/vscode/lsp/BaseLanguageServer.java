@@ -327,12 +327,14 @@ public abstract class BaseLanguageServer {
         protected static String getJarVersion(ISourceLocation jarFile) throws IOException {
             jarFile = JarURIResolver.jarify(jarFile);
             var manifestLoc = URIUtil.getChildLocation(jarFile, "META-INF/MANIFEST.MF");
-            var manifest = new Manifest(URIResolverRegistry.getInstance().getInputStream(manifestLoc));
-            var specVersion = manifest.getMainAttributes().getValue("Specification-Version");
-            if (specVersion == null) {
-                throw new IOException(String.format("No Specification-Version in %s", manifest));
+            try (var is = URIResolverRegistry.getInstance().getInputStream(manifestLoc)) {
+                var manifest = new Manifest(is);
+                var specVersion = manifest.getMainAttributes().getValue("Specification-Version");
+                if (specVersion == null) {
+                    throw new IOException(String.format("No Specification-Version in %s", manifest));
+                }
+                return specVersion;
             }
-            return specVersion;
         }
 
         @Override

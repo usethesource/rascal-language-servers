@@ -282,6 +282,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         try {
             return mvn.resolveJar(loc);
         } catch (IOException e) {
+            logger.catching(e);
             return loc;
         }
     }

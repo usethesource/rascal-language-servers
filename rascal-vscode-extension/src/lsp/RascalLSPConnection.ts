@@ -212,7 +212,7 @@ function calculateRascalMemoryReservation() {
 }
 
 export function calculateDSLMemoryReservation(isRouter: boolean) {
-    if (!isRouter) {
+    if (isRouter) {
         // The server is just a router. It needs ~650MB of base memory and hardly grows per language.
         // We stay on the safe side.
         return "-Xmx800M";
