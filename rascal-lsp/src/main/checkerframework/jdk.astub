@@ -89,3 +89,11 @@ public interface ConcurrentHashMap<K, V> {
             K key,
             BiFunction<? super K, ? super V, ? extends @PolyNull V> remappingFunction) {}
 }
+
+package java.util.jar;
+
+import org.checkerframework.checker.nullness.qual.*;
+
+public class Attributes implements Map<Object,Object>, Cloneable {
+    public @Nullable String getValue(String name) { }
+}

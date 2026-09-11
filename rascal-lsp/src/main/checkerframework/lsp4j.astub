@@ -12,6 +12,16 @@ package org.eclipse.lsp4j;
 
 import org.checkerframework.checker.nullness.qual.*;
 
+public class ServerInfo {
+   public ServerInfo(String name, @Nullable String version) {}
+
+   public @Nullable String getVersion() {}
+}
+
+package org.eclipse.lsp4j;
+
+import org.checkerframework.checker.nullness.qual.*;
+
 public class CodeLens {
   public CodeLens() {
   }

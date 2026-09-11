@@ -176,6 +176,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
     private final ExecutorService exec;
 
+    public static final String LANGUAGE_ID = "parametric-rascalmpl";
+
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private final Set<String> extensionLessSchemes = new CopyOnWriteArraySet<>();
@@ -202,6 +204,8 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             tf.sourceLocationType(), "to");
 
     public ParametricTextDocumentService(ExecutorService exec, @Nullable LanguageParameter dedicatedLanguage, boolean exitWhenEmpty) {
+        super(LANGUAGE_ID);
+
         this.exec = exec;
         this.exitWhenEmpty = exitWhenEmpty;
 
@@ -232,7 +236,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     public static CapabilityRegistration initializeDynamicServerCapabilities(LanguageClient client, @Nullable String dedicatedLanguageName, ExecutorService exec, ClientCapabilities clientCapabilities, ServerCapabilities result) {
-        var dynamicCapabilities = new CapabilityRegistration(client, exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName(dedicatedLanguageName)));
+        var dynamicCapabilities = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities, DynamicServerCapabilities.parametric(getRascalMetaCommandName(dedicatedLanguageName)));
         dynamicCapabilities.registerStaticCapabilities(result);
         return dynamicCapabilities;
     }
@@ -648,10 +652,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     }
 
     private ParametricFileFacts facts(ISourceLocation doc) {
-        ParametricFileFacts fact = facts.get(language(doc));
+        var lang = language(doc);
+        ParametricFileFacts fact = facts.get(lang);
 
         if (fact == null) {
-            throw new ResponseErrorException(unknownFileError(doc, doc));
+            throw new ResponseErrorException(new ResponseError(ResponseErrorCode.RequestFailed, String.format("Unknown language %s of file %s", lang, doc), null));
         }
 
         return fact;
@@ -904,11 +909,12 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     public synchronized void registerLanguage(LanguageParameter lang) {
         logger.info("registerLanguage({})", lang.getName());
 
+        var clientCopy = (IBaseLanguageClient) availableClient();
         var multiplexer = contributions.computeIfAbsent(lang.getName(),
             t -> new LanguageContributionsMultiplexer(lang.getName(), exec)
         );
         var fact = facts.computeIfAbsent(lang.getName(), t ->
-            new ParametricFileFacts(exec, getColumnMaps(), multiplexer)
+            new ParametricFileFacts(clientCopy, exec, getColumnMaps(), multiplexer)
         );
 
         var parserConfig = lang.getPrecompiledParser();
@@ -928,12 +934,10 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             }
         }
 
-        var clientCopy = availableClient();
         multiplexer.addContributor(buildContributionKey(lang),
-            new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), (IBaseLanguageClient)clientCopy, exec));
+            new InterpretedLanguageContributions(lang, this, availableWorkspaceService(), clientCopy, exec));
 
         fact.reloadContributions();
-        fact.setClient(clientCopy);
 
         for (var extension: lang.getExtensions()) {
             this.registeredExtensions.put(extension, lang.getName());
@@ -1084,6 +1088,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             plex.cancelProgress(progressId));
     }
 
+    @Override
     public InterruptibleFuture<Void> checkProject(CheckProjectRequest req) {
         throw new UnsupportedOperationException("ParametricTextDocumentService cannot check Rascal projects");
     }

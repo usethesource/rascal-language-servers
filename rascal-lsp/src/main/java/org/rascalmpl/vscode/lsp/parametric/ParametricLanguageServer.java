@@ -35,7 +35,8 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 public class ParametricLanguageServer extends BaseLanguageServer {
 
     protected static void startParametric(ServerArgs args) {
-        startLanguageServer("parametric-lsp"
+        startLanguageServer("Parametric Rascal"
+            , "parametric-lsp"
             , "parametric"
             , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage(), args.isExitWhenEmpty())
             , ParametricWorkspaceService::new

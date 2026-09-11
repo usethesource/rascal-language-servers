@@ -120,7 +120,11 @@ describe('DSL [multi-language]', function () {
             }, Delays.normal, "Unsaved editor contents should be available across languages");
         } finally {
             await ide.revertOpenChanges();
-            await fs.unlink(targetFile);
+            try {
+                await fs.unlink(targetFile);
+            } catch (e: unknown) {
+                console.error(e);
+            }
         }
     });
 

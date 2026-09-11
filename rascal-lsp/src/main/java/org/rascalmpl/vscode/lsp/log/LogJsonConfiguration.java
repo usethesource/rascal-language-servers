@@ -80,7 +80,7 @@ public class LogJsonConfiguration extends ConfigurationFactory {
 
         builder.add(builder
             .newAppender("Console", ConsoleAppender.PLUGIN_NAME)
-            .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
+            .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR) // Matches BaseLanguageServer.DEPLOYMENT_OUTPUT_STREAM
             .add(builder.newLayout("JsonTemplateLayout")
                 /* The JSON template has a max length (buffer size) of 8192 by default:
                    https://logging.apache.org/log4j/2.x/manual/systemproperties.html#log4j2.encoderByteBufferSize

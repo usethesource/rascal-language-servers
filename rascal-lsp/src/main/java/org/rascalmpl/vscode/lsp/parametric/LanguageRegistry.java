@@ -55,6 +55,22 @@ public interface LanguageRegistry {
     @JsonRequest("receiveUnregisterLanguage")
     CompletableFuture<Void> unregisterLanguage(LanguageParameter lang);
 
+    /**
+     * Extensible arguments related to language registration.
+     */
+    class RegistrationParameter {
+        private LanguageParameter lang;
+        private String remoteMemoryArg;
+
+        public LanguageParameter getLang() {
+            return lang;
+        }
+
+        public String getRemoteMemoryArg() {
+            return remoteMemoryArg;
+        }
+    }
+
     public static class LanguageParameter {
         private final String pathConfig;
         private final String name; // name of the language
