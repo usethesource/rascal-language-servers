@@ -347,15 +347,18 @@ end
 
             // Open the virtual file with the serialized JSON
             await bench.executeCommand("editor.action.openLink");
-            const resultEditor = await driver.wait(async () => {
+            const actualJson = await driver.wait(async () => {
                 const editor = new TextEditor();
-                return (await ignoreFails(editor.getTitle()) === path.basename(actualJsonUri)) ? editor : undefined;
+                const title = await ignoreFails(editor.getTitle());
+                if (title === path.basename(actualJsonUri)) {
+                    return await ignoreFails(editor.getText());
+                }
+                return undefined;
             }, Delays.normal, "Editor with JSON result should open");
 
             // Check JSON equivalence
             const expectedJson = await fs.readFile(path.join("src", "test", "vscode-suite", "resources", "expectation_ivalue-as-json.json"), {encoding: "utf8"});
-            const actualJson = await resultEditor!.getText();
-            expect(JSON.parse(actualJson)).to.deep.equal(JSON.parse(expectedJson));
+            expect(JSON.parse(actualJson!)).to.deep.equal(JSON.parse(expectedJson));
         });
 
         it("browses interactively", async function() {
