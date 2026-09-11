@@ -95,6 +95,8 @@ import io.usethesource.vallang.ISourceLocation;
 public abstract class BaseLanguageServer {
     private static final PrintStream capturedOut;
     private static final InputStream capturedIn;
+    public static final PrintStream DEPLOYMENT_OUTPUT_STREAM = System.err;
+
     public static final boolean DEPLOY_MODE;
     private static final String LOG_CONFIGURATION_KEY = "log4j2.configurationFactory";
 
@@ -105,7 +107,7 @@ public abstract class BaseLanguageServer {
             capturedIn = System.in;
             capturedOut = System.out;
             System.setIn(new ByteArrayInputStream(new byte[0]));
-            System.setOut(new PrintStream(System.err, false)); // wrap stderr with a non flushing stream as that is how std.out normally works
+            System.setOut(new PrintStream(DEPLOYMENT_OUTPUT_STREAM, false)); // wrap stderr with a non flushing stream as that is how std.out normally works
         }
         else {
             capturedIn = InputStream.nullInputStream();

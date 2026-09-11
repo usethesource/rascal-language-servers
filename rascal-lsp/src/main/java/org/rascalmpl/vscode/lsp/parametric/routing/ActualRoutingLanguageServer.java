@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import static org.rascalmpl.vscode.lsp.BaseLanguageServer.DEPLOYMENT_OUTPUT_STREAM;
 import static org.rascalmpl.vscode.lsp.BaseLanguageServer.DEPLOY_MODE;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
 
@@ -139,12 +140,11 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private static final int PORT_POOL_SIZE = 9;
     private NavigableSet<Integer> portPool = new ConcurrentSkipListSet<>();
 
-    @SuppressWarnings("java:S106") // System.err
     public ActualRoutingLanguageServer(String serverName, Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
         super(serverName, onExit, exec, lspDocumentService, lspWorkspaceService);
 
         // log4j loggers write to stderr. We wrap the same stream, so we can directly pipe log messages from our child processes to it.
-        logForwarder = new JsonWriter(new BufferedWriter(new OutputStreamWriter(System.err)));
+        logForwarder = new JsonWriter(new BufferedWriter(new OutputStreamWriter(DEPLOYMENT_OUTPUT_STREAM)));
 
         for (int i = 0; i < PORT_POOL_SIZE; i++) {
             portPool.add(REMOTE_BASE_PORT + i);
@@ -237,7 +237,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         } catch (Exception e) { /* ignored */ }
     }
 
-    @SuppressWarnings("java:S106") // System.err
     private void forwardLogs(InputStream logStream, String langName) {
         getExecutor().execute(() -> {
             try (var reader = new BufferedReader(new InputStreamReader(logStream))) {
@@ -259,18 +258,18 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             var json = JsonParser.parseString(line);
             prependThreadName(langName, json);
             // Lock, so we can make sure our JSON is followed by a newline.
-            synchronized (System.err) {
+            synchronized (DEPLOYMENT_OUTPUT_STREAM) {
                 gson.toJson(json, logForwarder);
                 logForwarder.flush();
                 // One object per line; this is what log4j does as well.
-                System.err.println();
+                DEPLOYMENT_OUTPUT_STREAM.println();
             }
         } catch (JsonSyntaxException e) {
             // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
             // In this case, just forward the raw line.
             if (!line.isBlank()) {
                 // No need to lock, since `println` takes care of that.
-                System.err.println(line);
+                DEPLOYMENT_OUTPUT_STREAM.println(line);
             }
         }
     }
