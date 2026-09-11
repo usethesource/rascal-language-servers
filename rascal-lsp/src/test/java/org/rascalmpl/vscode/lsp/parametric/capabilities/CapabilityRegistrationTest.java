@@ -87,6 +87,8 @@ public class CapabilityRegistrationTest {
 
     private final ExecutorService exec = Executors.newCachedThreadPool();
 
+    private static final String LANGUAGE_ID = "testlang";
+
     private CapabilityRegistration dynCap;
 
     // Mocks
@@ -98,7 +100,7 @@ public class CapabilityRegistrationTest {
 
     @Before
     public void setUp() {
-        dynCap = new CapabilityRegistration(client, exec, clientCapabilities(true), completion);
+        dynCap = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities(true), completion);
         dynCap.registerStaticCapabilities(serverCapabilities);
     }
 
@@ -361,7 +363,7 @@ public class CapabilityRegistrationTest {
     public void hasNoDynamicCapability() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
 
-        dynCap = new CapabilityRegistration(client, exec, clientCapabilities(false), completion);
+        dynCap = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities(false), completion);
         dynCap.registerStaticCapabilities(serverCapabilities);
 
         dynCap.update(params(contrib)).get();
@@ -373,7 +375,7 @@ public class CapabilityRegistrationTest {
 
     @Test
     public void preferStaticRegistration() throws InterruptedException, ExecutionException {
-        dynCap = new CapabilityRegistration(client, exec, clientCapabilities(true), new CompletionCapability(true));
+        dynCap = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities(true), new CompletionCapability(true));
         dynCap.registerStaticCapabilities(serverCapabilities);
 
         dynCap.update(params(new SomeContribs("."))).get();

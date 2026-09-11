@@ -150,7 +150,8 @@ public abstract class AbstractDynamicCapability<O> {
         }
         var other = (AbstractDynamicCapability<?>) obj;
         return Objects.equals(id, other.id)
-            && Objects.equals(methodName, other.methodName);
+            && Objects.equals(methodName, other.methodName)
+            && Objects.equals(preferStaticRegistration, other.preferStaticRegistration);
     }
 
     @Override

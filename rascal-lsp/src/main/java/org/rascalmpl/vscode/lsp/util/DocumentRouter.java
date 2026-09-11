@@ -24,21 +24,53 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.rascal;
+package org.rascalmpl.vscode.lsp.util;
 
+import java.util.function.Function;
+import java.util.stream.Stream;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
+import org.eclipse.lsp4j.TextDocumentItem;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
+import io.usethesource.vallang.ISourceLocation;
 
-public class RascalLanguageServer extends BaseLanguageServer {
-    public static void main(String[] args) {
-        try {
-            startLanguageServer("Rascal", "rascal-lsp", "rascal", RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
-        }
-        catch (Throwable e) {
-            final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
-            logger.fatal("Starting the server failed", e);
-        }
+/**
+ * A router of document-like inputs to outputs of {@link T}.
+ * @param <T> The type of the mapped value.
+ */
+public interface DocumentRouter<T> {
+
+    /**
+     * Map an {@link ISourceLocation} to a {@link T}.
+     * @param loc The input location.
+     * @return The mapped value.
+     */
+    T route(ISourceLocation loc);
+
+    /**
+     * Map a {@link String} name to a {@link T}.
+     * @param doc The name key.
+     * @return The mapped value.
+     */
+    T route(String name);
+
+    default T route(TextDocumentItem doc) {
+        return route(Locations.toLoc(doc.getUri()));
     }
+
+    default T route(VersionedTextDocumentIdentifier id) {
+        return route(Locations.toLoc(id.getUri()));
+    }
+
+    default T route(TextDocumentIdentifier id) {
+        return route(Locations.toLoc(id.getUri()));
+    }
+
+    Stream<T> allRoutes();
+
+    default <U> Stream<U> allRoutes(Function<T, U> f) {
+        return allRoutes().map(f);
+    }
+
 }

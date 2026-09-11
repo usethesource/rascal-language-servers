@@ -24,21 +24,33 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-package org.rascalmpl.vscode.lsp.rascal;
+package org.rascalmpl.vscode.lsp.parametric.routing;
 
+import org.rascalmpl.vscode.lsp.parametric.ParametricLanguageServer;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.rascalmpl.vscode.lsp.BaseLanguageServer;
+/**
+ * A language-parametric server that assigns a dedicated server to each language.
+ * This server routes LSP requests to the appropriate language server.
+ */
+public class RoutingLanguageServer extends ParametricLanguageServer {
 
-public class RascalLanguageServer extends BaseLanguageServer {
+    @SuppressWarnings("java:S9149") // hides `ParametricLanguageServer::main`
     public static void main(String[] args) {
-        try {
-            startLanguageServer("Rascal", "rascal-lsp", "rascal", RascalTextDocumentService::new, RascalWorkspaceService::new, 8888);
-        }
-        catch (Throwable e) {
-            final Logger logger = LogManager.getLogger(RascalLanguageServer.class);
-            logger.fatal("Starting the server failed", e);
+        var serverArgs = parseArgs(args);
+        if (serverArgs.getDedicatedLanguage() != null) {
+            // If we get a dedicated language argument, we just start a single parametric server
+            startParametric(serverArgs);
+        } else {
+            startLanguageServer(
+                ActualRoutingLanguageServer::new,
+                "Parametric Rascal (routing)",
+                "parametric-lsp-router",
+                "parametric-router",
+                RoutingTextDocumentService::new,
+                RoutingWorkspaceService::new,
+                serverArgs.getPort()
+            );
         }
     }
+
 }

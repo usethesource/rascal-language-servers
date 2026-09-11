@@ -311,6 +311,18 @@ list[CompletionItem] picoCompletionService(Focus focus, int cursorOffset, Comple
     return sort(items, bool(CompletionItem i1, CompletionItem i2) {return i1.label < i2.label; });
 }
 
+PathConfig getPicoPathConfig() {
+    loc root;
+    try {
+        // Try to resolve the test project.
+        root = resolveLocation(|project://test-project|);
+    } catch SchemeNotSupported(_): {
+        // Otherwise, we probably have LSP open. Try that
+        root = resolveLocation(|project://rascal-lsp|);
+    }
+    return getProjectPathConfig(root, mode=interpreter());
+}
+
 @synopsis{The main function registers the Pico language with the IDE}
 @description{
 Register the Pico language and the contributions that supply the IDE with features.
@@ -329,9 +341,10 @@ in the presence of error trees. See ((util::LanguageServer)) for more details.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
 void main() {
+    pcfg = getPicoPathConfig();
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
@@ -340,7 +353,7 @@ void main() {
     );
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",

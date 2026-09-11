@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -71,11 +72,13 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
 
     private static final Logger logger = LogManager.getLogger(TextDocumentStateManager.class);
 
+    private final String languageId;
     private final Map<ISourceLocation, TextDocumentState> files = new ConcurrentHashMap<>();
     private final ColumnMaps columns;
 
     @SuppressWarnings({"methodref.receiver.bound"}) // this::getContents
-    protected TextDocumentStateManager() {
+    protected TextDocumentStateManager(String languageId) {
+        this.languageId = languageId;
         this.columns = new ColumnMaps(this::getContents);
     }
 
@@ -95,7 +98,7 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
             return ideState.getCurrentContent().get();
         }
         if (!URIResolverRegistry.getInstance().isFile(file)) {
-            logger.error("Trying to get the contents of a directory: {}", file);
+            logger.error("Trying to get the contents of a directory or non-existent file: {}", file);
             return "";
         }
         try (Reader src = URIResolverRegistry.getInstance().getCharacterReader(file)) {
@@ -205,7 +208,19 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
     }
 
     protected Set<@KeyFor("this.files") ISourceLocation> getOpenFiles() {
-        return files.keySet();
+        return Collections.unmodifiableSet(files.keySet());
+    }
+
+    public Set<TextDocumentItem> getOpenDocumentItems() {
+        return files.values().stream()
+            .map(this::toDocumentItem)
+            .collect(Collectors.toSet());
+    }
+
+    private TextDocumentItem toDocumentItem(TextDocumentState state) {
+        var uri = Locations.toUri(state.getLocation()).toString();
+        var current = state.getCurrentContent();
+        return new TextDocumentItem(uri, languageId, current.version(), current.get());
     }
 
     protected TextDocumentState updateContents(DidChangeTextDocumentParams change, long timestamp) {

@@ -86,6 +86,16 @@ parameterizedDescribe(function (errorRecovery: boolean) {
         protectedFiles = await ProtectedFiles.protect(TestWorkspace.picoFile);
     });
 
+    after(async() => {
+        await ide.openModule(TestWorkspace.libCallFile);
+
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import testing::lang::pico::LanguageServer;", false, Delays.extremelySlow);
+        await unloadPico(repl);
+        await repl.terminate();
+    });
+
     beforeEach(async function () {
         if (this.test?.title) {
             await ide.screenshot(`DSL-${errorRecovery}-` + this.test?.title);
@@ -437,12 +447,9 @@ end
             await ide.hasSyntaxHighlighting(editor, Delays.slow);
         });
 
-        it("uses the standard library from LSP (TODO: the project POM)", async function () {
+        it("uses the standard library from the POM", async function () {
             // Find Rascal version in POM
-            // TODO When POM-leading is merged, we expect the Rascal version from the DSL POM here instead.
-            // https://github.com/usethesource/rascal-language-servers/pull/1090
-            // const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
-            const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom, false);
+            const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom, false);
 
             // Query Rascal version from stdlib
             const editor = await ide.openModule(TestWorkspace.picoFile);
