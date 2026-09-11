@@ -78,6 +78,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
@@ -333,6 +335,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             logger.debug("Launched language server on process {}", proc.pid());
             return Triple.of(proc.getInputStream(), proc.getOutputStream(), () -> {});
         } catch (IOException | URISyntaxException e) {
+            availableClient().showMessage(new MessageParams(MessageType.Error, String.format("Starting language server process for %s failed: %s", lang.getName(), e.getMessage())));
             logger.error("Starting language server process for {} failed", lang.getName(), e);
             return null;
         }
