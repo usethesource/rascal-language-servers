@@ -83,7 +83,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     /**
      * The current registrations.
      * Map of method names to current registrations.
-     * The inner map is keyed by registration options, with a list of registrations with those exact options. The first registration in this list is always registered with the client, while the others are kept for internal administration.
+     * The inner map is keyed by registration options, with a list of registrations with those exact options. The first registration in this list is always registered with the actual client, while the others are kept for internal administration.
      */
     private final Map<String, CompletableFuture<Map<Object, List<Registration>>>> registrations = new ConcurrentHashMap<>();
 
@@ -228,6 +228,13 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         return Objects.requireNonNullElseGet(f, EMPTY_REGISTRATIONS);
     }
 
+    /**
+     * This method is responsible for managing the registrations from remotes.
+     *
+     * Since we cannot register a single capability with the same options multiple times, and remotes do not know about each others' capabilities,
+     * this method (together with `unregisterCapability`) makes sure that the capabilities registered with the client are the sum of the
+     * capabilities registered by the remote servers.
+     */
     private CompletableFuture<Void> registerCapability(Registration r) {
         logger.trace("Incoming registration request for {}", r.getMethod());
         var res = registrations.compute(r.getMethod(), (method, f) ->
@@ -278,7 +285,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     private CompletableFuture<Void> unregisterCapability(Unregistration u) {
         var res = registrations.compute(u.getMethod(), (method, f) ->
             computeIfAbsent(f).thenCompose(currentRegs -> {
-                for (var entry: currentRegs.entrySet()) {
+                for (var entry : currentRegs.entrySet()) {
                     var unreg = entry.getValue().stream().filter(r -> matches(r, u)).findAny();
                     if (!unreg.isPresent()) {
                         continue;
@@ -287,20 +294,21 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                     var regs = entry.getValue();
                     var idx = regs.indexOf(unreg.get());
                     if (idx != 0) {
-                        // This registration is not registered with the client.
+                        // This method is registered with the client, but not with this exact ID.
+                        // We remove this ID from our administration, but do not need to inform the client, since nothing changed for them.
                         regs.remove(idx);
                         logger.trace("Ignoring registration for {} ({}), since it is still supported by other languages.", method, u.getId());
                         return CompletableFuture.completedFuture(currentRegs);
                     }
 
-                    // This registration is registered with the client
+                    // This exact registration was used to register this capability with the client.
                     // Unregister it and remove it from our local administration.
                     logger.trace("Unregistering {}: {}", method, u);
                     return client.unregisterCapability(new UnregistrationParams(List.of(u)))
                         .thenCompose(v -> {
-                            regs.remove(idx);
+                            regs.remove(idx); // idx == 0
                             if (!regs.isEmpty()) {
-                                // We have more registrations from remotes, that the client does not know about.
+                                // We have more registrations for this capability from remotes, that the client does not know about.
                                 // Since we just unregistered this method, we register the next in line again.
                                 var reg = regs.get(0);
                                 logger.trace("Re-registering {}, since other servers still support it: {}", method, reg);
