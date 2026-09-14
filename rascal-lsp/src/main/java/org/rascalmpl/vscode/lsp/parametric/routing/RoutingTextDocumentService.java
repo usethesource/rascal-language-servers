@@ -247,7 +247,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     }
 
     private static UnsupportedOperationException unsupportedRoutingOperation(String funcName) {
-        return new UnsupportedOperationException(String.format("%s() should not be called on the routing document service, but only on delegate document services.", funcName));
+        return new UnsupportedOperationException(String.format("%s() should not be called on the routing document service, but only on remote document services.", funcName));
     }
 
     @Override

@@ -368,7 +368,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             });
         } catch (IOException e) {
             logger.error("Connecting to socket at port {} failed", port, e);
-            portPool.add(port); // return port to the pool, so the developer can start the delegate server and try again
+            portPool.add(port); // return port to the pool, so the developer can start the remote server and try again
             return null;
         }
     }
@@ -429,7 +429,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         var server = serverLauncher.getRemoteProxy();
 
         try {
-            var remoteInitialization = server.initialize(delegateInitializationParams(getWorkspaceService().workspaceFolders())).get(10, TimeUnit.SECONDS);
+            var remoteInitialization = server.initialize(remoteInitializationParams(getWorkspaceService().workspaceFolders())).get(10, TimeUnit.SECONDS);
             checkCapabilityCompatibility(lang.getName(), remoteInitialization);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -516,7 +516,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         return initializeParams;
     }
 
-    private InitializeParams delegateInitializationParams(List<WorkspaceFolder> workspaceFolders) {
+    private InitializeParams remoteInitializationParams(List<WorkspaceFolder> workspaceFolders) {
         var params = new InitializeParams();
         var clientParams = availableInitializeParams();
         params.setCapabilities(clientParams.getCapabilities()); // We support precisely the capabilities of VS Code
@@ -528,7 +528,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         try {
             params.setProcessId((int) ProcessHandle.current().pid());
         } catch (UnsupportedOperationException | SecurityException e) {
-            logger.debug("Cannot set delegate server parent process ID", e);
+            logger.debug("Cannot set remote server parent process ID", e);
         }
         return params;
     }
@@ -545,7 +545,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
-        // Capture the initialization params to re-use when initializing our delegates
+        // Capture the initialization params to re-use when initializing our remotes
         this.initializeParams = params;
 
         // Our child needs us, but we cannot set this in the constructor, so we set it here.
