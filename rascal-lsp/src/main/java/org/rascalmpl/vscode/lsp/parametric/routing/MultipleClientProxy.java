@@ -29,10 +29,10 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
 
 import java.net.URI;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,7 +77,7 @@ import io.usethesource.vallang.IString;
 public class MultipleClientProxy implements IBaseLanguageClient {
 
     private static final Logger logger = LogManager.getLogger(MultipleClientProxy.class);
-    private static final Supplier<CompletableFuture<Map<Object, Collection<Registration>>>> EMPTY_REGISTRATIONS = () -> CompletableFuture.completedFuture(new ConcurrentHashMap<>());
+    private static final Supplier<CompletableFuture<Map<Object, Set<Registration>>>> EMPTY_REGISTRATIONS = () -> CompletableFuture.completedFuture(new ConcurrentHashMap<>());
 
     private final IBaseLanguageClient client;
     private final ExecutorService exec;
@@ -85,10 +85,11 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     /**
      * The current registrations from remotes
      *
-     * Map of capability/method names to current registrations.
-     * The inner map is keyed by registration options, with a collection of registrations with those exact options.
+     * Map of capability/method names to current registrations. The inner map is keyed by registration options,
+     * with a set of registrations with those exact options. A set, since we do not care about order and do not
+     * need to consider duplicates.
      */
-    private final Map<String, CompletableFuture<Map<Object, Collection<Registration>>>> registrations = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<Map<Object, Set<Registration>>>> registrations = new ConcurrentHashMap<>();
 
     /**
      * The current registrations to the actual client.
@@ -232,7 +233,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             .thenAccept(v -> {}); // convert to Void
     }
 
-    private static CompletableFuture<Map<Object, Collection<Registration>>> computeIfAbsent(@Nullable CompletableFuture<Map<Object, Collection<Registration>>> f) {
+    private static CompletableFuture<Map<Object, Set<Registration>>> computeIfAbsent(@Nullable CompletableFuture<Map<Object, Set<Registration>>> f) {
         return Objects.requireNonNullElseGet(f, EMPTY_REGISTRATIONS);
     }
 
@@ -249,7 +250,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
      * this method (together with `unregisterCapability`) makes sure that the capabilities registered with the client are the sum of the
      * capabilities registered by the remote servers.
      */
-    private CompletableFuture<Map<Object, Collection<Registration>>> registerCapability(Registration r, CompletableFuture<Map<Object, Collection<Registration>>> existingRegistrationsByOptions) {
+    private CompletableFuture<Map<Object, Set<Registration>>> registerCapability(Registration r, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptions) {
         logger.trace("Incoming registration request for {}", r.getMethod());
         return existingRegistrationsByOptions.thenCompose(currentRegs -> {
             var method = r.getMethod();
@@ -296,7 +297,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             && r.getMethod().equals(u.getMethod());
     }
 
-    private CompletableFuture<Map<Object, Collection<Registration>>> unregisterCapability(Unregistration u, CompletableFuture<Map<Object, Collection<Registration>>> existingRegistrationsByOptions) {
+    private CompletableFuture<Map<Object, Set<Registration>>> unregisterCapability(Unregistration u, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptions) {
         return existingRegistrationsByOptions.thenCompose(currentRegs -> {
             for (var registrationsForOptions : currentRegs.entrySet()) {
                 var findRegistration = registrationsForOptions.getValue().stream().filter(r -> matches(r, u)).findAny();
