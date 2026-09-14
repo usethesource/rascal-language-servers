@@ -41,6 +41,7 @@ import lang::xml::PomAnalyzer;
 @synopsis{A fast analyzer, is run on most parse trees, so it should be fast}
 list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     result = [];
+    pcfg = getPathConfig(tree.src.top);
 
     annotationAlreadyReported = false;
     void reportAnnotationDeprecation(Tree t) {
@@ -50,7 +51,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
                 "Annotations are no longer supported and will soon be removed, please use our build-in Quick Fix to refactor all of them into keyword parameters",
                 t.src, fixes=[
                     action(
-                        command=upgradeAnnotations(getPathConfig(t.src.top)),
+                        command=upgradeAnnotations(pcfg),
                         title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
                     )
                 ]
@@ -69,7 +70,6 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         }
 
         case i:(Import)`import util::LanguageServer;`: {
-            pcfg = getPathConfig(i.src.top);
             pomLoc = pcfg.projectRoot + "pom.xml";
             if (getRascalLspVersionFromPom(pomLoc) == nothing()) {
                 result += warning(
@@ -88,6 +88,15 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         case t:(Expression) `delAnnotationsRec(<Expression _>)`: reportAnnotationDeprecation(t);
         case t:(Expression) `delAnnotation(<Expression _>, <Expression _>)`: reportAnnotationDeprecation(t);
         case t:(Catch) `catch NoSuchAnnotation(<Pattern _>) : <Statement _>`: reportAnnotationDeprecation(t);
+    }
+
+    // If a `RASCAL.MF` file exists, check whether there is a Rascal dependency in the pom.xml
+    pomLoc = pcfg.projectRoot + "pom.xml";
+    if (exists(pcfg.projectRoot + "META-INF" + "RASCAL.MF") && getRascalFromPom(pomLoc) == nothing()) {
+        result += warning(
+            "Missing required Rascal dependency in project `<pcfg.projectRoot.file>`",
+            pomLoc, fixes=[action(title="Add Rascal dependency", edits=[changed(pomLoc, [addRascalDependency(pomLoc)])])]
+        );
     }
     return result;
 }
