@@ -29,15 +29,17 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
 
 import java.net.URI;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -75,17 +77,24 @@ import io.usethesource.vallang.IString;
 public class MultipleClientProxy implements IBaseLanguageClient {
 
     private static final Logger logger = LogManager.getLogger(MultipleClientProxy.class);
-    private static final Supplier<CompletableFuture<Map<Object, List<Registration>>>> EMPTY_REGISTRATIONS = () -> CompletableFuture.completedFuture(new HashMap<>());
+    private static final Supplier<CompletableFuture<Map<Object, Set<Registration>>>> EMPTY_REGISTRATIONS = () -> CompletableFuture.completedFuture(new ConcurrentHashMap<>());
 
     private final IBaseLanguageClient client;
     private final ExecutorService exec;
 
     /**
-     * The current registrations.
-     * Map of method names to current registrations.
-     * The inner map is keyed by registration options, with a list of registrations with those exact options. The first registration in this list is always registered with the actual client, while the others are kept for internal administration.
+     * The current registrations from remotes
+     *
+     * Map of capability/method names to current registrations. The inner map is keyed by registration options,
+     * with a set of registrations with those exact options. A set, since we do not care about order and do not
+     * need to consider duplicates.
      */
-    private final Map<String, CompletableFuture<Map<Object, List<Registration>>>> registrations = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<Map<Object, Set<Registration>>>> registrations = new ConcurrentHashMap<>();
+
+    /**
+     * The current registrations to the actual client.
+     */
+    private final Map<Pair<String, Object>, Registration> proxyRegistrations = new ConcurrentHashMap<>();
 
     protected MultipleClientProxy(LanguageClient client, ExecutorService exec) {
         this.client = (IBaseLanguageClient) client;
@@ -214,67 +223,90 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         return client.showDocument(params);
     }
 
+    /**
+     * Handles incoming capability registrations.
+     *
+     * The one and only responsibility of this method is to make sure this capability is registered with the client (if it was not already registered by another remote).
+     * @see org.eclipse.lsp4j.services.LanguageClient#registerCapability(org.eclipse.lsp4j.RegistrationParams)
+     * @see org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration
+     */
     @Override
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
         return CompletableFutureUtils
-            .reduce(params
-                .getRegistrations()
-                .parallelStream()
-                .map(this::registerCapability), exec)
-            .thenAccept(v -> {}); // convert to Void
+            .reduce(params.getRegistrations()
+                // Process each capability registration separately, since they are unrelated and can be handled concurrently in a safe way (distinct keys).
+                .stream()
+                .map(r -> wrapResult(registrations.compute(r.getMethod(), (method, existingRegistrationsByOptions) -> registerCapability(r, computeIfAbsent(existingRegistrationsByOptions))))), exec)
+            .thenAccept(v -> {}); // convert to Void; we do not care about return values here, but update the future in the map
     }
 
-    private static CompletableFuture<Map<Object, List<Registration>>> computeIfAbsent(@Nullable CompletableFuture<Map<Object, List<Registration>>> f) {
+    private static CompletableFuture<Map<Object, Set<Registration>>> computeIfAbsent(@Nullable CompletableFuture<Map<Object, Set<Registration>>> f) {
         return Objects.requireNonNullElseGet(f, EMPTY_REGISTRATIONS);
     }
 
+    private static <T> CompletableFuture<Void> wrapResult(@Nullable CompletableFuture<T> fut) {
+        return fut == null
+            ? NOOP
+            : fut.thenAccept(t -> {});
+    }
+
     /**
-     * This method is responsible for managing the registrations from remotes.
+     * This method is responsible for managing a capability registration from a remote.
      *
      * Since we cannot register a single capability with the same options multiple times, and remotes do not know about each others' capabilities,
      * this method (together with `unregisterCapability`) makes sure that the capabilities registered with the client are the sum of the
      * capabilities registered by the remote servers.
      */
-    private CompletableFuture<Void> registerCapability(Registration r) {
+    private CompletableFuture<Map<Object, Set<Registration>>> registerCapability(Registration r, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptionsFut) {
         logger.trace("Incoming registration request for {}", r.getMethod());
-        var res = registrations.compute(r.getMethod(), (method, f) ->
-            computeIfAbsent(f).thenCompose(currentRegs -> {
-                var equalOptRegs = currentRegs.computeIfAbsent(r.getRegisterOptions(), m -> new LinkedList<>());
-                if (!equalOptRegs.isEmpty()) {
+        return existingRegistrationsByOptionsFut.thenCompose(existingRegistrationsByOptions -> {
+            var method = r.getMethod();
+
+            // Atomically get or compute the collection of registrations with exactly these options
+            var existingRegistrations = existingRegistrationsByOptions.computeIfAbsent(r.getRegisterOptions(), m -> new CopyOnWriteArraySet<>());
+            synchronized (existingRegistrations) {
+                var alreadyRegisteredWithClient = !existingRegistrations.isEmpty();
+
+                // Add this registration to our local administration
+                existingRegistrations.add(r);
+
+                if (alreadyRegisteredWithClient) {
                     // This capability was already registered with these exact options.
                     // Do not do a duplicate registration with the actual client, since that will lead to an error.
                     // However, we do write down this registration for our own administration, in case we need it later.
                     logger.trace("This exact capability was registered with the client before - we ignore it for now: {}", r);
-                    equalOptRegs.add(r);
-                    return CompletableFuture.completedStage(currentRegs);
+                    return CompletableFuture.completedStage(existingRegistrationsByOptions);
                 }
 
-                logger.trace("Registering {} with the client: {}", method, r);
-                return client.registerCapability(new RegistrationParams(List.of(r)))
-                    .thenAccept(v -> equalOptRegs.add(r))
-                    .handle((v, t) -> {
+                var proxy = getOrComputeProxyRegistration(method, r.getRegisterOptions());
+                logger.trace("Registering {} with the client: {}", method, proxy);
+                return client.registerCapability(new RegistrationParams(List.of(proxy)))
+                    .handleAsync((v, t) -> {
                         if (t != null) {
-                            logger.error("Exception while registering {}: {}", method, r, t);
-                            equalOptRegs.remove(r);
+                            logger.error("Exception while registering {}: {}", method, proxy, t);
+                            existingRegistrations.remove(r);
                         }
-                        return currentRegs;
-                    });
-            }));
-
-        if (res == null) {
-            return NOOP;
-        }
-        return res.thenAccept(v -> {}); // convert to Void
+                        return existingRegistrationsByOptions;
+                    }, exec);
+            }
+        });
     }
 
+    /**
+     * Handles incoming capability unregistrations.
+     *
+     * The one and only responsibility of this method is to make sure this capability is unregistered with the client, if no other remote has it registered (anymore).
+     * @see org.eclipse.lsp4j.services.LanguageClient#unregisterCapability(org.eclipse.lsp4j.UnregistrationParams)
+     * @see org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration
+     */
     @Override
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
         return CompletableFutureUtils
             .reduce(params
                 .getUnregisterations()
-                .parallelStream()
-                .map(this::unregisterCapability), exec)
-            .thenAccept(v -> {}); // convert to Void
+                .stream()
+                .map(u -> wrapResult(registrations.compute(u.getMethod(), (method, existingRegistrationsByOptions) -> unregisterCapability(u, computeIfAbsent(existingRegistrationsByOptions))))), exec)
+            .thenAccept(v -> {});
     }
 
     private boolean matches(Registration r, Unregistration u) {
@@ -282,52 +314,59 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             && r.getMethod().equals(u.getMethod());
     }
 
-    private CompletableFuture<Void> unregisterCapability(Unregistration u) {
-        var res = registrations.compute(u.getMethod(), (method, f) ->
-            computeIfAbsent(f).thenCompose(currentRegs -> {
-                for (var entry : currentRegs.entrySet()) {
-                    var unreg = entry.getValue().stream().filter(r -> matches(r, u)).findAny();
-                    if (!unreg.isPresent()) {
+    private CompletableFuture<Map<Object, Set<Registration>>> unregisterCapability(Unregistration u, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptionsFut) {
+        return existingRegistrationsByOptionsFut.thenCompose(existingRegistrationsByOptions -> {
+            for (var registrationsForOptions : existingRegistrationsByOptions.entrySet()) {
+                var remoteRegistrations = registrationsForOptions.getValue();
+                synchronized (remoteRegistrations) {
+                    // Find the existing registration belonging to this unregistration, so we know the options
+                    var findRegistration = remoteRegistrations.stream().filter(r -> matches(r, u)).findAny();
+                    if (!findRegistration.isPresent()) {
                         continue;
                     }
 
-                    var regs = entry.getValue();
-                    var idx = regs.indexOf(unreg.get());
-                    if (idx != 0) {
-                        // This method is registered with the client, but not with this exact ID.
-                        // We remove this ID from our administration, but do not need to inform the client, since nothing changed for them.
-                        regs.remove(idx);
-                        logger.trace("Ignoring registration for {} ({}), since it is still supported by other languages.", method, u.getId());
-                        return CompletableFuture.completedFuture(currentRegs);
+                    var remoteRegistration = findRegistration.get();
+                    var options = registrationsForOptions.getKey();
+
+                    // Remove this registration from our local administration.
+                    remoteRegistrations.remove(remoteRegistration);
+
+                    var proxy = getProxyUnregistration(remoteRegistration.getMethod(), options);
+                    if (!remoteRegistrations.isEmpty() || proxy == null) {
+                        // We do not need to inform the client, since other remotes still supports this capability or it was already unregistered in the meantime.
+                        return CompletableFuture.completedFuture(existingRegistrationsByOptions);
                     }
 
-                    // This exact registration was used to register this capability with the client.
-                    // Unregister it and remove it from our local administration.
-                    logger.trace("Unregistering {}: {}", method, u);
-                    return client.unregisterCapability(new UnregistrationParams(List.of(u)))
-                        .thenCompose(v -> {
-                            regs.remove(idx); // idx == 0
-                            if (!regs.isEmpty()) {
-                                // We have more registrations for this capability from remotes, that the client does not know about.
-                                // Since we just unregistered this method, we register the next in line again.
-                                var reg = regs.get(0);
-                                logger.trace("Re-registering {}, since other servers still support it: {}", method, reg);
-                                return client.registerCapability(new RegistrationParams(List.of(reg)));
+                    logger.trace("Unregistering {}: {}", remoteRegistration.getMethod(), u);
+                    return client.unregisterCapability(new UnregistrationParams(List.of(proxy)))
+                        .handleAsync((v, e) -> {
+                            if (e != null) {
+                                // Unregistration failed somehow; restore our local administration
+                                remoteRegistrations.add(remoteRegistration);
+                            } else {
+                                // Unregistration succeeded; remove the proxy as well
+                                proxyRegistrations.remove(Pair.of(remoteRegistration.getMethod(), options));
                             }
-                            return NOOP;
-                        })
-                        .thenApply(v -> currentRegs);
+                            return existingRegistrationsByOptions;
+                        }, exec);
                 }
+            }
 
-                logger.debug("Received a client/unregisterCapability for a registration that is not currently registered: {}", u);
-                return CompletableFuture.completedFuture(currentRegs);
-            })
-        );
+            logger.error("Received a client/unregisterCapability for a registration that is not currently registered: {}", u);
+            return CompletableFuture.completedFuture(existingRegistrationsByOptions);
+        });
+    }
 
-        if (res == null) {
-            return NOOP;
-        }
-        return res.thenAccept(v -> {}); // convert to Void
+    private Registration getOrComputeProxyRegistration(String method, Object options) {
+        return proxyRegistrations.computeIfAbsent(Pair.of(method, options), m -> new Registration(UUID.randomUUID().toString(), method, options));
+    }
+
+    private @Nullable Unregistration getProxyUnregistration(String method, Object options) {
+        var r = proxyRegistrations.get(Pair.of(method, options));
+
+        return r == null
+            ? null
+            : new Unregistration(r.getId(), r.getMethod());
     }
 
     @Override
