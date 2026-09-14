@@ -377,8 +377,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
      * Special GSON configuration that (un)wraps IValues as-is.
      *
      * Encoding and decoding an {@link IValue} loses dynamic type information, hence a decoded value can not be encoded properly again.
-     * `encode(decode(encode(v))) != encode(v)`
-     * Since the router should just proxy values passed from remote servers, without changing them, it uses a special encoder/decoder.
+     * `decode(encode(v)) != v`
+     * Since the router should just proxy values passed from remote servers, without changing them, it uses a special encoder/decoder, implemented in `ProxiedIValue`
      *
      */
     private static void configureProxyGson(GsonBuilder builder) {

@@ -49,7 +49,7 @@ public interface DocumentRouter<T> {
 
     /**
      * Map a {@link String} name to a {@link T}.
-     * @param doc The name key.
+     * @param name The name key.
      * @return The mapped value.
      */
     T route(String name);

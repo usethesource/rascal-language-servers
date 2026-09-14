@@ -1064,7 +1064,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         // Should be called from the main, single-threaded request pool
         updateCapabilities().thenAccept(v -> {
             if (exitWhenEmpty && contributions.isEmpty()) {
-                logger.debug("Shutting down; no more registered languages");
+                logger.debug("Shutting down; no more registered contributions for language " + dedicatedLanguageName);
                 System.exit(0);
             }
         });

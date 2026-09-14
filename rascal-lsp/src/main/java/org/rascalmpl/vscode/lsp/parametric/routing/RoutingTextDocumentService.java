@@ -278,19 +278,19 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
-        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        // RoutingWorkspaceService never calls us, but forwards to remotes instead
         throw unsupportedRoutingOperation("didCreateFiles");
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders) {
-        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        // RoutingWorkspaceService never calls us, but forwards to remotes instead
         throw unsupportedRoutingOperation("didRenameFiles");
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
-        // NOP; RoutingWorkspaceService nevers calls us, but forwards to remotes instead
+        // RoutingWorkspaceService never calls us, but forwards to remotes instead
         throw unsupportedRoutingOperation("didDeleteFiles");
     }
 
