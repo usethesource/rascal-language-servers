@@ -304,26 +304,27 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                     continue;
                 }
 
-                var reg = findRegistration.get();
-                var method = u.getMethod();
+                var remoteReg = findRegistration.get();
                 var options = registrationsForOptions.getKey();
                 var remoteRegistrations = registrationsForOptions.getValue();
 
                 // Remove this registration from our local administration.
-                remoteRegistrations.remove(reg);
+                remoteRegistrations.remove(remoteReg);
 
-                var proxy = getProxyUnregistration(method, options);
+                var proxy = getProxyUnregistration(remoteReg.getMethod(), options);
                 if (!remoteRegistrations.isEmpty() || proxy == null) {
                     // We do not need to inform the client, since other remotes still supports this capability.
                     return CompletableFuture.completedFuture(currentRegs);
                 }
 
-                logger.trace("Unregistering {}: {}", method, u);
+                logger.trace("Unregistering {}: {}", remoteReg.getMethod(), u);
                 return client.unregisterCapability(new UnregistrationParams(List.of(proxy)))
                     .handle((v, e) -> {
                         if (e != null) {
                             // Unregistration failed somehow; restore our local administration
-                            remoteRegistrations.add(reg);
+                            remoteRegistrations.add(remoteReg);
+                        } else {
+                            proxyRegistrations.remove(Pair.of(remoteReg.getMethod(), options));
                         }
                         return currentRegs;
                     });
