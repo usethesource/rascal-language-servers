@@ -156,7 +156,7 @@ public abstract class AbstractDynamicCapability<O> {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, methodName);
+        return Objects.hash(id, methodName, preferStaticRegistration);
     }
 
 }
