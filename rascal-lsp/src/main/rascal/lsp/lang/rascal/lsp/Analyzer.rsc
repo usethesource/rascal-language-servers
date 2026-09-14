@@ -71,10 +71,10 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
 
         case i:(Import)`import util::LanguageServer;`: {
             pomLoc = pcfg.projectRoot + "pom.xml";
-            if (getRascalLspVersionFromPom(pomLoc) == nothing()) {
+            if (getRascalLspFromPom(pomLoc) == nothing()) {
                 result += warning(
                     "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`",
-                    i.src, fixes=[action(edits=[changed([addRascalLspDependency(pomLoc)])])]
+                    i.src, fixes=[action(title="Add rascal-lsp dependency", edits=[changed(pomLoc, [addRascalLspDependency(pomLoc)])])]
                 );
             }
         }

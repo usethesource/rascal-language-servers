@@ -108,7 +108,7 @@ Dependencies getDependencies(node pom) {
         if (project := getChildNode(pom, "project"), dependencies := getChildNode(project, "dependencies")) {
             return implodeDependencies(dependencies);
         }
-    } catch value _:;
+    } catch value v: println("Error during implode: <v>");
     return missing();
 }
 
@@ -154,38 +154,18 @@ Maybe[Coordinate] getDependencyVersion(node pom, str groupId, str artifactId) {
     return nothing();
 }
 
-Maybe[str] getRascalVersionFromPom(loc pom) {
-    return getRascalVersionFromPom(readPom(pom));
-}
-
-Maybe[str] getRascalVersionFromPom(node pom) {
+Maybe[Dependency] getRascalFromPom(loc pom) {
     try {
-        if (just(Coordinate::version(version)) := getDependencyVersion(pom, "org.rascalmpl", "rascal")) {
-            return just(version);
-        }
+        return getDependency(readPom(pom), "org.rascalmpl", "rascal");
     } catch value _:;
     return nothing();
 }
 
-Maybe[str] getRascalLspVersionFromPom(loc pom) {
-    return getRascalLspVersionFromPom(readPom(pom));
-}
-
-Maybe[str] getRascalLspVersionFromPom(node pom) {
+Maybe[Dependency] getRascalLspFromPom(loc pom) {
     try {
-        if (just(Coordinate::version(version)) := getDependencyVersion(pom, "org.rascalmpl", "rascal-lsp")) {
-            return just(version);
-        }
+        return getDependency(readPom(pom), "org.rascalmpl", "rascal-lsp");
     } catch value _:;
     return nothing();
-}
-
-TextEdit upgradeRascalVersion(loc pomLoc, str newVersion=getRascalVersion()) {
-    pom = readPom(pomLoc);
-    if (just(Coordinate version) := getDependencyVersion(pom, "org.rascalmpl", "rascal")) {
-        return replace(version.src, "\<version\><newVersion>\</version\>");
-    };
-    throw IllegalArgument("No Rascal dependency found in <pomLoc>");
 }
 
 TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
@@ -207,7 +187,6 @@ TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
     if (deps is missing) {
         if (node project := getChildNode(pom, "project"), node finalChild := getChildren(project)[-1], loc finalChildLoc := finalChild.src) {
             baseIndentation = pomLines[finalChildLoc.begin.line-1][..finalChildLoc.begin.column];
-            println("baseIndentation: `<baseIndentation>`");
             return insertAfter(finalChildLoc, "<newline><newline><baseIndentation>\<dependencies\><newline><makeDependencyXml(baseIndentation + indentation)><baseIndentation>\</dependencies\>");
         } else {
             throw IllegalArgument("Invalid pom.xml at <pomLoc>");
