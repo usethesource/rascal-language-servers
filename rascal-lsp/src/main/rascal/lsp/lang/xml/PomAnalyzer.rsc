@@ -166,7 +166,7 @@ Maybe[str] getRascalLspVersionFromPom(node pom) {
     return nothing();
 }
 
-TextEdit upgradeRascalVersion(loc pomLoc, str newVersion) {
+TextEdit upgradeRascalVersion(loc pomLoc, str newVersion=getRascalVersion()) {
     pom = readPom(pomLoc);
     if (just(Coordinate version) := getDependencyVersion(pom, "org.rascalmpl", "rascal")) {
         return replace(version.src, "\<version\><newVersion>\</version\>");
@@ -212,10 +212,10 @@ TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
     }
 }
 
-TextEdit addRascalDependency(loc pomLoc) {
-    return addDependency(pomLoc, "org.rascalmpl", "rascal", getRascalVersion());
+TextEdit addRascalDependency(loc pomLoc, str version=getRascalVersion()) {
+    return addDependency(pomLoc, "org.rascalmpl", "rascal", version);
 }
 
-TextEdit addRascalLspDependency(loc pomLoc) {
-    return addDependency(pomLoc, "org.rascalmpl", "rascal-lsp", "2.22.5");
+TextEdit addRascalLspDependency(loc pomLoc, str version="2.22.5") {
+    return addDependency(pomLoc, "org.rascalmpl", "rascal-lsp", version);
 }
