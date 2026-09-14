@@ -223,14 +223,21 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         return client.showDocument(params);
     }
 
+    /**
+     * Handles incoming capability registrations.
+     *
+     * The one and only responsibility of this method is to make sure this capability is registered with the client (if it was not already registered by another remote).
+     * @see org.eclipse.lsp4j.services.LanguageClient#registerCapability(org.eclipse.lsp4j.RegistrationParams)
+     * @see org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration
+     */
     @Override
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
         return CompletableFutureUtils
-            .reduce(params
-                .getRegistrations()
+            .reduce(params.getRegistrations()
+                // Process each capability registration separately, since they are unrelated and can be handled concurrently in a safe way (distinct keys).
                 .stream()
                 .map(r -> wrapResult(registrations.compute(r.getMethod(), (method, existingRegistrationsByOptions) -> registerCapability(r, computeIfAbsent(existingRegistrationsByOptions))))), exec)
-            .thenAccept(v -> {}); // convert to Void
+            .thenAccept(v -> {}); // convert to Void; we do not care about return values here, but update the future in the map
     }
 
     private static CompletableFuture<Map<Object, Set<Registration>>> computeIfAbsent(@Nullable CompletableFuture<Map<Object, Set<Registration>>> f) {
@@ -244,7 +251,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     }
 
     /**
-     * This method is responsible for managing the registrations from remotes.
+     * This method is responsible for managing a capability registration from a remote.
      *
      * Since we cannot register a single capability with the same options multiple times, and remotes do not know about each others' capabilities,
      * this method (together with `unregisterCapability`) makes sure that the capabilities registered with the client are the sum of the
@@ -255,6 +262,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         return existingRegistrationsByOptionsFut.thenCompose(existingRegistrationsByOptions -> {
             var method = r.getMethod();
 
+            // Atomically get or compute the collection of registrations with exactly these options
             var existingRegistrations = existingRegistrationsByOptions.computeIfAbsent(r.getRegisterOptions(), m -> new CopyOnWriteArraySet<>());
             synchronized (existingRegistrations) {
                 var alreadyRegisteredWithClient = !existingRegistrations.isEmpty();
@@ -284,6 +292,13 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         });
     }
 
+    /**
+     * Handles incoming capability unregistrations.
+     *
+     * The one and only responsibility of this method is to make sure this capability is unregistered with the client, if no other remote has it registered (anymore).
+     * @see org.eclipse.lsp4j.services.LanguageClient#unregisterCapability(org.eclipse.lsp4j.UnregistrationParams)
+     * @see org.rascalmpl.vscode.lsp.parametric.capabilities.CapabilityRegistration
+     */
     @Override
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
         return CompletableFutureUtils
@@ -304,6 +319,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             for (var registrationsForOptions : existingRegistrationsByOptions.entrySet()) {
                 var remoteRegistrations = registrationsForOptions.getValue();
                 synchronized (remoteRegistrations) {
+                    // Find the existing registration belonging to this unregistration, so we know the options
                     var findRegistration = remoteRegistrations.stream().filter(r -> matches(r, u)).findAny();
                     if (!findRegistration.isPresent()) {
                         continue;
@@ -317,7 +333,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
                     var proxy = getProxyUnregistration(remoteRegistration.getMethod(), options);
                     if (!remoteRegistrations.isEmpty() || proxy == null) {
-                        // We do not need to inform the client, since other remotes still supports this capability.
+                        // We do not need to inform the client, since other remotes still supports this capability or it was already unregistered in the meantime.
                         return CompletableFuture.completedFuture(existingRegistrationsByOptions);
                     }
 
@@ -328,6 +344,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                                 // Unregistration failed somehow; restore our local administration
                                 remoteRegistrations.add(remoteRegistration);
                             } else {
+                                // Unregistration succeeded; remove the proxy as well
                                 proxyRegistrations.remove(Pair.of(remoteRegistration.getMethod(), options));
                             }
                             return existingRegistrationsByOptions;
