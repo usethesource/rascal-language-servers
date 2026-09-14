@@ -65,6 +65,7 @@ data Exclusion(loc src=|unknown:///|)
     = exclusion(list[Coordinate] coordinates)
     ;
 
+// TODO: after a future release of Rascal, `groupid` should become `groupId` and `artifactid` should become `artifactId`
 Coordinate implode(c:"groupid"(str groupId)) = Coordinate::groupId(groupId, src=src) when loc src := c.src;
 Coordinate implode(c:"artifactid"(str artifactId)) = Coordinate::artifactId(artifactId, src=src) when loc src := c.src;
 Coordinate implode(c:"version"(str version)) = Coordinate::version(version, src=src) when loc src := c.src;
