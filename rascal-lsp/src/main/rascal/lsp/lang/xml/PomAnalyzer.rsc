@@ -149,9 +149,11 @@ Maybe[str] getRascalVersionFromPom(loc pom) {
 }
 
 Maybe[str] getRascalVersionFromPom(node pom) {
-    if (just(Coordinate::version(version)) := getDependencyVersion(pom, "org.rascalmpl", "rascal")) {
-        return just(version);
-    }
+    try {
+        if (just(Coordinate::version(version)) := getDependencyVersion(pom, "org.rascalmpl", "rascal")) {
+            return just(version);
+        }
+    } catch value _:;
     return nothing();
 }
 
@@ -160,9 +162,11 @@ Maybe[str] getRascalLspVersionFromPom(loc pom) {
 }
 
 Maybe[str] getRascalLspVersionFromPom(node pom) {
-    if (just(Coordinate::version(version)) := getDependencyVersion(pom, "org.rascalmpl", "rascal-lsp")) {
-        return just(version);
-    }
+    try {
+        if (just(Coordinate::version(version)) := getDependencyVersion(pom, "org.rascalmpl", "rascal-lsp")) {
+            return just(version);
+        }
+    } catch value _:;
     return nothing();
 }
 
