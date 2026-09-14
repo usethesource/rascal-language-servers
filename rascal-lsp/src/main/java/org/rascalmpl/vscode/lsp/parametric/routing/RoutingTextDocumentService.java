@@ -172,16 +172,16 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         return availableServerRouter().route(language).getTextDocumentService();
     }
 
-    private <P, R> CompletableFuture<R> route(TextDocumentIdentifier doc, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
-        return routeCompose(route(doc), endpoint, params);
+    private <P, R> CompletableFuture<R> route(TextDocumentIdentifier doc, BiFunction<TextDocumentService, P, CompletableFuture<R>> request, P params) {
+        return routeCompose(route(doc), request, params);
     }
 
-    private <P, R> CompletableFuture<R> route(ISourceLocation loc, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
-        return routeCompose(route(loc), endpoint, params);
+    private <P, R> CompletableFuture<R> route(ISourceLocation loc, BiFunction<TextDocumentService, P, CompletableFuture<R>> request, P params) {
+        return routeCompose(route(loc), request, params);
     }
 
-    private <P, R> CompletableFuture<R> routeCompose(TextDocumentService sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> endpoint, P params) {
-        return endpoint.apply(sf, params);
+    private <P, R> CompletableFuture<R> routeCompose(TextDocumentService sf, BiFunction<TextDocumentService, P, CompletableFuture<R>> request, P params) {
+        return request.apply(sf, params);
     }
 
     @Override
@@ -194,7 +194,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         var timestamp = System.currentTimeMillis();
         openFile(params.getTextDocument(), l -> (loc, contents) -> CompletableFutureUtils.completedFuture(IRascalValueFactory.getInstance().character(0), exec), timestamp, exec);
 
-        // Inform all remote servers about this file, so they can maintain its state.
+        // Inform all remote servers about this file, so they can maintain its state and read editor contents of other languages.
         notifyAllRemotes(TextDocumentService::didOpen, params);
     }
 
@@ -203,7 +203,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         var timestamp = System.currentTimeMillis();
         updateContents(params, timestamp);
 
-        // Inform all remote servers about this file, so they can maintain its state.
+        // Inform all remote servers about this file, so they can maintain its state and read editor contents of other languages.
         notifyAllRemotes(TextDocumentService::didChange, params);
     }
 
@@ -211,7 +211,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     public void didClose(DidCloseTextDocumentParams params) {
         closeFile(Locations.toLoc(params.getTextDocument()));
 
-        // Inform all remote servers about this file, so they can maintain its state.
+        // Inform all remote servers about this file, so they can maintain its state and read editor contents of other languages.
         notifyAllRemotes(TextDocumentService::didClose, params);
     }
 

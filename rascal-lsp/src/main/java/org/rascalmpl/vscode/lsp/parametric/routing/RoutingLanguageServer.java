@@ -39,7 +39,7 @@ public class RoutingLanguageServer extends ParametricLanguageServer {
         var serverArgs = parseArgs(args);
         if (serverArgs.getDedicatedLanguage() != null) {
             // If we get a dedicated language argument, we just start a single parametric server
-            startParametric(serverArgs);
+            startParametricLanguageServer(serverArgs);
         } else {
             startLanguageServer(
                 ActualRoutingLanguageServer::new,

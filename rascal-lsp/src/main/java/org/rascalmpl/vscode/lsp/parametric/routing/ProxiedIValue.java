@@ -38,7 +38,7 @@ import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.type.Type;
 
 /**
- * Wraps a JSON element representing an IValue as an IValue.
+ * Wraps a JSON element as an IValue.
  *
  * This class allows passing IValues through JSON-RPC-enabled servers without requiring to decode/encode them.
  */

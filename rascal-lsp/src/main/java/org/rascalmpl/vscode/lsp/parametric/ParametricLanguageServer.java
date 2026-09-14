@@ -34,18 +34,18 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 
 public class ParametricLanguageServer extends BaseLanguageServer {
 
-    protected static void startParametric(ServerArgs args) {
+    protected static void startParametricLanguageServer(ServerArgs args) {
         startLanguageServer("Parametric Rascal"
             , "parametric-lsp"
             , "parametric"
-            , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage(), args.isExitWhenEmpty())
+            , threadPool -> new ParametricTextDocumentService(threadPool, args.getDedicatedLanguage(), args.getExitWhenEmpty())
             , ParametricWorkspaceService::new
             , args.getPort()
         );
     }
 
     public static void main(String[] args) {
-        startParametric(parseArgs(args));
+        startParametricLanguageServer(parseArgs(args));
     }
 
     public static class ServerArgs {
@@ -69,7 +69,7 @@ public class ParametricLanguageServer extends BaseLanguageServer {
             this.dedicatedLanguage = dedicatedLanguage;
         }
 
-        public boolean isExitWhenEmpty() {
+        public boolean getExitWhenEmpty() {
             return exitWhenEmpty;
         }
 

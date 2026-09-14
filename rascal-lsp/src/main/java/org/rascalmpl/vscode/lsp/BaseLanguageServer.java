@@ -154,9 +154,20 @@ public abstract class BaseLanguageServer {
         logger.trace("Started with classpath: {}", () -> System.getProperty("java.class.path"));
     }
 
+    /**
+     * Language server constructor interface.
+     */
     @FunctionalInterface
     protected interface ServerBuilder {
-        ActualLanguageServer apply(String name, Runnable a, ExecutorService b, IBaseTextDocumentService c, BaseWorkspaceService d);
+        /**
+         * @param serverName A human-readable name for the server.
+         * @param onExit A hook triggered when the client sends an exit notification.
+         * @param workerPool Thread pool to do long-running computations on.
+         * @param docService The document service (should match the workspace service).
+         * @param wsService The workspace service (should match the document service).
+         * @return
+         */
+        ActualLanguageServer apply(String serverName, Runnable onExit, ExecutorService workerPool, IBaseTextDocumentService docService, BaseWorkspaceService wsService);
     }
 
     protected static void startLanguageServer(String serverName, String requestPoolName, String workerPoolName, Function<ExecutorService, IBaseTextDocumentService> docServiceProvider, Function<ExecutorService, BaseWorkspaceService> workspaceServiceProvider, int portNumber) {

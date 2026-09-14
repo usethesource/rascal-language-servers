@@ -62,10 +62,16 @@ public interface LanguageRegistry {
         private LanguageParameter lang;
         private String remoteMemoryArg;
 
+        /**
+         * The language configuration parameter.
+         */
         public LanguageParameter getLang() {
             return lang;
         }
 
+        /**
+         * How much memory to allocate when launching a remote server process.
+         */
         public String getRemoteMemoryArg() {
             return remoteMemoryArg;
         }

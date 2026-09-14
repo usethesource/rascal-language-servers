@@ -207,7 +207,11 @@ public abstract class TextDocumentStateManager implements ITextDocumentStateMana
         return state;
     }
 
+    /**
+     * Retrieve the currently open files.
+     */
     protected Set<@KeyFor("this.files") ISourceLocation> getOpenFiles() {
+        // Since the set of keys is backed by the map, a we do not want anyone making changes to our map, we use an unmodifiable wrapper.
         return Collections.unmodifiableSet(files.keySet());
     }
 

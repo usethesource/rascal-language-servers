@@ -181,6 +181,7 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
     private final String dedicatedLanguageName;
     private final SemanticTokenizer tokenizer = new SemanticTokenizer();
     private final Set<String> extensionLessSchemes = new CopyOnWriteArraySet<>();
+    /** Exit the server when the last language is unregistered */
     private final boolean exitWhenEmpty;
 
     private @MonotonicNonNull LanguageClient client;
@@ -1027,14 +1028,14 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return lang.getMainFunction() + "::" + lang.getMainFunction();
     }
 
-    public static boolean isLanguageCompletelyRemoved(LanguageParameter lang) {
+    public static boolean doesUnregisterAllContributions(LanguageParameter lang) {
         return lang.getMainModule() == null || lang.getMainModule().isEmpty();
     }
 
     @Override
     public synchronized void unregisterLanguage(LanguageParameter lang) {
         logger.info("unregisterLanguage({})", lang.getName());
-        boolean removeAll = isLanguageCompletelyRemoved(lang);
+        boolean removeAll = doesUnregisterAllContributions(lang);
         if (!removeAll) {
             var contrib = contributions.get(lang.getName());
             if (contrib != null && !contrib.removeContributor(buildContributionKey(lang))) {

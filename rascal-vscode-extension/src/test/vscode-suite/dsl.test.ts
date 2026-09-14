@@ -87,6 +87,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
     });
 
     after(async() => {
+        // Open a module in a project with an LSP dependency, so we can open a REPL with LSP on the search path
         await ide.openModule(TestWorkspace.libCallFile);
 
         const repl = new RascalREPL(bench, driver);

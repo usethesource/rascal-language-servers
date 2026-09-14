@@ -121,6 +121,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     private static final String THREAD_NAME_KEY = "threadName";
+
+    // The earliest LSP version that is compatible with the remote server interface that we expect when spawning a process.
     private static final ComparableVersion MINIMAL_COMPATIBLE_VERSION = new ComparableVersion("2.22.6-SNAPSHOT");
 
     private static final Logger logger = LogManager.getLogger(ActualRoutingLanguageServer.class);
@@ -138,8 +140,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private @MonotonicNonNull InitializeParams initializeParams;
     private final JsonWriter logForwarder;
 
-    private static final int REMOTE_BASE_PORT = 9990;
-    private static final int PORT_POOL_SIZE = 9;
+    private static final int DEV_REMOTE_BASE_PORT = 9990;
+    private static final int DEV_PORT_POOL_SIZE = 9;
     private NavigableSet<Integer> portPool = new ConcurrentSkipListSet<>();
 
     public ActualRoutingLanguageServer(String serverName, Runnable onExit, ExecutorService exec, IBaseTextDocumentService lspDocumentService, BaseWorkspaceService lspWorkspaceService) {
@@ -148,8 +150,8 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         // log4j loggers write to stderr. We wrap the same stream, so we can directly pipe log messages from our child processes to it.
         logForwarder = new JsonWriter(new BufferedWriter(new OutputStreamWriter(DEPLOYMENT_OUTPUT_STREAM)));
 
-        for (int i = 0; i < PORT_POOL_SIZE; i++) {
-            portPool.add(REMOTE_BASE_PORT + i);
+        for (int i = 0; i < DEV_PORT_POOL_SIZE; i++) {
+            portPool.add(DEV_REMOTE_BASE_PORT + i);
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> destroyChildProcesses()));
@@ -588,7 +590,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     public synchronized CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
         logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());
 
-        if (ParametricTextDocumentService.isLanguageCompletelyRemoved(lang)) {
+        if (ParametricTextDocumentService.doesUnregisterAllContributions(lang)) {
             // Do not remove the connection to the server.
             // For the deployed scenario, this is handled by the process onExit hook.
             // For the development scenario, we maintain the connection, since the remote server does not exit.
