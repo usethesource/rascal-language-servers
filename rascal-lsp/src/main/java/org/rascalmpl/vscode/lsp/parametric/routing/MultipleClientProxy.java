@@ -256,29 +256,31 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             var method = r.getMethod();
 
             var existingRegistrations = existingRegistrationsByOptions.computeIfAbsent(r.getRegisterOptions(), m -> new CopyOnWriteArraySet<>());
-            var alreadyRegisteredWithClient = !existingRegistrations.isEmpty();
+            synchronized (existingRegistrations) {
+                var alreadyRegisteredWithClient = !existingRegistrations.isEmpty();
 
-            // Add this registration to our local administration
-            existingRegistrations.add(r);
+                // Add this registration to our local administration
+                existingRegistrations.add(r);
 
-            if (alreadyRegisteredWithClient) {
-                // This capability was already registered with these exact options.
-                // Do not do a duplicate registration with the actual client, since that will lead to an error.
-                // However, we do write down this registration for our own administration, in case we need it later.
-                logger.trace("This exact capability was registered with the client before - we ignore it for now: {}", r);
-                return CompletableFuture.completedStage(existingRegistrationsByOptions);
+                if (alreadyRegisteredWithClient) {
+                    // This capability was already registered with these exact options.
+                    // Do not do a duplicate registration with the actual client, since that will lead to an error.
+                    // However, we do write down this registration for our own administration, in case we need it later.
+                    logger.trace("This exact capability was registered with the client before - we ignore it for now: {}", r);
+                    return CompletableFuture.completedStage(existingRegistrationsByOptions);
+                }
+
+                var proxy = getOrComputeProxyRegistration(method, r.getRegisterOptions());
+                logger.trace("Registering {} with the client: {}", method, proxy);
+                return client.registerCapability(new RegistrationParams(List.of(proxy)))
+                    .handleAsync((v, t) -> {
+                        if (t != null) {
+                            logger.error("Exception while registering {}: {}", method, proxy, t);
+                            existingRegistrations.remove(r);
+                        }
+                        return existingRegistrationsByOptions;
+                    }, exec);
             }
-
-            var proxy = getOrComputeProxyRegistration(method, r.getRegisterOptions());
-            logger.trace("Registering {} with the client: {}", method, proxy);
-            return client.registerCapability(new RegistrationParams(List.of(proxy)))
-                .handleAsync((v, t) -> {
-                    if (t != null) {
-                        logger.error("Exception while registering {}: {}", method, proxy, t);
-                        existingRegistrations.remove(r);
-                    }
-                    return existingRegistrationsByOptions;
-                }, exec);
         });
     }
 
@@ -300,35 +302,37 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     private CompletableFuture<Map<Object, Set<Registration>>> unregisterCapability(Unregistration u, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptionsFut) {
         return existingRegistrationsByOptionsFut.thenCompose(existingRegistrationsByOptions -> {
             for (var registrationsForOptions : existingRegistrationsByOptions.entrySet()) {
-                var findRegistration = registrationsForOptions.getValue().stream().filter(r -> matches(r, u)).findAny();
-                if (!findRegistration.isPresent()) {
-                    continue;
-                }
-
-                var remoteRegistration = findRegistration.get();
-                var options = registrationsForOptions.getKey();
                 var remoteRegistrations = registrationsForOptions.getValue();
+                synchronized (remoteRegistrations) {
+                    var findRegistration = remoteRegistrations.stream().filter(r -> matches(r, u)).findAny();
+                    if (!findRegistration.isPresent()) {
+                        continue;
+                    }
 
-                // Remove this registration from our local administration.
-                remoteRegistrations.remove(remoteRegistration);
+                    var remoteRegistration = findRegistration.get();
+                    var options = registrationsForOptions.getKey();
 
-                var proxy = getProxyUnregistration(remoteRegistration.getMethod(), options);
-                if (!remoteRegistrations.isEmpty() || proxy == null) {
-                    // We do not need to inform the client, since other remotes still supports this capability.
-                    return CompletableFuture.completedFuture(existingRegistrationsByOptions);
+                    // Remove this registration from our local administration.
+                    remoteRegistrations.remove(remoteRegistration);
+
+                    var proxy = getProxyUnregistration(remoteRegistration.getMethod(), options);
+                    if (!remoteRegistrations.isEmpty() || proxy == null) {
+                        // We do not need to inform the client, since other remotes still supports this capability.
+                        return CompletableFuture.completedFuture(existingRegistrationsByOptions);
+                    }
+
+                    logger.trace("Unregistering {}: {}", remoteRegistration.getMethod(), u);
+                    return client.unregisterCapability(new UnregistrationParams(List.of(proxy)))
+                        .handleAsync((v, e) -> {
+                            if (e != null) {
+                                // Unregistration failed somehow; restore our local administration
+                                remoteRegistrations.add(remoteRegistration);
+                            } else {
+                                proxyRegistrations.remove(Pair.of(remoteRegistration.getMethod(), options));
+                            }
+                            return existingRegistrationsByOptions;
+                        }, exec);
                 }
-
-                logger.trace("Unregistering {}: {}", remoteRegistration.getMethod(), u);
-                return client.unregisterCapability(new UnregistrationParams(List.of(proxy)))
-                    .handleAsync((v, e) -> {
-                        if (e != null) {
-                            // Unregistration failed somehow; restore our local administration
-                            remoteRegistrations.add(remoteRegistration);
-                        } else {
-                            proxyRegistrations.remove(Pair.of(remoteRegistration.getMethod(), options));
-                        }
-                        return existingRegistrationsByOptions;
-                    }, exec);
             }
 
             logger.error("Received a client/unregisterCapability for a registration that is not currently registered: {}", u);
