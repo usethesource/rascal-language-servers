@@ -31,9 +31,11 @@ import IO;
 import String;
 import ParseTree;
 import util::IDEServices;
+import util::Maybe;
 import util::PathConfig;
 import lang::rascal::\syntax::Rascal;
 import lang::rascal::lsp::Actions;
+import lang::xml::PomAnalyzer;
 
 
 @synopsis{A fast analyzer, is run on most parse trees, so it should be fast}
@@ -64,6 +66,17 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
             s = "<scheme>";
             if (s notin illegalSchemeSuggestions<0>) fail v;
             result += error("`<s>://` scheme is not supported anymore. In most cases it can be replaced by <illegalSchemeSuggestions[s]>", l.src);
+        }
+
+        case i:(Import)`import util::LanguageServer;`: {
+            pcfg = getPathConfig(i.src.top);
+            pomLoc = pcfg.projectRoot + "pom.xml";
+            if (getRascalLspVersionFromPom(pomLoc) == nothing()) {
+                result += warning(
+                    "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`",
+                    i.src, fixes=[action(edits=[changed([addRascalLspDependency(pomLoc)])])]
+                );
+            }
         }
 
         // annotation cases
