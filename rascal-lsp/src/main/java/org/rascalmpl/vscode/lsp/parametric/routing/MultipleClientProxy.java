@@ -250,23 +250,23 @@ public class MultipleClientProxy implements IBaseLanguageClient {
      * this method (together with `unregisterCapability`) makes sure that the capabilities registered with the client are the sum of the
      * capabilities registered by the remote servers.
      */
-    private CompletableFuture<Map<Object, Set<Registration>>> registerCapability(Registration r, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptions) {
+    private CompletableFuture<Map<Object, Set<Registration>>> registerCapability(Registration r, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptionsFut) {
         logger.trace("Incoming registration request for {}", r.getMethod());
-        return existingRegistrationsByOptions.thenCompose(currentRegs -> {
+        return existingRegistrationsByOptionsFut.thenCompose(existingRegistrationsByOptions -> {
             var method = r.getMethod();
 
-            var equalOptRegs = currentRegs.computeIfAbsent(r.getRegisterOptions(), m -> new CopyOnWriteArraySet<>());
-            var alreadyRegistered = !equalOptRegs.isEmpty();
+            var existingRegistrations = existingRegistrationsByOptions.computeIfAbsent(r.getRegisterOptions(), m -> new CopyOnWriteArraySet<>());
+            var alreadyRegisteredWithClient = !existingRegistrations.isEmpty();
 
             // Add this registration to our local administration
-            equalOptRegs.add(r);
+            existingRegistrations.add(r);
 
-            if (alreadyRegistered) {
+            if (alreadyRegisteredWithClient) {
                 // This capability was already registered with these exact options.
                 // Do not do a duplicate registration with the actual client, since that will lead to an error.
                 // However, we do write down this registration for our own administration, in case we need it later.
                 logger.trace("This exact capability was registered with the client before - we ignore it for now: {}", r);
-                return CompletableFuture.completedStage(currentRegs);
+                return CompletableFuture.completedStage(existingRegistrationsByOptions);
             }
 
             var proxy = getOrComputeProxyRegistration(method, r.getRegisterOptions());
@@ -275,9 +275,9 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                 .handle((v, t) -> {
                     if (t != null) {
                         logger.error("Exception while registering {}: {}", method, proxy, t);
-                        equalOptRegs.remove(r);
+                        existingRegistrations.remove(r);
                     }
-                    return currentRegs;
+                    return existingRegistrationsByOptions;
                 });
         });
     }
@@ -297,42 +297,42 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             && r.getMethod().equals(u.getMethod());
     }
 
-    private CompletableFuture<Map<Object, Set<Registration>>> unregisterCapability(Unregistration u, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptions) {
-        return existingRegistrationsByOptions.thenCompose(currentRegs -> {
-            for (var registrationsForOptions : currentRegs.entrySet()) {
+    private CompletableFuture<Map<Object, Set<Registration>>> unregisterCapability(Unregistration u, CompletableFuture<Map<Object, Set<Registration>>> existingRegistrationsByOptionsFut) {
+        return existingRegistrationsByOptionsFut.thenCompose(existingRegistrationsByOptions -> {
+            for (var registrationsForOptions : existingRegistrationsByOptions.entrySet()) {
                 var findRegistration = registrationsForOptions.getValue().stream().filter(r -> matches(r, u)).findAny();
                 if (!findRegistration.isPresent()) {
                     continue;
                 }
 
-                var remoteReg = findRegistration.get();
+                var remoteRegistration = findRegistration.get();
                 var options = registrationsForOptions.getKey();
                 var remoteRegistrations = registrationsForOptions.getValue();
 
                 // Remove this registration from our local administration.
-                remoteRegistrations.remove(remoteReg);
+                remoteRegistrations.remove(remoteRegistration);
 
-                var proxy = getProxyUnregistration(remoteReg.getMethod(), options);
+                var proxy = getProxyUnregistration(remoteRegistration.getMethod(), options);
                 if (!remoteRegistrations.isEmpty() || proxy == null) {
                     // We do not need to inform the client, since other remotes still supports this capability.
-                    return CompletableFuture.completedFuture(currentRegs);
+                    return CompletableFuture.completedFuture(existingRegistrationsByOptions);
                 }
 
-                logger.trace("Unregistering {}: {}", remoteReg.getMethod(), u);
+                logger.trace("Unregistering {}: {}", remoteRegistration.getMethod(), u);
                 return client.unregisterCapability(new UnregistrationParams(List.of(proxy)))
                     .handle((v, e) -> {
                         if (e != null) {
                             // Unregistration failed somehow; restore our local administration
-                            remoteRegistrations.add(remoteReg);
+                            remoteRegistrations.add(remoteRegistration);
                         } else {
-                            proxyRegistrations.remove(Pair.of(remoteReg.getMethod(), options));
+                            proxyRegistrations.remove(Pair.of(remoteRegistration.getMethod(), options));
                         }
-                        return currentRegs;
+                        return existingRegistrationsByOptions;
                     });
             }
 
             logger.error("Received a client/unregisterCapability for a registration that is not currently registered: {}", u);
-            return CompletableFuture.completedFuture(currentRegs);
+            return CompletableFuture.completedFuture(existingRegistrationsByOptions);
         });
     }
 
