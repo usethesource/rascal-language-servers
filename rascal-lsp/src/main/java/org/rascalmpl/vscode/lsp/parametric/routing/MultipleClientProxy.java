@@ -227,7 +227,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         return CompletableFutureUtils
             .reduce(params
                 .getRegistrations()
-                .parallelStream()
+                .stream()
                 .map(r -> wrapResult(registrations.compute(r.getMethod(), (method, existingRegistrationsByOptions) -> registerCapability(r, computeIfAbsent(existingRegistrationsByOptions))))), exec)
             .thenAccept(v -> {}); // convert to Void
     }
@@ -286,7 +286,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         return CompletableFutureUtils
             .reduce(params
                 .getUnregisterations()
-                .parallelStream()
+                .stream()
                 .map(u -> wrapResult(registrations.compute(u.getMethod(), (method, existingRegistrationsByOptions) -> unregisterCapability(u, computeIfAbsent(existingRegistrationsByOptions))))), exec)
             .thenAccept(v -> {});
     }
