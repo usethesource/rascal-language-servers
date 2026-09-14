@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -92,7 +93,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     /**
      * The current registrations to the actual client.
      */
-    private final Map<String, Map<Object, Registration>> proxyRegistrations = new ConcurrentHashMap<>();
+    private final Map<Pair<String, Object>, Registration> proxyRegistrations = new ConcurrentHashMap<>();
 
     protected MultipleClientProxy(LanguageClient client, ExecutorService exec) {
         this.client = (IBaseLanguageClient) client;
@@ -334,15 +335,11 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     }
 
     private Registration getOrComputeProxyRegistration(String method, Object options) {
-        return proxyRegistrations
-            .computeIfAbsent(method, m -> new ConcurrentHashMap<>())
-            .computeIfAbsent(options, opts -> new Registration(UUID.randomUUID().toString(), method, opts));
+        return proxyRegistrations.computeIfAbsent(Pair.of(method, options), m -> new Registration(UUID.randomUUID().toString(), method, options));
     }
 
     private @Nullable Unregistration getProxyUnregistration(String method, Object options) {
-        var r = proxyRegistrations
-            .computeIfAbsent(method, m -> new ConcurrentHashMap<>())
-            .get(options);
+        var r = proxyRegistrations.get(Pair.of(method, options));
 
         return r == null
             ? null
