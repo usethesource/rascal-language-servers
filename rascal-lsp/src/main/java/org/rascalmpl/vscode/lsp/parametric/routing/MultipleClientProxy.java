@@ -30,13 +30,13 @@ import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NO
 
 import java.net.URI;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.tuple.Pair;
@@ -254,7 +254,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         return existingRegistrationsByOptions.thenCompose(currentRegs -> {
             var method = r.getMethod();
 
-            var equalOptRegs = currentRegs.computeIfAbsent(r.getRegisterOptions(), m -> new LinkedList<>());
+            var equalOptRegs = currentRegs.computeIfAbsent(r.getRegisterOptions(), m -> new CopyOnWriteArraySet<>());
             var alreadyRegistered = !equalOptRegs.isEmpty();
 
             // Add this registration to our local administration
