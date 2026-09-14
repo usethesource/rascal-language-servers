@@ -272,13 +272,13 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             var proxy = getOrComputeProxyRegistration(method, r.getRegisterOptions());
             logger.trace("Registering {} with the client: {}", method, proxy);
             return client.registerCapability(new RegistrationParams(List.of(proxy)))
-                .handle((v, t) -> {
+                .handleAsync((v, t) -> {
                     if (t != null) {
                         logger.error("Exception while registering {}: {}", method, proxy, t);
                         existingRegistrations.remove(r);
                     }
                     return existingRegistrationsByOptions;
-                });
+                }, exec);
         });
     }
 
@@ -320,7 +320,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
                 logger.trace("Unregistering {}: {}", remoteRegistration.getMethod(), u);
                 return client.unregisterCapability(new UnregistrationParams(List.of(proxy)))
-                    .handle((v, e) -> {
+                    .handleAsync((v, e) -> {
                         if (e != null) {
                             // Unregistration failed somehow; restore our local administration
                             remoteRegistrations.add(remoteRegistration);
@@ -328,7 +328,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                             proxyRegistrations.remove(Pair.of(remoteRegistration.getMethod(), options));
                         }
                         return existingRegistrationsByOptions;
-                    });
+                    }, exec);
             }
 
             logger.error("Received a client/unregisterCapability for a registration that is not currently registered: {}", u);
