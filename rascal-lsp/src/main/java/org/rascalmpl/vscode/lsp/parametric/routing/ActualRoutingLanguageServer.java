@@ -32,7 +32,7 @@ import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NO
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
@@ -234,13 +234,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         throw new IOException("No rascal-lsp dependency. Could not start language server");
     }
 
-    private static void prependThreadName(String langName, JsonElement json) {
-        try {
-            var obj = json.getAsJsonObject();
-            obj.addProperty(THREAD_NAME_KEY, langName + (obj.has(THREAD_NAME_KEY) ? " | " + obj.getAsJsonPrimitive(THREAD_NAME_KEY).getAsString() : ""));
-        } catch (Exception e) { /* ignored */ }
-    }
-
     private void forwardLogs(InputStream logStream, String langName) {
         getExecutor().execute(() -> {
             try (var reader = new BufferedReader(new InputStreamReader(logStream))) {
@@ -258,23 +251,28 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
      * @throws IOException when the log writer is closed.
      */
     private void forwardLogLine(String langName, String line) throws IOException {
+        JsonObject json = null;
         try {
-            var json = JsonParser.parseString(line);
-            prependThreadName(langName, json);
-            // Lock, so we can make sure our JSON is followed by a newline.
-            synchronized (DEPLOYMENT_OUTPUT_STREAM) {
-                gson.toJson(json, logForwarder);
-                logForwarder.flush();
-                // One object per line; this is what log4j does as well.
-                DEPLOYMENT_OUTPUT_STREAM.println();
-            }
-        } catch (JsonSyntaxException e) {
+            json = JsonParser.parseString(line).getAsJsonObject();
+
+            // Append the language to the thread name
+            json.addProperty(THREAD_NAME_KEY, langName + (json.has(THREAD_NAME_KEY) ? " | " + json.getAsJsonPrimitive(THREAD_NAME_KEY).getAsString() : langName));
+        } catch (JsonSyntaxException | IllegalStateException e) {
             // Sometimes the child process logs non-JSON (e.g. logs while setting up the JSON logger).
             // In this case, just forward the raw line.
             if (!line.isBlank()) {
                 // No need to lock, since `println` takes care of that.
                 DEPLOYMENT_OUTPUT_STREAM.println(line);
             }
+            return;
+        }
+
+        // Lock, so we can make sure our JSON is followed by a newline.
+        synchronized (DEPLOYMENT_OUTPUT_STREAM) {
+            gson.toJson(json, logForwarder);
+            logForwarder.flush();
+            // One object per line; this is what log4j does as well.
+            DEPLOYMENT_OUTPUT_STREAM.println();
         }
     }
 
