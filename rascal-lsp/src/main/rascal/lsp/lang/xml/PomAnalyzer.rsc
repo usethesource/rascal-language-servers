@@ -60,7 +60,6 @@ Dependencies implodeDependencies(node n)
     = dependencies([implode(dependency) | node dependency <- getChildren(n)], src=src)
     when getName(n) == "dependencies", loc src := n.src;
 
-
 node getChildNode(node n, str name) {
     if (node child <- getChildren(n), name := getName(child)) {
         return child;
@@ -93,11 +92,16 @@ str inferNewline(str pomSrc, list[str] pomLines) {
     return pomSrc[size(pomLines[0])+1..findFirst(pomSrc, pomLines[1])];
 }
 
-node readPom(loc l) {
+@memo
+node readPom(loc l, datetime _timestamp) {
     if (node pom := readXML(l, trackOrigins=true, includeEndTags=true)) {
         return pom;
     }
     throw IllegalArgument("No pom at <l>");
+}
+
+node readPom(loc l) {
+    return readPom(l, lastModified(l));
 }
 
 Maybe[Dependency] getDependency(node pom, str groupId, str artifactId) {
