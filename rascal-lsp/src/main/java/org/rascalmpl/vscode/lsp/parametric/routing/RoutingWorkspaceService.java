@@ -72,7 +72,7 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
 
     @Override
     public Stream<WorkspaceService> allRoutes() {
-        return availableServerRouter().allRoutes(LanguageServer::getWorkspaceService);
+        return availableServerRouter().allRoutes().map(LanguageServer::getWorkspaceService);
     }
 
     @Override

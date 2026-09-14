@@ -607,7 +607,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public CompletableFuture<Object> shutdown() {
-        return CompletableFutureUtils.reduce(allRoutes(LanguageServer::shutdown), getExecutor())
+        return CompletableFutureUtils.reduce(allRoutes().map(LanguageServer::shutdown), getExecutor())
             .thenCompose(_o -> super.shutdown())
             .thenApply(o -> {
                 try {

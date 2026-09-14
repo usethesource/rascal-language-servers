@@ -146,7 +146,7 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     @Override
     public Stream<TextDocumentService> allRoutes() {
-        return availableServerRouter().allRoutes(LanguageServer::getTextDocumentService);
+        return availableServerRouter().allRoutes().map(LanguageServer::getTextDocumentService);
     }
 
     /**

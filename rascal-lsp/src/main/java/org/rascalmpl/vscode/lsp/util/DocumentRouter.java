@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.util;
 
-import java.util.function.Function;
 import java.util.stream.Stream;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
@@ -68,9 +67,5 @@ public interface DocumentRouter<T> {
     }
 
     Stream<T> allRoutes();
-
-    default <U> Stream<U> allRoutes(Function<T, U> f) {
-        return allRoutes().map(f);
-    }
 
 }
