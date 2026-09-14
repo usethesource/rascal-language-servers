@@ -58,15 +58,21 @@ data Coordinate(loc src=|unknown:///|)
     | \type(str \type)
     | optional(bool optional)
     | scope(str scope)
+    | exclusions(list[Exclusion] exclusions)
     ;
 
-Coordinate implode(c:"groupId"(str groupId)) = Coordinate::groupId(groupId, src=src) when loc src := c.src;
-Coordinate implode(c:"artifactId"(str artifactId)) = Coordinate::artifactId(artifactId, src=src) when loc src := c.src;
+data Exclusion(loc src=|unknown:///|)
+    = exclusion(list[Coordinate] coordinates)
+    ;
+
+Coordinate implode(c:"groupid"(str groupId)) = Coordinate::groupId(groupId, src=src) when loc src := c.src;
+Coordinate implode(c:"artifactid"(str artifactId)) = Coordinate::artifactId(artifactId, src=src) when loc src := c.src;
 Coordinate implode(c:"version"(str version)) = Coordinate::version(version, src=src) when loc src := c.src;
 Coordinate implode(c:"classifier"(str classifier)) = Coordinate::classifier(classifier, src=src) when loc src := c.src;
 Coordinate implode(c:"type"(str \type)) = Coordinate::\type(\type, src=src) when loc src := c.src;
 Coordinate implode(c:"optional"(str optional)) = Coordinate::optional(fromString(optional), src=src) when loc src := c.src;
 Coordinate implode(c:"scope"(str scope)) = Coordinate::scope(scope, src=src) when loc src := c.src;
+Coordinate implode(node n) = Coordinate::exclusions([implodeExclusion(exclusion) | node exclusion <- getChildren(n)], src=src) when getName(n) == "exclusions", loc src := n.src;
 default Coordinate implode(value v) { throw IllegalArgument("Unexpected coordinate <v>"); }
 
 str yield(groupId(groupId)) = "\<groupId\><groupId>\</groupId\>";
@@ -85,6 +91,10 @@ Dependency implode(node n)
 Dependencies implodeDependencies(node n)
     = dependencies([implode(dependency) | node dependency <- getChildren(n)], src=src)
     when getName(n) == "dependencies", loc src := n.src;
+
+Exclusion implodeExclusion(node n)
+    = exclusion([implode(coordinate) | node coordinate <- getChildren(n)], src=src)
+    when getName(n) == "exclusion", loc src := n.src;
 
 node getChildNode(node n, str name) {
     if (node child <- getChildren(n), name := getName(child)) {
