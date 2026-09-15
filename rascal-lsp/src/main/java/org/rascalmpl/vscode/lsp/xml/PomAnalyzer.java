@@ -72,17 +72,25 @@ public class PomAnalyzer {
     }
     
     public IString getCurrentRascalLspVersion() {
-        var fallbackVersion = "2.22.5";
-        try (InputStream prop =  PomAnalyzer.class.getClassLoader().getResourceAsStream("project.properties")) {
+        var specificationVersion = PomAnalyzer.class.getPackage().getSpecificationVersion();
+        if (specificationVersion != null) {
+            return vf.string(specificationVersion);
+        }
+        
+        try (InputStream prop = PomAnalyzer.class.getClassLoader().getResourceAsStream("project.properties")) {
             if (prop != null) {
                 Properties properties = new Properties();
                 properties.load(prop);
-                return vf.string(properties.getProperty("rascal.lsp.version", fallbackVersion));
+                var version = properties.getProperty("rascal.lsp.version");
+                if (version != null) {
+                    return vf.string(version);
+                }
             }
+        } catch (IOException e) {
+            // Fall through
         }
-        catch (IOException e) {
-            // fall through
-        }
+
+        var fallbackVersion = "2.22.5";
         return vf.string(fallbackVersion);
     }
 }
