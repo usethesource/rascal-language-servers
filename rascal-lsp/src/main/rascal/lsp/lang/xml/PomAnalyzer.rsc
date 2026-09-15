@@ -26,91 +26,20 @@ POSSIBILITY OF SUCH DAMAGE.
 }
 module lang::xml::PomAnalyzer
 
-import lang::xml::DOM;
-import lang::xml::IO;
-import analysis::diff::edits::ExecuteTextEdits;
-import analysis::diff::edits::TextEdits;
-
-import Boolean;
 import Exception;
 import IO;
-import List;
 import Node;
 import String;
-import util::IDEServices;
-import util::Maybe;
+
+import analysis::diff::edits::TextEdits;
+import lang::xml::IO;
 import util::Reflective;
-
-data Dependencies(loc src=|unknown:///|)
-    = dependencies(list[Dependency] dependencies)
-    | missing()
-    ;
-
-data Dependency(loc src=|unknown:///|)
-    = dependency(list[Coordinate] coordinates)
-    ;
-
-data Coordinate(loc src=|unknown:///|)
-    = groupId(str groupId)
-    | artifactId(str artifactId)
-    | version(str version)
-    | classifier(str classifier)
-    | \type(str \type)
-    | optional(bool optional)
-    | scope(str scope)
-    | exclusions(list[Exclusion] exclusions)
-    ;
-
-data Exclusion(loc src=|unknown:///|)
-    = exclusion(list[Coordinate] coordinates)
-    ;
-
-// TODO: after a future release of Rascal, `groupid` should become `groupId` and `artifactid` should become `artifactId`
-Coordinate implode(c:"groupid"(str groupId)) = Coordinate::groupId(groupId, src=src) when loc src := c.src;
-Coordinate implode(c:"artifactid"(str artifactId)) = Coordinate::artifactId(artifactId, src=src) when loc src := c.src;
-Coordinate implode(c:"version"(str version)) = Coordinate::version(version, src=src) when loc src := c.src;
-Coordinate implode(c:"classifier"(str classifier)) = Coordinate::classifier(classifier, src=src) when loc src := c.src;
-Coordinate implode(c:"type"(str \type)) = Coordinate::\type(\type, src=src) when loc src := c.src;
-Coordinate implode(c:"optional"(str optional)) = Coordinate::optional(fromString(optional), src=src) when loc src := c.src;
-Coordinate implode(c:"scope"(str scope)) = Coordinate::scope(scope, src=src) when loc src := c.src;
-Coordinate implode(node n) = Coordinate::exclusions([implodeExclusion(exclusion) | node exclusion <- getChildren(n)], src=src) when getName(n) == "exclusions", loc src := n.src;
-default Coordinate implode(value v) { throw IllegalArgument("Unexpected coordinate <v>"); }
-
-str yield(groupId(groupId)) = "\<groupId\><groupId>\</groupId\>";
-str yield(artifactId(artifactId)) = "\<artifactId\><artifactId>\</artifactId\>";
-str yield(version(version)) = "\<version\><version>\</version\>";
-str yield(classifier(groupId)) = "\<classifier\><groupId>\</classifier\>";
-str yield(\type(\type)) = "\<type\><\type>\</type\>";
-str yield(optional(optional)) = "\<optional\><optional>\</optional\>";
-str yield(scope(scope)) = "\<scope\><scope>\</scope\>";
-default str yield(Coordinate c) { throw IllegalArgument("Unexpected coordinate <c>"); }
-
-Dependency implode(node n)
-    = dependency([implode(coordinate) | node coordinate <- getChildren(n)], src=src)
-    when getName(n) == "dependency", loc src := n.src;
-
-Dependencies implodeDependencies(node n)
-    = dependencies([implode(dependency) | node dependency <- getChildren(n)], src=src)
-    when getName(n) == "dependencies", loc src := n.src;
-
-Exclusion implodeExclusion(node n)
-    = exclusion([implode(coordinate) | node coordinate <- getChildren(n)], src=src)
-    when getName(n) == "exclusion", loc src := n.src;
 
 node getChildNode(node n, str name) {
     if (node child <- getChildren(n), name := getName(child)) {
         return child;
     }
     throw "No child with name \'<name>\' in \'<getName(n)>\': <[getName(c) | node c <- getChildren(n)]>";
-}
-
-Dependencies getDependencies(node pom) {
-    try {
-        if (project := getChildNode(pom, "project"), dependencies := getChildNode(project, "dependencies")) {
-            return implodeDependencies(dependencies);
-        }
-    } catch value v: println("Error during implode: <v>");
-    return missing();
 }
 
 str inferIndentation(node pom, list[str] pomLines) {
@@ -138,34 +67,6 @@ node readPom(loc l, datetime _timestamp) {
 
 node readPom(loc l) {
     return readPom(l, lastModified(l));
-}
-
-Maybe[Dependency] getDependency(node pom, str groupId, str artifactId) {
-    if (dep <- getDependencies(pom).dependencies, Coordinate::groupId(groupId) <- dep.coordinates, Coordinate::artifactId(artifactId) <- dep.coordinates) {
-        return just(dep);
-    }
-    return nothing();
-}
-
-Maybe[Coordinate] getDependencyVersion(node pom, str groupId, str artifactId) {
-    if (just(Dependency dep) := getDependency(pom, groupId, artifactId), v:Coordinate::version(_) <- dep.coordinates) {
-        return just(v);
-    }
-    return nothing();
-}
-
-Maybe[Dependency] getRascalFromPom(loc pom) {
-    try {
-        return getDependency(readPom(pom), "org.rascalmpl", "rascal");
-    } catch value _:;
-    return nothing();
-}
-
-Maybe[Dependency] getRascalLspFromPom(loc pom) {
-    try {
-        return getDependency(readPom(pom), "org.rascalmpl", "rascal-lsp");
-    } catch value _:;
-    return nothing();
 }
 
 TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
