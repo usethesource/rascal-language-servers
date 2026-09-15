@@ -209,6 +209,15 @@ TextEdit addRascalDependency(loc pomLoc, str version=getRascalVersion()) {
     return addDependency(pomLoc, "org.rascalmpl", "rascal", version);
 }
 
-TextEdit addRascalLspDependency(loc pomLoc, str version="2.22.5") {
+TextEdit addRascalLspDependency(loc pomLoc, str version=getCurrentRascalLspVersion()) {
     return addDependency(pomLoc, "org.rascalmpl", "rascal-lsp", version);
 }
+
+@javaClass{org.rascalmpl.vscode.lsp.xml.PomAnalyzer}
+java bool hasRascalDependency(loc pomLoc);
+
+@javaClass{org.rascalmpl.vscode.lsp.xml.PomAnalyzer}
+java bool hasRascalLspDependency(loc pomLoc);
+
+@javaClass{org.rascalmpl.vscode.lsp.xml.PomAnalyzer}
+java str getCurrentRascalLspVersion();
