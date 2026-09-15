@@ -85,7 +85,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     }
 
     step("Checking upstream dependencies ", 1);
-    msgs = checkDependencies(checkedForImports, dependencies, initialProject, workspaceFolders, getParseTree, getPathConfig);
+    msgs = checkDependencies(checkedForImports, dependencies, initialProject, getPathConfig);
 
     step("Checking module <l>", 1);
     pcfg = getPathConfig(initialProject);
@@ -102,7 +102,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
     rscFiles = sort({*find(src, "rsc") | src <- pcfg.srcs});
 
     //`pt` and `errors` are explicitly typed because of https://github.com/usethesource/rascal/issues/2818
-    parsed = (l : f | l <- rscFiles, f:<start[Module] pt, list[Message] errors> := getParseTreeOrErrors(l, "unknown", projectRoot, getParseTree));
+    parsed = (l : f | l <- rscFiles, f:<start[Module] _pt, list[Message] _errors> := getParseTreeOrErrors(l, "unknown", projectRoot, getParseTree));
 
     if (clean) {
         for (f <- find(pcfg.bin, "tpl")) {
@@ -130,7 +130,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
     }
 
     step("Checking upstream dependencies", 1);
-    upstreamMessages = checkDependencies(checkedForImports, dependencies, initialProject, workspaceFolders, getParseTree, getPathConfig);
+    upstreamMessages = checkDependencies(checkedForImports, dependencies, initialProject, getPathConfig);
 
     msgs += upstreamMessages;
 
@@ -192,7 +192,7 @@ tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] d
     return <msgs, checkedForImports, dependencies>;
 }
 
-list[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+list[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, PathConfig(loc file) getPathConfig) {
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
     list[ModuleMessages] msgs = [];
