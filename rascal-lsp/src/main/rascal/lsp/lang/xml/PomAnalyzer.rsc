@@ -125,9 +125,8 @@ str inferIndentation(node pom, list[str] pomLines) {
     return "  ";
 }
 
-str inferNewline(str pomSrc, list[str] pomLines) {
-    return pomSrc[size(pomLines[0])+1..findFirst(pomSrc, pomLines[1])];
-}
+str inferNewline(str pomSrc, list[str] pomLines)
+    = [first, second, *_] := pomLines ? pomSrc[size(first)+1..findFirst(pomSrc, second)] : "";
 
 @memo
 node readPom(loc l, datetime _timestamp) {
