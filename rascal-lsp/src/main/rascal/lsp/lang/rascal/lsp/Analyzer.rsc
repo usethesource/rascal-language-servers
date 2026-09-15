@@ -90,14 +90,6 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         case t:(Catch) `catch NoSuchAnnotation(<Pattern _>) : <Statement _>`: reportAnnotationDeprecation(t);
     }
 
-    // If a `RASCAL.MF` file exists, check whether there is a Rascal dependency in the pom.xml
-    pomLoc = pcfg.projectRoot + "pom.xml";
-    if (exists(pcfg.projectRoot + "META-INF" + "RASCAL.MF") && !hasRascalDependency(pomLoc)) {
-        result += warning(
-            "Missing required Rascal dependency in project `<pcfg.projectRoot.file>`",
-            pomLoc, fixes=[action(title="Add Rascal dependency", edits=[changed(pomLoc, [addRascalDependency(pomLoc)])])]
-        );
-    }
     return result;
 }
 
