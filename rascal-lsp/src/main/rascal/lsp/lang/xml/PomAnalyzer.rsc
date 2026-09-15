@@ -176,33 +176,37 @@ TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
     indentation = inferIndentation(pom, pomLines);
     newline = inferNewline(pomSrc, pomLines);
 
-    gId = Coordinate::groupId(groupId);
-    aId = Coordinate::artifactId(artifactId);
-    v = Coordinate::version(version);
+    gId = "\<groupId\><groupId>\</groupId\>";
+    aId = "\<artifactId\><artifactId>\</artifactId\>";
+    v = "\<version\><version>\</version\>";
 
     str makeDependencyXml(str baseIndentation)
-        = "<baseIndentation>\<dependency\><newline><baseIndentation><indentation><yield(gId)><newline><baseIndentation><indentation><yield(aId)><newline><baseIndentation><indentation><yield(v)><newline><baseIndentation>\</dependency\><newline>";
+        = "<baseIndentation>\<dependency\><newline><baseIndentation><indentation><gId><newline><baseIndentation><indentation><aId><newline><baseIndentation><indentation><v><newline><baseIndentation>\</dependency\><newline>";
 
-    deps = getDependencies(pom);
-    if (deps is missing) {
-        if (node project := getChildNode(pom, "project"), node finalChild := getChildren(project)[-1], loc finalChildLoc := finalChild.src) {
-            baseIndentation = pomLines[finalChildLoc.begin.line-1][..finalChildLoc.begin.column];
-            return insertAfter(finalChildLoc, "<newline><newline><baseIndentation>\<dependencies\><newline><makeDependencyXml(baseIndentation + indentation)><baseIndentation>\</dependencies\>");
-        } else {
-            throw IllegalArgument("Invalid pom.xml at <pomLoc>");
+    if (node project := getChildNode(pom, "project")) {
+        try {
+            if (node dependencies := getChildNode(project, "dependencies"), loc depsSrc := dependencies.src, list[node] children := getChildren(dependencies)) {
+                if ([node dep, *_] := children, loc depSrc := dep.src) {
+                    // A dependencies block with dependencies
+                    baseIndentation = pomLines[depSrc.begin.line-1][..depSrc.begin.column];
+                    l = depSrc.top(depSrc.offset-depSrc.begin.column, 0, <depSrc.begin.line, 0>, <depSrc.begin.line, 0>);
+                    return replace(l, makeDependencyXml(baseIndentation));
+                } else {
+                    // A dependencies block without dependencies
+                    baseIndentation = pomLines[depsSrc.begin.line-1][..depsSrc.begin.column];
+                    l = depsSrc;
+                    return replace(l, "\<dependencies\><newline><makeDependencyXml(baseIndentation + indentation)><baseIndentation>\</dependencies\>");
+                }
+            }
+        } catch value _: {
+            // No dependencies block, inserting one
+            if (node finalChild := getChildren(project)[-1], loc finalChildLoc := finalChild.src) {
+                baseIndentation = pomLines[finalChildLoc.begin.line-1][..finalChildLoc.begin.column];
+                return insertAfter(finalChildLoc, "<newline><newline><baseIndentation>\<dependencies\><newline><makeDependencyXml(baseIndentation + indentation)><baseIndentation>\</dependencies\>");
+            }
         }
     }
-    if ([dep, *_] := deps.dependencies) {
-        // A dependencies block with dependencies
-        baseIndentation = pomLines[dep.src.begin.line-1][..dep.src.begin.column];
-        l = dep.src.top(dep.src.offset-dep.src.begin.column, 0, <dep.src.begin.line, 0>, <dep.src.begin.line, 0>);
-        return replace(l, makeDependencyXml(baseIndentation));
-    } else {
-        // A dependencies block without dependencies
-        baseIndentation = pomLines[deps.src.begin.line-1][..deps.src.begin.column];
-        l = deps.src;
-        return replace(l, "\<dependencies\><newline><makeDependencyXml(baseIndentation + indentation)><baseIndentation>\</dependencies\>");
-    }
+    throw IllegalArgument("Invalid pom at <pomLoc>");
 }
 
 TextEdit addRascalDependency(loc pomLoc, str version=getRascalVersion()) {
