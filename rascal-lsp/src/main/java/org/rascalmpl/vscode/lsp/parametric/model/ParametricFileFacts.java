@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.Position;
@@ -67,7 +66,7 @@ public class ParametricFileFacts implements DiagnosticsReporter {
     private final Map<ISourceLocation, FileFact> files = new ConcurrentHashMap<>();
 
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
-    private volatile @MonotonicNonNull LanguageClient client;
+    private volatile LanguageClient client;
 
     // The following three fields store factories for summaries. Their intended
     // usage is a follows:
@@ -95,7 +94,8 @@ public class ParametricFileFacts implements DiagnosticsReporter {
     @SuppressWarnings("java:S3077") // Reads/writes happen sequentially
     private volatile CompletableFuture<OndemandSummaryFactory> ondemandSummaryFactory;
 
-    public ParametricFileFacts(Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+    public ParametricFileFacts(LanguageClient client, Executor exec, ColumnMaps columns, ILanguageContributions contrib) {
+        this.client = client;
         this.exec = exec;
         this.columns = columns;
         this.contrib = contrib;
@@ -316,18 +316,12 @@ public class ParametricFileFacts implements DiagnosticsReporter {
             parserDiagnostics.set(emptyDiagnostics);
             analyzerDiagnostics.set(emptyDiagnostics);
             builderDiagnostics.set(emptyDiagnostics);
-            if (client != null) {
-                client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), Collections.emptyList()));
-            }
+            client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), Collections.emptyList()));
         }
 
         private void sendDiagnostics() {
             if (removed) {
                 logger.debug("Will not send diagnostics since the file has been removed");
-                return;
-            }
-            if (client == null) {
-                logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
                 return;
             }
 
