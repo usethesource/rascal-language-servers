@@ -121,7 +121,7 @@ describe('IDE', function () {
     }).retries(2);
 
     it("uses the type checker shipped with the extension", async function () {
-        const output = await getOutput("Rascal MPL Language Server");
+        const output = await getOutput("Rascal MPL Language Server", driver);
         const compilerOuput = output.split("Path config for").find(logs => logs.includes("Rascal compiler: Path configuration items:"));
         if (compilerOuput === undefined) {
             fail("No compiler path config found in logs");
@@ -129,11 +129,10 @@ describe('IDE', function () {
         const pcfg = matchPathConfig(compilerOuput);
         const isRascalJar = (j: string): boolean => j.includes("rascal.jar") || j.match(/org\/rascalmpl\/rascal\/rascal-.*\.jar/) !== undefined;
 
-        const sources = pcfg.sources ?? [];
-        const extRascal = sources.findIndex(p => p.includes("assets/jars/rascal.jar!/org/rascalmpl/compiler"));
-        const otherRascal = sources.findIndex(isRascalJar);
+        const extRascal = pcfg.srcs.findIndex(p => p.includes("assets/jars/rascal.jar!/org/rascalmpl/compiler"));
+        const otherRascal = pcfg.srcs.findIndex(isRascalJar);
         if (extRascal < 0 || (otherRascal > 0 && otherRascal < extRascal)) {
-            fail("The type checker in use is not the version from the extension, but " + sources[otherRascal]);
+            fail("The type checker in use is not the version from the extension, but " + pcfg.srcs[otherRascal]);
         }
     });
 
@@ -194,14 +193,14 @@ describe('IDE', function () {
 
     it("save runs type checker", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        const output = await captureOutput("Rascal MPL Language Server",
+        const output = await captureOutput("Rascal MPL Language Server", driver,
             () => triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true));
 
         const pcfg = matchPathConfig(output);
 
         // Find Rascal version in POM
         const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
-        expect(pcfg.libs ?? []).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
+        expect(pcfg.libs).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {
