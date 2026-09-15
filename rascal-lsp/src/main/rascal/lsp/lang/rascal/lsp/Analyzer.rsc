@@ -71,7 +71,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
 
         case i:(Import)`import util::LanguageServer;`: {
             pomLoc = pcfg.projectRoot + "pom.xml";
-            if (getRascalLspFromPom(pomLoc) == nothing()) {
+            if (!hasRascalLspDependency(pomLoc)) {
                 result += warning(
                     "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`",
                     i.src, fixes=[action(title="Add rascal-lsp dependency", edits=[changed(pomLoc, [addRascalLspDependency(pomLoc)])])]
@@ -92,7 +92,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
 
     // If a `RASCAL.MF` file exists, check whether there is a Rascal dependency in the pom.xml
     pomLoc = pcfg.projectRoot + "pom.xml";
-    if (exists(pcfg.projectRoot + "META-INF" + "RASCAL.MF") && getRascalFromPom(pomLoc) == nothing()) {
+    if (exists(pcfg.projectRoot + "META-INF" + "RASCAL.MF") && !hasRascalDependency(pomLoc)) {
         result += warning(
             "Missing required Rascal dependency in project `<pcfg.projectRoot.file>`",
             pomLoc, fixes=[action(title="Add Rascal dependency", edits=[changed(pomLoc, [addRascalDependency(pomLoc)])])]
