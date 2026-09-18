@@ -534,7 +534,9 @@ class MapOfMaps {
         // Default needs to be mutable (support `remove` calls) so `Collections.emptyMap()` cannot be used
         var map = mapOfMaps.getOrDefault(key1, new HashMap<>());
         var removed = map.remove(key2);
-        if (map.isEmpty()) mapOfMaps.remove(key1);
+        if (map.isEmpty()) {
+            mapOfMaps.remove(key1);
+        }
         return removed;
     }
 }
@@ -566,8 +568,12 @@ class MapOfMapsOfSets {
         var mapOfSets = mapOfMapOfSets.getOrDefault(key1, new HashMap<>());
         var set = mapOfSets.getOrDefault(key2, new HashSet<>());
         var removed = set.remove(value);
-        if (set.isEmpty()) mapOfSets.remove(key2);
-        if (mapOfSets.isEmpty()) mapOfMapOfSets.remove(key1);
+        if (set.isEmpty()) {
+            mapOfSets.remove(key2);
+        }
+        if (mapOfSets.isEmpty()) {
+            mapOfMapOfSets.remove(key1);
+        }
         return removed;
     }
 
