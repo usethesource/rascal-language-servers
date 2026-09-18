@@ -266,6 +266,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     }
 
     /**
+    * <p>
     * Managed collection of capability registrations. Each capability is identified by a method-options pair. For each
     * capability, instances of this class keep track (and protect the consistency) of:
     * <ul>
@@ -274,12 +275,12 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     *     <li>one registration received by the client (i.e., only one registration of the same capability must be
     *     forwarded to VS Code).
     * </ul>
-    *
     * Instances of this class ensure that calls of {@link #registerCapability(Registration)} and
     * {@link #unregisterCapability(Unregistration)} take effect atomically. This is non-trivial but important, because
     * even if calls of these methods are made in a single thread (seemingly sequential), the completion of their work is
     * asynchronous (because it may require RPC with the client). As a result, without proper protection, subtle races
     * could arise. Here are two examples.
+    * </p>
     *
     * <p>
     * <b>Example 1:</b> Suppose there are two consecutive calls of {@code registerCapability}, R1 and R2. First, R1
@@ -290,6 +291,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     * callback to asynchronously complete the work of R1 propagates to its caller something went wrong. Now, the
     * complication is that R2 either needs to propagate to its caller something went wrong, too, or be retried (but R2
     * has already returned at this point).
+    * </p>
     *
     * <p>
     * <b>Example 2:</b> Suppose there are two consecutive calls of {@code registerCapability} and
@@ -300,17 +302,20 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     * client receives the forwarded unregistration of U, succeeds to process it, and sends back a success signal. Now,
     * the complication is that the callback of R needs to be executed before the callback of U (but this may not be
     * guaranteed by the underlying executor service).
+    * </p>
     *
     * <p>
     * There are more examples (e.g., a race between two consecutive calls of {@code unregisterCapability} with a similar
     * complication as in Example 1).
+    * </p>
     *
     * <p>
     * To coordinate calls of {@code registerCapability} and {@code unregisterCapability} and avoid races, instances of
     * this class internally use a basic lock-free scheduler. Essentially, the scheduler ensures that the work of each
     * next call of {@code registerCapability} or {@code unregisterCapability} will begin only when the work of the
-    * previous call, <em>including its asyncronous completion</em>, has ended. See the JavaDoc of {@link Scheduler} for
+    * current call, <em>including its asyncronous completion</em>, has ended. See the JavaDoc of {@link Scheduler} for
     * details.
+    * </p>
     */
     class CapabilityRegistry {
         private final Scheduler<Void> scheduler = new Scheduler<>(exec);
@@ -319,7 +324,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         // Notes:
         //   - All usages of `sentByServers` and `receivedByClient` must happen inside tasks submitted to `scheduler`.
         //   - For convenience, classes `MapOfMaps` and `MapOfMapOfSets` offer a number of static utility methods to
-        //     access/mutate the inner maps/sets of `sentByServers` and `receivedByClient`.
+        //     access/mutate the inner maps and sets of `sentByServers` and `receivedByClient`.
 
         /**
          * Forwards the provided capability registration from a server to the client when there are no remaining
@@ -395,9 +400,9 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
                 // Case: Must forward unregistration
                 if (remaining == 1) {
+                    logger.trace("Unregister capability {} ({}): Forwarding unregistration to client...", method, id);
 
                     // Find the corresponding registration previously received by the client
-                    logger.trace("Unregister capability {} ({}): Forwarding unregistration to client...", method, id);
                     var toClient = MapOfMaps.get(receivedByClient, method, options);
                     if (toClient == null) {
                         var t = new IllegalStateException("Cannot unregister a capability for which no registration was received by the client");
@@ -447,8 +452,10 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
 
 /**
+ * <p>
  * Basic lock-free scheduler that requires submitted tasks to signal their completion explicitly (and possibly
- * asynchronously). Only after the current task has signaled it completion will the next task be started.
+ * asynchronously). Only after the current task has signaled its completion will the next task be started.
+ * </p>
  *
  * <p>
  * Each task is represented as a pair that consists of: (1) a closure that represents the work of the task, with a
@@ -456,13 +463,15 @@ public class MultipleClientProxy implements IBaseLanguageClient {
  * passed to the closure as actual parameter when the task is started. The body of the closure must eventually call
  * {@link CompletableFuture#complete} (or any other {@code complete...} method) on the future to signal its completion
  * and provide the result. Not performing such a call causes the scheduler to get stuck.
+ * </p>
  *
  * <p>
  * When a new task is submitted, and if no existing task is in progress yet, then the new task is started immediately.
  * In contrast, if an existing task is in progress already, then the new task is started when the current task and all
  * other pending existing tasks in the queue have signaled their completion. To this end, attempts to start tasks are
- * made in two places: in the method to submit a new task, and in the closure that is run when the current task has
+ * made in two places: in the method to submit a new task, and in the closure that is run when an existing task has
  * signaled its completion.
+ * </p>
  *
  * @param R Result type of tasks
  */
