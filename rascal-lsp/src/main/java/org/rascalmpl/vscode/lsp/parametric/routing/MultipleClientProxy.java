@@ -47,6 +47,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.initialization.qual.Initialized;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.ApplyWorkspaceEditParams;
 import org.eclipse.lsp4j.ApplyWorkspaceEditResponse;
@@ -518,19 +520,19 @@ class Scheduler<R> {
  * Utility methods to perform operations on maps of maps
  */
 class MapOfMaps {
-    public static <K1, K2, V> V get(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
+    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V get(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
         return mapOfMaps
             .getOrDefault(key1, Collections.emptyMap())
             .get(key2);
     }
 
-    public static <K1, K2, V> V put(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2, V value) {
+    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V put(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2, V value) {
         return mapOfMaps
             .computeIfAbsent(key1, m -> new ConcurrentHashMap<>())
             .put(key2, value);
     }
 
-    public static <K1, K2, V> V remove(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
+    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V remove(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
         // Default needs to be mutable (support `remove` calls) so `Collections.emptyMap()` cannot be used
         var map = mapOfMaps.getOrDefault(key1, new HashMap<>());
         var removed = map.remove(key2);
@@ -545,14 +547,14 @@ class MapOfMaps {
  * Utility methods to perform operations on maps of maps of sets
  */
 class MapOfMapsOfSets {
-    public static <K1, K2, V> boolean add(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
+    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> boolean add(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
         return mapOfMapOfSets
             .computeIfAbsent(key1, m -> new ConcurrentHashMap<>())
             .computeIfAbsent(key2, o -> ConcurrentHashMap.newKeySet())
             .add(value);
     }
 
-    public static <K1, K2, V> V findAny(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, Predicate<V> predicate) {
+    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V findAny(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, Predicate<V> predicate) {
         return mapOfMapOfSets
             .values()
             .stream()
@@ -563,11 +565,14 @@ class MapOfMapsOfSets {
             .orElse(null);
     }
 
-    public static <K1, K2, V> boolean remove(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
+    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> boolean remove(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
         // Defaults need to be mutable (support `remove` calls) so `Collections.empty...()` cannot be used
         var mapOfSets = mapOfMapOfSets.getOrDefault(key1, new HashMap<>());
         var set = mapOfSets.getOrDefault(key2, new HashSet<>());
-        var removed = set.remove(value);
+        var removed = false;
+        if (value != null) { // Convince Checker Framework
+            removed = set.remove(value);
+        }
         if (set.isEmpty()) {
             mapOfSets.remove(key2);
         }
@@ -577,7 +582,7 @@ class MapOfMapsOfSets {
         return removed;
     }
 
-    public static <K1, K2, V> int size(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2) {
+    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> int size(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2) {
         return mapOfMapOfSets
             .getOrDefault(key1, Collections.emptyMap())
             .getOrDefault(key2, Collections.emptySet())
