@@ -29,6 +29,7 @@ package org.rascalmpl.vscode.lsp.parametric.routing;
 import static org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils.NOOP;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -528,6 +529,8 @@ class Scheduler<R> {
  * Utility methods to perform operations on maps of maps
  */
 class MapOfMaps {
+    private MapOfMaps() {}
+
     public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V get(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
         return mapOfMaps
             .getOrDefault(key1, Collections.emptyMap())
@@ -555,6 +558,8 @@ class MapOfMaps {
  * Utility methods to perform operations on maps of maps of sets
  */
 class MapOfMapsOfSets {
+    private MapOfMapsOfSets() {}
+
     public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> boolean add(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
         return mapOfMapOfSets
             .computeIfAbsent(key1, m -> new ConcurrentHashMap<>())
@@ -565,9 +570,10 @@ class MapOfMapsOfSets {
     public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V findAny(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, Predicate<V> predicate) {
         return mapOfMapOfSets
             .values()
-            .stream()
-            .flatMap(mapOfSets -> mapOfSets.values().stream())
-            .flatMap(set -> set.stream())
+            .stream()                    // Stream of maps of sets of values
+            .map(Map::values)            // Stream of collections of sets of values
+            .flatMap(Collection::stream) // Stream of sets of values
+            .flatMap(Collection::stream) // Stream of values
             .filter(predicate)
             .findAny()
             .orElse(null);
