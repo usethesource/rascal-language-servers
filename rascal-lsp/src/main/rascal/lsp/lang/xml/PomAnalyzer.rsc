@@ -70,9 +70,9 @@ node readPom(loc l) {
 }
 
 TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
-    pom = readPom(pomLoc);
-    pomSrc = readFile(pomLoc);
-    pomLines = readFileLines(pomLoc);
+    pom = readPom(pomLoc.top);
+    pomSrc = readFile(pomLoc.top);
+    pomLines = readFileLines(pomLoc.top);
 
     indentation = inferIndentation(pom, pomLines);
     newline = inferNewline(pomSrc, pomLines);
