@@ -111,6 +111,11 @@ TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
 }
 
 TextEdit addRascalDependency(loc pomLoc, str version=getRascalVersion()) {
+    // getRascalVersion() returns "Not specified" in case it cannot find a MANIFEST.MF file with a version for Rascal
+    // This happens in second level
+    if (version == "Not specified") {
+        version = "0.43.0-RC14";
+    }
     return addDependency(pomLoc, "org.rascalmpl", "rascal", version);
 }
 
