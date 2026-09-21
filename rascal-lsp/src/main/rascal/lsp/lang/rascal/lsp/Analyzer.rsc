@@ -74,7 +74,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
             if (!hasRascalLspDependency(pomLoc)) {
                 result += warning(
                     "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`",
-                    i.src, fixes=[action(title="Add rascal-lsp dependency to pom.xml", command=addRascalLspDependencyToPom)]
+                    i.src, fixes=[action(title="Add rascal-lsp dependency to pom.xml", command=addRascalLspDependencyToPom(pomLoc))]
                 );
             }
         }
