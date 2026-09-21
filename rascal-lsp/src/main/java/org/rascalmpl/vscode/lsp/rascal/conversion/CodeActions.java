@@ -131,7 +131,7 @@ public class CodeActions {
 
     /**
      * Translates `refactor(inline())` to `"refactor.inline"` and `empty()` to `""`, etc.
-     * `kind == null` signals absence of the optional parameter. This is factorede into
+     * `kind == null` signals absence of the optional parameter. This is factored into
      * this private function because otherwise every call has to check it.
      */
     private static String constructorToCodeActionKind(@Nullable IConstructor kind) {
