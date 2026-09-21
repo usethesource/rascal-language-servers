@@ -384,7 +384,6 @@ public class EvaluatorUtil {
             try {
                 services.jobStart(jobName, imports.length);
                 var eval = ShellEvaluatorFactory.getDefaultEvaluatorForPathConfig(
-                    pcfg.getProjectRoot(),
                     pcfg,
                     Reader.nullReader(),
                     logWriter(customLog, Level.INFO),
