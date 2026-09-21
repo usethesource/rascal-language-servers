@@ -279,7 +279,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     @Override
     public Collection<String> extensions() {
-        return Set.of("rsc");
+        return Set.of("rsc", "xml");
     }
 
     // LSP interface methods
