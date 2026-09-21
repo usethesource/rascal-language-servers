@@ -26,15 +26,15 @@
  */
 import * as vscode from 'vscode';
 
-import { BaseLanguageClient, ResponseError } from 'vscode-languageclient';
-import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
-import { activateLanguageClient } from './RascalLSPConnection';
-import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
+import { BaseLanguageClient, CodeActionParams, CodeActionRequest, CodeActionResolveRequest, ProvideCodeActionsSignature, ResolveCodeActionSignature, ResponseError } from 'vscode-languageclient';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
-import { RASCAL_LANGUAGE_ID } from '../Identifiers';
-import { LanguageRegistry } from './LanguageRegistry';
 import { SourceLocationResponse } from '../fs/JsonRpcMessages';
 import { RemoteIOError } from '../fs/RemoteIOError';
+import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
+import { RASCAL_LANGUAGE_ID } from '../Identifiers';
+import { LanguageRegistry } from './LanguageRegistry';
+import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
+import { activateLanguageClient } from './RascalLSPConnection';
 
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
@@ -71,6 +71,52 @@ export class RascalLanguageServer implements vscode.Disposable {
             client.onNotification("rascal/registerDebugServerPort", (processID:number, serverPort:number) => {
                 this.rascalDebugClient.registerDebugServerPort(processID, serverPort);
             });
+
+            const pomXmlCodeActionProvider: vscode.CodeActionProvider = {
+                provideCodeActions: (document, range, context, token) => {
+                    const _provideCodeActions: ProvideCodeActionsSignature = async (document, range, context, token) => {
+                        const params: CodeActionParams = {
+                            textDocument: client.code2ProtocolConverter.asTextDocumentIdentifier(document),
+                            range: client.code2ProtocolConverter.asRange(range),
+                            context: client.code2ProtocolConverter.asCodeActionContextSync(context)
+                        };
+                        return client.sendRequest(CodeActionRequest.type, params, token).then(values => {
+                            if (token.isCancellationRequested || values === null || values === undefined) {
+                                return null;
+                            }
+                            return client.protocol2CodeConverter.asCodeActionResult(values, token);
+                        }, error => {
+                            return client.handleFailedRequest(CodeActionRequest.type, token, error, null);
+                        });
+                    };
+                    const middleware = client.middleware;
+                    return middleware.provideCodeActions
+                        ? middleware.provideCodeActions(document, range, context, token, _provideCodeActions)
+                        : _provideCodeActions(document, range, context, token);
+                },
+                resolveCodeAction: (item: vscode.CodeAction, token: vscode.CancellationToken) => {
+                    const resolveCodeAction: ResolveCodeActionSignature = async (item, token) => {
+                        return client.sendRequest(CodeActionResolveRequest.type, client.code2ProtocolConverter.asCodeActionSync(item), token).then(result => {
+                            if (token.isCancellationRequested) {
+                                return item;
+                            }
+                            return client.protocol2CodeConverter.asCodeAction(result, token);
+                        }, error => {
+                            return client.handleFailedRequest(CodeActionResolveRequest.type, token, error, item);
+                        });
+                    };
+                    const middleware = client.middleware;
+                    return middleware.resolveCodeAction
+                        ? middleware.resolveCodeAction(item, token, resolveCodeAction)
+                        : resolveCodeAction(item, token);
+                }
+            };
+
+            vscode.languages.registerCodeActionsProvider(
+                { language: "xml", scheme: "file"},//, pattern: new vscode.RelativePattern("", "pom.xml") },
+                pomXmlCodeActionProvider/*,
+                { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }*/
+            );
         });
     }
     dispose() {
