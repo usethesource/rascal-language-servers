@@ -27,7 +27,7 @@
 import * as vscode from 'vscode';
 
 import { posix } from 'path';
-import { BaseLanguageClient, CodeActionParams, CodeActionRequest, ProvideCodeActionsSignature, ResponseError } from 'vscode-languageclient';
+import { BaseLanguageClient, CodeActionParams, CodeActionRequest, ResponseError } from 'vscode-languageclient';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
 import { SourceLocationResponse } from '../fs/JsonRpcMessages';
 import { RemoteIOError } from '../fs/RemoteIOError';
