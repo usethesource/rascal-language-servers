@@ -31,9 +31,11 @@ import IO;
 import String;
 import ParseTree;
 import util::IDEServices;
+import util::Maybe;
 import util::PathConfig;
 import lang::rascal::\syntax::Rascal;
 import lang::rascal::lsp::Actions;
+import lang::xml::PomAnalyzer;
 
 
 @synopsis{A fast analyzer, is run on most parse trees, so it should be fast}
@@ -48,7 +50,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
                 "Annotations are no longer supported and will soon be removed, please use our build-in Quick Fix to refactor all of them into keyword parameters",
                 t.src, fixes=[
                     action(
-                        command=upgradeAnnotations(getPathConfig(t.src.top)),
+                        command=upgradeAnnotations(getPathConfig(tree.src.top)),
                         title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
                     )
                 ]
@@ -66,6 +68,16 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
             result += error("`<s>://` scheme is not supported anymore. In most cases it can be replaced by <illegalSchemeSuggestions[s]>", l.src);
         }
 
+        case i:(Import)`import util::LanguageServer;`: {
+            pomLoc = getPathConfig(tree.src.top).projectRoot + "pom.xml";
+            if (!hasRascalLspDependency(pomLoc)) {
+                result += warning(
+                    "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`",
+                    i.src, fixes=[action(title="Add rascal-lsp dependency to pom.xml", command=addRascalLspDependencyToPom(pomLoc))]
+                );
+            }
+        }
+
         // annotation cases
         case t:(Declaration) `<Tags _> <Visibility _> anno <Type _> <Type _> @ <Name _>;`: reportAnnotationDeprecation(t);
         case t:(Expression)`<Expression _>[@ <Name _> = <Expression _>]`: reportAnnotationDeprecation(t);
@@ -76,6 +88,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         case t:(Expression) `delAnnotation(<Expression _>, <Expression _>)`: reportAnnotationDeprecation(t);
         case t:(Catch) `catch NoSuchAnnotation(<Pattern _>) : <Statement _>`: reportAnnotationDeprecation(t);
     }
+
     return result;
 }
 

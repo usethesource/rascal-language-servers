@@ -87,13 +87,16 @@ public class CodeActions {
 
     /* merges two streams of CodeAction terms and then converts them to LSP objects */
     public static CompletableFuture<List<Either<Command, CodeAction>>> mergeAndConvertCodeActions(IBaseTextDocumentService doc, String dedicatedLanguageName, String languageName, CompletableFuture<Stream<IValue>> quickfixes, CompletableFuture<Stream<IValue>> codeActions) {
-        return codeActions.thenCombine(quickfixes, (actions, quicks) ->
-            Stream.concat(quicks, actions)
-                .map(IConstructor.class::cast)
-                .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
-                .map(Either::<Command,CodeAction>forRight)
-                .collect(Collectors.toList())
-        );
+        return convertCodeActions(doc, dedicatedLanguageName, languageName, codeActions.thenCombine(quickfixes, (actions, quicks) -> Stream.concat(quicks, actions)));
+    }
+
+    public static CompletableFuture<List<Either<Command, CodeAction>>> convertCodeActions(IBaseTextDocumentService doc, String dedicatedLanguageName, String languageName, CompletableFuture<Stream<IValue>> items) {
+        return items.thenApply(is -> is
+            .map(IConstructor.class::cast)
+            .map(cons -> constructorToCodeAction(doc, dedicatedLanguageName, languageName, cons))
+            .map(Either::<Command,CodeAction>forRight)
+            .collect(Collectors.toList()))
+            ;
     }
 
     private static CodeAction constructorToCodeAction(IBaseTextDocumentService doc, String dedicatedLanguageName, String languageName, IConstructor codeAction) {
@@ -131,7 +134,7 @@ public class CodeActions {
 
     /**
      * Translates `refactor(inline())` to `"refactor.inline"` and `empty()` to `""`, etc.
-     * `kind == null` signals absence of the optional parameter. This is factorede into
+     * `kind == null` signals absence of the optional parameter. This is factored into
      * this private function because otherwise every call has to check it.
      */
     private static String constructorToCodeActionKind(@Nullable IConstructor kind) {
