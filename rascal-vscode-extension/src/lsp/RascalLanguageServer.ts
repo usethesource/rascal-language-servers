@@ -93,22 +93,6 @@ export class RascalLanguageServer implements vscode.Disposable {
                     return middleware.provideCodeActions
                         ? middleware.provideCodeActions(document, range, context, token, _provideCodeActions)
                         : _provideCodeActions(document, range, context, token);
-                },
-                resolveCodeAction: (item: vscode.CodeAction, token: vscode.CancellationToken) => {
-                    const resolveCodeAction: ResolveCodeActionSignature = async (item, token) => {
-                        return client.sendRequest(CodeActionResolveRequest.type, client.code2ProtocolConverter.asCodeActionSync(item), token).then(result => {
-                            if (token.isCancellationRequested) {
-                                return item;
-                            }
-                            return client.protocol2CodeConverter.asCodeAction(result, token);
-                        }, error => {
-                            return client.handleFailedRequest(CodeActionResolveRequest.type, token, error, item);
-                        });
-                    };
-                    const middleware = client.middleware;
-                    return middleware.resolveCodeAction
-                        ? middleware.resolveCodeAction(item, token, resolveCodeAction)
-                        : resolveCodeAction(item, token);
                 }
             };
 
