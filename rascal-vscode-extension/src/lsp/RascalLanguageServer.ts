@@ -35,6 +35,7 @@ import { RASCAL_LANGUAGE_ID } from '../Identifiers';
 import { LanguageRegistry } from './LanguageRegistry';
 import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 import { activateLanguageClient } from './RascalLSPConnection';
+import { posix } from 'path';
 
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
@@ -97,9 +98,9 @@ export class RascalLanguageServer implements vscode.Disposable {
             };
 
             vscode.languages.registerCodeActionsProvider(
-                { language: "xml", scheme: "file"},//, pattern: new vscode.RelativePattern("", "pom.xml") },
-                pomXmlCodeActionProvider/*,
-                { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }*/
+                { language: "xml", scheme: "file", pattern: posix.join("**", "pom.xml") },
+                pomXmlCodeActionProvider,
+                { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }
             );
         });
     }
