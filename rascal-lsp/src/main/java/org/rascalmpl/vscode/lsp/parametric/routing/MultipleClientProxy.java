@@ -318,7 +318,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     * </p>
     */
     private class CapabilityRegistry {
-        private final Scheduler<Void> scheduler = new Scheduler<>(exec);
+        private final Scheduler<Void> scheduler = new Scheduler<>();
         private final Map<String, Map<Object, Set<Registration>>> sentByServers = new ConcurrentHashMap<>();
         private final Map<String, Map<Object, Registration>> receivedByClient = new ConcurrentHashMap<>();
         // Notes:
@@ -404,6 +404,10 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                     // Find the corresponding registration previously received by the client
                     var toClient = MapOfMaps.get(receivedByClient, method, options);
                     if (toClient == null) {
+                        // This should never happen: instances of this class are intended to preserve the consistency
+                        // invariant that the number of registrations of a capability in `sentByServers` is greater than
+                        // 0 if, and only if, there is a registration of that capability in `receivedByClient`. So, if
+                        // `remaining == 1`, but `toClient == null`, then the invariant is broken.
                         var t = new IllegalStateException("Cannot unregister a capability for which no registration was received by the client");
                         logger.trace("Unregister capability {} ({}). Failed: {}", method, id, t);
                         result.completeExceptionally(t);
@@ -448,158 +452,150 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             return client.unregisterCapability(new UnregistrationParams(List.of(u))).thenApply(_void -> u);
         }
     }
-}
 
+    /**
+     * <p>
+     * Basic lock-free scheduler that requires submitted tasks to signal their completion explicitly (and possibly
+     * asynchronously). Only after the current task has signaled its completion will the next task be started.
+     * </p>
+     *
+     * <p>
+     * Each task is represented as a pair that consists of: (1) a closure that represents the work of the task, with a
+     * formal parameter of type {@link CompletableFuture}, and (2) a future that represents the result of the task, which is
+     * passed to the closure as actual parameter when the task is started. The body of the closure must eventually call
+     * {@link CompletableFuture#complete} (or any other {@code complete...} method) on the future to signal its completion
+     * and provide the result. Not performing such a call causes the scheduler to get stuck.
+     * </p>
+     *
+     * <p>
+     * When a new task is submitted, and if no existing task is in progress yet, then the new task is started immediately.
+     * In contrast, if an existing task is in progress already, then the new task is started when the current task and all
+     * other pending existing tasks in the queue have signaled their completion. To this end, attempts to start tasks are
+     * made in two places: in the method to submit a new task, and in the closure that is run when an existing task has
+     * signaled its completion.
+     * </p>
+     *
+     * @param R Result type of tasks
+     */
+    private class Scheduler<R> {
+        private final Queue<Task> tasks = new ConcurrentLinkedQueue<>();
+        private final AtomicBoolean busy = new AtomicBoolean(false);
 
-/**
- * <p>
- * Basic lock-free scheduler that requires submitted tasks to signal their completion explicitly (and possibly
- * asynchronously). Only after the current task has signaled its completion will the next task be started.
- * </p>
- *
- * <p>
- * Each task is represented as a pair that consists of: (1) a closure that represents the work of the task, with a
- * formal parameter of type {@link CompletableFuture}, and (2) a future that represents the result of the task, which is
- * passed to the closure as actual parameter when the task is started. The body of the closure must eventually call
- * {@link CompletableFuture#complete} (or any other {@code complete...} method) on the future to signal its completion
- * and provide the result. Not performing such a call causes the scheduler to get stuck.
- * </p>
- *
- * <p>
- * When a new task is submitted, and if no existing task is in progress yet, then the new task is started immediately.
- * In contrast, if an existing task is in progress already, then the new task is started when the current task and all
- * other pending existing tasks in the queue have signaled their completion. To this end, attempts to start tasks are
- * made in two places: in the method to submit a new task, and in the closure that is run when an existing task has
- * signaled its completion.
- * </p>
- *
- * @param R Result type of tasks
- */
-class Scheduler<R> {
-    private final ExecutorService exec;
-    private final Queue<Task<R>> tasks;
-    private final AtomicBoolean busy;
+        public CompletableFuture<R> submit(Consumer<CompletableFuture<R>> action) {
+            var result = new CompletableFuture<R>();
+            var task = new Task(action, result);
+            tasks.offer(task);
+            exec.submit(this::attemptStartTask);
+            return result;
+        }
 
-    public Scheduler(ExecutorService exec) {
-        this.exec = exec;
-        this.busy = new AtomicBoolean(false);
-        this.tasks = new ConcurrentLinkedQueue<>();
-    }
-
-    public CompletableFuture<R> submit(Consumer<CompletableFuture<R>> action) {
-        var result = new CompletableFuture<R>();
-        var task = new Task<>(action, result);
-        tasks.offer(task);
-        exec.submit(this::attemptStartTask);
-        return result;
-    }
-
-    private void attemptStartTask() {
-        if (busy.compareAndSet(false, true)) {
-            var task = tasks.poll();
-            if (task != null) {
-                // Install a finally-block-like closure that is run when the current task has signaled its completion.
-                // This is to ensure that the next task is subsequently started (if any). Note: Result `v` and exception
-                // `t` are ignored; it is the responsibility of other calls on `task.result` to handle them.
-                task.result.whenComplete((v, t) -> {
+        private void attemptStartTask() {
+            if (busy.compareAndSet(false, true)) {
+                var task = tasks.poll();
+                if (task != null) {
+                    // Install a finally-block-like closure that is run when the current task has signaled its completion.
+                    // This is to ensure that the next task is subsequently started (if any). Note: Result `v` and exception
+                    // `t` are ignored; it is the responsibility of other calls on `task.result` to handle them.
+                    task.result.whenComplete((v, t) -> {
+                        busy.set(false);
+                        exec.submit(this::attemptStartTask);
+                    });
+                    task.action.accept(task.result);
+                    // Don't unset `busy` yet. Instead, doing so is the responsibility of the closure on the previous lines
+                    // and should happen only when the task has signaled its completion.
+                } else {
                     busy.set(false);
-                    exec.submit(this::attemptStartTask);
-                });
-                task.action.accept(task.result);
-                // Don't unset `busy` yet. Instead, doing so is the responsibility of the closure on the previous lines
-                // and should happen only when the task has signaled its completion.
-            } else {
-                busy.set(false);
+                }
+            }
+        }
+
+        private class Task {
+            private final Consumer<CompletableFuture<R>> action;
+            private final CompletableFuture<R> result;
+
+            public Task(Consumer<CompletableFuture<R>> action, CompletableFuture<R> result) {
+                this.action = action;
+                this.result = result;
             }
         }
     }
 
-    private static class Task<R> {
-        private final Consumer<CompletableFuture<R>> action;
-        private final CompletableFuture<R> result;
+    /**
+     * Utility methods to perform operations on maps of maps
+     */
+    private static class MapOfMaps {
+        private MapOfMaps() {}
 
-        public Task(Consumer<CompletableFuture<R>> action, CompletableFuture<R> result) {
-            this.action = action;
-            this.result = result;
+        public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V get(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
+            return mapOfMaps
+                .getOrDefault(key1, Collections.emptyMap())
+                .get(key2);
+        }
+
+        public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V put(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2, V value) {
+            return mapOfMaps
+                .computeIfAbsent(key1, m -> new ConcurrentHashMap<>())
+                .put(key2, value);
+        }
+
+        public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V remove(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
+            // Default needs to be mutable (support `remove` calls) so `Collections.emptyMap()` cannot be used
+            var map = mapOfMaps.getOrDefault(key1, new HashMap<>());
+            var removed = map.remove(key2);
+            if (map.isEmpty()) {
+                mapOfMaps.remove(key1);
+            }
+            return removed;
         }
     }
-}
 
-/**
- * Utility methods to perform operations on maps of maps
- */
-class MapOfMaps {
-    private MapOfMaps() {}
+    /**
+     * Utility methods to perform operations on maps of maps of sets
+     */
+    private static class MapOfMapsOfSets {
+        private MapOfMapsOfSets() {}
 
-    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V get(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
-        return mapOfMaps
-            .getOrDefault(key1, Collections.emptyMap())
-            .get(key2);
-    }
-
-    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V put(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2, V value) {
-        return mapOfMaps
-            .computeIfAbsent(key1, m -> new ConcurrentHashMap<>())
-            .put(key2, value);
-    }
-
-    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V remove(Map<K1, Map<K2, V>> mapOfMaps, K1 key1, K2 key2) {
-        // Default needs to be mutable (support `remove` calls) so `Collections.emptyMap()` cannot be used
-        var map = mapOfMaps.getOrDefault(key1, new HashMap<>());
-        var removed = map.remove(key2);
-        if (map.isEmpty()) {
-            mapOfMaps.remove(key1);
+        public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> boolean add(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
+            return mapOfMapOfSets
+                .computeIfAbsent(key1, m -> new ConcurrentHashMap<>())
+                .computeIfAbsent(key2, o -> ConcurrentHashMap.newKeySet())
+                .add(value);
         }
-        return removed;
-    }
-}
 
-/**
- * Utility methods to perform operations on maps of maps of sets
- */
-class MapOfMapsOfSets {
-    private MapOfMapsOfSets() {}
-
-    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> boolean add(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
-        return mapOfMapOfSets
-            .computeIfAbsent(key1, m -> new ConcurrentHashMap<>())
-            .computeIfAbsent(key2, o -> ConcurrentHashMap.newKeySet())
-            .add(value);
-    }
-
-    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V findAny(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, Predicate<V> predicate) {
-        return mapOfMapOfSets
-            .values()
-            .stream()                    // Stream of maps of sets of values
-            .map(Map::values)            // Stream of collections of sets of values
-            .flatMap(Collection::stream) // Stream of sets of values
-            .flatMap(Collection::stream) // Stream of values
-            .filter(predicate)
-            .findAny()
-            .orElse(null);
-    }
-
-    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> boolean remove(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
-        // Defaults need to be mutable (support `remove` calls) so `Collections.empty...()` cannot be used
-        var mapOfSets = mapOfMapOfSets.getOrDefault(key1, new HashMap<>());
-        var set = mapOfSets.getOrDefault(key2, new HashSet<>());
-        var removed = false;
-        if (value != null) { // Convince Checker Framework
-            removed = set.remove(value);
+        public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> @Nullable V findAny(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, Predicate<V> predicate) {
+            return mapOfMapOfSets
+                .values()
+                .stream()                    // Stream of maps of sets of values
+                .map(Map::values)            // Stream of collections of sets of values
+                .flatMap(Collection::stream) // Stream of sets of values
+                .flatMap(Collection::stream) // Stream of values
+                .filter(predicate)
+                .findAny()
+                .orElse(null);
         }
-        if (set.isEmpty()) {
-            mapOfSets.remove(key2);
-        }
-        if (mapOfSets.isEmpty()) {
-            mapOfMapOfSets.remove(key1);
-        }
-        return removed;
-    }
 
-    public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> int size(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2) {
-        return mapOfMapOfSets
-            .getOrDefault(key1, Collections.emptyMap())
-            .getOrDefault(key2, Collections.emptySet())
-            .size();
+        public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> boolean remove(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2, V value) {
+            // Defaults need to be mutable (support `remove` calls) so `Collections.empty...()` cannot be used
+            var mapOfSets = mapOfMapOfSets.getOrDefault(key1, new HashMap<>());
+            var set = mapOfSets.getOrDefault(key2, new HashSet<>());
+            var removed = false;
+            if (value != null) { // Convince Checker Framework
+                removed = set.remove(value);
+            }
+            if (set.isEmpty()) {
+                mapOfSets.remove(key2);
+            }
+            if (mapOfSets.isEmpty()) {
+                mapOfMapOfSets.remove(key1);
+            }
+            return removed;
+        }
+
+        public static <K1 extends @NonNull Object, K2 extends @NonNull Object, V> int size(Map<K1, Map<K2, Set<V>>> mapOfMapOfSets, K1 key1, K2 key2) {
+            return mapOfMapOfSets
+                .getOrDefault(key1, Collections.emptyMap())
+                .getOrDefault(key2, Collections.emptySet())
+                .size();
+        }
     }
 }
