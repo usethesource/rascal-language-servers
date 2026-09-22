@@ -282,7 +282,8 @@ export class RascalExtension implements vscode.Disposable {
             await vscode.commands.executeCommand("workbench.action.output.show.extension-output-usethesource.rascalmpl-#1-Rascal MPL Language Server");
             return false;
         }
-        return config.canContinue === true;
+        // The following option is available in the modal if and only if `config.canContinue === true`
+        return selected === "Still start the REPL";
     }
 
     async fileExists(f: vscode.Uri) {
