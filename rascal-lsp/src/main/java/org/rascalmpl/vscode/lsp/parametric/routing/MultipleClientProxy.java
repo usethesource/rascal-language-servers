@@ -365,7 +365,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
                 // Case: Must not forward
                 else {
-                    logger.trace("Register capability {} ({}): Not forwarding registration to client (remaining other registrations for same capability: {})", method, id, remaining);
+                    logger.trace("Register capability {} ({}): Not forwarding registration to client, because >0 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.add(sentByServers, method, options, fromServer);
                     result.complete(null);
                 }
@@ -431,7 +431,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
                 // Case: Must not forward unregistration
                 else {
-                    logger.trace("Unregister capability {} ({}): Not forwarding unregistration to client (remaining registrations for same capability: {})", method, id, remaining);
+                    logger.trace("Unregister capability {} ({}): Not forwarding unregistration to client, as 0 or >1 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.remove(sentByServers, method, options, fromServer);
                     result.complete(null);
                 }
