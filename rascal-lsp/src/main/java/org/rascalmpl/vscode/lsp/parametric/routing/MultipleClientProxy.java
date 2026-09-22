@@ -504,6 +504,12 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                     // Don't unset `busy` yet. Instead, doing so is the responsibility of the closure on the previous lines
                     // and should happen only when the task has signaled its completion.
                 } else {
+                    // In this case (presumably rare), the current `attemptStartTask` call was submitted after a new
+                    // task was offered into the queue, but the by the time the call begins, the queue has already
+                    // become empty. This can happen when, between the offer and the submission, *a previous*
+                    // `attemptStartTask` call (which ran concurrently) recursively submitted *a next*
+                    // `attemptStartTask` call as part of the `whenComplete` closure, which polled the new task out of
+                    // the queue before *the current* `attemptStartTask` call gets the opportunity to do so.
                     busy.set(false);
                 }
             }
