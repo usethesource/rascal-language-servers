@@ -41,6 +41,7 @@ export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
     public readonly rascalDebugClient: RascalDebugClient;
     public readonly languageRegistry: LanguageRegistry;
+    private pomXmlCodeActionProvider: vscode.Disposable | undefined = undefined;
 
     constructor(
         _context: vscode.ExtensionContext,
@@ -72,34 +73,9 @@ export class RascalLanguageServer implements vscode.Disposable {
             client.onNotification("rascal/registerDebugServerPort", (processID:number, serverPort:number) => {
                 this.rascalDebugClient.registerDebugServerPort(processID, serverPort);
             });
-
-            const pomXmlCodeActionProvider: vscode.CodeActionProvider = {
-                provideCodeActions: (document, range, context, token) => {
-                    const _provideCodeActions: ProvideCodeActionsSignature = async (document, range, context, token) => {
-                        const params: CodeActionParams = {
-                            textDocument: client.code2ProtocolConverter.asTextDocumentIdentifier(document),
-                            range: client.code2ProtocolConverter.asRange(range),
-                            context: client.code2ProtocolConverter.asCodeActionContextSync(context)
-                        };
-                        return client.sendRequest(CodeActionRequest.type, params, token).then(values => {
-                            if (token.isCancellationRequested || values === null || values === undefined) {
-                                return null;
-                            }
-                            return client.protocol2CodeConverter.asCodeActionResult(values, token);
-                        }, error => {
-                            return client.handleFailedRequest(CodeActionRequest.type, token, error, null);
-                        });
-                    };
-                    const middleware = client.middleware;
-                    return middleware.provideCodeActions
-                        ? middleware.provideCodeActions(document, range, context, token, _provideCodeActions)
-                        : _provideCodeActions(document, range, context, token);
-                }
-            };
-
-            vscode.languages.registerCodeActionsProvider(
+            this.pomXmlCodeActionProvider = vscode.languages.registerCodeActionsProvider(
                 { language: "xml", scheme: "file", pattern: posix.join("**", "pom.xml") },
-                pomXmlCodeActionProvider,
+                new PomXmlCodeActionProvider(client, logger),
                 { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }
             );
         });
@@ -107,6 +83,7 @@ export class RascalLanguageServer implements vscode.Disposable {
     dispose() {
         void this.rascalClient.then(c => c.dispose());
         this.languageRegistry.dispose();
+        this.pomXmlCodeActionProvider?.dispose();
     }
 
     private async requestResolve(uri: vscode.Uri, coordinates?: IRascalCoordinates): Promise<SourceLocationResponse> {
@@ -202,3 +179,27 @@ export interface IRascalCoordinates {
     endLineColumn?: [line: number, column: number];
 }
 
+/**
+ * Custom CodeActionProvider to be able to provide code actions specifically for `pom.xml` files, without registering a full-blown LSP server for XML files.
+ */
+class PomXmlCodeActionProvider implements vscode.CodeActionProvider {
+    constructor(private readonly client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) { }
+
+    async provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<(vscode.CodeAction | vscode.Command)[] | null | undefined> {
+        this.logger.debug(`[PomXmlCodeActionProvider] provideCodeActions: ${document.fileName} (${range})`);
+        const arg: CodeActionParams = {
+            textDocument: this.client.code2ProtocolConverter.asTextDocumentIdentifier(document),
+            range: this.client.code2ProtocolConverter.asRange(range),
+            context: this.client.code2ProtocolConverter.asCodeActionContextSync(context)
+        };
+        try {
+            const items = await this.client.sendRequest(CodeActionRequest.type, arg, token);
+            if (token.isCancellationRequested || items === null || items === undefined) {
+                return null;
+            }
+            return this.client.protocol2CodeConverter.asCodeActionResult(items, token);
+        } catch (error)  {
+            return this.client.handleFailedRequest(CodeActionRequest.type, token, error, null);
+        }
+    }
+}
