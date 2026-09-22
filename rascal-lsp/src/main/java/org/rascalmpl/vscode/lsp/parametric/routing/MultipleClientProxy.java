@@ -43,9 +43,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -311,14 +313,15 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     *
     * <p>
     * To coordinate calls of {@code registerCapability} and {@code unregisterCapability} and avoid races, instances of
-    * this class internally use a basic lock-free scheduler. Essentially, the scheduler ensures that the work of each
-    * next call of {@code registerCapability} or {@code unregisterCapability} will begin only when the work of the
-    * current call, <em>including its asyncronous completion</em>, has ended. See the JavaDoc of {@link Scheduler} for
-    * details.
+    * this class internally use a lock-free sequential scheduler. Essentially, the scheduler ensures that the work of
+    * each next call of {@code registerCapability} or {@code unregisterCapability} will begin only when the work of the
+    * current call, <em>including its asyncronous completion</em>, has ended. See the JavaDoc of {@link SequentialScheduler} for
+    * details. A custom scheduler is used, instead of {@link java.util.concurrent.Executors#newSingleThreadExecutor()},
+    * because a lock-free mechanism is needed to await asyncronous completion of calls (tasks).
     * </p>
     */
     private class CapabilityRegistry {
-        private final Scheduler<Void> scheduler = new Scheduler<>();
+        private final SequentialScheduler<Void> scheduler = new SequentialScheduler<>();
         private final Map<String, Map<Object, Set<Registration>>> sentByServers = new ConcurrentHashMap<>();
         private final Map<String, Map<Object, Registration>> receivedByClient = new ConcurrentHashMap<>();
         // Notes:
@@ -337,37 +340,33 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             var id = fromServer.getId();
 
             logger.trace("Register capability {} ({}): Submitting to scheduler...", method, id);
-            return scheduler.submit(result -> {
+            return scheduler.submit(() -> {
                 var options = fromServer.getRegisterOptions();
                 var remaining = MapOfMapsOfSets.size(sentByServers, method, options);
 
                 // Case: Must forward registration
                 if (remaining == 0) {
                     logger.trace("Register capability {} ({}): Forwarding registration to client...", method, id);
-                    forwardRegistration(method, options).whenCompleteAsync((toClient, thrown) -> {
+                    return forwardRegistration(method, options).handleAsync((BiFunction<Registration, Throwable, Void>) (toClient, ex) -> {
                         // Case: Forwarding succeeded
-                        if (thrown == null) {
+                        if (ex == null) {
                             logger.trace("Register capability {} ({}): Forwarded registration to client. Succeeded.", method, id);
                             MapOfMaps.put(receivedByClient, method, options, toClient);
                             MapOfMapsOfSets.add(sentByServers, method, options, fromServer);
-                            result.complete(null);
                         }
                         // Case: Forwarding failed
                         else {
-                            logger.trace("Register capability {} ({}): Forwarded registration to client. Failed: {}", method, id, thrown);
-                            result.completeExceptionally(thrown);
+                            logger.trace("Register capability {} ({}): Forwarded registration to client. Failed: {}", method, id, ex);
                         }
+                        return null; // Void
                     }, exec);
-                    // Don't complete `result` yet. Instead, doing so is the responsibility of the closure on the
-                    // previous lines and should happen only when it is known if the registration succeeded or failed at
-                    // the client (which isn't immediately after `whenCompleteAsync` returns, but asynchronously).
                 }
 
                 // Case: Must not forward
                 else {
                     logger.trace("Register capability {} ({}): Not forwarding registration to client, because >0 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.add(sentByServers, method, options, fromServer);
-                    result.complete(null);
+                    return CompletableFuture.completedFuture(null);
                 }
             });
         }
@@ -383,15 +382,14 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             var id = u.getId();
 
             logger.trace("Unregister capability {} ({}): Submitting to scheduler...", method, id);
-            return scheduler.submit(result -> {
+            return scheduler.submit(() -> {
 
                 // Find the corresponding registration previously sent by a server
                 var fromServer = MapOfMapsOfSets.findAny(sentByServers, r -> matches(r, u));
                 if (fromServer == null) {
-                    var t = new IllegalStateException("Cannot unregister a capability for which no registration was sent by a server");
-                    logger.trace("Unregister capability {} ({}). Failed: {}", method, id, t);
-                    result.completeExceptionally(t);
-                    return;
+                    var ex = new IllegalStateException("Cannot unregister a capability for which no registration was sent by a server");
+                    logger.trace("Unregister capability {} ({}). Failed: {}", method, id, ex);
+                    return CompletableFuture.failedFuture(ex);
                 }
 
                 var options = fromServer.getRegisterOptions();
@@ -408,36 +406,31 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         // invariant that the number of registrations of a capability in `sentByServers` is greater than
                         // 0 if, and only if, there is a registration of that capability in `receivedByClient`. So, if
                         // `remaining == 1`, but `toClient == null`, then the invariant is broken.
-                        var t = new IllegalStateException("Cannot unregister a capability for which no registration was received by the client");
-                        logger.trace("Unregister capability {} ({}). Failed: {}", method, id, t);
-                        result.completeExceptionally(t);
-                        return;
+                        var ex = new IllegalStateException("Cannot unregister a capability for which no registration was received by the client");
+                        logger.trace("Unregister capability {} ({}). Failed: {}", method, id, ex);
+                        return CompletableFuture.failedFuture(ex);
                     }
 
-                    forwardUnregistration(toClient.getId(), method).whenCompleteAsync((_u, thrown) -> {
+                    return forwardUnregistration(toClient.getId(), method).handleAsync((BiFunction<Unregistration, Throwable, Void>) (_u, ex) -> {
                         // Case: Forwarding succeeded
-                        if (thrown == null) {
+                        if (ex == null) {
                             logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Succeeded.", method, id);
                             MapOfMaps.remove(receivedByClient, method, options);
                             MapOfMapsOfSets.remove(sentByServers, method, options, fromServer);
-                            result.complete(null);
                         }
                         // Case: Forwarding failed
                         else {
-                            logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Failed: {}", method, id, thrown);
-                            result.completeExceptionally(thrown);
+                            logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Failed: {}", method, id, ex);
                         }
+                        return null; // Void
                     }, exec);
-                    // Don't complete `result` yet. Instead, doing so is the responsibility of the closure on the
-                    // previous lines and should happen only when it is known if the unregistration succeeded or failed
-                    // at the client (which isn't immediately after `whenCompleteAsync` returns, but asynchronously).
                 }
 
                 // Case: Must not forward unregistration
                 else {
                     logger.trace("Unregister capability {} ({}): Not forwarding unregistration to client, as 0 or >1 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.remove(sentByServers, method, options, fromServer);
-                    result.complete(null);
+                    return CompletableFuture.completedFuture(null);
                 }
             });
         }
@@ -455,16 +448,19 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
     /**
      * <p>
-     * Basic lock-free scheduler that requires submitted tasks to signal their completion explicitly (and possibly
+     * Lock-free sequential scheduler that requires submitted tasks to signal their completion explicitly (and possibly
      * asynchronously). Only after the current task has signaled its completion will the next task be started.
      * </p>
      *
      * <p>
-     * Each task is represented as a pair that consists of: (1) a closure that represents the work of the task, with a
-     * formal parameter of type {@link CompletableFuture}, and (2) a future that represents the result of the task, which is
-     * passed to the closure as actual parameter when the task is started. The body of the closure must eventually call
-     * {@link CompletableFuture#complete} (or any other {@code complete...} method) on the future to signal its completion
-     * and provide the result. Not performing such a call causes the scheduler to get stuck.
+     * Each task is represented as a pair that consists of: (1) a closure that represents the work and returns an
+     * *internal* future that represents the result for the scheduler, and (2) an *external* future that represents the
+     * result for the submitter. The body of the closure must eventually call {@link CompletableFuture#complete} (or any
+     * other {@code complete...} method) on the internal future to signal its completion and supply the result. Not
+     * completing an internal future causes the scheduler to get stuck. When the internal future is complete, the
+     * scheduler completes the external future by propagating the result. This two-stage approach is needed because the
+     * internal future isn't available yet when the external future needs to be returned to the submitter (i.e., the
+     * internal future is created as part of running the closure, but this happens only when the task has been started).
      * </p>
      *
      * <p>
@@ -477,14 +473,13 @@ public class MultipleClientProxy implements IBaseLanguageClient {
      *
      * @param R Result type of tasks
      */
-    private class Scheduler<R> {
+    private class SequentialScheduler<R> {
         private final Queue<Task> tasks = new ConcurrentLinkedQueue<>();
         private final AtomicBoolean busy = new AtomicBoolean(false);
 
-        public CompletableFuture<R> submit(Consumer<CompletableFuture<R>> action) {
+        public CompletableFuture<R> submit(Supplier<CompletableFuture<R>> action) {
             var result = new CompletableFuture<R>();
-            var task = new Task(action, result);
-            tasks.offer(task);
+            tasks.offer(new Task(action, result));
             exec.submit(this::attemptStartTask);
             return result;
         }
@@ -493,14 +488,19 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             if (busy.compareAndSet(false, true)) {
                 var task = tasks.poll();
                 if (task != null) {
-                    // Install a finally-block-like closure that is run when the current task has signaled its completion.
-                    // This is to ensure that the next task is subsequently started (if any). Note: Result `v` and exception
-                    // `t` are ignored; it is the responsibility of other calls on `task.result` to handle them.
-                    task.result.whenComplete((v, t) -> {
+                    var internalFuture = task.action.get(); // Start task
+                    var externalFuture = task.result;
+                    internalFuture.whenCompleteAsync((value, ex) -> { // Propagate result
+                        if (ex == null) {
+                            externalFuture.complete(value);
+                        } else {
+                            externalFuture.completeExceptionally(ex);
+                        }
+                    }, exec);
+                    internalFuture.whenCompleteAsync((value, ex) -> { // Start next task (if any)
                         busy.set(false);
                         exec.submit(this::attemptStartTask);
-                    });
-                    task.action.accept(task.result);
+                    }, exec);
                     // Don't unset `busy` yet. Instead, doing so is the responsibility of the closure on the previous lines
                     // and should happen only when the task has signaled its completion.
                 } else {
@@ -508,18 +508,18 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                     // task was offered into the queue, but the by the time the call begins, the queue has already
                     // become empty. This can happen when, between the offer and the submission, *a previous*
                     // `attemptStartTask` call (which ran concurrently) recursively submitted *a next*
-                    // `attemptStartTask` call as part of the `whenComplete` closure, which polled the new task out of
-                    // the queue before *the current* `attemptStartTask` call gets the opportunity to do so.
+                    // `attemptStartTask` call as part of the `whenComplete` closure above, which polled the new task
+                    // out of the queue before *the current* `attemptStartTask` call gets the opportunity to do so.
                     busy.set(false);
                 }
             }
         }
 
         private class Task {
-            private final Consumer<CompletableFuture<R>> action;
+            private final Supplier<CompletableFuture<R>> action;
             private final CompletableFuture<R> result;
 
-            public Task(Consumer<CompletableFuture<R>> action, CompletableFuture<R> result) {
+            public Task(Supplier<CompletableFuture<R>> action, CompletableFuture<R> result) {
                 this.action = action;
                 this.result = result;
             }
