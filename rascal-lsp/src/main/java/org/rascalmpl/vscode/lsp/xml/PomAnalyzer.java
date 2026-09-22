@@ -72,9 +72,12 @@ public class PomAnalyzer {
     }
     
     public IString getCurrentRascalLspVersion() {
-        var specificationVersion = PomAnalyzer.class.getPackage().getSpecificationVersion();
-        if (specificationVersion != null) {
-            return vf.string(specificationVersion);
+        var pkg = PomAnalyzer.class.getPackage();
+        if (pkg != null) {
+            var specificationVersion = pkg.getSpecificationVersion();
+            if (specificationVersion != null) {
+                return vf.string(specificationVersion);
+            }
         }
         
         try (InputStream prop = PomAnalyzer.class.getClassLoader().getResourceAsStream("project.properties")) {
