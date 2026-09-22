@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Properties;
 
+import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.util.maven.MavenParser;
 import org.rascalmpl.util.maven.ModelResolutionError;
@@ -91,7 +92,6 @@ public class PomAnalyzer {
             // Fall through
         }
 
-        var fallbackVersion = "2.22.5";
-        return vf.string(fallbackVersion);
+        throw RuntimeExceptionFactory.io("Could not detect current version of `rascal-lsp`");
     }
 }

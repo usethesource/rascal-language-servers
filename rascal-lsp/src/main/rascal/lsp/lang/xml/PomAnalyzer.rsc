@@ -118,14 +118,16 @@ TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
 
 TextEdit addRascalDependency(loc pomLoc, str version=getRascalVersion()) {
     // getRascalVersion() returns "Not specified" in case it cannot find a MANIFEST.MF file with a version for Rascal
-    // This happens in second level
     if (version == "Not specified") {
-        version = "0.43.0-RC14";
+        version = "???";
     }
     return addDependency(pomLoc, "org.rascalmpl", "rascal", version);
 }
 
-TextEdit addRascalLspDependency(loc pomLoc, str version=getCurrentRascalLspVersion()) {
+TextEdit addRascalLspDependency(loc pomLoc, str version="???") {
+    try {
+        version = getCurrentRascalLspVersion();
+    } catch IO(_):;
     return addDependency(pomLoc, "org.rascalmpl", "rascal-lsp", version);
 }
 
