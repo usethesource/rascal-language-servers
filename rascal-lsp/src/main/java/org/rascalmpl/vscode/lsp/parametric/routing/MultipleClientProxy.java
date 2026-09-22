@@ -91,12 +91,12 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
     private final IBaseLanguageClient client;
     private final ExecutorService exec;
-    private final CapabilityRegistry capabilityRegistry;
+    private final CapabilityRegistry capabilities;
 
     protected MultipleClientProxy(LanguageClient client, ExecutorService exec) {
         this.client = (IBaseLanguageClient) client;
         this.exec = exec;
-        this.capabilityRegistry = new CapabilityRegistry();
+        this.capabilities = new CapabilityRegistry();
     }
 
     @Override
@@ -230,7 +230,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
      */
     @Override
     public CompletableFuture<Void> registerCapability(RegistrationParams params) {
-        return installUpdates(params.getRegistrations(), capabilityRegistry::registerCapability);
+        return installUpdates(params.getRegistrations(), capabilities::registerCapability);
     }
 
     /**
@@ -242,7 +242,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
      */
     @Override
     public CompletableFuture<Void> unregisterCapability(UnregistrationParams params) {
-        return installUpdates(params.getUnregisterations(), capabilityRegistry::unregisterCapability);
+        return installUpdates(params.getUnregisterations(), capabilities::unregisterCapability);
     }
 
     private <T> CompletableFuture<Void> installUpdates(List<T> updates, Function<T, CompletableFuture<Void>> installer) {
