@@ -44,12 +44,10 @@ node getChildNode(node n, str name) {
 
 str inferIndentation(node pom, list[str] pomLines) {
     try {
-        str indentation = "  ";
         if (node project := getChildNode(pom, "project"), loc projectLoc := project.src,
             node groupId := getChildNode(project, "groupId"), loc groupIdLoc := groupId.src) {
-                indentation = pomLines[groupIdLoc.begin.line-1][projectLoc.begin.column..groupIdLoc.begin.column];
+                return pomLines[groupIdLoc.begin.line-1][projectLoc.begin.column..groupIdLoc.begin.column];
         }
-        return indentation;
     } catch value _:;
     return "  ";
 }
