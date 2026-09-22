@@ -186,7 +186,7 @@ class PomXmlCodeActionProvider implements vscode.CodeActionProvider {
     constructor(private readonly client: BaseLanguageClient, private readonly logger: vscode.LogOutputChannel) { }
 
     async provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<(vscode.CodeAction | vscode.Command)[] | null | undefined> {
-        this.logger.debug(`[PomXmlCodeActionProvider] provideCodeActions: ${document.fileName} (${range})`);
+        this.logger.trace(`[PomXmlCodeActionProvider] provideCodeActions: ${document.fileName} (${range})`);
         const arg: CodeActionParams = {
             textDocument: this.client.code2ProtocolConverter.asTextDocumentIdentifier(document),
             range: this.client.code2ProtocolConverter.asRange(range),
