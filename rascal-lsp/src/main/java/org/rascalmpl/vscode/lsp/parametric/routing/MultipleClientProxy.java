@@ -317,7 +317,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
     * details.
     * </p>
     */
-    class CapabilityRegistry {
+    private class CapabilityRegistry {
         private final Scheduler<Void> scheduler = new Scheduler<>(exec);
         private final Map<String, Map<Object, Set<Registration>>> sentByServers = new ConcurrentHashMap<>();
         private final Map<String, Map<Object, Registration>> receivedByClient = new ConcurrentHashMap<>();
