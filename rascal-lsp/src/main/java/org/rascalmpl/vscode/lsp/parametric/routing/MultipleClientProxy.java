@@ -344,10 +344,9 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                 // Case: Must forward registration
                 if (remaining == 0) {
                     logger.trace("Register capability {} ({}): Forwarding registration to client...", method, id);
-                    var toClient = new Registration(UUID.randomUUID().toString(), method, options);
-                    forwardRegistration(toClient).whenCompleteAsync((v, t) -> {
+                    forwardRegistration(method, options).whenCompleteAsync((toClient, thrown) -> {
                         // Case: Forwarding succeeded
-                        if (t == null) {
+                        if (thrown == null) {
                             logger.trace("Register capability {} ({}): Forwarded registration to client. Succeeded.", method, id);
                             MapOfMaps.put(receivedByClient, method, options, toClient);
                             MapOfMapsOfSets.add(sentByServers, method, options, fromServer);
@@ -355,8 +354,8 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         }
                         // Case: Forwarding failed
                         else {
-                            logger.trace("Register capability {} ({}): Forwarded registration to client. Failed: {}", method, id, t);
-                            result.completeExceptionally(t);
+                            logger.trace("Register capability {} ({}): Forwarded registration to client. Failed: {}", method, id, thrown);
+                            result.completeExceptionally(thrown);
                         }
                     }, exec);
                     // Don't complete `result` yet. Instead, doing so is the responsibility of the closure on the
@@ -411,9 +410,9 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         return;
                     }
 
-                    forwardUnregistration(toClient).whenCompleteAsync((v, t) -> {
+                    forwardUnregistration(toClient.getId(), method).whenCompleteAsync((_u, thrown) -> {
                         // Case: Forwarding succeeded
-                        if (t == null) {
+                        if (thrown == null) {
                             logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Succeeded.", method, id);
                             MapOfMaps.remove(receivedByClient, method, options);
                             MapOfMapsOfSets.remove(sentByServers, method, options, fromServer);
@@ -421,8 +420,8 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         }
                         // Case: Forwarding failed
                         else {
-                            logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Failed: {}", method, id, t);
-                            result.completeExceptionally(t);
+                            logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Failed: {}", method, id, thrown);
+                            result.completeExceptionally(thrown);
                         }
                     }, exec);
                     // Don't complete `result` yet. Instead, doing so is the responsibility of the closure on the
@@ -439,13 +438,14 @@ public class MultipleClientProxy implements IBaseLanguageClient {
             });
         }
 
-        private CompletableFuture<Void> forwardRegistration(Registration r) {
-            return client.registerCapability(new RegistrationParams(List.of(r)));
+        private CompletableFuture<Registration> forwardRegistration(String method, Object options) {
+            var r = new Registration(UUID.randomUUID().toString(), method, options);
+            return client.registerCapability(new RegistrationParams(List.of(r))).thenApply(_void -> r);
         }
 
-        private CompletableFuture<Void> forwardUnregistration(Registration r) {
-            var u = new Unregistration(r.getId(), r.getMethod());
-            return client.unregisterCapability(new UnregistrationParams(List.of(u)));
+        private CompletableFuture<Unregistration> forwardUnregistration(String id, String method) {
+            var u = new Unregistration(id, method);
+            return client.unregisterCapability(new UnregistrationParams(List.of(u))).thenApply(_void -> u);
         }
     }
 }
