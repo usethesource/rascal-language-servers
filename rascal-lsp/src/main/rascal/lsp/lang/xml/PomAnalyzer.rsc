@@ -84,7 +84,11 @@ TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
     v = "\<version\><version>\</version\>";
 
     str makeDependencyXml(str baseIndentation)
-        = "<baseIndentation>\<dependency\><newline><baseIndentation><indentation><gId><newline><baseIndentation><indentation><aId><newline><baseIndentation><indentation><v><newline><baseIndentation>\</dependency\><newline>";
+        = "<baseIndentation>\<dependency\><newline>" +
+          "<baseIndentation><indentation><gId><newline>" +
+          "<baseIndentation><indentation><aId><newline>" +
+          "<baseIndentation><indentation><v><newline>" +
+          "<baseIndentation>\</dependency\><newline>";
 
     if (node project := getChildNode(pom, "project")) {
         try {

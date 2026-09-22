@@ -55,9 +55,7 @@ public class PomAnalyzer {
             var resolvedDependencies = rootProject.resolveDependencies(Scope.COMPILE, mavenParser);
             return vf.bool(resolvedDependencies.stream()
                 .map(Artifact::getCoordinate)
-                .filter(a -> a.getGroupId().equals(groupId) && a.getArtifactId().equals(artifactId))
-                .findAny()
-                .isPresent());
+                .anyMatch(a -> a.getGroupId().equals(groupId) && a.getArtifactId().equals(artifactId)));
         } catch (ModelResolutionError e) {
             return vf.bool(false);
         }

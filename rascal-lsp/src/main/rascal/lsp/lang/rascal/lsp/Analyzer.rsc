@@ -41,7 +41,6 @@ import lang::xml::PomAnalyzer;
 @synopsis{A fast analyzer, is run on most parse trees, so it should be fast}
 list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     result = [];
-    pcfg = getPathConfig(tree.src.top);
 
     annotationAlreadyReported = false;
     void reportAnnotationDeprecation(Tree t) {
@@ -51,7 +50,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
                 "Annotations are no longer supported and will soon be removed, please use our build-in Quick Fix to refactor all of them into keyword parameters",
                 t.src, fixes=[
                     action(
-                        command=upgradeAnnotations(pcfg),
+                        command=upgradeAnnotations(getPathConfig(tree.src.top)),
                         title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
                     )
                 ]
@@ -70,7 +69,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         }
 
         case i:(Import)`import util::LanguageServer;`: {
-            pomLoc = pcfg.projectRoot + "pom.xml";
+            pomLoc = getPathConfig(tree.src.top).projectRoot + "pom.xml";
             if (!hasRascalLspDependency(pomLoc)) {
                 result += warning(
                     "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`",
