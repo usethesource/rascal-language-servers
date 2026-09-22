@@ -26,7 +26,8 @@
  */
 import * as vscode from 'vscode';
 
-import { BaseLanguageClient, CodeActionParams, CodeActionRequest, CodeActionResolveRequest, ProvideCodeActionsSignature, ResolveCodeActionSignature, ResponseError } from 'vscode-languageclient';
+import { posix } from 'path';
+import { BaseLanguageClient, CodeActionParams, CodeActionRequest, ProvideCodeActionsSignature, ResponseError } from 'vscode-languageclient';
 import { RascalDebugClient } from '../dap/RascalDebugClient';
 import { SourceLocationResponse } from '../fs/JsonRpcMessages';
 import { RemoteIOError } from '../fs/RemoteIOError';
@@ -35,7 +36,6 @@ import { RASCAL_LANGUAGE_ID } from '../Identifiers';
 import { LanguageRegistry } from './LanguageRegistry';
 import { ParameterizedLanguageServer } from './ParameterizedLanguageServer';
 import { activateLanguageClient } from './RascalLSPConnection';
-import { posix } from 'path';
 
 export class RascalLanguageServer implements vscode.Disposable {
     public readonly rascalClient: Promise<BaseLanguageClient>;
