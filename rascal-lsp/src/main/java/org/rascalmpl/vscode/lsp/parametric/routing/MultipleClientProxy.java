@@ -43,7 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -347,7 +346,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                 // Case: Must forward registration
                 if (remaining == 0) {
                     logger.trace("Register capability {} ({}): Forwarding registration to client...", method, id);
-                    return forwardRegistration(method, options).handleAsync((BiFunction<Registration, Throwable, Void>) (toClient, ex) -> {
+                    return forwardRegistration(method, options).handleAsync((toClient, ex) -> {
                         // Case: Forwarding succeeded
                         if (ex == null) {
                             logger.trace("Register capability {} ({}): Forwarded registration to client. Succeeded.", method, id);
@@ -403,15 +402,15 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                     var toClient = MapOfMaps.get(receivedByClient, method, options);
                     if (toClient == null) {
                         // This should never happen: instances of this class are intended to preserve the consistency
-                        // invariant that the number of registrations of a capability in `sentByServers` is greater than
-                        // 0 if, and only if, there is a registration of that capability in `receivedByClient`. So, if
-                        // `remaining == 1`, but `toClient == null`, then the invariant is broken.
+                        // invariant that "the number of registrations of a capability in `sentByServers` is >0" if and
+                        // only if "there is a registration of that capability in `receivedByClient`". So, if `remaining
+                        // == 1`, but `toClient == null`, then the invariant is accidentally broken.
                         var ex = new IllegalStateException("Cannot unregister a capability for which no registration was received by the client");
                         logger.trace("Unregister capability {} ({}). Failed: {}", method, id, ex);
                         return CompletableFutureUtils.failedFuture(ex, exec);
                     }
 
-                    return forwardUnregistration(toClient.getId(), method).handleAsync((BiFunction<Unregistration, Throwable, Void>) (_u, ex) -> {
+                    return forwardUnregistration(toClient.getId(), method).handleAsync((_u, ex) -> {
                         // Case: Forwarding succeeded
                         if (ex == null) {
                             logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Succeeded.", method, id);
@@ -428,7 +427,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
 
                 // Case: Must not forward unregistration
                 else {
-                    logger.trace("Unregister capability {} ({}): Not forwarding unregistration to client, as 0 or >1 other registrations remain for same capability (remaining: {})", method, id, remaining);
+                    logger.trace("Unregister capability {} ({}): Not forwarding unregistration to client, because 0 or >1 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.remove(sentByServers, method, options, fromServer);
                     return CompletableFutureUtils.completedFuture(null, exec);
                 }
@@ -453,14 +452,14 @@ public class MultipleClientProxy implements IBaseLanguageClient {
      * </p>
      *
      * <p>
-     * Each task is represented as a pair that consists of: (1) a closure that represents the work and returns an
-     * *internal* future that represents the result for the scheduler, and (2) an *external* future that represents the
-     * result for the submitter. The body of the closure must eventually call {@link CompletableFuture#complete} (or any
-     * other {@code complete...} method) on the internal future to signal its completion and supply the result. Not
-     * completing an internal future causes the scheduler to get stuck. When the internal future is complete, the
-     * scheduler completes the external future by propagating the result. This two-stage approach is needed because the
-     * internal future isn't available yet when the external future needs to be returned to the submitter (i.e., the
-     * internal future is created as part of running the closure, but this happens only when the task has been started).
+     * Each task is a pair that consists of: (1) a closure that defines the work and returns an *internal* future that
+     * represents the result for the scheduler, and (2) an *external* future that represents the result for the
+     * submitter. The body of the closure must eventually call {@link CompletableFuture#complete} (or any other
+     * {@code complete...} method) on the internal future to signal its completion and supply the result. Not completing
+     * an internal future causes the scheduler to get stuck. When the internal future is complete, the scheduler
+     * completes the external future by propagating the result. This two-stage approach is needed because the internal
+     * future isn't available yet when the external future needs to be returned to the submitter (i.e., the internal
+     * future is created as part of running the closure, but this happens only when the task has been started).
      * </p>
      *
      * <p>
@@ -497,7 +496,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                             externalFuture.completeExceptionally(ex);
                         }
                     }, exec);
-                    internalFuture.whenCompleteAsync((value, ex) -> { // Start next task (if any)
+                    internalFuture.whenCompleteAsync((value, ex) -> { // Attemp to start next task (if any)
                         busy.set(false);
                         exec.submit(this::attemptStartTask);
                     }, exec);
