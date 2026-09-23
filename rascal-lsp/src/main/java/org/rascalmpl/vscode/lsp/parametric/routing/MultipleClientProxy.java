@@ -346,7 +346,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                 // Case: Must forward registration
                 if (remaining == 0) {
                     logger.trace("Register capability {} ({}): Forwarding registration to client...", method, id);
-                    return forwardRegistration(method, options).handleAsync((toClient, ex) -> {
+                    return forwardRegistration(method, options).whenCompleteAsync((toClient, ex) -> {
                         // Case: Forwarding succeeded
                         if (ex == null) {
                             logger.trace("Register capability {} ({}): Forwarded registration to client. Succeeded.", method, id);
@@ -357,15 +357,14 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         else {
                             logger.trace("Register capability {} ({}): Forwarded registration to client. Failed: {}", method, id, ex);
                         }
-                        return null; // Void
-                    }, exec);
+                    }, exec).thenCompose(_toClient -> null /* Void */);
                 }
 
                 // Case: Must not forward
                 else {
                     logger.trace("Register capability {} ({}): Not forwarding registration to client, because >0 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.add(sentByServers, method, options, fromServer);
-                    return CompletableFutureUtils.completedFuture(null, exec);
+                    return CompletableFutureUtils.completedFuture(null /* Void */, exec);
                 }
             });
         }
@@ -410,7 +409,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         return CompletableFutureUtils.failedFuture(ex, exec);
                     }
 
-                    return forwardUnregistration(toClient.getId(), method).handleAsync((_u, ex) -> {
+                    return forwardUnregistration(toClient.getId(), method).whenCompleteAsync((_u, ex) -> {
                         // Case: Forwarding succeeded
                         if (ex == null) {
                             logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Succeeded.", method, id);
@@ -421,15 +420,14 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         else {
                             logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Failed: {}", method, id, ex);
                         }
-                        return null; // Void
-                    }, exec);
+                    }, exec).thenCompose(_u -> null /* Void */);
                 }
 
                 // Case: Must not forward unregistration
                 else {
                     logger.trace("Unregister capability {} ({}): Not forwarding unregistration to client, because 0 or >1 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.remove(sentByServers, method, options, fromServer);
-                    return CompletableFutureUtils.completedFuture(null, exec);
+                    return CompletableFutureUtils.completedFuture(null /* Void */, exec);
                 }
             });
         }
