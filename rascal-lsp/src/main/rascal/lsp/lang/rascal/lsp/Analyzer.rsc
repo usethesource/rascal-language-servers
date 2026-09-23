@@ -68,7 +68,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         rascalSrcRoot = (tree.src.top | it.parent | _ <- tree.top.header.name.names);
         result += warning(
             "Project `<projectRoot.file>` is missing a `pom.xml` file", tree.top.header.src,
-            fixes=[action(title="Add `pom.xml` file to project `<projectRoot.file>", command=addNewPomXml(projectRoot, relativize(projectRoot, rascalSrcRoot).path))]
+            fixes=[action(title="Add `pom.xml` file to project `<projectRoot.file>", command=addNewPomXml(projectRoot, relativize(projectRoot, rascalSrcRoot).path[1..]))]
         );
     }
 
