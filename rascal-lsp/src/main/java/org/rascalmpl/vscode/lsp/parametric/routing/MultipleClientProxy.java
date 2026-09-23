@@ -355,7 +355,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         }
                         // Case: Forwarding failed
                         else {
-                            logger.trace("Register capability {} ({}): Forwarded registration to client. Failed: {}", method, id, ex);
+                            logger.error("Register capability {} ({}): Forwarded registration to client. Failed: {}", method, id, ex);
                         }
                     }, exec).thenApply(_toClient -> null /* Void */);
                 }
@@ -386,7 +386,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                 var fromServer = MapOfMapsOfSets.findAny(sentByServers, r -> matches(r, u));
                 if (fromServer == null) {
                     var ex = new IllegalStateException("Cannot unregister a capability for which no registration was sent by a server");
-                    logger.trace("Unregister capability {} ({}). Failed: {}", method, id, ex);
+                    logger.error("Unregister capability {} ({}). Failed: {}", method, id, ex);
                     return CompletableFutureUtils.failedFuture(ex, exec);
                 }
 
@@ -405,7 +405,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         // only if "there is a registration of that capability in `receivedByClient`". So, if `remaining
                         // == 1`, but `toClient == null`, then the invariant is accidentally broken.
                         var ex = new IllegalStateException("Cannot unregister a capability for which no registration was received by the client");
-                        logger.trace("Unregister capability {} ({}). Failed: {}", method, id, ex);
+                        logger.error("Unregister capability {} ({}). Failed: {}", method, id, ex);
                         return CompletableFutureUtils.failedFuture(ex, exec);
                     }
 
@@ -418,7 +418,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         }
                         // Case: Forwarding failed
                         else {
-                            logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Failed: {}", method, id, ex);
+                            logger.error("Unregister capability {} ({}): Forwarded unregistration to client. Failed: {}", method, id, ex);
                         }
                     }, exec).thenApply(_u -> null /* Void */);
                 }
