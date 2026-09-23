@@ -357,7 +357,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         else {
                             logger.trace("Register capability {} ({}): Forwarded registration to client. Failed: {}", method, id, ex);
                         }
-                    }, exec).thenCompose(_toClient -> null /* Void */);
+                    }, exec).thenApply(_toClient -> null /* Void */);
                 }
 
                 // Case: Must not forward
@@ -420,7 +420,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         else {
                             logger.trace("Unregister capability {} ({}): Forwarded unregistration to client. Failed: {}", method, id, ex);
                         }
-                    }, exec).thenCompose(_u -> null /* Void */);
+                    }, exec).thenApply(_u -> null /* Void */);
                 }
 
                 // Case: Must not forward unregistration
