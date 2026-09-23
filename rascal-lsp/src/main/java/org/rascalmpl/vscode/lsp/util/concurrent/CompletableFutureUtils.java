@@ -57,7 +57,9 @@ public class CompletableFutureUtils {
     }
 
     public static <T> CompletableFuture<T> completedFuture(T value, Executor exec) {
-        return CompletableFuture.supplyAsync(() -> value, exec);
+        var f = CompletableFutureUtils.<T> create(exec);
+        f.complete(value);
+        return f;
     }
 
     public static <T> CompletableFuture<T> failedFuture(Throwable ex, Executor exec) {
