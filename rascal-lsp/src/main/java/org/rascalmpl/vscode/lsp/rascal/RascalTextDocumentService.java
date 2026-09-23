@@ -281,7 +281,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     @Override
     public Collection<String> extensions() {
-        return Set.of("rsc");
+        return Set.of("rsc", "xml");
     }
 
     // LSP interface methods
@@ -659,6 +659,10 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         CompletableFuture<Stream<IValue>> quickfixes
             = CodeActions.extractActionsFromDiagnostics(params, availableRascalServices()::parseCodeActions, exec);
 
+        if (params.getTextDocument().getUri().endsWith("pom.xml")) {
+            return CodeActions.convertCodeActions(this, "", BaseWorkspaceService.RASCAL_LANGUAGE, quickfixes);
+        }
+        
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
