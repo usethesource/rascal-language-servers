@@ -64,7 +64,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     }
 
     projectRoot = inferProjectRoot(tree.src.top);
-    if (exists(projectRoot + "META-INF" + "RASCAL.MF") && !exists(projectRoot + "pom.xml")) {
+    if (rascalMfNoPomXml(projectRoot)) {
         rascalSrcRoot = (tree.src.top | it.parent | _ <- tree.top.header.name.names);
         result += warning(
             "Project `<projectRoot.file>` is missing a `pom.xml` file", tree.top.header.src,
@@ -102,6 +102,10 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
 
     return result;
 }
+
+@memo{expireAfter(minutes=1)}
+bool rascalMfNoPomXml(loc projectRoot)
+    = exists(projectRoot + "META-INF" + "RASCAL.MF") && !exists(projectRoot + "pom.xml");
 
 map[str, str] illegalSchemeSuggestions = (
     "lib": "|project://|, |mvn://|, or IO::getResource",
