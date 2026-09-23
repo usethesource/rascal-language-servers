@@ -36,7 +36,7 @@ import util::Maybe;
 import util::PathConfig;
 import lang::rascal::\syntax::Rascal;
 import lang::rascal::lsp::Actions;
-import lang::rascal::lsp::IDECheckerWrapper;
+import lang::rascal::lsp::Common;
 import lang::xml::PomAnalyzer;
 
 
