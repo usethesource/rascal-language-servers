@@ -105,10 +105,6 @@ export class RascalProjectValidator implements vscode.Disposable {
             if (!(await reportIfMissingFile(mf, folder, messages))) {
                 try {
                     const rascalMf = await this.getManifest(mf);
-                    if (rascalMf.libraries.length > 0) {
-                        // only if there are dependencies in a Rascal.mf file, is a pom.xml required
-                        await reportIfMissingFile(buildPOMChildPath(folder.uri), folder, messages);
-                    }
                     if (rascalMf.sources.find(s => isChild(s, e.uri)) === undefined) {
                         messages.push(new Diagnostic(
                             FIRST_WORD,
