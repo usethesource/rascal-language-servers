@@ -47,8 +47,25 @@ public class CompletableFutureUtils {
     public static final CompletableFuture<Void> NOOP = CompletableFuture.completedFuture(null);
     private static final Logger logger = LogManager.getLogger(CompletableFutureUtils.class);
 
+    public static <T> CompletableFuture<T> create(Executor exec) {
+        return new CompletableFuture<>() {
+            @Override
+            public Executor defaultExecutor() {
+                return exec;
+            }
+        };
+    }
+
     public static <T> CompletableFuture<T> completedFuture(T value, Executor exec) {
-        return CompletableFuture.supplyAsync(() -> value, exec);
+        var f = CompletableFutureUtils.<T> create(exec);
+        f.complete(value);
+        return f;
+    }
+
+    public static <T> CompletableFuture<T> failedFuture(Throwable ex, Executor exec) {
+        var f = CompletableFutureUtils.<T> create(exec);
+        f.completeExceptionally(ex);
+        return f;
     }
 
     public static <T> CompletableFuture<T> retry(Supplier<T> supplier, int times, Executor exec) {
