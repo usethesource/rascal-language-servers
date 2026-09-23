@@ -366,7 +366,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                 else {
                     logger.trace("Register capability {} ({}): Not forwarding registration to client, because >0 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.add(sentByServers, method, options, fromServer);
-                    return CompletableFuture.completedFuture(null);
+                    return CompletableFutureUtils.completedFuture(null, exec);
                 }
             });
         }
@@ -389,7 +389,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                 if (fromServer == null) {
                     var ex = new IllegalStateException("Cannot unregister a capability for which no registration was sent by a server");
                     logger.trace("Unregister capability {} ({}). Failed: {}", method, id, ex);
-                    return CompletableFuture.failedFuture(ex);
+                    return CompletableFutureUtils.failedFuture(ex, exec);
                 }
 
                 var options = fromServer.getRegisterOptions();
@@ -408,7 +408,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                         // `remaining == 1`, but `toClient == null`, then the invariant is broken.
                         var ex = new IllegalStateException("Cannot unregister a capability for which no registration was received by the client");
                         logger.trace("Unregister capability {} ({}). Failed: {}", method, id, ex);
-                        return CompletableFuture.failedFuture(ex);
+                        return CompletableFutureUtils.failedFuture(ex, exec);
                     }
 
                     return forwardUnregistration(toClient.getId(), method).handleAsync((BiFunction<Unregistration, Throwable, Void>) (_u, ex) -> {
@@ -430,7 +430,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
                 else {
                     logger.trace("Unregister capability {} ({}): Not forwarding unregistration to client, as 0 or >1 other registrations remain for same capability (remaining: {})", method, id, remaining);
                     MapOfMapsOfSets.remove(sentByServers, method, options, fromServer);
-                    return CompletableFuture.completedFuture(null);
+                    return CompletableFutureUtils.completedFuture(null, exec);
                 }
             });
         }

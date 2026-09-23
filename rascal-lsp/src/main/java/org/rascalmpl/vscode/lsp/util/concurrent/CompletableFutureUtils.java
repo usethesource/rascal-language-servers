@@ -60,6 +60,12 @@ public class CompletableFutureUtils {
         return CompletableFuture.supplyAsync(() -> value, exec);
     }
 
+    public static <T> CompletableFuture<T> failedFuture(Throwable ex, Executor exec) {
+        var f = CompletableFutureUtils.<T> create(exec);
+        f.completeExceptionally(ex);
+        return f;
+    }
+
     public static <T> CompletableFuture<T> retry(Supplier<T> supplier, int times, Executor exec) {
         return retry(CompletableFuture.supplyAsync(supplier, exec), times);
     }
