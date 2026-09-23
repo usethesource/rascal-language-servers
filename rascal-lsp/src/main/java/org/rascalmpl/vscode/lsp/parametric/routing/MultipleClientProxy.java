@@ -478,7 +478,7 @@ public class MultipleClientProxy implements IBaseLanguageClient {
         private final AtomicBoolean busy = new AtomicBoolean(false);
 
         public CompletableFuture<R> submit(Supplier<CompletableFuture<R>> action) {
-            var result = new CompletableFuture<R>();
+            var result = CompletableFutureUtils.<R> create(exec);
             tasks.offer(new Task(action, result));
             exec.submit(this::attemptStartTask);
             return result;
