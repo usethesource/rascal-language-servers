@@ -51,6 +51,7 @@ data Command
     | upgradeAnnotations(PathConfig pcfg)
     | addRascalDependencyToPom(loc pomLoc)
     | addRascalLspDependencyToPom(loc pomLoc)
+    | addNewPomXml(loc projectRoot, str rascalSrcRoot)
     ;
 
 
@@ -175,5 +176,11 @@ value evaluateRascalCommand(addRascalDependencyToPom(loc pomLoc)) {
 
 value evaluateRascalCommand(addRascalLspDependencyToPom(loc pomLoc)) {
     applyDocumentsEdits([changed(pomLoc, [addRascalLspDependency(pomLoc)])]);
+    return ("result": true);
+}
+
+value evaluateRascalCommand(addNewPomXml(loc projectRoot, str rascalSrcRoot)) {
+    newRascalPomFile(projectRoot, rascalSrcRoot=rascalSrcRoot);
+    edit(projectRoot + "pom.xml");
     return ("result": true);
 }

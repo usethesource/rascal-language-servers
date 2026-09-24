@@ -28,6 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::Analyzer
 
 import IO;
+import Location;
 import String;
 import ParseTree;
 import util::IDEServices;
@@ -35,6 +36,7 @@ import util::Maybe;
 import util::PathConfig;
 import lang::rascal::\syntax::Rascal;
 import lang::rascal::lsp::Actions;
+import lang::rascal::lsp::Common;
 import lang::xml::PomAnalyzer;
 
 
@@ -59,6 +61,15 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         // since the single Quick Fix fixes the whole project, it's not useful to report it multiple times
         // especially since a user might click "fix all" and then the upgrade would be run several times.
         // instead we ignore all follow-up cases of the same error
+    }
+
+    projectRoot = inferProjectRoot(tree.src.top);
+    if (rascalMfNoPomXml(projectRoot)) {
+        rascalSrcRoot = (tree.src.top | it.parent | _ <- tree.top.header.name.names);
+        result += warning(
+            "Project `<projectRoot.file>` is missing a `pom.xml` file", tree.top.header.src,
+            fixes=[action(title="Add `pom.xml` file to project `<projectRoot.file>", command=addNewPomXml(projectRoot, relativize(projectRoot, rascalSrcRoot).path[1..]))]
+        );
     }
 
     v: visit (tree) {
@@ -91,6 +102,10 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
 
     return result;
 }
+
+@memo{expireAfter(minutes=1)}
+bool rascalMfNoPomXml(loc projectRoot)
+    = exists(projectRoot + "META-INF" + "RASCAL.MF") && !exists(projectRoot + "pom.xml");
 
 map[str, str] illegalSchemeSuggestions = (
     "lib": "|project://|, |mvn://|, or IO::getResource",
