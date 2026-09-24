@@ -238,7 +238,7 @@ export class IDEOperations {
                 if (isWorkSpaceOpen !== undefined && isWorkSpaceOpen.length > 0) {
                     break;
                 }
-                await this.browser.openResources(TestWorkspace.workspaceFile);
+                await ignoreFails(this.browser.openResources(TestWorkspace.workspaceFile));
             } catch (ex) {
                 console.debug("Error opening workspace, retrying.", ex);
             }
