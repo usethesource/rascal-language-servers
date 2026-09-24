@@ -129,7 +129,7 @@ jobs:
         if: contains(matrix.os, 'windows')
         working-directory: ./rascal-vscode-extension
         env:
-          DELAY_FACTOR: 10
+          DELAY_FACTOR: 12
           RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G'
         run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage ../uitests
