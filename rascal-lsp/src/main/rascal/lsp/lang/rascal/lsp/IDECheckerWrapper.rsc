@@ -29,18 +29,19 @@ module lang::rascal::lsp::IDECheckerWrapper
 
 import IO;
 import List;
+import Location;
 import Node;
 import Relation;
 import Set;
 import String;
 import ValueIO;
-import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
 import util::IDEServices;
 import util::Monitor;
 import util::ParseErrorRecovery;
 
+import lang::rascal::lsp::Common;
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::ModuleLocations;
@@ -259,47 +260,6 @@ set[loc] locateRascalModules(str fqn, PathConfig pcfg, PathConfig(loc file) getP
     return {fileLoc | dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)}
     // And libraries available in the current workspace
          + {fileLoc | lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)};
-}
-
-loc targetToProject(loc l) {
-    if (l.scheme == "target") {
-        return l[scheme="project"];
-    }
-    return l;
-}
-
-@memo
-@synopsis{Infers the root of the project that `member` is in.}
-loc inferProjectRoot(loc member) {
-    parentRoot = member;
-    root = parentRoot;
-
-    do {
-        root = parentRoot;
-        parentRoot = inferDeepestProjectRoot(root.parent);
-    } while (root.parent? && parentRoot != root.parent);
-    return root;
-}
-
-@synopsis{Infers the longest project root-like path that `member` is in.}
-@pitfalls{Might return a sub-directory of `target/`.}
-loc inferDeepestProjectRoot(loc member) {
-    current = targetToProject(member);
-    if (!isDirectory(current)) {
-        current = current.parent;
-    }
-
-    while (exists(current), isDirectory(current)) {
-        if (exists(current + "META-INF" + "RASCAL.MF")) {
-            return current;
-        }
-        if (!current.parent?) {
-            return isDirectory(member) ? member : member.parent;
-        }
-        current = current.parent;
-    }
-
-    return current;
 }
 
 map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {
