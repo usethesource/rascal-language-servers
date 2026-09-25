@@ -22,3 +22,10 @@ Throughout our LSP implementation, there are two main ways to identify resources
 - VS Code uses URIs - often represented as a `String`, although there is also `java.net.URI`.
 - Rascal uses `ISourceLocation` (`loc`).
 - To convert between the two, use `Locations::toLoc` and `Locations::toUri`, which make sure that URIs are mapped properly and safely. Avoid using `ISourcelocation::getURI`, and conversion functions from `org.rascalmpl.uri.URIUtil`.
+
+## Parametric language servers
+
+Since [#1090](https://github.com/usethesource/rascal-language-servers/pull/1090), the parametric server acts as a router that starts a remote parametric server in a dedicated process. This allows each language to run with different versions of Rascal and Rascal LSP on the class path, matching the versions specified in the POM. It also guards against cross-contamination between languages, where a crash in one languages influences others.
+On language registration, the routing server checks if there is already a server running for the specific language. If not, it starts and initializes a server. From then on, notifications about changes in the workspaces and in open files will be routed to all remote servers that need this information. Document requests will typically be routed to the one server associated with the document language, although there are also requests that are routed to all servers. Requests/notifications from server to client also go via the router, which simply forwards them untouched in many cases.
+
+Each feature extension in the parametric server or in the document and workspace service requires a routing counterpart in the routing server/services to work.

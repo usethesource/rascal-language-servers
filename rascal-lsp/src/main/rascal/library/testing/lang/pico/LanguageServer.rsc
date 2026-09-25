@@ -41,6 +41,7 @@ data Command
   | removeTodo(loc at)
   | showWarning(str message, loc at)
   | showContents(str contents)
+  | copyFileContents(loc from, loc to)
   | showRascalVersion()
   ;
 
@@ -76,20 +77,25 @@ value testingExecutionService(addTodo(loc at)) {
 }
 
 @synopsis{Command handler from the ((unregisterDiagnostics)) command}
-value picoExecutionService(removeTodo(loc at)) {
+value testingExecutionService(removeTodo(loc at)) {
     unregisterDiagnostics([at]);
     return ("result": true);
 }
 
-value picoExecutionService(showWarning(str msg, loc at)) {
+value testingExecutionService(showWarning(str msg, loc at)) {
     showMessage(warning(msg, at));
     logMessage(error("LOG " + msg, at));
     return ("result": true);
 }
 
-value picoExecutionService(showContents(str contents)) {
+value testingExecutionService(showContents(str contents)) {
     showInteractiveContent(plainText(contents));
-    return ("result" : true);
+    return ("result": true);
+}
+
+value testingExecutionService(copyFileContents(loc from, loc to)) {
+    applyDocumentsEdits([changed([replace(to, readFile(from))])]);
+    return ("result": true);
 }
 
 value picoExecutionService(showRascalVersion()) {
@@ -112,6 +118,7 @@ lrel[loc, Command] testingCodeLensService(start[Program] input)
         <declOffset(input, 0), removeTodo(input.src, title="Unregister TODO")>,
         <declOffset(input, 0), showWarning("Test warning", input.src, title="Show warning")>,
         <declOffset(input, 0), showContents("Some text", title="Show some text")>,
+        <declOffset(input, 1), copyFileContents(input.top.src.parent.parent + "json2" + "example.json2", input.top.src.parent.parent + "json2" + "example-copy.json2", title="Copy contents of example.json2")>,
         <declOffset(input, 1), showRascalVersion(title="Show Rascal version")>
     ];
 
@@ -137,12 +144,12 @@ set[LanguageService] testingLanguageServerWithRecovery() = testingLanguageServer
 set[LanguageService] testingLanguageServerSlowSummary() = testingLanguageServerSlowSummary(false);
 set[LanguageService] testingLanguageServerSlowSummaryWithRecovery() = testingLanguageServerSlowSummary(true);
 
-void register(bool errorRecovery=false) {
+void register(bool errorRecovery=true) {
+    pcfg = getPicoPathConfig();
+
     // Since there might be an existing registration with a different error recovery setting, we unregister it here first.
     // Note that in a typical usage scenario, `unregisterLanguage` should not be used.
     unregisterLanguage("Pico", {"pico", "pico-new"});
-
-    pcfg = getProjectPathConfig(|project://test-project|);
     registerLanguage(
         language(
             pcfg,
