@@ -124,7 +124,7 @@ export class RascalREPL {
                         return true;
                     }
                     output = await ignoreFails(this.terminal.getText()) ?? "";
-                    console.log(`terminal: ${this.terminal}, output: ${output}`);
+                    console.log(`terminal: ${this.terminal}, terminal name: ${console.log(await this.terminal.getCurrentChannel())}, output: ${output}`);
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
