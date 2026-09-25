@@ -82,7 +82,7 @@ export class TestWorkspace {
 
 const _DEBUG = false;
 
-export async function ignoreFails<T>(fn : Promise<T> | undefined): Promise<T | undefined> {
+export async function ignoreFails<T>(fn : Promise<T> | undefined, print = false): Promise<T | undefined> {
     try {
         if (fn === undefined) {
             return undefined;
@@ -91,6 +91,9 @@ export async function ignoreFails<T>(fn : Promise<T> | undefined): Promise<T | u
     } catch (exp) {
         if (_DEBUG) {
             console.debug("Promise failed, ignoring exception: ", exp);
+        }
+        if (print) {
+            console.log(`FAILED: ${exp}`);
         }
         return undefined;
     }
@@ -123,7 +126,7 @@ export class RascalREPL {
                         // exit quickly in this case.
                         return true;
                     }
-                    output = await ignoreFails(this.terminal.getText()) ?? "FAILED";
+                    output = await ignoreFails(this.terminal.getText(), true) ?? "FAILED";
                     if (this.ide) {
                         await this.ide.screenshot("waitForReplReady");
                     }
