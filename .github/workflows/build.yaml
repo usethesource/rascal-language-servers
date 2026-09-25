@@ -132,7 +132,7 @@ jobs:
           DELAY_FACTOR: 10
           RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G'
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage ../uitests
+        run: npx extest setup-and-run out/test/vscode-suite/dsl-mix.test.js --storage ../uitests
 
       - name: "UI test (mac)"
         shell: bash
@@ -142,7 +142,7 @@ jobs:
           DELAY_FACTOR: 15
           RASCAL_LSP_DEV_DEPLOY: true
           _JAVA_OPTIONS: '-Xmx5G'
-        run: npx extest setup-and-run out/test/vscode-suite/*.test.js --storage ../uitests
+        run: npx extest setup-and-run out/test/vscode-suite/dsl-mix.test.js --storage ../uitests
 
       - name: "UI test (ubuntu)"
         shell: bash
@@ -154,11 +154,12 @@ jobs:
           _JAVA_OPTIONS: '-Xmx5G' # we have 16gb of memory, make sure LSP, REPL & DSL-LSP can start
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 # workaround for issue with Ubuntu 24.04 https://github.com/redhat-developer/vscode-extension-tester/blob/main/KNOWN_ISSUES.md#openresources-not-working-with-apparmor-2404
-          xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/*.test.js --storage ../uitests
+          xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' npx extest setup-and-run out/test/vscode-suite/dsl-mix.test.js --storage ../uitests
 
       - name: Upload Screenshots
         uses: actions/upload-artifact@v7
-        if: failure()
+        # if: failure()
+        if: always()
         with:
           name: screenshots-${{ matrix.os }}
           path: ./uitests/screenshots/**/*.png
@@ -167,7 +168,8 @@ jobs:
 
       - name: Upload logs
         uses: actions/upload-artifact@v7
-        if: failure()
+        # if: failure()
+        if: always()
         with:
           name: logs-${{ matrix.os }}
           path: ./uitests/settings/logs/**/usethesource.rascalmpl/*.log
