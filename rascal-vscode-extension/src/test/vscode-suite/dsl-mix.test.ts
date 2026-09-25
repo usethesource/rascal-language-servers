@@ -52,8 +52,8 @@ describe('DSL [multi-language]', function () {
         await repl.start();
 
         for (const lang of languages) {
-            await repl.execute(`import testing::lang::${lang.toLowerCase()}::LanguageServer;`, false, Delays.extremelySlow);
-            const replExecuteMain = repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`); // we don't wait yet, because we might miss language loading window
+            await repl.execute(`import testing::lang::${lang.toLowerCase()}::LanguageServer;`, true, Delays.extremelySlow);
+            const replExecuteMain = repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`, true, Delays.extremelySlow); // we don't wait yet, because we might miss language loading window
             await startsAndStopsLoading(driver, bench, lang);
             await replExecuteMain;
         }

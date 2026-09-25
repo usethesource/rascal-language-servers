@@ -693,10 +693,10 @@ export function isLanguageLoading(bench: Workbench, language: string): () => Pro
     };
 }
 
-export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", doneTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
+export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", startTimeout: number = Delays.verySlow, stopTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
     const isLoading = isLanguageLoading(bench, language);
-    await driver.wait(ignoreFails(isLoading()), Delays.normal, `${language} should start ${message}`, pollInterval);
-    await driver.wait(async () => (await ignoreFails(isLoading())) === false, doneTimeout, `${language} should stop ${message}`, pollInterval);
+    await driver.wait(ignoreFails(isLoading()), startTimeout, `${language} should start ${message}`, pollInterval);
+    await driver.wait(async () => (await ignoreFails(isLoading())) === false, stopTimeout, `${language} should stop ${message}`, pollInterval);
 }
 
 export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[] | Set<string>) {
