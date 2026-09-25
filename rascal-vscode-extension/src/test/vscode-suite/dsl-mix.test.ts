@@ -46,6 +46,7 @@ describe('DSL [multi-language]', function () {
     printRascalOutputOnFailure('Language Parametric Rascal Language Server');
 
     async function loadLanguages() {
+        console.log("Starting `loadLanguages`");
         await ide.openModule(TestWorkspace.libCallFile);
 
         const repl = new RascalREPL(bench, driver);
@@ -59,6 +60,7 @@ describe('DSL [multi-language]', function () {
         }
 
         await repl.terminate();
+        console.log("Finished `loadLanguages`");
     }
 
     before(async () => {
@@ -73,20 +75,22 @@ describe('DSL [multi-language]', function () {
     });
 
     after(async () => {
+        console.log("Starting `after`");
         await ide.openModule(TestWorkspace.libCallFile);
 
         const repl = new RascalREPL(bench, driver);
         await repl.start();
-        await repl.execute("import util::LanguageServer;");
+        await repl.execute("import util::LanguageServer;", true, Delays.extremelySlow);
         // Until issue #630 is fixed (race between `unregister` and `register`), the
         // unregistration can't reliably be done as part of `main` (tried in
         // commit `a955a05`). Instead, it's done here and followed by a suitably
         // long sleep.
         for (const lang of languages) {
-            await repl.execute(`unregisterLanguage("${lang}", {"${lang.toLowerCase()}"});`);
+            await repl.execute(`unregisterLanguage("${lang}", {"${lang.toLowerCase()}"});`, true, Delays.extremelySlow);
+            await sleep(Delays.normal);
         }
-        await sleep(Delays.normal);
         await repl.terminate();
+        console.log("Finished `after`");
     });
 
     beforeEach(async function () {
