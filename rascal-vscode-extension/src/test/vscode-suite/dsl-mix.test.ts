@@ -53,9 +53,6 @@ describe('DSL [multi-language]', function () {
 
         for (const lang of languages) {
             await repl.execute(`import testing::lang::${lang.toLowerCase()}::LanguageServer;`, false, Delays.extremelySlow);
-        }
-
-        for (const lang of languages) {
             const replExecuteMain = repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`); // we don't wait yet, because we might miss language loading window
             await startsAndStopsLoading(driver, bench, lang);
             await replExecuteMain;
