@@ -127,7 +127,7 @@ export class RascalREPL {
                     if (this.ide) {
                         await this.ide.screenshot("waitForReplReady");
                     }
-                    console.log(`terminal: ${this.terminal}, terminal name: ${console.log(await this.terminal.getCurrentChannel())}, output:\n\`\`\`${output}\n\`\`\``);
+                    console.log(`terminal: ${this.terminal}, terminal name: ${console.log(await this.terminal.getCurrentChannel())}, output:\n\`\`\`\n${output}\n\`\`\``);
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
@@ -164,7 +164,7 @@ export class RascalREPL {
 
     async connect() {
         this.terminal = (await this.driver.wait(() => ignoreFails(new TerminalView().wait(100)), Delays.verySlow, "Waiting to find terminal view"))!;
-        console.log(`this.terminal:\`\`\`\n${JSON.stringify(this.terminal)}\n\`\`\``);
+        console.log(`this.terminal:\n\`\`\`\n${JSON.stringify(this.terminal)}\n\`\`\``);
         const found = await this.driver.wait(async () => (await ignoreFails(this.terminal.getCurrentChannel()))?.includes("Rascal"),
             Delays.slow, "Rascal REPL should be opened");
         console.log(`Found Rascal terminal: ${found}`);
