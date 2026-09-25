@@ -127,7 +127,7 @@ export class RascalREPL {
                     if (this.ide) {
                         await this.ide.screenshot("waitForReplReady");
                     }
-                    console.log(`terminal: ${this.terminal}, terminal name: ${console.log(await this.terminal.getCurrentChannel())}, output:\n\`\`\`${output}]n\`\`\``);
+                    console.log(`terminal: ${this.terminal}, terminal name: ${console.log(await this.terminal.getCurrentChannel())}, output:\n\`\`\`${output}\n\`\`\``);
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
