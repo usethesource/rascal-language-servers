@@ -78,7 +78,7 @@ describe('DSL [multi-language]', function () {
         console.log("Starting `after`");
         await ide.openModule(TestWorkspace.libCallFile);
 
-        const repl = new RascalREPL(bench, driver);
+        const repl = new RascalREPL(bench, driver, ide);
         console.log("Starting REPL");
         await repl.start();
         console.log("Importing util::LanguageServer");
