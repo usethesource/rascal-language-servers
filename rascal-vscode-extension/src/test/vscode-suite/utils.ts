@@ -126,7 +126,8 @@ export class RascalREPL {
                         // exit quickly in this case.
                         return true;
                     }
-                    output = await ignoreFails(this.terminal.getText(), true) ?? "FAILED";
+
+                    output = await ignoreFails(this.getText(), true) ?? "FAILED";
                     if (this.ide) {
                         await this.ide.screenshot("waitForReplReady");
                     }
@@ -141,7 +142,7 @@ export class RascalREPL {
                 stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
                 console.log('Terminal contents after failing to initialize REPL:');
-                console.log(await this.terminal.getText());
+                console.log(await this.getText());
                 return false;
             }
         }
@@ -200,7 +201,13 @@ export class RascalREPL {
     }
 
     async getText() {
-        return this.terminal.getText();
+        const clipboard = (await import('clipboardy')).default;
+        const oldContent = clipboard.readSync();
+        const newContent = '';
+        clipboard.writeSync(newContent);
+        const text = this.terminal.getText();
+        clipboard.writeSync(oldContent);
+        return text;
     }
 
     async getProjectRoot(): Promise<string> {
