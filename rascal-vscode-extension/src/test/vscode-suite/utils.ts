@@ -123,11 +123,11 @@ export class RascalREPL {
                         // exit quickly in this case.
                         return true;
                     }
-                    output = await ignoreFails(this.terminal.getText()) ?? "";
+                    output = await ignoreFails(this.terminal.getText()) ?? "FAILED";
                     if (this.ide) {
                         await this.ide.screenshot("waitForReplReady");
                     }
-                    console.log(`terminal: ${this.terminal}, terminal name: ${console.log(await this.terminal.getCurrentChannel())}, output: ${output}`);
+                    console.log(`terminal: ${this.terminal}, terminal name: ${console.log(await this.terminal.getCurrentChannel())}, output:\n\`\`\`${output}]n\`\`\``);
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
