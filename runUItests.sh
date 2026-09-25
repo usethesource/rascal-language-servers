@@ -8,7 +8,7 @@ set -e;
 set -x;
 
 # Find the current Rascal LSP version in the POM, and restore it when this script exits
-RESTORE_LSP_VERSION=$( ( cd rascal-vscode-extension/test-workspace/test-project && mvn dependency:tree -Dincludes=org.rascalmpl:rascal-lsp | grep rascal-lsp | cut -d ':' -f 4 ) )
+RESTORE_LSP_VERSION=$( ( cd rascal-vscode-extension/test-workspace/test-project && mvn -ntp dependency:tree -Dincludes=org.rascalmpl:rascal-lsp | grep rascal-lsp | cut -d ':' -f 4 ) )
 restore_versions() {
     cd .. && ./update-test-dependencies.sh "$RESTORE_LSP_VERSION"
 }
