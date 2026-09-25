@@ -105,6 +105,11 @@ export class RascalREPL {
         this.terminal = new TerminalView();
     }
 
+    private async executeCommand(command: string) {
+        console.log(`Executing command: ${command}`);
+        await this.bench.executeCommand(command);
+    }
+
     async waitForReplReady(wait : number = Delays.verySlow) {
         let output = "";
         try {
@@ -119,6 +124,7 @@ export class RascalREPL {
                         return true;
                     }
                     output = await ignoreFails(this.terminal.getText()) ?? "";
+                    console.log(`terminal: ${this.terminal}, output: ${output}`);
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
@@ -149,7 +155,7 @@ export class RascalREPL {
     }
 
     async start() {
-        await new Workbench().executeCommand("rascalmpl.createTerminal");
+        await this.executeCommand("rascalmpl.createTerminal");
         return this.connect();
     }
 
@@ -179,7 +185,7 @@ export class RascalREPL {
 
     async terminate() {
         await ignoreFails(this.execute(":quit", false));
-        await ignoreFails(this.bench.executeCommand("workbench.action.terminal.killAll"));
+        await ignoreFails(this.executeCommand("workbench.action.terminal.killAll"));
     }
 
     async getText() {
