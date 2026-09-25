@@ -277,6 +277,7 @@ export class IDEOperations {
         await this.checkNoDiagnosticsAnymore();
 
         await ignoreFails(new Workbench().getBottomBar().closePanel());
+        await ignoreFails(new Workbench().executeCommand("workbench.action.terminal.killAll")); // Closing the panel doesn't kill
     }
 
     async checkNoDiagnosticsAnymore() {
