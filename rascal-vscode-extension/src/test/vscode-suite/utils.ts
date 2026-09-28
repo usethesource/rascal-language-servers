@@ -164,7 +164,7 @@ export class RascalREPL {
         this.terminal = (await this.driver.wait(() => ignoreFails(new TerminalView().wait(100)), Delays.verySlow, "Waiting to find terminal view"))!;
         await this.driver.wait(async () => (await ignoreFails(this.terminal.getCurrentChannel()))?.includes("Rascal"),
             Delays.slow, "Rascal REPL should be opened");
-        assert(await this.waitForReplReady(Delays.extremelySlow), "Repl prompt should print");
+        assert(await this.waitForReplReady(Delays.normal), "Repl prompt should print");
     }
 
     async execute(command: string, waitForReady = true, wait=Delays.verySlow) {
