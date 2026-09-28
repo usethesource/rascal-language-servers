@@ -65,7 +65,7 @@ value testingExecutionService(browseRascalSite()) {
 }
 
 @synopsis{Command handler from the ((editPico)) command}
-value picoExecutionService(editPico(loc uri)) {
+value testingExecutionService(editPico(loc uri)) {
     edit(uri[file = uri.file == "calls.pico" ? "testing.pico" : "calls.pico"]);
     return ("result": true);
 }
@@ -98,7 +98,7 @@ value testingExecutionService(copyFileContents(loc from, loc to)) {
     return ("result": true);
 }
 
-value picoExecutionService(showRascalVersion()) {
+value testingExecutionService(showRascalVersion()) {
     showMessage(info("Rascal standard library version: <getRascalVersion()>", |unknown:///|));
     return ("result": true);
 }
