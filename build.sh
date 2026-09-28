@@ -9,7 +9,7 @@ goal='package'
 clean="clean"
 while getopts 'lfdi' flag; do
   case "${flag}" in
-    f) extra_flags='-Drascal.compile.skip -Drascal.tutor.skip -DskipTests -Drascal.package.skip' ;;
+    f) extra_flags='-Drascal.compile.skip -Drascal.tutor.skip -DskipTests' ;;
     l) lint=1 ;;
     d) clean='' ;;
     i) goal='install' ;;

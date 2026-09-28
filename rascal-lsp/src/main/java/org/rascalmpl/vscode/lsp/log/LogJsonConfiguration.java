@@ -63,11 +63,16 @@ public class LogJsonConfiguration extends ConfigurationFactory {
         return buildConfiguration();
     }
 
-    private Configuration buildConfiguration() {
-        Level targetLevel = Level.getLevel(System.getProperty("log4j2.level", "INFO"));
+    public static Level getLogLevel() {
+        var targetLevel = Level.getLevel(System.getProperty("log4j2.level", "INFO"));
         if (targetLevel == null) {
-            targetLevel = Level.INFO;
+            return Level.INFO;
         }
+        return targetLevel;
+    }
+
+    private Configuration buildConfiguration() {
+        Level targetLevel = getLogLevel();
 
         ConfigurationBuilder<BuiltConfiguration> builder = ConfigurationBuilderFactory.newConfigurationBuilder();
         builder.setConfigurationName("JsonLogger");
@@ -75,7 +80,7 @@ public class LogJsonConfiguration extends ConfigurationFactory {
 
         builder.add(builder
             .newAppender("Console", ConsoleAppender.PLUGIN_NAME)
-            .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
+            .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR) // Matches BaseLanguageServer.DEPLOYMENT_OUTPUT_STREAM
             .add(builder.newLayout("JsonTemplateLayout")
                 /* The JSON template has a max length (buffer size) of 8192 by default:
                    https://logging.apache.org/log4j/2.x/manual/systemproperties.html#log4j2.encoderByteBufferSize

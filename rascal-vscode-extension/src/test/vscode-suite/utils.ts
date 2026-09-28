@@ -49,7 +49,7 @@ export class Delays {
     public static readonly extremelySlow =sec(120) * this.delayFactor;
 }
 
-function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
+export function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
 function target(project : string) { return path.join(project, 'target', 'classes', 'rascal'); }
 export class TestWorkspace {
     private static readonly workspacePrefix = 'test-workspace';
@@ -105,6 +105,13 @@ export class RascalREPL {
         this.terminal = new TerminalView();
     }
 
+    private async executeCommand(command: string) {
+        if (_DEBUG) {
+            console.debug("Executing command: {}", command);
+        }
+        await this.bench.executeCommand(command);
+    }
+
     async waitForReplReady(wait : number = Delays.verySlow) {
         let output = "";
         try {
@@ -118,7 +125,7 @@ export class RascalREPL {
                         // exit quickly in this case.
                         return true;
                     }
-                    output = await ignoreFails(this.terminal.getText()) ?? "";
+                    output = await ignoreFails(this.getText()) ?? "";
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
@@ -129,7 +136,7 @@ export class RascalREPL {
                 stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
                 console.log('Terminal contents after failing to initialize REPL:');
-                console.log(await this.terminal.getText());
+                console.log(await this.getText());
                 return false;
             }
         }
@@ -149,7 +156,7 @@ export class RascalREPL {
     }
 
     async start() {
-        await new Workbench().executeCommand("rascalmpl.createTerminal");
+        await this.executeCommand("rascalmpl.createTerminal");
         return this.connect();
     }
 
@@ -157,7 +164,7 @@ export class RascalREPL {
         this.terminal = (await this.driver.wait(() => ignoreFails(new TerminalView().wait(100)), Delays.verySlow, "Waiting to find terminal view"))!;
         await this.driver.wait(async () => (await ignoreFails(this.terminal.getCurrentChannel()))?.includes("Rascal"),
             Delays.slow, "Rascal REPL should be opened");
-        assert(await this.waitForReplReady(Delays.extremelySlow), "Repl prompt should print");
+        assert(await this.waitForReplReady(Delays.normal), "Repl prompt should print");
     }
 
     async execute(command: string, waitForReady = true, wait=Delays.verySlow) {
@@ -179,11 +186,22 @@ export class RascalREPL {
 
     async terminate() {
         await ignoreFails(this.execute(":quit", false));
-        await ignoreFails(this.bench.executeCommand("workbench.action.terminal.killAll"));
+        await ignoreFails(this.executeCommand("workbench.action.terminal.killAll"));
     }
 
     async getText() {
-        return this.terminal.getText();
+        // Inspired by `TerminalView.getText`, but with explicit copy and custom wait time. See also:
+        // https://github.com/redhat-developer/vscode-extension-tester/blob/db8404a1030d59f7baf0a16167adab447af6b8f7/packages/page-objects/src/components/bottomBar/Views.ts#L155-L183
+        const clipboard = (await import('clipboardy')).default;
+        const oldContent = clipboard.readSync();
+        const newContent = '';
+        clipboard.writeSync(newContent);
+        await this.executeCommand('workbench.action.terminal.selectAll');
+        await this.executeCommand('editor.action.clipboardCopyAction');
+        await this.driver.wait(() => clipboard.readSync() !== newContent, Delays.normal, 'Clipboard should be updated with terminal content');
+        const text = clipboard.readSync();
+        clipboard.writeSync(oldContent);
+        return text;
     }
 
     async getProjectRoot(): Promise<string> {
@@ -263,6 +281,7 @@ export class IDEOperations {
         await this.checkNoDiagnosticsAnymore();
 
         await ignoreFails(new Workbench().getBottomBar().closePanel());
+        await ignoreFails(new Workbench().executeCommand("workbench.action.terminal.killAll")); // Closing the panel doesn't kill
     }
 
     async checkNoDiagnosticsAnymore() {
@@ -693,21 +712,27 @@ export function isLanguageLoading(bench: Workbench, language: string): () => Pro
     };
 }
 
-export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", doneTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
+export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", startTimeout: number = Delays.verySlow, stopTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
     const isLoading = isLanguageLoading(bench, language);
-    await driver.wait(ignoreFails(isLoading()), Delays.normal, `${language} should start ${message}`, pollInterval);
-    await driver.wait(async () => (await ignoreFails(isLoading())) === false, doneTimeout, `${language} should stop ${message}`, pollInterval);
+    await driver.wait(ignoreFails(isLoading()), startTimeout, `${language} should start ${message}`, pollInterval);
+    await driver.wait(async () => (await ignoreFails(isLoading())) === false, stopTimeout, `${language} should stop ${message}`, pollInterval);
 }
 
-export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
-    const completions = await driver.wait(async () => {
-        const completionMenu = new ContentAssist(editor);
-        return await ignoreFails(completionMenu.getItems());
-    }, Delays.fast, "Completion items not found");
-
-    expect(completions).to.have.length(expectedLabels.length);
-    const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
-    expect(labels).deep.equal(expectedLabels);
+export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[] | Set<string>) {
+    const labels = await driver.wait(async () => {
+        try {
+            const completionMenu = new ContentAssist(editor);
+            await completionMenu.waitForStable();
+            if (!await completionMenu.isLoaded()) {
+                return undefined;
+            }
+            const completions = await completionMenu.getItems();
+            return await Promise.all(completions.map(c => c.getLabel()));
+        } catch (e) {
+            return undefined;
+        }
+    }, Delays.normal, "Completion items cannot be found");
+    expect(expectedLabels instanceof Set ? new Set<string>(labels) : labels).to.deep.equal(expectedLabels);
 }
 
 

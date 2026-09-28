@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Properties;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.util.maven.Artifact;
 import org.rascalmpl.util.maven.MavenParser;
@@ -44,11 +45,11 @@ import io.usethesource.vallang.IValueFactory;
 
 public class PomAnalyzer {
     private IValueFactory vf;
-    
+
     public PomAnalyzer(IValueFactory vf) {
         this.vf = vf;
     }
-    
+
     IBool hasDependency(ISourceLocation pomLoc, String groupId, String artifactId) {
         try {
             var mavenParser = new MavenParser(Path.of(pomLoc.getURI()));
@@ -61,37 +62,46 @@ public class PomAnalyzer {
             return vf.bool(false);
         }
     }
-    
+
     public IBool hasRascalDependency(ISourceLocation pomLoc) {
         return hasDependency(pomLoc, "org.rascalmpl", "rascal");
     }
-    
+
     public IBool hasRascalLspDependency(ISourceLocation pomLoc) {
         return hasDependency(pomLoc, "org.rascalmpl", "rascal-lsp");
     }
-    
+
     public IString getCurrentRascalLspVersion() {
+        var version = currentRascalLspVersion();
+        if (version != null) {
+            return vf.string(version);
+        } else {
+            throw RuntimeExceptionFactory.io("Could not detect current version of `rascal-lsp`");
+        }
+    }
+
+    public static @Nullable String currentRascalLspVersion() {
         var pkg = PomAnalyzer.class.getPackage();
         if (pkg != null) {
             var specificationVersion = pkg.getSpecificationVersion();
             if (specificationVersion != null) {
-                return vf.string(specificationVersion);
+                return specificationVersion;
             }
         }
-        
+
         try (InputStream prop = PomAnalyzer.class.getClassLoader().getResourceAsStream("project.properties")) {
             if (prop != null) {
                 Properties properties = new Properties();
                 properties.load(prop);
                 var version = properties.getProperty("rascal.lsp.version");
                 if (version != null) {
-                    return vf.string(version);
+                    return version;
                 }
             }
         } catch (IOException e) {
             // Fall through
         }
 
-        throw RuntimeExceptionFactory.io("Could not detect current version of `rascal-lsp`");
+        return null;
     }
 }
