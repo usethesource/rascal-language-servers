@@ -144,6 +144,18 @@ set[LanguageService] testingLanguageServerWithRecovery() = testingLanguageServer
 set[LanguageService] testingLanguageServerSlowSummary() = testingLanguageServerSlowSummary(false);
 set[LanguageService] testingLanguageServerSlowSummaryWithRecovery() = testingLanguageServerSlowSummary(true);
 
+PathConfig getPicoPathConfig() {
+    loc root;
+    try {
+        // Try to resolve the test project.
+        root = resolveLocation(|project://test-project|);
+    } catch SchemeNotSupported(_): {
+        // Otherwise, we probably have LSP open. Try that
+        root = resolveLocation(|project://rascal-lsp|);
+    }
+    return getProjectPathConfig(root, mode=interpreter());
+}
+
 void register(bool errorRecovery=true) {
     pcfg = getPicoPathConfig();
 
