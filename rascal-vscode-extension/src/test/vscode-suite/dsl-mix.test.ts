@@ -78,13 +78,8 @@ describe('DSL [multi-language]', function () {
         const repl = new RascalREPL(bench, driver);
         await repl.start();
         await repl.execute("import util::LanguageServer;", true, Delays.extremelySlow);
-        // Until issue #630 is fixed (race between `unregister` and `register`), the
-        // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here and followed by a suitably
-        // long sleep.
         for (const lang of languages) {
             await repl.execute(`unregisterLanguage("${lang}", {"${lang.toLowerCase()}"});`, true, Delays.extremelySlow);
-            await sleep(Delays.normal);
         }
         await repl.terminate();
     });
