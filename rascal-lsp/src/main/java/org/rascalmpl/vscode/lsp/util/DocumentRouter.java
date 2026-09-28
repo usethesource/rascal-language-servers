@@ -41,18 +41,22 @@ import io.usethesource.vallang.ISourceLocation;
 public interface DocumentRouter<T> {
 
     /**
-     * Map an {@link ISourceLocation} to a {@link T}.
+     * Map an {@link ISourceLocation} to the name of the language it is associated with.
      * @param loc The input location.
-     * @return The mapped value.
+     * @return The language name.
      */
-    T route(ISourceLocation loc);
+    String getLanguageName(ISourceLocation loc);
 
     /**
-     * Map a {@link String} name to a {@link T}.
-     * @param name The name key.
+     * Map a {@link String} language name to a {@link T}.
+     * @param name The name of a language.
      * @return The mapped value.
      */
     T route(String name);
+
+    default T route(ISourceLocation loc) {
+        return route(getLanguageName(loc));
+    }
 
     default T route(TextDocumentItem doc) {
         return route(Locations.toLoc(doc.getUri()));

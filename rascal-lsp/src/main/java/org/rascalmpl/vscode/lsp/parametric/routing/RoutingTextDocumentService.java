@@ -163,8 +163,8 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     }
 
     @Override
-    public TextDocumentService route(ISourceLocation loc) {
-        return availableServerRouter().route(loc).getTextDocumentService();
+    public String getLanguageName(ISourceLocation loc) {
+        return availableServerRouter().getLanguageName(loc);
     }
 
     @Override

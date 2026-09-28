@@ -185,12 +185,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     }
 
     @Override
-    public IBaseLanguageServerExtensions route(ISourceLocation loc) {
+    public String getLanguageName(ISourceLocation loc) {
         var lang = ParametricTextDocumentService.languageByExtension(loc, languagesByExtension);
         if (lang.isEmpty()) {
             throw new NoLanguageException(String.format("Rascal Parametric LSP has no support for this file, since no language is registered with extension '%s'", extension(loc)));
         }
-        return route(lang.get());
+        return lang.get();
     }
 
     @Override

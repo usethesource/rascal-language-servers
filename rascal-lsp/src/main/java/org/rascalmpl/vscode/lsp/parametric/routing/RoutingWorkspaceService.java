@@ -76,8 +76,8 @@ public class RoutingWorkspaceService extends BaseWorkspaceService implements Doc
     }
 
     @Override
-    public WorkspaceService route(ISourceLocation loc) {
-        return availableServerRouter().route(loc).getWorkspaceService();
+    public String getLanguageName(ISourceLocation loc) {
+        return availableServerRouter().getLanguageName(loc);
     }
 
     @Override
