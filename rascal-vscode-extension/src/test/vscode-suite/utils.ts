@@ -125,7 +125,7 @@ export class RascalREPL {
                         // exit quickly in this case.
                         return true;
                     }
-                    output = await ignoreFails(this.terminal.getText()) ?? "";
+                    output = await ignoreFails(this.getText()) ?? "";
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
@@ -136,7 +136,7 @@ export class RascalREPL {
                 stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
                 console.log('Terminal contents after failing to initialize REPL:');
-                console.log(await this.terminal.getText());
+                console.log(await this.getText());
                 return false;
             }
         }
@@ -190,7 +190,18 @@ export class RascalREPL {
     }
 
     async getText() {
-        return this.terminal.getText();
+        // Inspired by `TerminalView.getText`, but with explicit copy and custom wait time. See also:
+        // https://github.com/redhat-developer/vscode-extension-tester/blob/db8404a1030d59f7baf0a16167adab447af6b8f7/packages/page-objects/src/components/bottomBar/Views.ts#L155-L183
+        const clipboard = (await import('clipboardy')).default;
+        const oldContent = clipboard.readSync();
+        const newContent = '';
+        clipboard.writeSync(newContent);
+        await this.executeCommand('workbench.action.terminal.selectAll');
+        await this.executeCommand('editor.action.clipboardCopyAction');
+        await this.driver.wait(() => clipboard.readSync() !== newContent, Delays.normal, 'Clipboard should be updated with terminal content');
+        const text = clipboard.readSync();
+        clipboard.writeSync(oldContent);
+        return text;
     }
 
     async getProjectRoot(): Promise<string> {
