@@ -84,6 +84,7 @@ import org.rascalmpl.vscode.lsp.uri.jsonrpc.messages.SourceLocationListResponse;
 import org.rascalmpl.vscode.lsp.util.Sets;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.xml.PomAnalyzer;
 
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.ISourceLocation;
@@ -321,20 +322,6 @@ public abstract class BaseLanguageServer {
             }, executor);
         }
 
-        protected static String getPomVersion() throws IOException {
-            var pack = BaseLanguageServer.class.getPackage();
-            if (pack == null) {
-                // Should not happen
-                throw new IOException("No package");
-            }
-
-            var specVersion = pack.getSpecificationVersion();
-            if (specVersion == null) {
-                throw new IOException("No specification version found for running LSP");
-            }
-            return specVersion;
-        }
-
         protected static String getJarVersion(ISourceLocation jarFile) throws IOException {
             jarFile = JarURIResolver.jarify(jarFile);
             var manifestLoc = URIUtil.getChildLocation(jarFile, "META-INF/MANIFEST.MF");
@@ -374,12 +361,7 @@ public abstract class BaseLanguageServer {
 
             logger.info("LSP connection started (connected to {} version {})", params.getClientInfo().getName(), params.getClientInfo().getVersion());
             logger.debug("LSP client capabilities: {}", params.getCapabilities());
-            ServerInfo serverInfo;
-            try {
-                serverInfo = new ServerInfo(serverName, getPomVersion());
-            } catch (IOException e) {
-                serverInfo = new ServerInfo(serverName);
-            }
+            var serverInfo = new ServerInfo(serverName, PomAnalyzer.currentRascalLspVersion());
             var init = new InitializeResult(new ServerCapabilities(), serverInfo);
             lspDocumentService.initializeServerCapabilities(params.getCapabilities(), init.getCapabilities());
             lspWorkspaceService.initialize(params.getCapabilities(), params.getWorkspaceFolders(), init.getCapabilities());

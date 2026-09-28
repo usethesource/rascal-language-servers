@@ -105,6 +105,7 @@ import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.RegistrationParamete
 import org.rascalmpl.vscode.lsp.parametric.ParametricTextDocumentService;
 import org.rascalmpl.vscode.lsp.util.DocumentRouter;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
+import org.rascalmpl.vscode.lsp.xml.PomAnalyzer;
 
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -209,8 +210,12 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
     private static Pair<ComparableVersion, List<ISourceLocation>> rascalLspDependencies(PathConfig pcfg) throws IOException {
         // When loading a language server within the Rasal LSP project (e.g. in tests), we do not have a dependency on/JAR of LSP.
         // Instead, we use its compiled classes and the JARs of all its dependencies.
+        var version = PomAnalyzer.currentRascalLspVersion();
+        if (version == null) {
+            throw new IOException("Could not detect current version of `rascal-lsp`");
+        }
         return Pair.of(
-            new ComparableVersion(getPomVersion()),
+            new ComparableVersion(version),
             pcfg.getLibsAndTarget().stream().map(ISourceLocation.class::cast).collect(Collectors.toList())
         );
     }
