@@ -181,7 +181,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
 
     @Override
     public Stream<IBaseLanguageServerExtensions> allRoutes() {
-        return languageServers.values().parallelStream();
+        return languageServers.values().stream();
     }
 
     @Override
