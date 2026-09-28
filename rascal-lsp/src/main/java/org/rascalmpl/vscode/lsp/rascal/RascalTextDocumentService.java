@@ -40,7 +40,6 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -153,6 +152,8 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
 
+    private static final String LANGUAGE_ID = "rascalmpl";
+
     private final ExecutorService exec;
     private @MonotonicNonNull RascalLanguageServices rascalServices;
 
@@ -163,6 +164,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     private @MonotonicNonNull BaseWorkspaceService workspaceService;
 
     public RascalTextDocumentService(ExecutorService exec) {
+        super(LANGUAGE_ID);
         this.exec = exec;
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
     }
@@ -279,7 +281,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
 
     @Override
     public Collection<String> extensions() {
-        return Set.of("rsc");
+        return Set.of("rsc", "xml");
     }
 
     // LSP interface methods
@@ -657,6 +659,10 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         CompletableFuture<Stream<IValue>> quickfixes
             = CodeActions.extractActionsFromDiagnostics(params, availableRascalServices()::parseCodeActions, exec);
 
+        if (params.getTextDocument().getUri().endsWith("pom.xml")) {
+            return CodeActions.convertCodeActions(this, "", BaseWorkspaceService.RASCAL_LANGUAGE, quickfixes);
+        }
+        
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(

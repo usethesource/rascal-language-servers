@@ -29,18 +29,19 @@ module lang::rascal::lsp::IDECheckerWrapper
 
 import IO;
 import List;
+import Location;
 import Node;
 import Relation;
 import Set;
 import String;
 import ValueIO;
-import Location;
 import analysis::graphs::Graph;
 import util::FileSystem;
 import util::IDEServices;
 import util::Monitor;
 import util::ParseErrorRecovery;
 
+import lang::rascal::lsp::Common;
 import lang::rascal::\syntax::Rascal;
 import lang::rascalcore::check::Checker;
 import lang::rascalcore::check::ModuleLocations;
@@ -67,7 +68,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
 
     openFileHeader = openFile.top.header.name;
     checkForImports = [openFile];
-    checkedForImports = {};
+    set[loc] checkedForImports = {};
     initialProject = inferProjectRoot(l);
 
     rel[loc, loc] dependencies = {};
@@ -76,8 +77,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     <dependencyMsgs, checkedForImports, dependencies> = buildDependencyGraph(checkForImports, openFileHeader.src, workspaceFolders, getParseTree, getPathConfig);
 
     if ([] != dependencyMsgs) {
-        // Since we only reported errors on `l`, there is not need to analyze to which files the errors belong here.
-        return (l: {*dependencyMsgs});
+        return filterAndFix(msgs, workspaceFolders);
     }
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
@@ -86,7 +86,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     }
 
     step("Checking upstream dependencies ", 1);
-    msgs = checkDependencies(checkedForImports, dependencies, initialProject, workspaceFolders, getParseTree, getPathConfig);
+    msgs = checkDependencies(checkedForImports, dependencies, initialProject, getPathConfig);
 
     step("Checking module <l>", 1);
     pcfg = getPathConfig(initialProject);
@@ -103,7 +103,7 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
     rscFiles = sort({*find(src, "rsc") | src <- pcfg.srcs});
 
     //`pt` and `errors` are explicitly typed because of https://github.com/usethesource/rascal/issues/2818
-    parsed = (l : f | l <- rscFiles, f:<start[Module] pt, list[Message] errors> := getParseTreeOrErrors(l, "unknown", projectRoot, getParseTree));
+    parsed = (l : f | l <- rscFiles, f:<start[Module] _pt, list[Message] _errors> := getParseTreeOrErrors(l, "unknown", projectRoot, getParseTree));
 
     if (clean) {
         for (f <- find(pcfg.bin, "tpl")) {
@@ -111,11 +111,11 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
         }
     }
 
-    checkForImports = [pt | l <- parsed, <pt, {}> := parsed[l]];
+    checkForImports = [pt | l <- parsed, <pt, []> := parsed[l]];
     checkedForImports = {};
     initialProject = projectRoot;
 
-    msgs = [*msgs | l <- parsed, <_pt, msgs> := parsed[l]];
+    list[ModuleMessages] msgs = [program(l, {*parsed[l]<1>}) | l <- parsed];
 
     rel[loc, loc] dependencies = {};
 
@@ -126,12 +126,12 @@ map[loc, set[Message]] checkProject(loc projectRoot, bool clean, set[loc] worksp
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
     if (cyclicDependencies != {}) {
-        msgs += [error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l) | l <- rscFiles];
-        return msgs;
+        msgs += [program(l, {error("Cyclic dependencies detected between projects {<intercalate(", ", [*cyclicDependencies])>}. This is not supported. Fix your project setup.", l)}) | l <- rscFiles];
+        return filterAndFix(msgs, workspaceFolders);
     }
 
     step("Checking upstream dependencies", 1);
-    upstreamMessages = checkDependencies(checkedForImports, dependencies, initialProject, workspaceFolders, getParseTree, getPathConfig);
+    upstreamMessages = checkDependencies(checkedForImports, dependencies, initialProject, getPathConfig);
 
     msgs += upstreamMessages;
 
@@ -172,7 +172,7 @@ tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] d
                     for (ml <- locateRascalModules(modName, getPathConfig(currentProject), getPathConfig, workspaceFolders)) {
                         if (<mlpt, importErrors> := getParseTreeOrErrors(ml, modName, errorLocation, getParseTree)) {
                             if ([] !:= importErrors) {
-                                msgs += program(ml, importErrors);
+                                msgs += program(ml, {*importErrors});
                                 checkedForImports += currentSrc;
                                 continue;
                             }
@@ -193,7 +193,7 @@ tuple[list[ModuleMessages] messages, set[loc] checkedForImports, rel[loc, loc] d
     return <msgs, checkedForImports, dependencies>;
 }
 
-list[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, set[loc] workspaceFolders, start[Module](loc file) getParseTree, PathConfig(loc file) getPathConfig) {
+list[ModuleMessages] checkDependencies(set[loc] checkedForImports, rel[loc, loc] dependencies, loc initialProject, PathConfig(loc file) getPathConfig) {
     modulesPerProject = classify(checkedForImports, loc(loc l) {return inferProjectRoot(l);});
     upstreamDependencies = {project | project <- reverse(order(dependencies)), project in modulesPerProject, project != initialProject};
     list[ModuleMessages] msgs = [];
@@ -260,47 +260,6 @@ set[loc] locateRascalModules(str fqn, PathConfig pcfg, PathConfig(loc file) getP
     return {fileLoc | dir <- pcfg.srcs, fileLoc := dir + fileName, exists(fileLoc)}
     // And libraries available in the current workspace
          + {fileLoc | lib <- pcfg.libs, inWorkspace(workspaceFolders, lib), dir <- getPathConfig(inferProjectRoot(lib)).srcs, fileLoc := dir + fileName, exists(fileLoc)};
-}
-
-loc targetToProject(loc l) {
-    if (l.scheme == "target") {
-        return l[scheme="project"];
-    }
-    return l;
-}
-
-@memo
-@synopsis{Infers the root of the project that `member` is in.}
-loc inferProjectRoot(loc member) {
-    parentRoot = member;
-    root = parentRoot;
-
-    do {
-        root = parentRoot;
-        parentRoot = inferDeepestProjectRoot(root.parent);
-    } while (root.parent? && parentRoot != root.parent);
-    return root;
-}
-
-@synopsis{Infers the longest project root-like path that `member` is in.}
-@pitfalls{Might return a sub-directory of `target/`.}
-loc inferDeepestProjectRoot(loc member) {
-    current = targetToProject(member);
-    if (!isDirectory(current)) {
-        current = current.parent;
-    }
-
-    while (exists(current), isDirectory(current)) {
-        if (exists(current + "META-INF" + "RASCAL.MF")) {
-            return current;
-        }
-        if (!current.parent?) {
-            return isDirectory(member) ? member : member.parent;
-        }
-        current = current.parent;
-    }
-
-    return current;
 }
 
 map[loc, set[Message]] filterAndFix(list[ModuleMessages] messages, set[loc] workspaceFolders) {

@@ -25,6 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { fail } from "assert";
 import { assert, expect } from "chai";
 import { createHash } from "crypto";
 import { existsSync, PathLike } from "fs";
@@ -48,7 +49,7 @@ export class Delays {
     public static readonly extremelySlow =sec(120) * this.delayFactor;
 }
 
-function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
+export function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
 function target(project : string) { return path.join(project, 'target', 'classes', 'rascal'); }
 export class TestWorkspace {
     private static readonly workspacePrefix = 'test-workspace';
@@ -104,6 +105,13 @@ export class RascalREPL {
         this.terminal = new TerminalView();
     }
 
+    private async executeCommand(command: string) {
+        if (_DEBUG) {
+            console.debug("Executing command: {}", command);
+        }
+        await this.bench.executeCommand(command);
+    }
+
     async waitForReplReady(wait : number = Delays.verySlow) {
         let output = "";
         try {
@@ -117,7 +125,7 @@ export class RascalREPL {
                         // exit quickly in this case.
                         return true;
                     }
-                    output = await ignoreFails(this.terminal.getText()) ?? "";
+                    output = await ignoreFails(this.getText()) ?? "";
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
@@ -128,7 +136,7 @@ export class RascalREPL {
                 stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
                 console.log('Terminal contents after failing to initialize REPL:');
-                console.log(await this.terminal.getText());
+                console.log(await this.getText());
                 return false;
             }
         }
@@ -162,7 +170,7 @@ export class RascalREPL {
     }
 
     async start() {
-        await new Workbench().executeCommand("rascalmpl.createTerminal");
+        await this.executeCommand("rascalmpl.createTerminal");
         return this.connect();
     }
 
@@ -170,7 +178,7 @@ export class RascalREPL {
         this.terminal = (await this.driver.wait(() => ignoreFails(new TerminalView().wait(100)), Delays.verySlow, "Waiting to find terminal view"))!;
         await this.driver.wait(async () => (await ignoreFails(this.terminal.getCurrentChannel()))?.includes("Rascal"),
             Delays.slow, "Rascal REPL should be opened");
-        assert(await this.waitForReplReady(Delays.extremelySlow), "Repl prompt should print");
+        assert(await this.waitForReplReady(Delays.normal), "Repl prompt should print");
     }
 
     async execute(command: string, waitForReady = true, wait=Delays.verySlow) {
@@ -192,11 +200,22 @@ export class RascalREPL {
 
     async terminate() {
         await ignoreFails(this.execute(":quit", false));
-        await ignoreFails(this.bench.executeCommand("workbench.action.terminal.killAll"));
+        await ignoreFails(this.executeCommand("workbench.action.terminal.killAll"));
     }
 
     async getText() {
-        return this.terminal.getText();
+        // Inspired by `TerminalView.getText`, but with explicit copy and custom wait time. See also:
+        // https://github.com/redhat-developer/vscode-extension-tester/blob/db8404a1030d59f7baf0a16167adab447af6b8f7/packages/page-objects/src/components/bottomBar/Views.ts#L155-L183
+        const clipboard = (await import('clipboardy')).default;
+        const oldContent = clipboard.readSync();
+        const newContent = '';
+        clipboard.writeSync(newContent);
+        await this.executeCommand('workbench.action.terminal.selectAll');
+        await this.executeCommand('editor.action.clipboardCopyAction');
+        await this.driver.wait(() => clipboard.readSync() !== newContent, Delays.normal, 'Clipboard should be updated with terminal content');
+        const text = clipboard.readSync();
+        clipboard.writeSync(oldContent);
+        return text;
     }
 
     async getProjectRoot(): Promise<string> {
@@ -251,7 +270,7 @@ export class IDEOperations {
                 if (isWorkSpaceOpen !== undefined && isWorkSpaceOpen.length > 0) {
                     break;
                 }
-                await this.browser.openResources(TestWorkspace.workspaceFile);
+                await ignoreFails(this.browser.openResources(TestWorkspace.workspaceFile));
             } catch (ex) {
                 console.debug("Error opening workspace, retrying.", ex);
             }
@@ -265,6 +284,7 @@ export class IDEOperations {
     }
 
     async cleanup() {
+        await ignoreFails(new Workbench().executeCommand("workbench.action.zoomReset"));
         await ignoreFails(this.revertOpenChanges());
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
@@ -273,6 +293,9 @@ export class IDEOperations {
 
         // There should be no more error diagnostics
         await this.checkNoDiagnosticsAnymore();
+
+        await ignoreFails(new Workbench().getBottomBar().closePanel());
+        await ignoreFails(new Workbench().executeCommand("workbench.action.terminal.killAll")); // Closing the panel doesn't kill
     }
 
     async checkNoDiagnosticsAnymore() {
@@ -287,6 +310,7 @@ export class IDEOperations {
             await sleep(Delays.fast); // give it some time for the diagnostic to clear
         }
         expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
+        await ignoreFails(bottomBar.closePanel());
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
@@ -332,7 +356,7 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                const title = await ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
                 await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
@@ -483,7 +507,9 @@ export class IDEOperations {
         }
     }
 
-    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`): Promise<void> {
+    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`, scrollToLine = 1): Promise<void> {
+        // Scroll the file, such that all test lenses are visible in the editor
+        await editor.setCursor(scrollToLine, 1);
         await this.driver.wait(async () => {
             try {
                 const lens = await editor.getCodeLens(name);
@@ -551,16 +577,23 @@ async function setLogLevel(logLevel: LogLevel) {
 
 export type OutputChannel = 'Language Parametric Rascal Language Server' | 'Rascal MPL Language Server';
 
-export async function getOutput(channel: OutputChannel): Promise<string> {
-    const output = await new Workbench().getBottomBar().openOutputView();
+export async function getOutput(channel: OutputChannel, driver: WebDriver): Promise<string> {
+    const bottomBar = new Workbench().getBottomBar();
+    const output = await bottomBar.openOutputView();
     await output.selectChannel(channel);
-    return await output.getText();
+    await output.waitForStable();
+    await driver.wait(() => output.getText(), Delays.fast, "Channel should contain some output");
+    // Sometimes, we seem to get the text before everything is loaded in the window. Wait a little bit until all text is loaded.
+    await sleep(100);
+    const text = await output.getText();
+    await ignoreFails(bottomBar.closePanel());
+    return text;
 }
 
-export async function captureOutput<T>(channel: OutputChannel, action: () => Promise<T>, onlyLastNLines?: number): Promise<string> {
-    const beforeOutput = await getOutput(channel);
+export async function captureOutput<T>(channel: OutputChannel, driver: WebDriver, action: () => Promise<T>, onlyLastNLines?: 100): Promise<string> {
+    const beforeOutput = await getOutput(channel, driver);
     await action();
-    const afterOutput = await getOutput(channel);
+    const afterOutput = await getOutput(channel, driver);
     const searchString = beforeOutput.slice(onlyLastNLines ? -onlyLastNLines : 0);
     return afterOutput.substring(afterOutput.indexOf(searchString) + searchString.length);
 }
@@ -577,24 +610,32 @@ function parseRascalList(input: string | undefined): Array<string> {
     return input.slice(1, -1).split(',').map(el => el.trim());
 }
 
-export function matchPathConfig(input: string) {
+export type PathConfig = {projectRoot: string, srcs: string[], ignores: string[], libs: string[], bin: string, resources: string[], messages: string[]};
+
+export function matchPathConfig(input: string): PathConfig {
     const list = String.raw`\[[^\]]*\]`;
     const loc = String.raw`\|[^|]+\|`;
     const pcfg = new RegExp(`((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
 
     const match = input.match(pcfg);
     if (!match) {
-        return {};
+        fail(`Could not match path config in input:\n${input}`);
     }
 
     const projectRoot = match.groups?.["root"];
-    const sources = parseRascalList(match.groups?.["srcs"]);
+    const srcs = parseRascalList(match.groups?.["srcs"]);
     const ignores = parseRascalList(match.groups?.["ignores"]);
     const libs = parseRascalList(match.groups?.["libs"]);
     const bin = match.groups?.["bin"];
     const resources = parseRascalList(match.groups?.["resources"]);
     const messages = parseRascalList(match.groups?.["messages"]);
-    return { projectRoot, sources, ignores, libs, bin, resources, messages };
+    if (projectRoot === undefined) {
+        fail(`Could not match projectRoot in path config:\n${pcfg}`);
+    }
+    if (bin === undefined) {
+        fail(`Could not match bin in path config:\n${pcfg}`);
+    }
+    return { projectRoot, srcs, ignores, libs, bin, resources, messages };
 }
 
 export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike, lowerCase: boolean = true): Promise<string> {
@@ -667,7 +708,7 @@ export function printRascalOutputOnFailure(channel: OutputChannel) {
                 for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
                     await new Workbench().executeCommand('workbench.action.zoomIn');
                 }
-                await bbp.closePanel();
+                await ignoreFails(bbp.closePanel());
             }
         }
 
@@ -685,21 +726,27 @@ export function isLanguageLoading(bench: Workbench, language: string): () => Pro
     };
 }
 
-export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", doneTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
+export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", startTimeout: number = Delays.verySlow, stopTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
     const isLoading = isLanguageLoading(bench, language);
-    await driver.wait(ignoreFails(isLoading()), Delays.normal, `${language} should start ${message}`, pollInterval);
-    await driver.wait(async () => (await ignoreFails(isLoading())) === false, doneTimeout, `${language} should stop ${message}`, pollInterval);
+    await driver.wait(ignoreFails(isLoading()), startTimeout, `${language} should start ${message}`, pollInterval);
+    await driver.wait(async () => (await ignoreFails(isLoading())) === false, stopTimeout, `${language} should stop ${message}`, pollInterval);
 }
 
-export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[]) {
-    const completions = await driver.wait(async () => {
-        const completionMenu = new ContentAssist(editor);
-        return await ignoreFails(completionMenu.getItems());
-    }, Delays.fast, "Completion items not found");
-
-    expect(completions).to.have.length(expectedLabels.length);
-    const labels: string[] = await Promise.all(completions!.map(c => c.getLabel()));
-    expect(labels).deep.equal(expectedLabels);
+export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[] | Set<string>) {
+    const labels = await driver.wait(async () => {
+        try {
+            const completionMenu = new ContentAssist(editor);
+            await completionMenu.waitForStable();
+            if (!await completionMenu.isLoaded()) {
+                return undefined;
+            }
+            const completions = await completionMenu.getItems();
+            return await Promise.all(completions.map(c => c.getLabel()));
+        } catch (e) {
+            return undefined;
+        }
+    }, Delays.normal, "Completion items cannot be found");
+    expect(expectedLabels instanceof Set ? new Set<string>(labels) : labels).to.deep.equal(expectedLabels);
 }
 
 

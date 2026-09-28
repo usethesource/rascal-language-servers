@@ -28,12 +28,16 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::Analyzer
 
 import IO;
+import Location;
 import String;
 import ParseTree;
 import util::IDEServices;
+import util::Maybe;
 import util::PathConfig;
 import lang::rascal::\syntax::Rascal;
 import lang::rascal::lsp::Actions;
+import lang::rascal::lsp::Common;
+import lang::xml::PomAnalyzer;
 
 
 @synopsis{A fast analyzer, is run on most parse trees, so it should be fast}
@@ -48,7 +52,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
                 "Annotations are no longer supported and will soon be removed, please use our build-in Quick Fix to refactor all of them into keyword parameters",
                 t.src, fixes=[
                     action(
-                        command=upgradeAnnotations(getPathConfig(t.src.top)),
+                        command=upgradeAnnotations(getPathConfig(tree.src.top)),
                         title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
                     )
                 ]
@@ -59,11 +63,30 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         // instead we ignore all follow-up cases of the same error
     }
 
+    projectRoot = inferProjectRoot(tree.src.top);
+    if (rascalMfNoPomXml(projectRoot)) {
+        rascalSrcRoot = (tree.src.top | it.parent | _ <- tree.top.header.name.names);
+        result += warning(
+            "Project `<projectRoot.file>` is missing a `pom.xml` file", tree.top.header.src,
+            fixes=[action(title="Add `pom.xml` file to project `<projectRoot.file>", command=addNewPomXml(projectRoot, relativize(projectRoot, rascalSrcRoot).path[1..]))]
+        );
+    }
+
     v: visit (tree) {
         case l:(LocationLiteral)`|<URLChars scheme>://<PathPart _>`: {
             s = "<scheme>";
             if (s notin illegalSchemeSuggestions<0>) fail v;
             result += error("`<s>://` scheme is not supported anymore. In most cases it can be replaced by <illegalSchemeSuggestions[s]>", l.src);
+        }
+
+        case i:(Import)`import util::LanguageServer;`: {
+            pomLoc = getPathConfig(tree.src.top).projectRoot + "pom.xml";
+            if (!hasRascalLspDependency(pomLoc)) {
+                result += warning(
+                    "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`",
+                    i.src, fixes=[action(title="Add rascal-lsp dependency to pom.xml", command=addRascalLspDependencyToPom(pomLoc))]
+                );
+            }
         }
 
         // annotation cases
@@ -76,8 +99,13 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         case t:(Expression) `delAnnotation(<Expression _>, <Expression _>)`: reportAnnotationDeprecation(t);
         case t:(Catch) `catch NoSuchAnnotation(<Pattern _>) : <Statement _>`: reportAnnotationDeprecation(t);
     }
+
     return result;
 }
+
+@memo{expireAfter(minutes=1)}
+bool rascalMfNoPomXml(loc projectRoot)
+    = exists(projectRoot + "META-INF" + "RASCAL.MF") && !exists(projectRoot + "pom.xml");
 
 map[str, str] illegalSchemeSuggestions = (
     "lib": "|project://|, |mvn://|, or IO::getResource",

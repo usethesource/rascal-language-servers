@@ -24,10 +24,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+import { posix } from 'path'; // posix path join is always correct, also on windows
 import * as vscode from 'vscode';
-import {posix} from 'path'; // posix path join is always correct, also on windows
+import { Diagnostic, Position, Range, Uri } from 'vscode';
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
-import { Diagnostic, DiagnosticSeverity, Position, Range, Uri } from 'vscode';
 import { MF_FILE, buildMFChildPath } from './RascalMFValidator';
 
 const FIRST_WORD = new Range(new Position(0,0), new Position(0,0));
@@ -82,7 +82,6 @@ export class RascalProjectValidator implements vscode.Disposable {
         }
     }
 
-
     async validate(e: vscode.TextDocument) {
         if (e.languageId !== RASCAL_LANGUAGE_ID) {
             return;
@@ -99,41 +98,7 @@ export class RascalProjectValidator implements vscode.Disposable {
                 ));
             }
         }
-        else {
-
-            const mf = buildMFChildPath(folder.uri);
-            if (!(await reportIfMissingFile(mf, folder, messages))) {
-                try {
-                    const rascalMf = await this.getManifest(mf);
-                    if (rascalMf.libraries.length > 0) {
-                        // only if there are dependencies in a Rascal.mf file, is a pom.xml required
-                        await reportIfMissingFile(buildPOMChildPath(folder.uri), folder, messages);
-                    }
-                    if (rascalMf.sources.find(s => isChild(s, e.uri)) === undefined) {
-                        messages.push(new Diagnostic(
-                            FIRST_WORD,
-                            `This file is not in the source path of the "${folder.name}" project, please review the RASCAL.MF file. Since ${EXPLAIN_PROBLEM}`,
-                            DiagnosticSeverity.Warning
-                        ));
-                    }
-                } catch (ex) {
-                    this.log.debug("Swallowing: ", ex);
-                }
-            }
-
-        }
         this.diagnostics.set(e.uri, messages);
-    }
-
-    getManifest(mf: vscode.Uri) : Promise<RascalManifest> {
-        const key = mf.toString();
-        let result = this.cachedSourcePaths.get(key);
-        if (result !== undefined) {
-            return result;
-        }
-        result = RascalManifest.parse(mf, this.log);
-        this.cachedSourcePaths.set(key, result);
-        return result;
     }
 
     closeFile(e: vscode.TextDocument) {
@@ -146,51 +111,6 @@ export class RascalProjectValidator implements vscode.Disposable {
 
     dispose() {
         vscode.Disposable.from(...this.toDispose).dispose();
-    }
-
-
-}
-
-async function fileExists(u : Uri) : Promise<boolean> {
-    try {
-        const stat = await vscode.workspace.fs.stat(u);
-        return (stat.type & vscode.FileType.File) === vscode.FileType.File;
-    }
-    catch (_) {
-        return false;
-    }
-
-}
-
-function buildPOMChildPath(u: Uri): Uri {
-    return Uri.joinPath(u, "pom.xml");
-}
-
-async function reportIfMissingFile(file: vscode.Uri, project: vscode.WorkspaceFolder, messages: vscode.Diagnostic[]) {
-    if (await fileExists(file)) {
-        return false;
-    }
-    messages.push(new Diagnostic(
-        FIRST_WORD,
-        `${project.name} is missing the ${posix.relative(project.uri.path, file.path)} file, ${EXPLAIN_PROBLEM}`,
-        vscode.DiagnosticSeverity.Warning
-    ));
-    return true;
-}
-
-function isChild(parent: Uri, child: Uri): boolean {
-    if (parent.scheme !== child.scheme) {
-        return false;
-    }
-    parent = parent.path.endsWith('/') ? parent : parent.with({path: parent.path + '/'});
-    if (parent.scheme === 'file') {
-        // to make sure we can deal with case-sensitivity issues, we have to normalize
-        // to the file system path
-        // note, this might also have to be done for virtual file systems, but VS Code has no public API for that (IExtUri would be nice!)
-        return child.fsPath.startsWith(parent.fsPath);
-    }
-    else {
-        return parent.authority === child.authority && child.path.startsWith(parent.path);
     }
 }
 

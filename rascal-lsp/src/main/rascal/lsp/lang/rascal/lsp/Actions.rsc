@@ -39,6 +39,7 @@ import util::Reflective;
 import util::IDEServices;
 import List;
 import IO;
+import lang::xml::PomAnalyzer;
 
 @synopsis{Here we list Rascal-specific code commands}
 @description{
@@ -48,6 +49,9 @@ data Command
     = visualImportGraphCommand(PathConfig pcfg)
     | sortImportsAndExtends(Header h)
     | upgradeAnnotations(PathConfig pcfg)
+    | addRascalDependencyToPom(loc pomLoc)
+    | addRascalLspDependencyToPom(loc pomLoc)
+    | addNewPomXml(loc projectRoot, str rascalSrcRoot)
     ;
 
 
@@ -165,3 +169,18 @@ value evaluateRascalCommand(upgradeAnnotations(PathConfig pcfg)) {
     return ("result":true);
 }
 
+value evaluateRascalCommand(addRascalDependencyToPom(loc pomLoc)) {
+    applyDocumentsEdits([changed(pomLoc, [addRascalDependency(pomLoc)])]);
+    return ("result": true);
+}
+
+value evaluateRascalCommand(addRascalLspDependencyToPom(loc pomLoc)) {
+    applyDocumentsEdits([changed(pomLoc, [addRascalLspDependency(pomLoc)])]);
+    return ("result": true);
+}
+
+value evaluateRascalCommand(addNewPomXml(loc projectRoot, str rascalSrcRoot)) {
+    newRascalPomFile(projectRoot, rascalSrcRoot=rascalSrcRoot);
+    edit(projectRoot + "pom.xml");
+    return ("result": true);
+}
