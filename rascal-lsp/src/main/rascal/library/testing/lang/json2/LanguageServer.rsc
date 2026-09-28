@@ -42,7 +42,7 @@ private Tree (str _input, loc _origin) jsonParser(bool allowRecovery) {
 
 set[LanguageService] jsonLanguageServer() = {
     parsing(jsonParser(true), usesSpecialCaseHighlighting = false),
-    completion(jsonCompletion, additionalTriggerCharacters = [",", "{", "[", ":"])
+    completion(jsonCompletion, additionalTriggerCharacters = [",", "{", "[", ":"]) // Synthetic example service used only for testing
 };
 
 list[CompletionItem] builtinLiteralCompletion(int cc)
