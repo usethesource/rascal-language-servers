@@ -26,7 +26,7 @@
  */
 import * as fs from 'fs/promises';
 import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, src, startsAndStopsLoading, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, src, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import path from 'path/posix';
 
