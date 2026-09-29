@@ -105,6 +105,14 @@ export class RascalREPL {
         this.terminal = new TerminalView();
     }
 
+    private async openTerminalView() {
+        // Make sure the bottom bar is visible before trying to open the terminal view
+        if (!(await this.bench.getBottomBar().isDisplayed())) {
+            await this.executeCommand('workbench.action.terminal.toggleTerminal');
+        }
+        await this.bench.getBottomBar().openTerminalView();
+    }
+
     private async executeCommand(command: string) {
         if (_DEBUG) {
             console.debug("Executing command: {}", command);
@@ -155,6 +163,20 @@ export class RascalREPL {
         }
     }
 
+    static async startFor(file: string, ide: IDEOperations, bench: Workbench, driver: WebDriver) {
+        await ide.openModule(file);
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        return repl;
+    }
+
+    static async startWithLSP(ide: IDEOperations, bench: Workbench, driver: WebDriver): Promise<RascalREPL> {
+        // Open a file from a project with a dependency on LSP, so we can use modules from LSP
+        const repl = await this.startFor(TestWorkspace.libCallFile, ide, bench, driver);
+        await repl.execute("import util::LanguageServer;");
+        return repl;
+    }
+
     async start() {
         await this.executeCommand("rascalmpl.createTerminal");
         return this.connect();
@@ -168,6 +190,7 @@ export class RascalREPL {
     }
 
     async execute(command: string, waitForReady = true, wait=Delays.verySlow) {
+        await this.openTerminalView();
         const inputs = await this.terminal.findElements(By.className('xterm-helper-textarea'));
         for (const i of inputs) {
             // there can be multiple terminals, so we iterate over all of the to find the one that doesn't throw an exception
@@ -281,7 +304,6 @@ export class IDEOperations {
         await this.checkNoDiagnosticsAnymore();
 
         await ignoreFails(new Workbench().getBottomBar().closePanel());
-        await ignoreFails(new Workbench().executeCommand("workbench.action.terminal.killAll")); // Closing the panel doesn't kill
     }
 
     async checkNoDiagnosticsAnymore() {

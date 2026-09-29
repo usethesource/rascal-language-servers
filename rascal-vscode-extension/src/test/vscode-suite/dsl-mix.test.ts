@@ -26,7 +26,7 @@
  */
 import * as fs from 'fs/promises';
 import { TextEditor, VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, sleep, src, startsAndStopsLoading, TestWorkspace } from './utils';
+import { Delays, expectCompletions, IDEOperations, ignoreFails, printRascalOutputOnFailure, ProtectedFiles, RascalREPL, src, startsAndStopsLoading, TestWorkspace } from './utils';
 
 import path from 'path/posix';
 
@@ -35,6 +35,7 @@ describe('DSL [multi-language]', function () {
     let driver: WebDriver;
     let bench: Workbench;
     let ide : IDEOperations;
+    let repl: RascalREPL;
     let protectedFiles: ProtectedFiles;
 
     const languages = ["Pico", "JSON2"];
@@ -45,20 +46,19 @@ describe('DSL [multi-language]', function () {
 
     printRascalOutputOnFailure('Language Parametric Rascal Language Server');
 
+    async function unloadLanguages() {
+        for (const lang of languages) {
+            await repl.execute(`unregisterLanguage("${lang}", {"${lang.toLowerCase()}"});`, true, Delays.extremelySlow);
+        }
+    }
+
     async function loadLanguages() {
-        await ide.openModule(TestWorkspace.libCallFile);
-
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
-
         for (const lang of languages) {
             await repl.execute(`import testing::lang::${lang.toLowerCase()}::LanguageServer;`, true, Delays.extremelySlow);
             const replExecuteMain = repl.execute(`testing::lang::${lang.toLowerCase()}::LanguageServer::register();`, true, Delays.extremelySlow); // we don't wait yet, because we might miss language loading window
             await startsAndStopsLoading(driver, bench, lang);
             await replExecuteMain;
         }
-
-        await repl.terminate();
     }
 
     before(async () => {
@@ -68,24 +68,13 @@ describe('DSL [multi-language]', function () {
         await ignoreFails(browser.waitForWorkbench());
         ide = new IDEOperations(browser);
         await ide.load();
+        repl = await RascalREPL.startWithLSP(ide, bench, driver);
         await loadLanguages();
         protectedFiles = await ProtectedFiles.protect(jsonTestFile);
     });
 
     after(async () => {
-        await ide.openModule(TestWorkspace.libCallFile);
-
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
-        await repl.execute("import util::LanguageServer;", true, Delays.extremelySlow);
-        // Until issue #630 is fixed (race between `unregister` and `register`), the
-        // unregistration can't reliably be done as part of `main` (tried in
-        // commit `a955a05`). Instead, it's done here and followed by a suitably
-        // long sleep.
-        for (const lang of languages) {
-            await repl.execute(`unregisterLanguage("${lang}", {"${lang.toLowerCase()}"});`, true, Delays.extremelySlow);
-            await sleep(Delays.normal);
-        }
+        await unloadLanguages();
         await repl.terminate();
     });
 
