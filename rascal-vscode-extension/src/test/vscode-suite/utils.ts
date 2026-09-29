@@ -105,6 +105,14 @@ export class RascalREPL {
         this.terminal = new TerminalView();
     }
 
+    private async openTerminalView() {
+        // Make sure the bottom bar is visible before trying to open the terminal view
+        if (!(await this.bench.getBottomBar().isDisplayed())) {
+            await this.executeCommand('workbench.action.terminal.toggleTerminal');
+        }
+        await this.bench.getBottomBar().openTerminalView();
+    }
+
     private async executeCommand(command: string) {
         if (_DEBUG) {
             console.debug("Executing command: {}", command);
@@ -182,6 +190,7 @@ export class RascalREPL {
     }
 
     async execute(command: string, waitForReady = true, wait=Delays.verySlow) {
+        await this.openTerminalView();
         const inputs = await this.terminal.findElements(By.className('xterm-helper-textarea'));
         for (const i of inputs) {
             // there can be multiple terminals, so we iterate over all of the to find the one that doesn't throw an exception
