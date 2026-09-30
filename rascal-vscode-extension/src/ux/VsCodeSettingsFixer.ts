@@ -125,7 +125,7 @@ async function projectRoot(uri: vscode.Uri): Promise<vscode.Uri | undefined> {
 }
 
 async function createSettingsDiagnostic(projectRoot: vscode.Uri): Promise<{uri: vscode.Uri, diag: vscode.Diagnostic} | undefined> {
-    const warning = "The projects target folder appears in search results. Editing those files breaks the project build.";
+    const warning = "The project's `target` folder is included in VS Code's search results. Accidentally editing those files can break the project build. Consider to exclude the `target` folder from search (Quick Fix available).";
 
     if (!await hasFile(projectRoot, buildSettingsPath)) {
         // Settings file does not exist. Put the diagnostic on the RASCAL.MF file instead.
