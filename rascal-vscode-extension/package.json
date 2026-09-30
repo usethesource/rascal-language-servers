@@ -273,7 +273,7 @@
           "default": null,
           "minimum": 800,
           "scope": "machine-overridable",
-          "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
+          "description": "Overide the maximum heap space, in MB, for every Rascal Terminal"
         },
         "rascal.interpreter.stackSize": {
           "type": [
@@ -282,7 +282,7 @@
           ],
           "default": null,
           "scope": "machine-overridable",
-          "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
+          "description": "Override the per-thread stack size, in MB, for every Rascal Terminal"
         },
         "rascal.lSP.maxHeapSize": {
           "type": [
