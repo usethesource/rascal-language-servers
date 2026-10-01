@@ -357,13 +357,13 @@
     "@types/yauzl": "3.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
-    "@vscode/vsce": "3.x",
+    "@vscode/vsce": "4.x",
     "chai": "6.x",
     "esbuild": "0.28.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
-    "mocha": "11.x",
+    "mocha": "12.x",
     "typescript": "6.x",
     "vscode-extension-tester": "8.x"
   }
