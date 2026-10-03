@@ -67,7 +67,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     if (rascalMfNoPomXml(projectRoot)) {
         rascalSrcRoot = (tree.src.top | it.parent | _ <- tree.top.header.name.names);
         result += warning(
-            "A `pom.xml` file for project `<projectRoot.file>` is missing. Consider to add it to the project root (Quick Fix available).", tree.top.header.src,
+            "A `pom.xml` file for project `<projectRoot.file>` is missing. Please add it to the project root or use the Quick Fix.", tree.top.header.src,
             fixes=[action(title="Add `pom.xml` file to project `<projectRoot.file>", command=addNewPomXml(projectRoot, relativize(projectRoot, rascalSrcRoot).path[1..]))]
         );
     }
@@ -82,8 +82,8 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         case i:(Import)`import util::LanguageServer;`: {
             pomLoc = getPathConfig(tree.src.top).projectRoot + "pom.xml";
             if (!hasRascalLspDependency(pomLoc)) {
-                result += warning(
-                    "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`. Consider to add it to `pom.xml` (Quick Fix available).",
+                result += error(
+                    "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`. Please add it to `pom.xml` or use the Quick Fix.",
                     i.src, fixes=[action(title="Add `rascal-lsp` dependency to `pom.xml`", command=addRascalLspDependencyToPom(pomLoc))]
                 );
             }
