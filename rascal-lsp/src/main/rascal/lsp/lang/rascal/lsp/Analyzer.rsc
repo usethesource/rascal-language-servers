@@ -49,7 +49,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         if (!annotationAlreadyReported) {
             annotationAlreadyReported = true;
             result += warning(
-                "Annotations are no longer supported and will soon be removed, please use our build-in Quick Fix to refactor all of them into keyword parameters",
+                "Annotations are no longer supported and will soon be removed, please use our built-in Quick Fix to refactor all of them into keyword parameters",
                 t.src, fixes=[
                     action(
                         command=upgradeAnnotations(getPathConfig(tree.src.top)),
@@ -67,7 +67,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     if (rascalMfNoPomXml(projectRoot)) {
         rascalSrcRoot = (tree.src.top | it.parent | _ <- tree.top.header.name.names);
         result += warning(
-            "Project `<projectRoot.file>` is missing a `pom.xml` file", tree.top.header.src,
+            "A `pom.xml` file for project `<projectRoot.file>` is missing. Please add it to the project root or use the Quick Fix.", tree.top.header.src,
             fixes=[action(title="Add `pom.xml` file to project `<projectRoot.file>", command=addNewPomXml(projectRoot, relativize(projectRoot, rascalSrcRoot).path[1..]))]
         );
     }
@@ -82,9 +82,9 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         case i:(Import)`import util::LanguageServer;`: {
             pomLoc = getPathConfig(tree.src.top).projectRoot + "pom.xml";
             if (!hasRascalLspDependency(pomLoc)) {
-                result += warning(
-                    "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`",
-                    i.src, fixes=[action(title="Add rascal-lsp dependency to pom.xml", command=addRascalLspDependencyToPom(pomLoc))]
+                result += error(
+                    "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`. Please add it to `pom.xml` or use the Quick Fix.",
+                    i.src, fixes=[action(title="Add `rascal-lsp` dependency to `pom.xml`", command=addRascalLspDependencyToPom(pomLoc))]
                 );
             }
         }
