@@ -273,7 +273,7 @@
           "default": null,
           "minimum": 800,
           "scope": "machine-overridable",
-          "description": "Provides the maximum heap space, in MB, for the Rascal interpreter"
+          "description": "Override the automatically calculated maximum heap space (in MB) of a new Rascal Terminal"
         },
         "rascal.interpreter.stackSize": {
           "type": [
@@ -282,7 +282,7 @@
           ],
           "default": null,
           "scope": "machine-overridable",
-          "description": "Provides the per-thread stack size, in MB, for the Rascal interpreter"
+          "description": "Override the JVM default per-thread stack size (in MB) for a new Rascal Terminal"
         },
         "rascal.lSP.maxHeapSize": {
           "type": [
@@ -292,7 +292,7 @@
           "default": null,
           "minimum": 800,
           "scope": "machine-overridable",
-          "markdownDescription": "Provides the maximum heap space, in MB, for the Rascal LSP server.\n\nNeeds at least 800MB, but runs better with 2GB or more. _Set based on total available memory on machine._"
+          "markdownDescription": "Override the automatically calculated maximum heap space (in MB) for the Rascal LSP server.\n\nNeeds at least 800MB, but runs better with 2GB or more. _Set based on total available memory on machine._"
         },
         "rascal.parametric.lSP.maxHeapSize": {
           "type": [
@@ -302,7 +302,7 @@
           "default": null,
           "minimum": 800,
           "scope": "machine-overridable",
-          "markdownDescription": "Provides the maximum heap space, in MB, for the Parametric LSP server.\n\nNeeds at least 800MB, but runs better with more. 400MB per language is a reasonable estimate, for average-sized languages. _Set based on total available memory on machine._"
+          "markdownDescription": "Override the automatically calculated the maximum heap space (in MB) for the Parametric/DSL LSP server(s).\n\nNeeds at least 400MB, but runs better with more. _Set based on total available memory on machine._"
         },
         "rascal.terminal.name.originFormat": {
           "type": "string",
@@ -312,7 +312,7 @@
             "Module (qualified)",
             "Module (unqualified)"
           ],
-          "markdownDescription": "Specifies the format of `<origin>` in Rascal terminal name `Rascal terminal (<origin>)`"
+          "markdownDescription": "Specifies the format of `<origin>` in Rascal Terminal name `Rascal terminal (<origin>)`"
         }
       }
     }
@@ -357,13 +357,13 @@
     "@types/yauzl": "3.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
-    "@vscode/vsce": "3.x",
+    "@vscode/vsce": "4.x",
     "chai": "6.x",
     "esbuild": "0.28.x",
     "eslint": "8.x",
     "eslint-plugin-editorconfig": "4.x",
     "license-check-and-add": "4.x",
-    "mocha": "11.x",
+    "mocha": "12.x",
     "typescript": "6.x",
     "vscode-extension-tester": "8.x"
   }
