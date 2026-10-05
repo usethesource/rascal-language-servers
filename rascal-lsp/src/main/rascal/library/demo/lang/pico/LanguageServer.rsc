@@ -328,10 +328,14 @@ in the presence of error trees. See ((util::LanguageServer)) for more details.
 * You can run each contribution on an example in the terminal to test it first.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
-void main() {
+void main(str projectName="rascal-lsp") {
+    // Use function `getProjectPathConfig` to run the language server with the same path config as the one derived from
+    // the pom.xml of the project with the provided name. In this way, the language server will be run with the same
+    // version of `rascal` as that project, as well as the same version of `rascal-lsp`.
+    pcfg = getProjectPathConfig(|project://<projectName>|, mode=interpreter());
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
@@ -340,7 +344,7 @@ void main() {
     );
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
