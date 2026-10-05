@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.concurrent.ExecutionException;
@@ -40,6 +41,7 @@ import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
+import org.rascalmpl.vscode.lsp.parametric.routing.ActualRoutingLanguageServer;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IConstructor;
@@ -84,8 +86,18 @@ public class RascalInterface {
         if (languageRegistry == null) {
             monitor.warning("Could not register language: no connection", URIUtil.unknownLocation());
         } else {
+            var param = LanguageParameter.fromRascalValue(lang);
+
+            // Check early if the path config contains a compatible version of `rascal-lsp`
             try {
-                languageRegistry.registerLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
+                ActualRoutingLanguageServer.resolveDependencies(param);
+            } catch (IOException e) {
+                monitor.warning("Could not register language: " + e.getMessage(), URIUtil.unknownLocation());
+                return;
+            }
+
+            try {
+                languageRegistry.registerLanguage(param).get(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 monitor.warning("registerLanguage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
                 Thread.currentThread().interrupt();
