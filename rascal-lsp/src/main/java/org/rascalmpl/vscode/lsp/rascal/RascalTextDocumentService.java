@@ -249,7 +249,11 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
                 messagesWriter.append(makeUpdateDependencyMessage("Rascal", Command_updateRascalDependency, pomXml, rascalDependencyVersion, RascalManifest.getRascalVersionNumber()));
             }
             if (!rascalLspIsNewEnough) {
-                messagesWriter.append(makeUpdateDependencyMessage("Rascal-lsp", Command_updateRascalLspDependency, pomXml, rascalLspDependencyVersion, PomAnalyzer.currentRascalLspVersion()));
+                var currentRascalLspVersion = PomAnalyzer.currentRascalLspVersion();
+                if (currentRascalLspVersion == null) {
+                    currentRascalLspVersion = "???";
+                }
+                messagesWriter.append(makeUpdateDependencyMessage("Rascal-lsp", Command_updateRascalLspDependency, pomXml, rascalLspDependencyVersion, currentRascalLspVersion));
             }
             availableFacts().reportTypeCheckerMessages(Map.of(pomXml, messagesWriter.done()));
 
