@@ -84,7 +84,7 @@ public class RascalInterface {
 
     public void registerLanguage(IConstructor lang) {
         if (languageRegistry == null) {
-            monitor.warning("Could not register language: no connection", URIUtil.unknownLocation());
+            throw RuntimeExceptionFactory.io("Could not register language: no connection");
         } else {
             var param = LanguageParameter.fromRascalValue(lang);
 
@@ -92,8 +92,7 @@ public class RascalInterface {
             try {
                 ActualRoutingLanguageServer.resolveDependencies(param);
             } catch (IOException e) {
-                monitor.warning("Could not register language: " + e.getMessage(), URIUtil.unknownLocation());
-                return;
+                throw RuntimeExceptionFactory.io("Could not register language: " + e.getMessage());
             }
 
             try {
@@ -109,7 +108,7 @@ public class RascalInterface {
 
     public void unregisterLanguage(IConstructor lang) {
         if (languageRegistry == null) {
-            monitor.warning("Could not unregister language: no connection", URIUtil.unknownLocation());
+            throw RuntimeExceptionFactory.io("Could not unregister language: no connection");
         } else {
             try {
                 languageRegistry.unregisterLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
