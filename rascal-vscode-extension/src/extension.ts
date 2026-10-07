@@ -30,7 +30,6 @@ import * as vscode from 'vscode';
 import { TestVirtualFileSystem } from './fs/TestVirtualFileSystem';
 import { RascalExtension } from './RascalExtension';
 import { RascalMFValidator } from './ux/RascalMFValidator';
-import { RascalProjectValidator } from './ux/RascalProjectValidator';
 import { VsCodeSettingsFixer } from './ux/VsCodeSettingsFixer';
 
 const testDeployMode = (process.env['RASCAL_LSP_DEV_DEPLOY'] || "false") === "true";
@@ -45,7 +44,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(extension);
     context.subscriptions.push(new RascalMFValidator());
     context.subscriptions.push(new VsCodeSettingsFixer());
-    context.subscriptions.push(new RascalProjectValidator(logger));
     if (!deployMode || testDeployMode) {
         context.subscriptions.push(new TestVirtualFileSystem(logger));
     }

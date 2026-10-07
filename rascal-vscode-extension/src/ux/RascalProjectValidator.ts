@@ -27,8 +27,11 @@
 import { posix } from 'path'; // posix path join is always correct, also on windows
 import * as vscode from 'vscode';
 import { Diagnostic, Position, Range, Uri } from 'vscode';
+import { BooleanResponse, ISourceLocationRequest } from '../fs/JsonRpcMessages';
 import { RASCAL_LANGUAGE_ID } from '../Identifiers';
+import { toRascalUri } from '../lsp/RascalLanguageServer';
 import { MF_FILE, buildMFChildPath } from './RascalMFValidator';
+import { BaseLanguageClient } from 'vscode-languageclient';
 
 const FIRST_WORD = new Range(new Position(0,0), new Position(0,0));
 const EXPLAIN_PROBLEM = "this reduces Rascal's capabilities for typechecking or executing this module.";
@@ -38,7 +41,7 @@ export class RascalProjectValidator implements vscode.Disposable {
     private readonly diagnostics: vscode.DiagnosticCollection;
     private readonly cachedSourcePaths: Map<string, Promise<RascalManifest>> = new Map();
 
-    constructor(private readonly log: vscode.LogOutputChannel) {
+    constructor(private readonly rascalClient: Promise<BaseLanguageClient>, private readonly log: vscode.LogOutputChannel) {
         this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal Project Diagnostics");
         this.toDispose.push(this.diagnostics);
         vscode.workspace.onDidOpenTextDocument(this.validate, this, this.toDispose);
@@ -74,6 +77,7 @@ export class RascalProjectValidator implements vscode.Disposable {
             // it was a pom.xml change
             // so calculate the rascal.mf file
             mfFile = buildMFChildPath(mfFile.with({ path: posix.dirname(mfFile.path) }));
+            void (await this.rascalClient).sendRequest<BooleanResponse>("rascal/verifyRascalAndLspVersions", <ISourceLocationRequest>{ loc: toRascalUri(mfFile) });
         }
         if (this.cachedSourcePaths.delete(mfFile.toString())) {
             // we had calculated the source paths before
