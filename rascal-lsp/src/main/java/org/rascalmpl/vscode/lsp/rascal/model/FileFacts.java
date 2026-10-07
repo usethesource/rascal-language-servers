@@ -118,7 +118,7 @@ public class FileFacts implements DiagnosticsReporter {
     }
 
     public void reportTypeCheckerMessages(Map<ISourceLocation, ISet> messages) {
-        Diagnostics.translateMessages(messages, Set.of("rsc"), cm).forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs));
+        Diagnostics.translateMessages(messages, Set.of("rsc", "xml"), cm).forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs));
     }
 
     private @Nullable FileFact get(ISourceLocation l) {

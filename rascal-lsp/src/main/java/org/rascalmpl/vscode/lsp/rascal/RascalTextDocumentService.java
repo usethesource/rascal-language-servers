@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -108,9 +110,12 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.interpreter.utils.RascalManifest;
+import org.rascalmpl.library.Messages;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
+import org.rascalmpl.library.util.SemVer;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
 import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -134,12 +139,14 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
+import org.rascalmpl.vscode.lsp.rascal.model.PathConfigs;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+import org.rascalmpl.vscode.lsp.xml.PomAnalyzer;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -147,9 +154,12 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
 
 public class RascalTextDocumentService extends TextDocumentStateManager implements IBaseTextDocumentService, LanguageClientAware {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
+    private static final TypeFactory TF = TypeFactory.getInstance();
     private static final Logger logger = LogManager.getLogger(RascalTextDocumentService.class);
 
     private static final String LANGUAGE_ID = "rascalmpl";
@@ -202,6 +212,52 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         // Typically, the path config computation uses a fallback Rascal version, so this should not happen.
         availableClient().showMessage(new MessageParams(MessageType.Info, "No Rascal dependency found in POM. REPL uses the Rascal version shipped with the extension."));
         return List.of(PathConfig.resolveCurrentRascalRuntime());
+    }
+
+    // These versions are the first released versions after finishing the "pom-leading" project,
+    // in which the cut of the tight coupling between `rascal` and `rascal-lsp` was established.
+    private static final SemVer MINIMAL_RASCAL_VERSION = new SemVer("0.43.0");
+    private static final SemVer MINIMAL_RASCAL_LSP_VERSION = new SemVer("2.23.0");
+
+    // These declarations mirror the data definitions in the `lang::rascal::lsp::Actions` module
+    private static final Type Command_updateRascalDependency = TF.constructor(Messages.ts, Messages.Command, "updateRascalDependency", TF.sourceLocationType(), "pomLoc", TF.stringType(), "version");
+    private static final Type Command_updateRascalLspDependency = TF.constructor(Messages.ts, Messages.Command, "updateRascalLspDependency", TF.sourceLocationType(), "pomLoc", TF.stringType(), "version");
+
+    private IConstructor makeUpdateDependencyMessage(String dependency, Type commandType, ISourceLocation pomXml, String oldVersion, String newVersion) {
+        var errorLocation = VF.sourceLocation(pomXml, 0, 0, 2, 2, 0, 8);
+        var error = Messages.error(dependency + " version in pom.xml (" + oldVersion.toString() + ") is too old. Update the dependency or use the Quick Fix.", errorLocation);
+        var codeAction = VF.constructor(commandType, new IValue[] { errorLocation, VF.string(newVersion) }, Map.of("title", VF.string("Update Rascal dependency in pom.xml")));
+        var fix = VF.constructor(Messages.CodeAction_action, new IValue[]{}, Map.of("command", codeAction));
+        return Messages.addFix(error, fix);
+    }
+
+    @Override
+    public boolean verifyRascalAndLspVersions(ISourceLocation forFile) {
+        logger.debug("verifyRascalAndLspVersions: {}", forFile);
+        try {
+            var pomXml = URIUtil.getChildLocation(PathConfigs.inferProjectRoot(forFile), "pom.xml");
+            var rascalDependencyVersion = PomAnalyzer.getRascalDependencyFromPom(pomXml).getCoordinate().getVersion();
+            var rascalLspDependencyVersion = PomAnalyzer.getRascalLspDependencyFromPom(pomXml).getCoordinate().getVersion();
+            var rascalVersion = new SemVer(rascalDependencyVersion);
+            var rascalLspVersion = new SemVer(rascalLspDependencyVersion);
+
+            var rascalIsNewEnough = rascalVersion.greaterEqualVersion(MINIMAL_RASCAL_VERSION);
+            var rascalLspIsNewEnough = rascalLspVersion.greaterEqualVersion(MINIMAL_RASCAL_LSP_VERSION);
+
+            var messagesWriter = VF.setWriter();
+            if (!rascalIsNewEnough) {
+                messagesWriter.append(makeUpdateDependencyMessage("Rascal", Command_updateRascalDependency, pomXml, rascalDependencyVersion, RascalManifest.getRascalVersionNumber()));
+            }
+            if (!rascalLspIsNewEnough) {
+                messagesWriter.append(makeUpdateDependencyMessage("Rascal-lsp", Command_updateRascalLspDependency, pomXml, rascalLspDependencyVersion, PomAnalyzer.currentRascalLspVersion()));
+            }
+            availableFacts().reportTypeCheckerMessages(Map.of(pomXml, messagesWriter.done()));
+
+            return rascalIsNewEnough && rascalLspIsNewEnough;
+        } catch (IOException e) {
+            availableClient().showMessage(new MessageParams(MessageType.Warning, "Could not verify compatibility of Rascal and Rascal-lsp versions."));
+            return false;
+        }
     }
 
     private static ISourceLocation resolveMavenIfPossible(MavenRepositoryURIResolver mvn, ISourceLocation loc) {
