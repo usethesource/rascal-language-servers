@@ -133,6 +133,34 @@ TextEdit addRascalLspDependency(loc pomLoc, str version="???") {
     return addDependency(pomLoc, "org.rascalmpl", "rascal-lsp", version);
 }
 
+TextEdit updateDependency(loc pomLoc, str groupId, str artifactId, str version) {
+    try {
+        pom = readPom(pomLoc.top);
+        for (node project := getChildNode(pom, "project"), node dependencies := getChildNode(project, "dependencies"), list[node] children := getChildren(dependencies),
+                dependency <- children, list[node] coordinates := getChildren(dependency), "groupId"(groupId) <- coordinates, "artifactId"(artifactId) <- coordinates,
+                v:"version"(oldVersion) <- coordinates, loc versionSrc := v.src) {
+            // writeFile(versionSrc, version);
+            println("Found old version <oldVersion> at <versionSrc>, replace with <version>");
+            return replace(versionSrc, "\<version\><version>\</version\>");
+        }
+        throw "No version found for dependency <groupId>:<artifactId> in <pomLoc>. Please review the (parent) pom.xml manually";
+    } catch _: {
+        throw "No dependency entry for <groupId>:<artifactId> found in <pomLoc>";
+    }
+}
+
+TextEdit updateRascalDependency(loc pomLoc, str version=getRascalVersion())
+    = updateDependency(pomLoc, "org.rascalmpl", "rascal", version);
+
+TextEdit updateRascalLspDependency(loc pomLoc, str version="???") {
+    if (!version?) {
+        try {
+            version = getCurrentRascalLspVersion();
+        } catch IO(_):;
+    }
+    return updateDependency(pomLoc, "org.rascalmpl", "rascal-lsp", version);
+}
+
 @javaClass{org.rascalmpl.vscode.lsp.xml.PomAnalyzer}
 java bool hasRascalDependency(loc pomLoc);
 
