@@ -125,9 +125,11 @@ TextEdit addRascalDependency(loc pomLoc, str version=getRascalVersion()) {
 }
 
 TextEdit addRascalLspDependency(loc pomLoc, str version="???") {
-    try {
-        version = getCurrentRascalLspVersion();
-    } catch IO(_):;
+    if (!version?) {
+        try {
+            version = getCurrentRascalLspVersion();
+        } catch IO(_):;
+    }
     return addDependency(pomLoc, "org.rascalmpl", "rascal-lsp", version);
 }
 
