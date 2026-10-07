@@ -893,7 +893,7 @@ Because registerLanguage has effect in a different OS process, errors and warnin
 In general look at the "Parametric Rascal Language Server" log tab in the IDE to see what is going on.
 
 However since language contributions are just Rascal functions, it is advised to simply test them first right there in the terminal.
-Use `util::Reflective::getProjectPathConfig` for a representative configuration.
+Use `util::Reflective::getProjectPathConfig` for a representative configuration, with `mode = interpreter_external()` as keyword parameter.
 }
 java void registerLanguage(Language lang);
 

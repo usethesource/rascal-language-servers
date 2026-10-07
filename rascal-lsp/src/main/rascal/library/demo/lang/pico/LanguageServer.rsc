@@ -329,9 +329,10 @@ in the presence of error trees. See ((util::LanguageServer)) for more details.
 Any feedback (errors and exceptions) is faster and more clearly printed in the terminal.
 }
 void main() {
+    pcfg = getProjectPathConfig(|project://rascal-lsp|, mode=interpreter_external()); // Replace `rascal-lsp` with the name of the DSL project (`artifactId` in pom.xml)
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",
@@ -340,7 +341,7 @@ void main() {
     );
     registerLanguage(
         language(
-            pathConfig(),
+            pcfg,
             "Pico",
             {"pico", "pico-new"},
             "demo::lang::pico::LanguageServer",

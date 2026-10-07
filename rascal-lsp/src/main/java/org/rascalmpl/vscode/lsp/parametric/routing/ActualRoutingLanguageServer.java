@@ -220,7 +220,7 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         );
     }
 
-    private static Pair<ComparableVersion, List<ISourceLocation>> resolveDependencies(LanguageParameter lang) throws IOException {
+    public static Pair<ComparableVersion, List<ISourceLocation>> resolveDependencies(LanguageParameter lang) throws IOException {
         var pcfg = PathConfig.parse(lang.getPathConfig());
 
         if (isRascalLsp(pcfg.getProjectRoot())) {
@@ -233,10 +233,14 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
             .findFirst();
 
         if (lsp.isPresent()) {
-            return Pair.of(new ComparableVersion(getJarVersion(lsp.get())), classPath);
+            var lspVersion = new ComparableVersion(getJarVersion(lsp.get()));
+            if (lspVersion.compareTo(MINIMAL_COMPATIBLE_VERSION) < 0) {
+                throw new IOException(String.format("Incompatible version of `rascal-lsp` dependency in path config of language '%s' (provided version: %s; minimum required version: %s).", lang.getName(), lspVersion, MINIMAL_COMPATIBLE_VERSION));
+            }
+            return Pair.of(lspVersion, classPath);
         }
 
-        throw new IOException("No rascal-lsp dependency. Could not start language server");
+        throw new IOException(String.format("Missing `rascal-lsp` dependency in path config of language '%s'", lang.getName()));
     }
 
     private void forwardLogs(InputStream logStream, String langName) {
@@ -304,10 +308,6 @@ public class ActualRoutingLanguageServer extends BaseLanguageServer.ActualLangua
         // In deployment, we start a process and connect to it via input/output streams
         try {
             var dependencies = resolveDependencies(lang);
-            var lspVersion = dependencies.getLeft();
-            if (lspVersion.compareTo(MINIMAL_COMPATIBLE_VERSION) < 0) {
-                throw new IOException(String.format("'%s' depends on Rascal LSP version %s, which is not compatible with this version of the Rascal extension. Please update your language project to Rascal LSP %s (or newer).", lang.getName(), lspVersion, MINIMAL_COMPATIBLE_VERSION));
-            }
 
             var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
             var classPath = String.join(File.pathSeparator, dependencies.getRight().stream()
