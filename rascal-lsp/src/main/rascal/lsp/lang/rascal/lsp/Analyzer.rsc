@@ -80,8 +80,9 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
         }
 
         case i:(Import)`import util::LanguageServer;`: {
-            pomLoc = getPathConfig(tree.src.top).projectRoot + "pom.xml";
-            if (!hasRascalLspDependency(pomLoc)) {
+            projectRoot = getPathConfig(tree.src.top).projectRoot;
+            pomLoc = projectRoot + "pom.xml";
+            if (projectRoot.file != "rascal-lsp", !hasRascalLspDependency(pomLoc)) {
                 result += error(
                     "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`. Please add it to `pom.xml` or use the Quick Fix.",
                     i.src, fixes=[action(title="Add `rascal-lsp` dependency to `pom.xml`", command=addRascalLspDependencyToPom(pomLoc))]
