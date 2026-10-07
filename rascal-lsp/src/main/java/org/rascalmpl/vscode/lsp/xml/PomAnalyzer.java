@@ -50,15 +50,24 @@ public class PomAnalyzer {
         this.vf = vf;
     }
 
-    IBool hasDependency(ISourceLocation pomLoc, String groupId, String artifactId) {
+    private static Artifact getDependency(ISourceLocation pomLoc, String groupId, String artifactId) throws IOException {
         try {
             var mavenParser = new MavenParser(Path.of(pomLoc.getURI()));
             var rootProject = mavenParser.parseProject();
             var resolvedDependencies = rootProject.resolveDependencies(Scope.COMPILE, mavenParser);
-            return vf.bool(resolvedDependencies.stream()
-                .map(Artifact::getCoordinate)
-                .anyMatch(a -> a.getGroupId().equals(groupId) && a.getArtifactId().equals(artifactId)));
-        } catch (ModelResolutionError e) {
+            return resolvedDependencies.stream()
+                .filter(a -> a.getCoordinate().getGroupId().equals(groupId) && a.getCoordinate().getArtifactId().equals(artifactId))
+                .findFirst().orElseThrow(() -> new IOException("Did not find dependency " + groupId + ":" + artifactId + " in pom.xml at " + pomLoc));
+        } catch (ModelResolutionError | IOException e) {
+            throw new IOException(e);
+        }
+    }
+
+    private IBool hasDependency(ISourceLocation pomLoc, String groupId, String artifactId) {
+        try {
+            getDependency(pomLoc, groupId, artifactId);
+            return vf.bool(true);
+        } catch (IOException e) {
             return vf.bool(false);
         }
     }
@@ -69,6 +78,14 @@ public class PomAnalyzer {
 
     public IBool hasRascalLspDependency(ISourceLocation pomLoc) {
         return hasDependency(pomLoc, "org.rascalmpl", "rascal-lsp");
+    }
+
+    public static Artifact getRascalDependencyFromPom(ISourceLocation pomLoc) throws IOException {
+        return getDependency(pomLoc, "org.rascalmpl", "rascal");
+    }
+
+    public static Artifact getRascalLspDependencyFromPom(ISourceLocation pomLoc) throws IOException {
+        return getDependency(pomLoc, "org.rascalmpl", "rascal-lsp");
     }
 
     public IString getCurrentRascalLspVersion() {
