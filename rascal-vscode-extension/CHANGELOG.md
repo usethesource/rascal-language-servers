@@ -4,8 +4,14 @@ We only list significant changes, for a full changelog please review the [commit
 
 ## 0.14.0
 
-* Developing DSLs using `registerLanguage` now respects the Rascal and Rascal LSP versions from the language project's POM file.
-* Each language now runs in a dedicated process/JVM. A crash of one language does not affect others anymore, but increased memory usage may be observed.
+Works best with rascal 0.43.0 (and rascal-maven-plugin 0.32.0)
+
+* Developing DSLs using `registerLanguage` now respects the Rascal and Rascal LSP versions from the language project's POM file ("POM-leading"). Each language now runs in a dedicated process/JVM. A crash of one language does not affect others anymore, but increased memory usage may be observed. See the separate [blog post](???) for details. **Breaking change:** The path config of `registerLanguage` must now contain `rascal-lsp`. (#1090, #1222)
+* Improved UX: The analyzer now checks if pom.xml is required and exists. Furthermore, a new validator for pom.xml has been added to check version compatibility of `rascal`/`rascal-lsp` relative to the VS Code extension. Quick Fixes are provided to assist when checks fail. (#1183, #1204, #1214)
+* Descriptions of settings of the VS Code extension have been improved. (#1213)
+* Bug fixes:
+  * Fixed issue with moving `.rsc` files to paths that contain segments that are reserved keywords (#842)
+  * Fixed issue with non-fatal error dialog when creating a new REPL (#1203)
 
 ## 0.13.5
 
