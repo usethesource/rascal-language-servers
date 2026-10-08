@@ -141,7 +141,7 @@ TextEdit updateDependency(loc pomLoc, str groupId, str artifactId, str version) 
                 v:"version"(oldVersion) <- coordinates, loc versionSrc := v.src) {
             return replace(versionSrc, "\<version\><version>\</version\>");
         }
-        throw "No version found for dependency <groupId>:<artifactId> in <pomLoc>. Please review the (parent) pom.xml manually";
+        throw "Could not update version of <groupId>:<artifactId> in <pomLoc>. Please update the (parent) pom.xml manually";
     } catch _: {
         throw "No dependency entry for <groupId>:<artifactId> found in <pomLoc>";
     }
