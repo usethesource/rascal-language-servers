@@ -26,15 +26,18 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.conversion;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticRelatedInformation;
 import org.eclipse.lsp4j.DiagnosticSeverity;
@@ -42,12 +45,16 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.exceptions.Throw;
+import org.rascalmpl.interpreter.utils.RascalManifest;
+import org.rascalmpl.library.Messages;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
+import org.rascalmpl.vscode.lsp.xml.PomAnalyzer;
 
 import io.usethesource.vallang.ICollection;
 import io.usethesource.vallang.IConstructor;
@@ -57,8 +64,13 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.type.Type;
+import io.usethesource.vallang.type.TypeFactory;
 
 public class Diagnostics {
+    private static final IValueFactory vf = IRascalValueFactory.getInstance();
+    private static final TypeFactory tf = TypeFactory.getInstance();
+
     private static final String PARSER_DIAGNOSTICS_SOURCE = "parser";
     private static final String PARSE_ERROR_MESSAGE = "The parser couldn't fully understand this code.";
 
@@ -286,5 +298,45 @@ public class Diagnostics {
         }
         logger.error("Filtering diagnostic as it's an unsupported file to report diagnostics on ({}): {}", loc, m);
         return false;
+    }
+
+    // These versions are the first released versions after finishing the "pom-leading" project,
+    // in which the cut of the tight coupling between `rascal` and `rascal-lsp` was established.
+    private static final ComparableVersion MINIMAL_RASCAL_VERSION = new ComparableVersion("0.43.0");
+    private static final ComparableVersion MINIMAL_RASCAL_LSP_VERSION = new ComparableVersion("2.23.0");
+
+    // These declarations mirror the data definitions in the `lang::rascal::lsp::Actions` module
+    private static final Type Command_updateRascalDependency = tf.constructor(Messages.ts, Messages.Command, "updateRascalDependency", tf.sourceLocationType(), "pomLoc", tf.stringType(), "version");
+    private static final Type Command_updateRascalLspDependency = tf.constructor(Messages.ts, Messages.Command, "updateRascalLspDependency", tf.sourceLocationType(), "pomLoc", tf.stringType(), "version");
+
+    private static IConstructor makeUpdateDependencyMessage(String dependency, Type commandType, ISourceLocation pomXml, String oldVersion, String newVersion) {
+        var errorLocation = vf.sourceLocation(pomXml, 0, 0, 2, 2, 0, 8);
+        var error = Messages.error(dependency + " version in pom.xml (" + oldVersion.toString() + ") is too old. Update the dependency or use the Quick Fix.", errorLocation);
+        var codeAction = vf.constructor(commandType, new IValue[] { errorLocation, vf.string(newVersion) }, Map.of("title", vf.string("Update Rascal dependency in pom.xml")));
+        var fix = vf.constructor(Messages.CodeAction_action, new IValue[]{}, Map.of("command", codeAction));
+        return Messages.addFix(error, fix);
+    }
+
+    public static ISet verifyRascalAndLspVersions(ISourceLocation pomXml) throws IOException {
+        var rascalDependencyVersion = PomAnalyzer.getRascalDependencyFromPom(pomXml).getCoordinate().getVersion();
+        var rascalLspDependencyVersion = PomAnalyzer.getRascalLspDependencyFromPom(pomXml).getCoordinate().getVersion();
+        var rascalVersion = new ComparableVersion(rascalDependencyVersion);
+        var rascalLspVersion = new ComparableVersion(rascalLspDependencyVersion);
+
+        var rascalIsNewEnough = rascalVersion.compareTo(MINIMAL_RASCAL_VERSION) > 0;
+        var rascalLspIsNewEnough = rascalLspVersion.compareTo(MINIMAL_RASCAL_LSP_VERSION) > 0;
+
+        var messagesWriter = vf.setWriter();
+        if (!rascalIsNewEnough) {
+            messagesWriter.append(makeUpdateDependencyMessage("Rascal", Command_updateRascalDependency, pomXml, rascalDependencyVersion, RascalManifest.getRascalVersionNumber()));
+        }
+        if (!rascalLspIsNewEnough) {
+            var currentRascalLspVersion = PomAnalyzer.currentRascalLspVersion();
+            if (currentRascalLspVersion == null) {
+                currentRascalLspVersion = "???";
+            }
+            messagesWriter.append(makeUpdateDependencyMessage("Rascal-lsp", Command_updateRascalLspDependency, pomXml, rascalLspDependencyVersion, currentRascalLspVersion));
+        }
+        return messagesWriter.done();
     }
 }
