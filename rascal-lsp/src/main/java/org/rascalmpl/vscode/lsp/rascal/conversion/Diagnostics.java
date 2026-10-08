@@ -312,7 +312,7 @@ public class Diagnostics {
     private static IConstructor makeUpdateDependencyMessage(String dependency, Type commandType, ISourceLocation pomXml, String oldVersion, String newVersion) {
         var errorLocation = vf.sourceLocation(pomXml, 0, 0, 2, 2, 0, 8);
         var error = Messages.error(dependency + " version in pom.xml (" + oldVersion.toString() + ") is too old. Update the dependency or use the Quick Fix.", errorLocation);
-        var codeAction = vf.constructor(commandType, new IValue[] { errorLocation, vf.string(newVersion) }, Map.of("title", vf.string("Update Rascal dependency in pom.xml")));
+        var codeAction = vf.constructor(commandType, new IValue[] { errorLocation, vf.string(newVersion) }, Map.of("title", vf.string("Update " + dependency + " dependency in pom.xml")));
         var fix = vf.constructor(Messages.CodeAction_action, new IValue[]{}, Map.of("command", codeAction));
         return Messages.addFix(error, fix);
     }
