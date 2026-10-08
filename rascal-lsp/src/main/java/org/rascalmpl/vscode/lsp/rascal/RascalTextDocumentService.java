@@ -59,7 +59,6 @@ import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CreateFilesParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
-import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -111,10 +110,8 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.rascalmpl.interpreter.utils.RascalManifest;
-import org.rascalmpl.library.Messages;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
-import org.rascalmpl.library.util.SemVer;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
@@ -132,7 +129,6 @@ import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices.CodeLensSuggestion;
 import org.rascalmpl.vscode.lsp.rascal.conversion.CodeActions;
-import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentSymbols;
 import org.rascalmpl.vscode.lsp.rascal.conversion.FoldingRanges;
@@ -156,8 +152,6 @@ import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
-import io.usethesource.vallang.type.Type;
-import io.usethesource.vallang.type.TypeFactory;
 
 public class RascalTextDocumentService extends TextDocumentStateManager implements IBaseTextDocumentService, LanguageClientAware {
     private static final IValueFactory VF = IRascalValueFactory.getInstance();
@@ -220,7 +214,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("verifyRascalAndLspVersions: {}", forFile);
         try {
             var pomXml = URIUtil.getChildLocation(PathConfigs.inferProjectRoot(forFile), "pom.xml");
-            var messages = Diagnostics.verifyRascalAndLspVersions(pomXml);
+            var messages = PomAnalyzer.verifyRascalAndLspVersions(pomXml);
             availableFacts().reportTypeCheckerMessages(Map.of(pomXml, messages));
             return messages.isEmpty();
         } catch (IOException e) {
