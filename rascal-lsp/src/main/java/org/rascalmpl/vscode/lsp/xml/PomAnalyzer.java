@@ -83,20 +83,24 @@ public class PomAnalyzer {
         }
     }
 
+    private static final String ORG_RASCALMPL = "org.rascalmpl";
+    private static final String RASCAL = "rascal";
+    private static final String RASCAL_LSP = "rascal-lsp";
+
     public IBool hasRascalDependency(ISourceLocation pomLoc) {
-        return hasDependency(pomLoc, "org.rascalmpl", "rascal");
+        return hasDependency(pomLoc, ORG_RASCALMPL, RASCAL);
     }
 
     public IBool hasRascalLspDependency(ISourceLocation pomLoc) {
-        return hasDependency(pomLoc, "org.rascalmpl", "rascal-lsp");
+        return hasDependency(pomLoc, ORG_RASCALMPL, RASCAL_LSP);
     }
 
     public static Artifact getRascalDependencyFromPom(ISourceLocation pomLoc) throws IOException {
-        return getDependency(pomLoc, "org.rascalmpl", "rascal");
+        return getDependency(pomLoc, ORG_RASCALMPL, RASCAL);
     }
 
     public static Artifact getRascalLspDependencyFromPom(ISourceLocation pomLoc) throws IOException {
-        return getDependency(pomLoc, "org.rascalmpl", "rascal-lsp");
+        return getDependency(pomLoc, ORG_RASCALMPL, RASCAL_LSP);
     }
 
     public IString getCurrentRascalLspVersion() {
@@ -141,7 +145,7 @@ public class PomAnalyzer {
 
     private static final ComparableVersion getMinimalRascalVersion() {
         var currentRascalVersion = RascalManifest.getRascalVersionNumber();
-        if (currentRascalVersion == "Not specified") {
+        if (currentRascalVersion.equals("Not specified")) {
             return ZERO_ZERO_ZERO;
         }
         return min(MINIMAL_RASCAL_RELEASE_VERSION, new ComparableVersion(currentRascalVersion));
@@ -165,7 +169,7 @@ public class PomAnalyzer {
 
     private static IConstructor makeUpdateDependencyMessage(String dependency, Type commandType, ISourceLocation pomXml, String oldVersion, String newVersion) {
         var errorLocation = vf.sourceLocation(pomXml, 0, 0, 2, 2, 0, 8);
-        var error = Messages.error(dependency + " version in pom.xml (" + oldVersion.toString() + ") is too old. Update the dependency or use the Quick Fix.", errorLocation);
+        var error = Messages.error(dependency + " version in pom.xml (" + oldVersion + ") is too old. Update the dependency or use the Quick Fix.", errorLocation);
         var codeAction = vf.constructor(commandType, new IValue[] { errorLocation, vf.string(newVersion) }, Map.of("title", vf.string("Update " + dependency + " dependency in pom.xml")));
         var fix = vf.constructor(Messages.CodeAction_action, new IValue[]{}, Map.of("command", codeAction));
         return Messages.addFix(error, fix);
@@ -182,11 +186,11 @@ public class PomAnalyzer {
 
         var messagesWriter = vf.setWriter();
         if (!rascalIsNewEnough) {
-            logger.debug("Rascal dependency (" + rascalDependencyVersion + ") is outdated (expected >= " + getMinimalRascalVersion() + ")");
+            logger.debug("Rascal dependency ({}) is outdated (expected >= {})", rascalDependencyVersion, getMinimalRascalVersion());
             messagesWriter.append(makeUpdateDependencyMessage("Rascal", Command_updateRascalDependency, pomXml, rascalDependencyVersion, RascalManifest.getRascalVersionNumber()));
         }
         if (!rascalLspIsNewEnough) {
-            logger.info("Rascal-lsp dependency (" + rascalLspDependencyVersion + ") outdated (expected >= " + getMinimalRascalLspVersion() + ")");
+            logger.info("Rascal-lsp dependency ({}) outdated (expected >= {})", rascalLspDependencyVersion, getMinimalRascalLspVersion());
             var currentRascalLspVersion = PomAnalyzer.currentRascalLspVersion();
             if (currentRascalLspVersion == null) {
                 currentRascalLspVersion = "???";
