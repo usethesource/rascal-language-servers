@@ -139,8 +139,6 @@ TextEdit updateDependency(loc pomLoc, str groupId, str artifactId, str version) 
         for (node project := getChildNode(pom, "project"), node dependencies := getChildNode(project, "dependencies"), list[node] children := getChildren(dependencies),
                 dependency <- children, list[node] coordinates := getChildren(dependency), "groupId"(groupId) <- coordinates, "artifactId"(artifactId) <- coordinates,
                 v:"version"(oldVersion) <- coordinates, loc versionSrc := v.src) {
-            // writeFile(versionSrc, version);
-            println("Found old version <oldVersion> at <versionSrc>, replace with <version>");
             return replace(versionSrc, "\<version\><version>\</version\>");
         }
         throw "No version found for dependency <groupId>:<artifactId> in <pomLoc>. Please review the (parent) pom.xml manually";
