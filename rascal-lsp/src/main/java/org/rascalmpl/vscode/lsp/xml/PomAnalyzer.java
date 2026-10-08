@@ -32,6 +32,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
@@ -56,6 +58,8 @@ import io.usethesource.vallang.type.TypeFactory;
 public class PomAnalyzer {
     private static final IValueFactory vf = IRascalValueFactory.getInstance();
     private static final TypeFactory tf = TypeFactory.getInstance();
+
+    private static final Logger logger = LogManager.getLogger(PomAnalyzer.class);
 
     private static Artifact getDependency(ISourceLocation pomLoc, String groupId, String artifactId) throws IOException {
         try {
@@ -131,8 +135,29 @@ public class PomAnalyzer {
 
     // These versions are the first released versions after finishing the "pom-leading" project,
     // in which the cut of the tight coupling between `rascal` and `rascal-lsp` was established.
-    private static final ComparableVersion MINIMAL_RASCAL_VERSION = new ComparableVersion("0.43.0");
-    private static final ComparableVersion MINIMAL_RASCAL_LSP_VERSION = new ComparableVersion("2.23.0");
+    private static final ComparableVersion MINIMAL_RASCAL_RELEASE_VERSION = new ComparableVersion("0.43.0");
+    private static final ComparableVersion MINIMAL_RASCAL_LSP_RELEASE_VERSION = new ComparableVersion("2.23.0");
+    private static final ComparableVersion ZERO_ZERO_ZERO = new ComparableVersion("0.0.0");
+
+    private static final ComparableVersion getMinimalRascalVersion() {
+        var currentRascalVersion = RascalManifest.getRascalVersionNumber();
+        if (currentRascalVersion == "Not specified") {
+            return ZERO_ZERO_ZERO;
+        }
+        return min(MINIMAL_RASCAL_RELEASE_VERSION, new ComparableVersion(currentRascalVersion));
+    }
+
+    private static final ComparableVersion getMinimalRascalLspVersion() {
+        var currentRascalLspVersion = currentRascalLspVersion();
+        if (currentRascalLspVersion == null) {
+            return ZERO_ZERO_ZERO;
+        }
+        return min(MINIMAL_RASCAL_LSP_RELEASE_VERSION, new ComparableVersion(currentRascalLspVersion));
+    }
+
+    private static ComparableVersion min(ComparableVersion lhs, ComparableVersion rhs) {
+        return lhs.compareTo(rhs) < 0 ? lhs : rhs;
+    }
 
     // These declarations mirror the data definitions in the `lang::rascal::lsp::Actions` module
     private static final Type Command_updateRascalDependency = tf.constructor(Messages.ts, Messages.Command, "updateRascalDependency", tf.sourceLocationType(), "pomLoc", tf.stringType(), "version");
@@ -152,14 +177,16 @@ public class PomAnalyzer {
         var rascalVersion = new ComparableVersion(rascalDependencyVersion);
         var rascalLspVersion = new ComparableVersion(rascalLspDependencyVersion);
 
-        var rascalIsNewEnough = rascalVersion.compareTo(MINIMAL_RASCAL_VERSION) > 0;
-        var rascalLspIsNewEnough = rascalLspVersion.compareTo(MINIMAL_RASCAL_LSP_VERSION) > 0;
+        var rascalIsNewEnough = rascalVersion.compareTo(getMinimalRascalVersion()) >= 0;
+        var rascalLspIsNewEnough = rascalLspVersion.compareTo(getMinimalRascalLspVersion()) >= 0;
 
         var messagesWriter = vf.setWriter();
         if (!rascalIsNewEnough) {
+            logger.debug("Rascal dependency (" + rascalDependencyVersion + ") is outdated (expected >= " + getMinimalRascalVersion() + ")");
             messagesWriter.append(makeUpdateDependencyMessage("Rascal", Command_updateRascalDependency, pomXml, rascalDependencyVersion, RascalManifest.getRascalVersionNumber()));
         }
         if (!rascalLspIsNewEnough) {
+            logger.info("Rascal-lsp dependency (" + rascalLspDependencyVersion + ") outdated (expected >= " + getMinimalRascalLspVersion() + ")");
             var currentRascalLspVersion = PomAnalyzer.currentRascalLspVersion();
             if (currentRascalLspVersion == null) {
                 currentRascalLspVersion = "???";
