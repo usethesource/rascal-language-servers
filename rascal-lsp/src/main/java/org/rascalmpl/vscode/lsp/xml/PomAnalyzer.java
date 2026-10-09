@@ -177,14 +177,14 @@ public class PomAnalyzer {
         return Messages.addFix(error, fix);
     }
 
-    public static ISet verifyRascalAndLspVersions(ISourceLocation pomXml) throws IOException {
+    public static ISet verifyRascalAndLspVersions(ISourceLocation pomXml) {
         var messagesWriter = vf.setWriter();
 
         try {
             var rascalDependencyVersion = PomAnalyzer.getRascalDependencyFromPom(pomXml).getCoordinate().getVersion();
             var rascalVersion = new ComparableVersion(rascalDependencyVersion);
             var rascalIsNewEnough = rascalVersion.compareTo(getMinimalRascalVersion()) >= 0;
-            
+
             if (!rascalIsNewEnough) {
                 logger.debug("Rascal dependency ({}) is outdated (expected >= {})", rascalDependencyVersion, getMinimalRascalVersion());
                 var currentRascalVersion = RascalManifest.getRascalVersionNumber();

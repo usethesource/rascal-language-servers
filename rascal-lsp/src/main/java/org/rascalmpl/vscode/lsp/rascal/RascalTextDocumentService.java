@@ -212,16 +212,10 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     @Override
     public boolean verifyRascalAndLspVersions(ISourceLocation forFile) {
         logger.debug("verifyRascalAndLspVersions: {}", forFile);
-        try {
-            var pomXml = URIUtil.getChildLocation(PathConfigs.inferProjectRoot(forFile), "pom.xml");
-            var messages = PomAnalyzer.verifyRascalAndLspVersions(pomXml);
-            availableFacts().reportTypeCheckerMessages(Map.of(pomXml, messages));
-            return messages.isEmpty();
-        } catch (IOException e) {
-            availableClient().showMessage(new MessageParams(MessageType.Warning, "Could not verify compatibility of Rascal and Rascal-lsp versions."));
-            logger.error("Exception while checking Rascal/LSP compatibility", e);
-            return false;
-        }
+        var pomXml = URIUtil.getChildLocation(PathConfigs.inferProjectRoot(forFile), "pom.xml");
+        var messages = PomAnalyzer.verifyRascalAndLspVersions(pomXml);
+        availableFacts().reportTypeCheckerMessages(Map.of(pomXml, messages));
+        return messages.isEmpty();
     }
 
     private static ISourceLocation resolveMavenIfPossible(MavenRepositoryURIResolver mvn, ISourceLocation loc) {
