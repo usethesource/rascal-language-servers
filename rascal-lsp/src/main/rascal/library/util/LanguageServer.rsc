@@ -145,7 +145,7 @@ hover documentation, definition with uses, references to declarations, implement
    * ((util::LanguageServer::build))s typically run whole-program analyses and compilation steps.
    * ((util::LanguageServer::build))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
    * ((util::LanguageServer::build))s are triggered on _save-file_ events; they _push_ information to an internal cache.
-   * Warning: ((util::LanguageServer::build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
+   * Warning: ((util::LanguageServer::build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analysis)).
    * If `providesDocumentation` is false, then the ((hover)) service may be activated. Same for `providesDefinitions` and `providesDocumentation`
 ))
 * the following contributions are _on-demand_ (pull) versions of information also provided by the ((analysis)) and ((util::LanguageServer::build)) summaries.
@@ -157,9 +157,9 @@ hover documentation, definition with uses, references to declarations, implement
    * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * The ((documentSymbol)) service maps a source file to a pretty hierarchy for visualization in the "outline" view and "symbol search" features.
 * The ((codeLens)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
-* The ((inlayHint)) service discovers places to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
-* The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
-* The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
+* The ((inlayHint)) service discovers places to add "inlays" (little views embedded in the editor on the same line). Unlike a ((codeLens)), an inlay does not offer command execution.
+* The ((execution)) service executes the commands registered by ((codeLens))es and ((inlayHint))s.
+* The ((CodeAction)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 * The ((util::LanguageServer::rename)) service renames an identifier by collecting the edits required to rename all occurrences of that identifier. It might fail and report why in diagnostics.
    * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renaming the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
@@ -189,7 +189,7 @@ To start developing an LSP extension step-by-step:
 1. first write a SyntaxDefinition in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL-REPL)) to
 test it immediately. Create some example files for your language to play around with.
 2. either make an ((analysis)) service that produces a ((Summary)) _or_ start ((hover)), ((definition)), ((references)) and ((implementation))
-lookup services. Each of those four services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((builder)).
+lookup services. Each of those four services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((build)).
 3. the ((documentSymbol)) service is next, good for the outline view and also quick search features.
 4. the to add interactive features, optionally ((inlayHint)), ((codeLens)) and ((codeAction)) can be created to add visible hooks in the UI to trigger
 your own ((CodeAction))s and Commands
@@ -466,7 +466,7 @@ The fixes you provide with a message will be hinted at by a light-bulb in the ed
 Every fix listed here will be a menu item in the pop-up menu when the bulb is activated (via short-cut or otherwise).
 
 Note that for a ((CodeAction)) to be executed, you must either provide `edits` directly and/or handle
-a ((util::LanguageServer::Command)) and add its execution to the ((CommandExecutor)) contribution function.
+a ((util::LanguageServer::Command)) and add its execution to the ((execution)) service function.
 }
 @benefits{
 * the information required to produce an error message is usually also required for the fix. So this
@@ -476,7 +476,7 @@ coupling of message with fixes may come in handy.
 * the code for error messaging may become cluttered with code for fixes. It is advisable to only _collect_ information for the fix
 and store it in a ((util::LanguageServer::Command)) constructor inside the ((CodeAction)), or to delegate to a function that produces
 the right ((DocumentEdit))s immediately.
-* don't forget to extend ((util::LanguageServer::Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
+* don't forget to extend ((util::LanguageServer::Command)) with a new constructor and the ((execution)) service with a new overload to handle that constructor.
 }
 data Message(list[CodeAction] fixes = []);
 
@@ -485,13 +485,13 @@ data Message(list[CodeAction] fixes = []);
 Commands can be any closed term a() pure value without open variables or function/closure values embedded in it). Add any constructor you need to express the execution parameters
 of a command.
 
-You write the ((CommandExecutor)) to interpret each kind of ((util::LanguageServer::Command)) individually.
-A ((Command) constructor must have fields or keyword fields that hold the parameters of the
+You write the ((execution)) service to interpret each kind of ((util::LanguageServer::Command)) individually.
+A ((Command)) constructor must have fields or keyword fields that hold the parameters of the
 to-be-executed command.
 
 Commands are produced for delayed and optional execution by:
-* ((LensDetector)), where the will be executed if the lens is selected in the editor
-* ((CodeActionContributor)), where they will appear in context-menus for quick-fix and refactoring
+* ((OrderedLensDetector)), where they will be executed if the lens is selected in the editor
+* the ((CodeAction)) service, where they will appear in context-menus for quick-fix and refactoring
 * ((Message)), where they will appear in context-menus on lines with error or warning diagnostics
 
 See also ((CodeAction)); a wrapper for ((util::LanguageServer::Command)) for fine-tuning UI interactions.
@@ -509,7 +509,7 @@ value evaluator(showFlowDiagram(loc src)) {
 ```
 }
 @pitfalls{
-* Sometimes a command must be wrapped in a ((CodeAction)) to make it effective (see ((CodeActionContributor)) and ((Message)) )
+* Sometimes a command must be wrapped in a ((CodeAction)) to make it effective (see the ((CodeAction)) service and ((Message)))
 * the `noop()` command will always be ignored.
 * _never_ add first-class functions or closures as a parameter or keyword field to a `Command`. The Command will
 be serialized, sent to the LSP client, and then sent back to the LSP server for execution. Functions can not be
@@ -536,7 +536,7 @@ If a ((util::LanguageServer::Command))[command] is provided, then:
 1. The title of the command is shown to the user
 2. The user picks this code action (from a list or pressed "OK" in a dialog)
 3. Any `edits` (see above) are applied first
-4. The command is executed on the server side via the ((CommandExecutor)) contribution
+4. The command is executed on the server side via the ((execution)) service
    * Many commands use ((util::IDEServices::applyDocumentsEdits)) to provide additional changes to the input
    * Other commands might use ((util::IDEServices::showInteractiveContent)) to start a linked webview inside of the IDE
    * Also ((util::IDEServices::registerDiagnostics)) is a typical effect of a ((CodeAction)) ((util::LanguageServer::Command)).
@@ -549,7 +549,7 @@ interactive content have to be cleaned or closed in their own respective fashion
 tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
 * `edits` are applied on the latest editor content for the current editor; live to the user.
 * ((util::IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
-* The parse tree for the current file is synchronized with the call to a ((CodeActionContributor)) such that edits
+* The parse tree for the current file is synchronized with the call to a ((CodeAction)) service such that edits
 and input are computed in-sync.
 }
 @pitfalls{
