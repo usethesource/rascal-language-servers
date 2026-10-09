@@ -2,6 +2,10 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.22.6 (VS Code: 0.14.0)
+
+TODO
+
 ## Release 2.22.5 (VS Code: 0.13.5)
 
 Works best with rascal 0.42.2 (and rascal-maven-plugin 0.31.0)
