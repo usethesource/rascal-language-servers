@@ -100,7 +100,7 @@ of the user.
 }
 alias Focus = list[Tree];
 
-@synopsis{Function profile for lenses contributions to a language server}
+@synopsis{Function profile for lenses service to a language server}
 alias OrderedLensDetector     = lrel[loc src, Command lens] (Tree _input);
 
 @synopsis{Each kind of service contributes the implementation of one (or several) IDE features.}
@@ -131,7 +131,7 @@ interpreter lock will make the editor services less responsive.
      registering the ((parsing)) service.
    * You can enable error recovery in the parser like by setting `allowRecovery` to `true`: `parser(#start[Program], allowRecovery=true)`.
 With error recovery enabled  "hard" parse errors can still occur but that will be rare. In most cases parsing with error recovery enabled
-will produce a parse tree with error nodes. Syntax highlighting will still work on such trees. Note that any contributions that you add must be
+will produce a parse tree with error nodes. Syntax highlighting will still work on such trees. Note that any services that you add must be
 able to handle such error trees or unexpected things will happen like strange results and crashes. More information on error recovery and error trees
 can be found in ((ParseTree::Production)), ((ParseTree::parser)), and ((util::ParseErrorRecovery)).
 * The ((analysis)) service indexes a file as a ((Summary)), offering precomputed relations for looking up
@@ -148,7 +148,7 @@ hover documentation, definition with uses, references to declarations, implement
    * Warning: ((util::LanguageServer::build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analysis)).
    * If `providesDocumentation` is false, then the ((hover)) service may be activated. Same for `providesDefinitions` and `providesDocumentation`
 ))
-* the following contributions are _on-demand_ (pull) versions of information also provided by the ((analysis)) and ((util::LanguageServer::build)) summaries.
+* the following services are _on-demand_ (pull) versions of information also provided by the ((analysis)) and ((util::LanguageServer::build)) summaries.
    * you can provide these more lightweight on-demand services _instead of_ the ((Summary)) versions.
    * these functions are run synchronously after a user interaction. The run-time of each service corresponds directly to the UX response time.
    * a ((hover)) service is a fast and location specific version of the `documentation` relation in a ((Summary)).
@@ -638,14 +638,14 @@ We register languages by uploading the meta-data of the implementation to a "lan
 3. Each specific extension is mapped to a specific part of the language server protocol.
 
 By registering a language twice, more things can happen:
-* existing contributions are re-loaded and overwritten with the newest version.
-* new contributions to an existing language (`Language` constructor instance), will be added to the existing LSP server instance. You can use this to load expensive features later or more lazily.
-* errors appear during loading or first execution of the contribution. The specific contribution is then usually aborted and unregistered.
+* existing services are re-loaded and overwritten with the newest version.
+* new services to an existing language (`Language` constructor instance), will be added to the existing LSP server instance. You can use this to load expensive features later or more lazily.
+* errors appear during loading or first execution of the service. The specific service is then usually aborted and unregistered.
 
 Because registerLanguage has effect in a different OS process, errors and warnings are not printed in the calling execution context.
 In general look at the "Parametric Rascal Language Server" log tab in the IDE to see what is going on.
 
-However since language contributions are just Rascal functions, it is advised to simply test them first right there in the terminal.
+However since language services are just Rascal functions, it is advised to simply test them first right there in the terminal.
 Use `util::Reflective::getProjectPathConfig` for a representative configuration, with `mode = interpreter_external()` as keyword parameter.
 }
 java void registerLanguage(Language lang);
