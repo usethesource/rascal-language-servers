@@ -72,25 +72,6 @@ the registered language runs in another instance of the JVM and of Rascal.
 data Language
     = language(PathConfig pcfg, str name, set[str] extensions, str mainModule, str mainFunction);
 
-@deprecated{Please upgrade to the new constructor of the Language ADT}
-Language language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction)
-    = language(pcfg, name, {extension}, mainModule, mainFunction);
-
-@synopsis{Function profile for parser contributions to a language server}
-@description{
-The parser function takes care of parsing the tree once after every change in the IDE.
-This parse tree is then used for both syntax highlighting and other language server functions.
-}
-@pitfalls {
-* use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
-}
-@deprecated{Used only in deprecated functions}
-alias Parser           = Tree (str _input, loc _origin);
-
-@synopsis{Function profile for summarizer contributions to a language server}
-@deprecated{Used only in deprecated functions}
-alias Summarizer       = Summary (loc _origin, Tree _input);
-
 @synopsis{A focus provides the currently selected language constructs around the cursor.}
 @description{
 A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if
@@ -119,42 +100,8 @@ of the user.
 }
 alias Focus = list[Tree];
 
-@synopsis{Function profile for outliner contributions to a language server}
-@deprecated{Only in use in deprecated functions.}
-alias Outliner         = list[DocumentSymbol] (Tree _input);
-
-@synopsis{Function profile for lenses contributions to a language server}
-@deprecated{Only in use in deprecated functions.}
-alias LensDetector     = rel[loc src, Command lens] (Tree _input);
-
 @synopsis{Function profile for lenses contributions to a language server}
 alias OrderedLensDetector     = lrel[loc src, Command lens] (Tree _input);
-
-@synopsis{Function profile for executor contributions to a language server}
-@deprecated{Only in use in deprecated functions.}
-alias CommandExecutor  = value (Command _command);
-
-@synopsis{Function profile for inlay contributions to a language server}
-@deprecated{Only in use in deprecated functions.}
-alias InlayHinter      = list[InlayHint] (Tree _input);
-
-@deprecated{Only in use in deprecated functions}
-alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
-
-@deprecated{Only in use in deprecated functions}
-alias CodeActionContributor = list[CodeAction] (Focus _focus);
-
-@synopsis{Function profile for definer contributions to a language server}
-@deprecated{Use ((definition)) instead.}
-alias Definer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
-
-@synopsis{Function profile for referrer contributions to a language server}
-@deprecated{Use ((references)) instead}
-alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
-
-@synopsis{Function profile for implementer contributions to a language server}
-@deprecated{Use ((implementation)) instead.}
-alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Each kind of service contributes the implementation of one (or several) IDE features.}
 @description{
@@ -434,200 +381,6 @@ data CallDirection
     | outgoing()
     ;
 
-@deprecated{Backward compatible with ((parsing)).}
-@synopsis{Construct a `parsing` ((LanguageService))}
-LanguageService parser(Parser parser) = parsing(parser);
-
-@deprecated{Backward compatible with ((codeLens))}
-@synopsis{Construct a ((codeLens)) ((LanguageService))}
-@description{
-Not only translates to the old name of the LanguageService,
-it also maps the list to an arbitrarily ordered set as it was before.
-}
-@benefits{
-* If you need your lenses in a stable order in the editor,
-use the ((codeLens)) constructor instead to provide a function that
-uses an ordered list.
-}
-LanguageService lenses(LensDetector detector) = codeLens(lrel[loc src, Command lens] (Tree input) {
-    return [*detector(input)];
-});
-
-@deprecated{Backward compatible with ((codeAction))}
-@synopsis{Construct a ((codeAction)) ((LanguageService))}
-LanguageService actions(CodeActionContributor contributor) = codeAction(contributor);
-
-@deprecated{Backward compatible with ((util::LanguageServer::build))}
-@synopsis{Construct a ((util::LanguageServer::build)) ((LanguageService))}
-LanguageService builder(Summarizer summarizer) = build(summarizer);
-
-@deprecated{Backward compatible with ((documentSymbol))}
-@synopsis{Construct a ((documentSymbol)) ((LanguageService))}
-LanguageService outliner(Outliner outliner) = documentSymbol(outliner);
-
-@deprecated{Backward compatible with ((inlayHint))}
-@synopsis{Construct a ((inlayHint)) ((LanguageService))}
-LanguageService inlayHinter(InlayHinter hinter) = inlayHint(hinter);
-
-@deprecated{Backward compatible with ((execution))}
-@synopsis{Construct a ((execution)) ((LanguageService))}
-LanguageService executor(CommandExecutor executor) = execution(executor);
-
-@deprecated{
-This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
-
-To replace an old-style ((Documenter)) with a new style ((hover)) service follow
-this scheme:
-
-```rascal
-set[loc] oldDocumenter(loc document, Tree selection, Tree fullTree) {
-    ...
-}
-// by this scheme:
-set[loc] newHoverService([Tree selection, *Tree _spine, Tree fullTree]) {
-  loc document = selection@\loc.top;
-  ...
-}
-default set[loc] newHoverService(list[Tree] _focus) = {};
-```
-}
-LanguageService documenter(Documenter d) {
-    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
-        return d(lex.src.top, fullTree, lex);
-    }
-
-    default set[str] focusAcceptor (list[Tree] _focus) {
-        return {};
-    }
-
-    return hover(focusAcceptor);
-}
-
-@deprecated{
-This is a backward compatibility layer for the pre-existing ((Definer)) alias.
-
-To replace an old-style ((Definer)) with a new style ((definition)) service follow
-this scheme:
-
-```rascal
-set[loc] oldDefiner(loc document, Tree selection, Tree fullTree) {
-    ...
-}
-// by this scheme:
-set[loc] newDefinitionService([Tree selection, *Tree _spine, Tree fullTree]) {
-  loc document = selection@\loc.top;
-  ...
-}
-default set[loc] newDefinitionService(list[Tree] _focus) = {};
-```
-}
-LanguageService definer(Definer d) {
-    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
-        return d(lex.src.top, fullTree, lex);
-    }
-
-    default set[loc] focusAcceptor (list[Tree] _focus) {
-        return {};
-    }
-
-    return definition(focusAcceptor);
-}
-
-
-@synopsis{Registers an old-style ((Referrer))}
-@deprecated{
-This is a backward compatibility layer for the pre-existing ((Referrer)) alias.
-
-To replace an old-style ((Referrer)) with a new style ((references)) service follow
-this scheme.
-
-```rascal
-set[loc] oldReferrer(loc document, Tree selection, Tree fullTree) {
-    ...
-}
-// by this scheme:
-set[loc] newReferencesService([Tree selection, *Tree _spine, Tree fullTree]) {
-  loc document = selection@\loc.top;
-  ...
-}
-default set[loc] newReferencesService(list[Tree] _focus) = {};
-```
-}
-LanguageService referrer(Referrer d) {
-    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
-        return d(lex.src.top, fullTree, lex);
-    }
-
-    default set[loc] focusAcceptor (list[Tree] _focus) {
-        return {};
-    }
-
-    return references(focusAcceptor);
-}
-
-@synopsis{Registers an old-style ((Implementer))}
-@deprecated{
-This is a backward compatibility layer for the pre-existing ((Implementer)) alias.
-
-To replace an old-style ((Implementer)) with a new style ((implementation)) service follow
-this scheme:
-
-```rascal
-set[loc] oldImplementer(loc document, Tree selection, Tree fullTree) {
-    ...
-}
-// by this scheme:
-set[loc] newImplementationService([Tree selection, *Tree _spine, Tree fullTree]) {
-  loc document = selection@\loc.top;
-  ...
-}
-default set[loc] newImplementationService(list[Tree] _focus) = {};
-
-```
-}
-LanguageService implementer(Implementer d) {
-    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
-        return d(lex.src.top, fullTree, lex);
-    }
-
-    default set[loc] focusAcceptor (list[Tree] _focus) {
-        return {};
-    }
-
-    return implementation(focusAcceptor);
-}
-
-@deprecated{Please use ((util::LanguageServer::build)) or ((analysis))}
-@synopsis{A summarizer collects information for later use in interactive IDE features.}
-LanguageService summarizer(Summarizer summarizer
-        , bool providesDocumentation = true
-        , bool providesHovers = providesDocumentation
-        , bool providesDefinitions = true
-        , bool providesReferences = true
-        , bool providesImplementations = true) {
-    println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
-    return build(summarizer
-        , providesDocumentation = providesDocumentation
-        , providesHovers = providesHovers
-        , providesDefinitions = providesDefinitions
-        , providesReferences = providesReferences
-        , providesImplementations = providesImplementations);
-}
-
-@deprecated{Please use ((util::LanguageServer::build)) or ((analysis))}
-@synopsis{An analyzer collects information for later use in interactive IDE features.}
-LanguageService analyzer(Summarizer summarizer
-        , bool providesDocumentation = true
-        , bool providesDefinitions = true
-        , bool providesReferences = true
-        , bool providesImplementations = true) {
-    return analysis(summarizer
-        , providesDocumentation = providesDocumentation
-        , providesDefinitions = providesDefinitions
-        , providesReferences = providesReferences
-        , providesImplementations = providesImplementations);
-}
-
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
 @description{
 * `src` refers to the "compilation unit" or "file" that this model is for.
@@ -904,12 +657,6 @@ java void unregisterLanguage(Language lang);
 @synopsis{Spins down and removes a previously registered language server}
 void unregisterLanguage(str name, set[str] extensions, str mainModule = "", str mainFunction = "") {
     unregisterLanguage(language(pathConfig(), name, extensions, mainModule, mainFunction));
-}
-
-@deprecated{Replaced by the new overload that takes an set of extensions}
-@synopsis{Spins down and removes a previously registered language server}
-void unregisterLanguage(str name, str extension, str mainModule = "", str mainFunction = "") {
-    unregisterLanguage(name, {extension}, mainModule = mainModule, mainFunction = mainFunction);
 }
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
