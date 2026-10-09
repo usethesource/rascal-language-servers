@@ -219,6 +219,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
             return messages.isEmpty();
         } catch (IOException e) {
             availableClient().showMessage(new MessageParams(MessageType.Warning, "Could not verify compatibility of Rascal and Rascal-lsp versions."));
+            logger.error("Exception while checking Rascal/LSP compatibility", e);
             return false;
         }
     }
@@ -681,7 +682,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         if (params.getTextDocument().getUri().endsWith("pom.xml")) {
             return CodeActions.convertCodeActions(this, "", BaseWorkspaceService.RASCAL_LANGUAGE, quickfixes);
         }
-        
+
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
