@@ -82,7 +82,6 @@ import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
-import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.RenameOptions;
@@ -214,7 +213,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("verifyRascalAndLspVersions: {}", forFile);
         var pomXml = URIUtil.getChildLocation(PathConfigs.inferProjectRoot(forFile), "pom.xml");
         var messages = PomAnalyzer.verifyRascalAndLspVersions(pomXml);
-        availableFacts().reportTypeCheckerMessages(Map.of(pomXml, messages));
+        availableFacts().reportTypeCheckerMessages(FileFacts.MessageSource.VERIFY_VERSIONS, Map.of(pomXml, messages));
         return messages.isEmpty();
     }
 
@@ -343,7 +342,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         exec.submit(() -> {
             // if a file is deleted, we remove our diagnostics
             for (var f : params.getFiles()) {
-                availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
+                availableFacts().remove(Locations.toLoc(f.getUri()));
             }
         });
     }

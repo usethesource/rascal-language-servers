@@ -72,6 +72,7 @@ import org.rascalmpl.values.parsetrees.TreeAdapter;
 import org.rascalmpl.vscode.lsp.BaseWorkspaceService;
 import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.RascalLSPMonitor;
+import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileResolver;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil;
 import org.rascalmpl.vscode.lsp.util.EvaluatorUtil.LSPContext;
@@ -302,7 +303,7 @@ public class RascalLanguageServices {
         return runEvaluator("Rascal check project (" + shortName +")", compilerEvaluator,
             e -> translateCheckResults((IMap) e.call("checkProject", projectRoot, clean, getWorkspaceFolders(), makeParseTreeGetter(e), makePathConfigGetter(e))),
             Map.of(projectRoot, VF.set()), exec, false, client).thenAccept(r ->
-                rascalTextDocumentService.getFileFacts().reportTypeCheckerMessages(r));
+                rascalTextDocumentService.getFileFacts().reportTypeCheckerMessages(FileFacts.MessageSource.TYPE_CHECK, r));
     }
 
     private @Nullable ISourceLocation getFileLoc(ITree moduleTree) {

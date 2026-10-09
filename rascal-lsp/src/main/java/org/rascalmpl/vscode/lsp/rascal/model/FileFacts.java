@@ -75,11 +75,11 @@ public class FileFacts implements DiagnosticsReporter {
         this.rascal = rascal;
         this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs(rascal, exec, new PathConfigDiagnostics(client, cm));
+        this.confs = new PathConfigs(rascal, exec, this);
         this.nopFact = new FileFact() {
             @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs) { /* NOP */}
-            @Override public void reportTypeCheckerMessages(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void reportTypeCheckerMessages(MessageSource source, List<Diagnostic> msgs) { /* NOP */ }
             @Override public void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
@@ -90,6 +90,12 @@ public class FileFacts implements DiagnosticsReporter {
                 return CompletableFutureUtils.completedFuture(new SummaryBridge(), exec);
             }
         };
+    }
+
+    public static enum MessageSource {
+        TYPE_CHECK,
+        PATH_CONFIG,
+        VERIFY_VERSIONS
     }
 
     public void projectRemoved(ISourceLocation projectLocation) {
@@ -117,8 +123,8 @@ public class FileFacts implements DiagnosticsReporter {
         getOrOpen(file).reportParseErrors(msgs);
     }
 
-    public void reportTypeCheckerMessages(Map<ISourceLocation, ISet> messages) {
-        Diagnostics.translateMessages(messages, Set.of("rsc", "xml"), cm).forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs));
+    public void reportTypeCheckerMessages(MessageSource source, Map<ISourceLocation, ISet> messages) {
+        Diagnostics.translateMessages(messages, Set.of("rsc", "xml"), cm).forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(source, msgs));
     }
 
     private @Nullable FileFact get(ISourceLocation l) {
@@ -155,7 +161,8 @@ public class FileFacts implements DiagnosticsReporter {
         }
     }
 
-    private @Nullable FileFact remove(ISourceLocation file) {
+    @Nullable
+    public FileFact remove(ISourceLocation file) {
         var removed = files.remove(file.top());
         if (removed != null) {
             removed.clearDiagnostics();
@@ -166,7 +173,7 @@ public class FileFacts implements DiagnosticsReporter {
     private interface FileFact {
         void reportParseErrors(Versioned<List<Diagnostic>> msgs);
         void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs);
-        void reportTypeCheckerMessages(List<Diagnostic> msgs);
+        void reportTypeCheckerMessages(MessageSource source, List<Diagnostic> msgs);
         CompletableFuture<SummaryBridge> getSummary();
         void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay);
         void invalidate();
@@ -180,7 +187,7 @@ public class FileFacts implements DiagnosticsReporter {
         private final AtomicReference<Versioned<List<Diagnostic>>> parseMessages = Versioned.atomic(-1, Collections.emptyList());
         private final AtomicReference<Versioned<String>> analyzerLatestVersion = new AtomicReference<>();
         private final AtomicReference<Versioned<List<Diagnostic>>> analyzerMessages = Versioned.atomic(-1, Collections.emptyList());
-        private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
+        private volatile Map<MessageSource, List<Diagnostic>> typeCheckerMessages = new ConcurrentHashMap<>();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
         public ActualFileFact(ISourceLocation file, Executor exec) {
@@ -214,8 +221,8 @@ public class FileFacts implements DiagnosticsReporter {
 
 
         @Override
-        public void reportTypeCheckerMessages(List<Diagnostic> msgs) {
-            typeCheckerMessages = msgs;
+        public void reportTypeCheckerMessages(MessageSource source, List<Diagnostic> msgs) {
+            typeCheckerMessages.put(source, msgs);
             sendDiagnostics();
         }
 
@@ -227,7 +234,7 @@ public class FileFacts implements DiagnosticsReporter {
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 Locations.toUri(file).toString(),
-                Lists.union(typeCheckerMessages, parseMessages.get().get(), analyzerMessages.get().get())));
+                Lists.union(Lists.union(typeCheckerMessages.values()), parseMessages.get().get(), analyzerMessages.get().get())));
         }
 
         @Override
@@ -241,8 +248,8 @@ public class FileFacts implements DiagnosticsReporter {
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
                 rascal.checkFile(file, confs.lookupConfig(file), exec)
-                    .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
-            ).thenAccept(m -> m.forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs)));
+                    .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc", "xml"), cm))
+            ).thenAccept(m -> m.forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(MessageSource.TYPE_CHECK, msgs)));
         }
 
         @Override
