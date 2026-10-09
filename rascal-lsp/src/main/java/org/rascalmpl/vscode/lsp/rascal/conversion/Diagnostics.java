@@ -31,9 +31,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.lsp4j.Diagnostic;
@@ -45,6 +44,7 @@ import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.TreeAdapter;
@@ -250,13 +250,19 @@ public class Diagnostics {
             .collect(Collectors.toList());
     }
 
-    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(ICollection<?> messages, Collection<String> validExtensions, ColumnMaps cm) {
+    public static Map<ISourceLocation, ISet> filterAndGroupMessages(ICollection<?> messages, Collection<String> validExtensions) {
         return messages.stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
             .filter(m -> hasValidLocation(m, validExtensions))
-            .map(d -> Pair.of(getMessageLocation(d), translateDiagnostic(d, cm)))
-            .collect(Collectors.groupingBy(Pair::getLeft, Collectors.mapping(Pair::getRight, Collectors.toList())));
+            .collect(Collectors.groupingBy(Diagnostics::getMessageLocation, Collectors.mapping(Function.identity(), IRascalValueFactory.getInstance().setWriter())));
+    }
+
+    public static Map<ISourceLocation, List<Diagnostic>> translateMessages(ICollection<?> messages, Collection<String> validExtensions, ColumnMaps cm) {
+        return filterAndGroupMessages(messages, validExtensions)
+            .entrySet()
+            .stream()
+            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().stream().map(d -> translateDiagnostic((IConstructor) d, cm)).collect(Collectors.toList())));
     }
 
     private static ISourceLocation getMessageLocation(IConstructor message) {

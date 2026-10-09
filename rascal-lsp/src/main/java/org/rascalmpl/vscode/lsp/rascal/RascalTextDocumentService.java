@@ -214,7 +214,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         logger.debug("verifyRascalAndLspVersions: {}", forFile);
         var pomXml = URIUtil.getChildLocation(PathConfigs.inferProjectRoot(forFile), "pom.xml");
         var messages = PomAnalyzer.verifyRascalAndLspVersions(pomXml);
-        availableFacts().reportTypeCheckerMessages(Map.of(pomXml, messages));
+        availableFacts().reportTypeCheckerMessages(FileFacts.MessageSource.VERIFY_VERSIONS, Map.of(pomXml, messages));
         return messages.isEmpty();
     }
 

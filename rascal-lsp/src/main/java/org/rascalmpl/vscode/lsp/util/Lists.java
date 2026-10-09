@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.util;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 public class Lists {
@@ -66,6 +67,15 @@ public class Lists {
         result.addAll(b);
         result.addAll(c);
         return result;
+    }
+
+    public static <T> List<T> union(Collection<List<T>> lists) {
+        var empty = new ArrayList<T>();
+        if (lists.size() == 0) {
+            return empty;
+        }
+
+        return lists.stream().reduce(empty, Lists::union);
     }
 
     public static <T> T last(List<T> l) {

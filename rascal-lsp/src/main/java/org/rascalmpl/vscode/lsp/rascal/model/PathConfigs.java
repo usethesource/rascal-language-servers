@@ -55,6 +55,7 @@ import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
+import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -77,12 +78,12 @@ public class PathConfigs {
 
     private final RascalLanguageServices rascal;
     private final Executor executor;
-    private final PathConfigDiagnostics diagnostics;
+    private final FileFacts facts;
 
 
-    public PathConfigs(RascalLanguageServices rascal, Executor executor, PathConfigDiagnostics diagnostics) {
+    public PathConfigs(RascalLanguageServices rascal, Executor executor, FileFacts facts) {
         this.rascal = rascal;
-        this.diagnostics = diagnostics;
+        this.facts = facts;
         this.executor = executor;
         updater.start();
     }
@@ -208,7 +209,6 @@ public class PathConfigs {
                     reg.unwatch(registration.file, false, registration.callback);
                 }
             }
-            diagnostics.clearDiagnostics(projectRoot);
         }
 
         private void scheduleRun() {
@@ -245,7 +245,7 @@ public class PathConfigs {
             var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
             logger.debug("Path config for {}: {}", projectRoot, pathConfig);
             // Publish diagnostics in a background thread
-            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages(), Set.of("rsc")));
+            executor.execute(() -> facts.reportTypeCheckerMessages(FileFacts.MessageSource.PATH_CONFIG, Diagnostics.filterAndGroupMessages(pathConfig.getMessages(), Set.of("rsc", "xml"))));
             return Pair.of(pathConfig, time);
         }
 
