@@ -72,25 +72,6 @@ the registered language runs in another instance of the JVM and of Rascal.
 data Language
     = language(PathConfig pcfg, str name, set[str] extensions, str mainModule, str mainFunction);
 
-@deprecated{Please upgrade to the new constructor of the Language ADT}
-Language language(PathConfig pcfg, str name, str extension, str mainModule, str mainFunction)
-    = language(pcfg, name, {extension}, mainModule, mainFunction);
-
-@synopsis{Function profile for parser contributions to a language server}
-@description{
-The parser function takes care of parsing the tree once after every change in the IDE.
-This parse tree is then used for both syntax highlighting and other language server functions.
-}
-@pitfalls {
-* use `ParseTree::parser` instead of writing your own function to ensure syntax highlighting is fast
-}
-@deprecated{Used only in deprecated functions}
-alias Parser           = Tree (str _input, loc _origin);
-
-@synopsis{Function profile for summarizer contributions to a language server}
-@deprecated{Used only in deprecated functions}
-alias Summarizer       = Summary (loc _origin, Tree _input);
-
 @synopsis{A focus provides the currently selected language constructs around the cursor.}
 @description{
 A ((Focus)) list starts with the bottom tree, commonly a lexical identifier if
@@ -119,42 +100,8 @@ of the user.
 }
 alias Focus = list[Tree];
 
-@synopsis{Function profile for outliner contributions to a language server}
-@deprecated{Only in use in deprecated functions.}
-alias Outliner         = list[DocumentSymbol] (Tree _input);
-
-@synopsis{Function profile for lenses contributions to a language server}
-@deprecated{Only in use in deprecated functions.}
-alias LensDetector     = rel[loc src, Command lens] (Tree _input);
-
-@synopsis{Function profile for lenses contributions to a language server}
+@synopsis{Function profile for lenses service to a language server}
 alias OrderedLensDetector     = lrel[loc src, Command lens] (Tree _input);
-
-@synopsis{Function profile for executor contributions to a language server}
-@deprecated{Only in use in deprecated functions.}
-alias CommandExecutor  = value (Command _command);
-
-@synopsis{Function profile for inlay contributions to a language server}
-@deprecated{Only in use in deprecated functions.}
-alias InlayHinter      = list[InlayHint] (Tree _input);
-
-@deprecated{Only in use in deprecated functions}
-alias Documenter = set[str] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
-
-@deprecated{Only in use in deprecated functions}
-alias CodeActionContributor = list[CodeAction] (Focus _focus);
-
-@synopsis{Function profile for definer contributions to a language server}
-@deprecated{Use ((definition)) instead.}
-alias Definer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
-
-@synopsis{Function profile for referrer contributions to a language server}
-@deprecated{Use ((references)) instead}
-alias Referrer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
-
-@synopsis{Function profile for implementer contributions to a language server}
-@deprecated{Use ((implementation)) instead.}
-alias Implementer = set[loc] (loc _origin, Tree _fullTree, Tree _lexicalAtCursor);
 
 @synopsis{Each kind of service contributes the implementation of one (or several) IDE features.}
 @description{
@@ -184,7 +131,7 @@ interpreter lock will make the editor services less responsive.
      registering the ((parsing)) service.
    * You can enable error recovery in the parser like by setting `allowRecovery` to `true`: `parser(#start[Program], allowRecovery=true)`.
 With error recovery enabled  "hard" parse errors can still occur but that will be rare. In most cases parsing with error recovery enabled
-will produce a parse tree with error nodes. Syntax highlighting will still work on such trees. Note that any contributions that you add must be
+will produce a parse tree with error nodes. Syntax highlighting will still work on such trees. Note that any services that you add must be
 able to handle such error trees or unexpected things will happen like strange results and crashes. More information on error recovery and error trees
 can be found in ((ParseTree::Production)), ((ParseTree::parser)), and ((util::ParseErrorRecovery)).
 * The ((analysis)) service indexes a file as a ((Summary)), offering precomputed relations for looking up
@@ -198,10 +145,10 @@ hover documentation, definition with uses, references to declarations, implement
    * ((util::LanguageServer::build))s typically run whole-program analyses and compilation steps.
    * ((util::LanguageServer::build))s have side-effects, they store generated code or code indices for future usage by the next build step, or by the next analysis step.
    * ((util::LanguageServer::build))s are triggered on _save-file_ events; they _push_ information to an internal cache.
-   * Warning: ((util::LanguageServer::build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analyzer)).
+   * Warning: ((util::LanguageServer::build))s are _not_ triggered when a file changes on disk outside of VS Code; instead, this results in a change event (not a save event), which triggers the ((analysis)).
    * If `providesDocumentation` is false, then the ((hover)) service may be activated. Same for `providesDefinitions` and `providesDocumentation`
 ))
-* the following contributions are _on-demand_ (pull) versions of information also provided by the ((analysis)) and ((util::LanguageServer::build)) summaries.
+* the following services are _on-demand_ (pull) versions of information also provided by the ((analysis)) and ((util::LanguageServer::build)) summaries.
    * you can provide these more lightweight on-demand services _instead of_ the ((Summary)) versions.
    * these functions are run synchronously after a user interaction. The run-time of each service corresponds directly to the UX response time.
    * a ((hover)) service is a fast and location specific version of the `documentation` relation in a ((Summary)).
@@ -210,9 +157,9 @@ hover documentation, definition with uses, references to declarations, implement
    * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * The ((documentSymbol)) service maps a source file to a pretty hierarchy for visualization in the "outline" view and "symbol search" features.
 * The ((codeLens)) service discovers places to add "lenses" (little views embedded in the editor on a separate line) and connects commands to execute to each lense
-* The ((inlayHint)) service discovers places to add "inlays" (little views embedded in the editor on the same line). Unlike ((lenses)) inlays do not offer command execution.
-* The ((execution)) service executes the commands registered by ((lenses)) and ((inlayHinter))s.
-* The ((actions)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
+* The ((inlayHint)) service discovers places to add "inlays" (little views embedded in the editor on the same line). Unlike a ((codeLens)), an inlay does not offer command execution.
+* The ((execution)) service executes the commands registered by ((codeLens))es and ((inlayHint))s.
+* The ((CodeAction)) service discovers places in the editor to add "code actions" (little hints in the margin next to where the action is relevant) and connects ((CodeAction))s to execute when the users selects the action from a menu.
 * The ((util::LanguageServer::rename)) service renames an identifier by collecting the edits required to rename all occurrences of that identifier. It might fail and report why in diagnostics.
    * The optional `prepareRename` service argument discovers places in the editor where a ((util::LanguageServer::rename)) is possible. If renaming the location is not supported, it should throw an exception.
 * The ((didRenameFiles)) service collects ((DocumentEdit))s corresponding to renamed files (e.g. to rename a class when the class file was renamed). The IDE applies the edits after moving the files. It might fail and report why in diagnostics.
@@ -242,7 +189,7 @@ To start developing an LSP extension step-by-step:
 1. first write a SyntaxDefinition in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL-REPL)) to
 test it immediately. Create some example files for your language to play around with.
 2. either make an ((analysis)) service that produces a ((Summary)) _or_ start ((hover)), ((definition)), ((references)) and ((implementation))
-lookup services. Each of those four services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((builder)).
+lookup services. Each of those four services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((build)).
 3. the ((documentSymbol)) service is next, good for the outline view and also quick search features.
 4. the to add interactive features, optionally ((inlayHint)), ((codeLens)) and ((codeAction)) can be created to add visible hooks in the UI to trigger
 your own ((CodeAction))s and Commands
@@ -434,200 +381,6 @@ data CallDirection
     | outgoing()
     ;
 
-@deprecated{Backward compatible with ((parsing)).}
-@synopsis{Construct a `parsing` ((LanguageService))}
-LanguageService parser(Parser parser) = parsing(parser);
-
-@deprecated{Backward compatible with ((codeLens))}
-@synopsis{Construct a ((codeLens)) ((LanguageService))}
-@description{
-Not only translates to the old name of the LanguageService,
-it also maps the list to an arbitrarily ordered set as it was before.
-}
-@benefits{
-* If you need your lenses in a stable order in the editor,
-use the ((codeLens)) constructor instead to provide a function that
-uses an ordered list.
-}
-LanguageService lenses(LensDetector detector) = codeLens(lrel[loc src, Command lens] (Tree input) {
-    return [*detector(input)];
-});
-
-@deprecated{Backward compatible with ((codeAction))}
-@synopsis{Construct a ((codeAction)) ((LanguageService))}
-LanguageService actions(CodeActionContributor contributor) = codeAction(contributor);
-
-@deprecated{Backward compatible with ((util::LanguageServer::build))}
-@synopsis{Construct a ((util::LanguageServer::build)) ((LanguageService))}
-LanguageService builder(Summarizer summarizer) = build(summarizer);
-
-@deprecated{Backward compatible with ((documentSymbol))}
-@synopsis{Construct a ((documentSymbol)) ((LanguageService))}
-LanguageService outliner(Outliner outliner) = documentSymbol(outliner);
-
-@deprecated{Backward compatible with ((inlayHint))}
-@synopsis{Construct a ((inlayHint)) ((LanguageService))}
-LanguageService inlayHinter(InlayHinter hinter) = inlayHint(hinter);
-
-@deprecated{Backward compatible with ((execution))}
-@synopsis{Construct a ((execution)) ((LanguageService))}
-LanguageService executor(CommandExecutor executor) = execution(executor);
-
-@deprecated{
-This is a backward compatibility layer for the pre-existing ((Documenter)) alias.
-
-To replace an old-style ((Documenter)) with a new style ((hover)) service follow
-this scheme:
-
-```rascal
-set[loc] oldDocumenter(loc document, Tree selection, Tree fullTree) {
-    ...
-}
-// by this scheme:
-set[loc] newHoverService([Tree selection, *Tree _spine, Tree fullTree]) {
-  loc document = selection@\loc.top;
-  ...
-}
-default set[loc] newHoverService(list[Tree] _focus) = {};
-```
-}
-LanguageService documenter(Documenter d) {
-    set[str] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
-        return d(lex.src.top, fullTree, lex);
-    }
-
-    default set[str] focusAcceptor (list[Tree] _focus) {
-        return {};
-    }
-
-    return hover(focusAcceptor);
-}
-
-@deprecated{
-This is a backward compatibility layer for the pre-existing ((Definer)) alias.
-
-To replace an old-style ((Definer)) with a new style ((definition)) service follow
-this scheme:
-
-```rascal
-set[loc] oldDefiner(loc document, Tree selection, Tree fullTree) {
-    ...
-}
-// by this scheme:
-set[loc] newDefinitionService([Tree selection, *Tree _spine, Tree fullTree]) {
-  loc document = selection@\loc.top;
-  ...
-}
-default set[loc] newDefinitionService(list[Tree] _focus) = {};
-```
-}
-LanguageService definer(Definer d) {
-    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
-        return d(lex.src.top, fullTree, lex);
-    }
-
-    default set[loc] focusAcceptor (list[Tree] _focus) {
-        return {};
-    }
-
-    return definition(focusAcceptor);
-}
-
-
-@synopsis{Registers an old-style ((Referrer))}
-@deprecated{
-This is a backward compatibility layer for the pre-existing ((Referrer)) alias.
-
-To replace an old-style ((Referrer)) with a new style ((references)) service follow
-this scheme.
-
-```rascal
-set[loc] oldReferrer(loc document, Tree selection, Tree fullTree) {
-    ...
-}
-// by this scheme:
-set[loc] newReferencesService([Tree selection, *Tree _spine, Tree fullTree]) {
-  loc document = selection@\loc.top;
-  ...
-}
-default set[loc] newReferencesService(list[Tree] _focus) = {};
-```
-}
-LanguageService referrer(Referrer d) {
-    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
-        return d(lex.src.top, fullTree, lex);
-    }
-
-    default set[loc] focusAcceptor (list[Tree] _focus) {
-        return {};
-    }
-
-    return references(focusAcceptor);
-}
-
-@synopsis{Registers an old-style ((Implementer))}
-@deprecated{
-This is a backward compatibility layer for the pre-existing ((Implementer)) alias.
-
-To replace an old-style ((Implementer)) with a new style ((implementation)) service follow
-this scheme:
-
-```rascal
-set[loc] oldImplementer(loc document, Tree selection, Tree fullTree) {
-    ...
-}
-// by this scheme:
-set[loc] newImplementationService([Tree selection, *Tree _spine, Tree fullTree]) {
-  loc document = selection@\loc.top;
-  ...
-}
-default set[loc] newImplementationService(list[Tree] _focus) = {};
-
-```
-}
-LanguageService implementer(Implementer d) {
-    set[loc] focusAcceptor([Tree lex, *Tree _spine, Tree fullTree]) {
-        return d(lex.src.top, fullTree, lex);
-    }
-
-    default set[loc] focusAcceptor (list[Tree] _focus) {
-        return {};
-    }
-
-    return implementation(focusAcceptor);
-}
-
-@deprecated{Please use ((util::LanguageServer::build)) or ((analysis))}
-@synopsis{A summarizer collects information for later use in interactive IDE features.}
-LanguageService summarizer(Summarizer summarizer
-        , bool providesDocumentation = true
-        , bool providesHovers = providesDocumentation
-        , bool providesDefinitions = true
-        , bool providesReferences = true
-        , bool providesImplementations = true) {
-    println("Summarizers are deprecated. Please use builders (triggered on save) and analyzers (triggered on change) instead.");
-    return build(summarizer
-        , providesDocumentation = providesDocumentation
-        , providesHovers = providesHovers
-        , providesDefinitions = providesDefinitions
-        , providesReferences = providesReferences
-        , providesImplementations = providesImplementations);
-}
-
-@deprecated{Please use ((util::LanguageServer::build)) or ((analysis))}
-@synopsis{An analyzer collects information for later use in interactive IDE features.}
-LanguageService analyzer(Summarizer summarizer
-        , bool providesDocumentation = true
-        , bool providesDefinitions = true
-        , bool providesReferences = true
-        , bool providesImplementations = true) {
-    return analysis(summarizer
-        , providesDocumentation = providesDocumentation
-        , providesDefinitions = providesDefinitions
-        , providesReferences = providesReferences
-        , providesImplementations = providesImplementations);
-}
-
 @synopsis{A model encodes all IDE-relevant information about a single source file.}
 @description{
 * `src` refers to the "compilation unit" or "file" that this model is for.
@@ -713,7 +466,7 @@ The fixes you provide with a message will be hinted at by a light-bulb in the ed
 Every fix listed here will be a menu item in the pop-up menu when the bulb is activated (via short-cut or otherwise).
 
 Note that for a ((CodeAction)) to be executed, you must either provide `edits` directly and/or handle
-a ((util::LanguageServer::Command)) and add its execution to the ((CommandExecutor)) contribution function.
+a ((util::LanguageServer::Command)) and add its execution to the ((execution)) service function.
 }
 @benefits{
 * the information required to produce an error message is usually also required for the fix. So this
@@ -723,7 +476,7 @@ coupling of message with fixes may come in handy.
 * the code for error messaging may become cluttered with code for fixes. It is advisable to only _collect_ information for the fix
 and store it in a ((util::LanguageServer::Command)) constructor inside the ((CodeAction)), or to delegate to a function that produces
 the right ((DocumentEdit))s immediately.
-* don't forget to extend ((util::LanguageServer::Command)) with a new constructor and ((CommandExecutor)) with a new overload to handle that constructor.
+* don't forget to extend ((util::LanguageServer::Command)) with a new constructor and the ((execution)) service with a new overload to handle that constructor.
 }
 data Message(list[CodeAction] fixes = []);
 
@@ -732,13 +485,13 @@ data Message(list[CodeAction] fixes = []);
 Commands can be any closed term a() pure value without open variables or function/closure values embedded in it). Add any constructor you need to express the execution parameters
 of a command.
 
-You write the ((CommandExecutor)) to interpret each kind of ((util::LanguageServer::Command)) individually.
-A ((Command) constructor must have fields or keyword fields that hold the parameters of the
+You write the ((execution)) service to interpret each kind of ((util::LanguageServer::Command)) individually.
+A ((Command)) constructor must have fields or keyword fields that hold the parameters of the
 to-be-executed command.
 
 Commands are produced for delayed and optional execution by:
-* ((LensDetector)), where the will be executed if the lens is selected in the editor
-* ((CodeActionContributor)), where they will appear in context-menus for quick-fix and refactoring
+* ((OrderedLensDetector)), where they will be executed if the lens is selected in the editor
+* the ((CodeAction)) service, where they will appear in context-menus for quick-fix and refactoring
 * ((Message)), where they will appear in context-menus on lines with error or warning diagnostics
 
 See also ((CodeAction)); a wrapper for ((util::LanguageServer::Command)) for fine-tuning UI interactions.
@@ -756,7 +509,7 @@ value evaluator(showFlowDiagram(loc src)) {
 ```
 }
 @pitfalls{
-* Sometimes a command must be wrapped in a ((CodeAction)) to make it effective (see ((CodeActionContributor)) and ((Message)) )
+* Sometimes a command must be wrapped in a ((CodeAction)) to make it effective (see the ((CodeAction)) service and ((Message)))
 * the `noop()` command will always be ignored.
 * _never_ add first-class functions or closures as a parameter or keyword field to a `Command`. The Command will
 be serialized, sent to the LSP client, and then sent back to the LSP server for execution. Functions can not be
@@ -783,7 +536,7 @@ If a ((util::LanguageServer::Command))[command] is provided, then:
 1. The title of the command is shown to the user
 2. The user picks this code action (from a list or pressed "OK" in a dialog)
 3. Any `edits` (see above) are applied first
-4. The command is executed on the server side via the ((CommandExecutor)) contribution
+4. The command is executed on the server side via the ((execution)) service
    * Many commands use ((util::IDEServices::applyDocumentsEdits)) to provide additional changes to the input
    * Other commands might use ((util::IDEServices::showInteractiveContent)) to start a linked webview inside of the IDE
    * Also ((util::IDEServices::registerDiagnostics)) is a typical effect of a ((CodeAction)) ((util::LanguageServer::Command)).
@@ -796,7 +549,7 @@ interactive content have to be cleaned or closed in their own respective fashion
 tools that can produce lists of ((DocumentEdit))s by diffing parse trees or abstract syntax trees.
 * `edits` are applied on the latest editor content for the current editor; live to the user.
 * ((util::IDEServices::applyDocumentsEdits)) also works on open editor contents for the current editor.
-* The parse tree for the current file is synchronized with the call to a ((CodeActionContributor)) such that edits
+* The parse tree for the current file is synchronized with the call to a ((CodeAction)) service such that edits
 and input are computed in-sync.
 }
 @pitfalls{
@@ -885,14 +638,14 @@ We register languages by uploading the meta-data of the implementation to a "lan
 3. Each specific extension is mapped to a specific part of the language server protocol.
 
 By registering a language twice, more things can happen:
-* existing contributions are re-loaded and overwritten with the newest version.
-* new contributions to an existing language (`Language` constructor instance), will be added to the existing LSP server instance. You can use this to load expensive features later or more lazily.
-* errors appear during loading or first execution of the contribution. The specific contribution is then usually aborted and unregistered.
+* existing services are re-loaded and overwritten with the newest version.
+* new services to an existing language (`Language` constructor instance), will be added to the existing LSP server instance. You can use this to load expensive features later or more lazily.
+* errors appear during loading or first execution of the service. The specific service is then usually aborted and unregistered.
 
 Because registerLanguage has effect in a different OS process, errors and warnings are not printed in the calling execution context.
 In general look at the "Parametric Rascal Language Server" log tab in the IDE to see what is going on.
 
-However since language contributions are just Rascal functions, it is advised to simply test them first right there in the terminal.
+However since language services are just Rascal functions, it is advised to simply test them first right there in the terminal.
 Use `util::Reflective::getProjectPathConfig` for a representative configuration, with `mode = interpreter_external()` as keyword parameter.
 }
 java void registerLanguage(Language lang);
@@ -904,12 +657,6 @@ java void unregisterLanguage(Language lang);
 @synopsis{Spins down and removes a previously registered language server}
 void unregisterLanguage(str name, set[str] extensions, str mainModule = "", str mainFunction = "") {
     unregisterLanguage(language(pathConfig(), name, extensions, mainModule, mainFunction));
-}
-
-@deprecated{Replaced by the new overload that takes an set of extensions}
-@synopsis{Spins down and removes a previously registered language server}
-void unregisterLanguage(str name, str extension, str mainModule = "", str mainFunction = "") {
-    unregisterLanguage(name, {extension}, mainModule = mainModule, mainFunction = mainFunction);
 }
 
 @javaClass{org.rascalmpl.vscode.lsp.parametric.RascalInterface}
