@@ -161,7 +161,8 @@ public class FileFacts implements DiagnosticsReporter {
         }
     }
 
-    private @Nullable FileFact remove(ISourceLocation file) {
+    @Nullable
+    public FileFact remove(ISourceLocation file) {
         var removed = files.remove(file.top());
         if (removed != null) {
             removed.clearDiagnostics();
