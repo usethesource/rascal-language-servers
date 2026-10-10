@@ -37,8 +37,9 @@ import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
-import { ISourceLocationRequest, SourceLocationListResponse } from './fs/JsonRpcMessages';
+import { BooleanResponse, ISourceLocationRequest, SourceLocationListResponse } from './fs/JsonRpcMessages';
 import { buildMFChildPath } from './ux/RascalMFValidator';
+import { RascalProjectValidator } from './ux/RascalProjectValidator';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeFileSystemInRascal;
@@ -63,6 +64,8 @@ export class RascalExtension implements vscode.Disposable {
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient, this.log));
         vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal));
+
+        context.subscriptions.push(new RascalProjectValidator(this.rascal.rascalClient, this.logger()));
     }
 
     logger(): vscode.LogOutputChannel {
@@ -174,7 +177,7 @@ export class RascalExtension implements vscode.Disposable {
                 if (uri) {
                     const [error, detail] = await this.verifyProjectSetup(uri);
                     if (error !== '') {
-                        if (!await this.reportTerminalStartError(error, detail, {showOutput : false, canContinue: true})) {
+                        if (!await this.reportTerminalStartError(error, detail, { documentation: true, showOutput : false, canContinue: true })) {
                             return;
                         }
                     }
@@ -197,6 +200,11 @@ export class RascalExtension implements vscode.Disposable {
                 let rascalClasses: string[] | undefined = undefined;
 
                 if (uri !== undefined) {
+                    if (!await rascal.sendRequest<BooleanResponse>("rascal/verifyRascalAndLspVersions", <ISourceLocationRequest>{ loc: toRascalUri(uri) })
+                            && !await this.reportTerminalStartError("Outdated dependencies detected", "Rascal Terminal will behave erratically or not start at all. Update your dependency/ies on Rascal and/or Rascal-lsp.", { documentation: false, showOutput : false, canContinue: true })) {
+                        return;
+                    }
+
                     const lookupRes = await rascal.sendRequest<SourceLocationListResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
                         loc: toRascalUri(uri)
                     });
@@ -226,7 +234,7 @@ export class RascalExtension implements vscode.Disposable {
                 progress.report({increment: 25, message: "Finished creating terminal"});
             });
         } catch (err) {
-            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { showOutput: true, canContinue: false});
+            await this.reportTerminalStartError("Failed to start the Rascal REPL, check Rascal Output Window", "" + err, { documentation: true, showOutput: true, canContinue: false });
         }
     }
 
@@ -265,8 +273,11 @@ export class RascalExtension implements vscode.Disposable {
         return new RegExp(`^import ${qualifiedName};`);
     })(); // Build the regex only once
 
-    private async reportTerminalStartError(msg: string, detail: string = "", config : {modal?: boolean, showOutput?: boolean, canContinue?: boolean}) : Promise<boolean> {
-        const options = ["View Documentation"];
+    private async reportTerminalStartError(msg: string, detail: string = "", config : {documentation?: boolean, modal?: boolean, showOutput?: boolean, canContinue?: boolean}) : Promise<boolean> {
+        const options = [];
+        if (config.documentation) {
+            options.push("View Documentation");
+        }
         if (config.showOutput) {
             options.push("Show Rascal Output Window");
         }

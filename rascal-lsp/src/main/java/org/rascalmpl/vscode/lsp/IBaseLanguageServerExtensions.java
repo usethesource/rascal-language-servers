@@ -77,4 +77,7 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
 
     @JsonRequest
     CompletableFuture<Void> checkProject(CheckProjectRequest req);
+
+    @JsonRequest
+    CompletableFuture<Boolean> verifyRascalAndLspVersions(ISourceLocationRequest req);
 }

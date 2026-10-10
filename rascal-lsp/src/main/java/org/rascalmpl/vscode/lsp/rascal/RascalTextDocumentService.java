@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -111,6 +113,7 @@ import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
 import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -134,12 +137,14 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.rascal.model.FileFacts;
+import org.rascalmpl.vscode.lsp.rascal.model.PathConfigs;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
+import org.rascalmpl.vscode.lsp.xml.PomAnalyzer;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IList;
@@ -202,6 +207,15 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         // Typically, the path config computation uses a fallback Rascal version, so this should not happen.
         availableClient().showMessage(new MessageParams(MessageType.Info, "No Rascal dependency found in POM. REPL uses the Rascal version shipped with the extension."));
         return List.of(PathConfig.resolveCurrentRascalRuntime());
+    }
+
+    @Override
+    public boolean verifyRascalAndLspVersions(ISourceLocation forFile) {
+        logger.debug("verifyRascalAndLspVersions: {}", forFile);
+        var pomXml = URIUtil.getChildLocation(PathConfigs.inferProjectRoot(forFile), "pom.xml");
+        var messages = PomAnalyzer.verifyRascalAndLspVersions(pomXml);
+        availableFacts().reportTypeCheckerMessages(Map.of(pomXml, messages));
+        return messages.isEmpty();
     }
 
     private static ISourceLocation resolveMavenIfPossible(MavenRepositoryURIResolver mvn, ISourceLocation loc) {
@@ -662,7 +676,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         if (params.getTextDocument().getUri().endsWith("pom.xml")) {
             return CodeActions.convertCodeActions(this, "", BaseWorkspaceService.RASCAL_LANGUAGE, quickfixes);
         }
-        
+
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(

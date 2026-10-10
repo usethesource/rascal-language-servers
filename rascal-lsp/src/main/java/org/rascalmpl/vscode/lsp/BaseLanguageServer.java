@@ -492,5 +492,11 @@ public abstract class BaseLanguageServer {
                 return new SourceLocationResponse(Locations.toPhysicalIfPossible(loc));
             }, executor);
         }
+
+        @Override
+        public CompletableFuture<Boolean> verifyRascalAndLspVersions(ISourceLocationRequest req) {
+            logger.trace("verifyRascalAndLspVersions: {}", req.getLocation());
+            return CompletableFuture.supplyAsync(() -> getTextDocumentService().verifyRascalAndLspVersions(req.getLocation()), executor);
+        }
     }
 }
