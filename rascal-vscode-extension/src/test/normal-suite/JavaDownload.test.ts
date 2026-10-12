@@ -63,6 +63,7 @@ describe('JVM Download', function () {
 
     const downloadTimeout = 60_000;
     const testAll = false;
+    this.retries(2); // Retry failed downloads
 
     describe(`Eclipse Temurin jdk11`, function() {
         if (testAll) {
@@ -113,4 +114,4 @@ describe('JVM Download', function () {
         // do the rm in the background, since it might take a while
         rm(tempDir, { recursive: true, force: true }, emptyProgress);
     });
-}).retries(2);
+});
