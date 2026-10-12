@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
@@ -100,7 +101,7 @@ public class RemoteIDEServicesThread extends Thread {
 
     public static IDEServicesConfiguration startRemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService threadPool) {
         try {
-            ServerSocket socket = new ServerSocket(0);
+            ServerSocket socket = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
             new RemoteIDEServicesThread(socket, languageClient, docService, threadPool).start();
             return new IDEServicesConfiguration(socket.getLocalPort());
         } catch (IOException e) {
