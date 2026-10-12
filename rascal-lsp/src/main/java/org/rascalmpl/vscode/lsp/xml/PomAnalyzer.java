@@ -80,7 +80,7 @@ public class PomAnalyzer {
         try {
             getDependency(pomLoc, groupId, artifactId);
             return vf.bool(true);
-        } catch (IOException e) {
+        } catch (IllegalStateException e) {
             return vf.bool(false);
         }
     }
