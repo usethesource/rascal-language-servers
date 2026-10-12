@@ -38,6 +38,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.Executors;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
@@ -51,6 +52,7 @@ import org.rascalmpl.library.Prelude;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
+import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
@@ -89,7 +91,8 @@ public class PathConfigDiagnosticsTest {
     public void before() {
         mockedClient = mock(LanguageClient.class);
         columnMaps = new ColumnMaps(this::getContents);
-        sut = new PathConfigDiagnostics(mockedClient, columnMaps);
+        var facts = new FileFacts(Executors.newCachedThreadPool(), mock(RascalLanguageServices.class), mockedClient, columnMaps);
+        sut = new PathConfigDiagnostics(facts, columnMaps);
     }
 
     private URI resourceUri(String res) {

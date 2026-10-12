@@ -63,6 +63,7 @@ describe('JVM Download', function () {
 
     const downloadTimeout = 60_000;
     const testAll = false;
+    this.retries(2); // Retry failed downloads
 
     describe(`Eclipse Temurin jdk11`, function() {
         if (testAll) {

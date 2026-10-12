@@ -70,16 +70,19 @@ public class FileFacts implements DiagnosticsReporter {
     private final PathConfigs confs;
     private final FileFact nopFact;
 
+    @SuppressWarnings({"argument", "assignment"}) // passing `this` to `PathConfigDiagnostics` is fine, since no function on `this` will be called before we are fully initialized
     public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
         this.rascal = rascal;
         this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs(rascal, exec, new PathConfigDiagnostics(client, cm));
+        this.confs = new PathConfigs(rascal, exec, new PathConfigDiagnostics(this, cm));
         this.nopFact = new FileFact() {
             @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportTypeCheckerMessages(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void reportPathConfigMessages(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void reportDependencyVersionMessages(List<Diagnostic> msgs) { /* NOP */ }
             @Override public void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
@@ -119,6 +122,14 @@ public class FileFacts implements DiagnosticsReporter {
 
     public void reportTypeCheckerMessages(Map<ISourceLocation, ISet> messages) {
         Diagnostics.translateMessages(messages, Set.of("rsc", "xml"), cm).forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs));
+    }
+
+    public void reportPathConfigDiagnostics(PublishDiagnosticsParams diagnostics) {
+        getOrOpen(Locations.toLoc(diagnostics.getUri())).reportPathConfigMessages(diagnostics.getDiagnostics());
+    }
+
+    public void reportDependencyVersionMessages(Map<ISourceLocation, ISet> messages) {
+        Diagnostics.translateMessages(messages, Set.of("rsc", "xml"), cm).forEach((f, msgs) -> getOrOpen(f).reportDependencyVersionMessages(msgs));
     }
 
     private @Nullable FileFact get(ISourceLocation l) {
@@ -167,6 +178,8 @@ public class FileFacts implements DiagnosticsReporter {
         void reportParseErrors(Versioned<List<Diagnostic>> msgs);
         void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs);
         void reportTypeCheckerMessages(List<Diagnostic> msgs);
+        void reportPathConfigMessages(List<Diagnostic> msgs);
+        void reportDependencyVersionMessages(List<Diagnostic> msgs);
         CompletableFuture<SummaryBridge> getSummary();
         void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay);
         void invalidate();
@@ -181,6 +194,8 @@ public class FileFacts implements DiagnosticsReporter {
         private final AtomicReference<Versioned<String>> analyzerLatestVersion = new AtomicReference<>();
         private final AtomicReference<Versioned<List<Diagnostic>>> analyzerMessages = Versioned.atomic(-1, Collections.emptyList());
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
+        private volatile List<Diagnostic> pathConfigMessages = Collections.emptyList();
+        private volatile List<Diagnostic> dependencyVersionMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
         public ActualFileFact(ISourceLocation file, Executor exec) {
@@ -219,6 +234,18 @@ public class FileFacts implements DiagnosticsReporter {
             sendDiagnostics();
         }
 
+        @Override
+        public void reportPathConfigMessages(List<Diagnostic> msgs) {
+            pathConfigMessages = msgs;
+            sendDiagnostics();
+        }
+
+        @Override
+        public void reportDependencyVersionMessages(List<Diagnostic> msgs) {
+            dependencyVersionMessages = msgs;
+            sendDiagnostics();
+        }
+
         private void sendDiagnostics() {
             if (client == null) {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
@@ -227,7 +254,7 @@ public class FileFacts implements DiagnosticsReporter {
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 Locations.toUri(file).toString(),
-                Lists.union(typeCheckerMessages, parseMessages.get().get(), analyzerMessages.get().get())));
+                Lists.union(typeCheckerMessages, parseMessages.get().get(), analyzerMessages.get().get(), pathConfigMessages, dependencyVersionMessages)));
         }
 
         @Override
