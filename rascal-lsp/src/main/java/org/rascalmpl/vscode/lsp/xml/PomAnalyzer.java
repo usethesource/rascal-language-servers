@@ -85,24 +85,24 @@ public class PomAnalyzer {
         }
     }
 
-    private static final String ORG_RASCALMPL = "org.rascalmpl";
+    private static final String RASCAL_ORGANIZATION = "org.rascalmpl";
     private static final String RASCAL = "rascal";
     private static final String RASCAL_LSP = "rascal-lsp";
 
     public IBool hasRascalDependency(ISourceLocation pomLoc) {
-        return hasDependency(pomLoc, ORG_RASCALMPL, RASCAL);
+        return hasDependency(pomLoc, RASCAL_ORGANIZATION, RASCAL);
     }
 
     public IBool hasRascalLspDependency(ISourceLocation pomLoc) {
-        return hasDependency(pomLoc, ORG_RASCALMPL, RASCAL_LSP);
+        return hasDependency(pomLoc, RASCAL_ORGANIZATION, RASCAL_LSP);
     }
 
     public static Artifact getRascalDependencyFromPom(ISourceLocation pomLoc) throws IllegalStateException {
-        return getDependency(pomLoc, ORG_RASCALMPL, RASCAL);
+        return getDependency(pomLoc, RASCAL_ORGANIZATION, RASCAL);
     }
 
     public static Artifact getRascalLspDependencyFromPom(ISourceLocation pomLoc) throws IllegalStateException {
-        return getDependency(pomLoc, ORG_RASCALMPL, RASCAL_LSP);
+        return getDependency(pomLoc, RASCAL_ORGANIZATION, RASCAL_LSP);
     }
 
     public IString getCurrentRascalLspVersion() {
@@ -174,7 +174,7 @@ public class PomAnalyzer {
     private static IConstructor makeUpdateDependencyMessage(String dependencyLabel, String dependency, Type commandType, ISourceLocation pomXml, RascalLanguageServices services, String oldVersion, String newVersion) {
         ISourceLocation errorLocation;
         try {
-            errorLocation = services.getDependencyLocation(pomXml, ORG_RASCALMPL, dependency);
+            errorLocation = services.getDependencyLocation(pomXml, RASCAL_ORGANIZATION, dependency);
         } catch (InterruptedException | ExecutionException | IllegalStateException e) {
             errorLocation = vf.sourceLocation(pomXml, 0, 0, 2, 2, 0, 8);
         }
