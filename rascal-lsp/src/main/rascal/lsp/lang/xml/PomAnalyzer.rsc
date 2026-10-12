@@ -79,9 +79,9 @@ TextEdit addDependency(loc pomLoc, str groupId, str artifactId, str version) {
     indentation = inferIndentation(pom, pomLines);
     newline = inferNewline(pomSrc, pomLines);
 
-    gId = "\<groupId\><groupId>\</groupId\>";
-    aId = "\<artifactId\><artifactId>\</artifactId\>";
-    v = "\<version\><version>\</version\>";
+    gId = writeXMLString("groupId"(groupId));
+    aId = writeXMLString("artifactId"(artifactId));
+    v = writeXMLString("version"(version));
 
     str makeDependencyXml(str baseIndentation)
         = "<baseIndentation>\<dependency\><newline>" +
@@ -146,7 +146,7 @@ TextEdit updateDependency(loc pomLoc, str groupId, str artifactId, str version) 
                     return replace(variableSrc, "\<<variableName>\><version>\</<variableName>\>");
                 }
             }
-            return replace(versionSrc, "\<version\><version>\</version\>");
+            return replace(versionSrc, writeXMLString("version"(version)));
         }
         throw "Could not update version of <groupId>:<artifactId> in <pomLoc>. Please update the (parent) pom.xml manually";
     } catch _: {
