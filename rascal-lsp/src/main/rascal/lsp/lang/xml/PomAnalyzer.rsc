@@ -139,9 +139,8 @@ TextEdit updateDependency(loc pomLoc, str groupId, str artifactId, str version) 
         for (node project := getChildNode(pom, "project"), node dependencies := getChildNode(project, "dependencies"), list[node] children := getChildren(dependencies),
                 dependency <- children, list[node] coordinates := getChildren(dependency), "groupId"(groupId) <- coordinates, "artifactId"(artifactId) <- coordinates,
                 v:"version"(str oldVersion) <- coordinates, loc versionSrc := v.src) {
-            if (/^\$\{([^}]*)\}$/ := oldVersion) {
+            if (/^\$\{<variableName:[^}]*>\}$/ := oldVersion) {
                 // Version is a variable
-                variableName = oldVersion[2..-1];
                 if (node properties := getChildNode(project, "properties"), list[node] props := getChildren(properties),
                         node prop <- props, variableName == getName(prop), loc variableSrc := prop.src) {
                     return replace(variableSrc, "\<<variableName>\><version>\</<variableName>\>");
