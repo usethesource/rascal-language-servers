@@ -173,15 +173,20 @@ public class PomAnalyzer {
 
     private static IConstructor makeUpdateDependencyMessage(String dependencyLabel, String dependency, Type commandType, ISourceLocation pomXml, RascalLanguageServices services, String oldVersion, String newVersion) {
         ISourceLocation errorLocation;
+        var addFix = true;
         try {
             errorLocation = services.getDependencyLocation(pomXml, RASCAL_ORGANIZATION, dependency);
         } catch (InterruptedException | ExecutionException | IllegalStateException e) {
+            addFix = false;
             errorLocation = vf.sourceLocation(pomXml, 0, 0, 2, 2, 0, 8);
         }
-        var error = Messages.error(dependencyLabel + " version in pom.xml (" + oldVersion + ") is too old. Update the dependency or use the Quick Fix.", errorLocation);
-        var codeAction = vf.constructor(commandType, new IValue[] { errorLocation, vf.string(newVersion) }, Map.of("title", vf.string("Update " + dependencyLabel + " dependency in pom.xml")));
-        var fix = vf.constructor(Messages.CodeAction_action, new IValue[]{}, Map.of("command", codeAction));
-        return Messages.addFix(error, fix);
+        var error = Messages.error(dependencyLabel + " version in pom.xml (" + oldVersion + ") is too old. Update the dependency" + (addFix ? " or use the Quick Fix." : "."), errorLocation);
+        if (addFix) {
+            var codeAction = vf.constructor(commandType, new IValue[] { errorLocation, vf.string(newVersion) }, Map.of("title", vf.string("Update " + dependencyLabel + " dependency in pom.xml")));
+            var fix = vf.constructor(Messages.CodeAction_action, new IValue[]{}, Map.of("command", codeAction));
+            return Messages.addFix(error, fix);
+        }
+        return error;
     }
 
     public static ISet verifyRascalAndLspVersions(ISourceLocation pomXml, RascalLanguageServices services) {
