@@ -38,7 +38,7 @@ import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
 import { BooleanResponse, ISourceLocationRequest, SourceLocationListResponse } from './fs/JsonRpcMessages';
-import { buildMFChildPath } from './ux/RascalMFValidator';
+import { buildMFChildPath, RascalMFValidator } from './ux/RascalMFValidator';
 import { RascalProjectValidator } from './ux/RascalProjectValidator';
 
 export class RascalExtension implements vscode.Disposable {
@@ -65,7 +65,8 @@ export class RascalExtension implements vscode.Disposable {
         vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal));
 
-        context.subscriptions.push(new RascalProjectValidator(this.rascal.rascalClient, this.logger()));
+        context.subscriptions.push(new RascalMFValidator(this.rascal.rascalClient));
+        context.subscriptions.push(new RascalProjectValidator(this.logger()));
     }
 
     logger(): vscode.LogOutputChannel {
