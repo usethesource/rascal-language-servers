@@ -113,4 +113,4 @@ describe('JVM Download', function () {
         // do the rm in the background, since it might take a while
         rm(tempDir, { recursive: true, force: true }, emptyProgress);
     });
-});
+}).retries(2);
