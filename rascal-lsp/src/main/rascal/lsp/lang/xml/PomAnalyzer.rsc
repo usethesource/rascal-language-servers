@@ -175,3 +175,13 @@ java bool hasRascalLspDependency(loc pomLoc);
 
 @javaClass{org.rascalmpl.vscode.lsp.xml.PomAnalyzer}
 java str getCurrentRascalLspVersion();
+
+loc getDependencyVersionLocation(loc pomLoc, str groupId, str artifactId) {
+    pom = readPom(pomLoc.top);
+    if (node project := getChildNode(pom, "project"), node dependencies := getChildNode(project, "dependencies"), list[node] children := getChildren(dependencies),
+            dependency <- children, list[node] coordinates := getChildren(dependency), "groupId"(groupId) <- coordinates, "artifactId"(artifactId) <- coordinates,
+            v:"version"(_) <- coordinates, loc versionSrc := v.src) {
+        return versionSrc;
+    }
+    return |unknown:///|;
+}

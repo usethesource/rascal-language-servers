@@ -134,7 +134,7 @@ public class RascalLanguageServices {
 
         var context = new LSPContext(exec, docService, workspaceService, client);
 
-        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer");
+        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer", "lang::xml::PomAnalyzer");
         semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions", "lang::rascal::lsp::Formatter");
         compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
@@ -457,6 +457,14 @@ public class RascalLanguageServices {
                 client
             )
         ), exec);
+    }
+
+    public ISourceLocation getDependencyLocation(ISourceLocation pomXml, String groupId, String artifactId) throws InterruptedException, ExecutionException {
+        var result = EvaluatorUtil.<ISourceLocation>runEvaluator("getDependencyVersionLocation", shortRunningTaskEvaluator, ev -> (ISourceLocation) ev.call("getDependencyVersionLocation", pomXml, VF.string(groupId), VF.string(artifactId)), URIUtil.unknownLocation(), exec, false, client).get().get();
+        if (!result.equals(URIUtil.unknownLocation())) {
+            return result;
+        }
+        throw new IllegalStateException("pom.xml " + pomXml + " does not contain a dependency on " + artifactId);
     }
 
     private CompletableFuture<IConstructor> parseCommand(String command) {
