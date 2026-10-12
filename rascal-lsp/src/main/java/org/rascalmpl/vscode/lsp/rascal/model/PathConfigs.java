@@ -279,7 +279,7 @@ public class PathConfigs {
      * Infers the root of the project that `member` is in.
      */
     public static ISourceLocation inferProjectRoot(ISourceLocation member) {
-        ISourceLocation lastRoot = member;
+        ISourceLocation lastRoot = inferDeepestProjectRoot(member);
         ISourceLocation root;
         do {
             root = lastRoot;
