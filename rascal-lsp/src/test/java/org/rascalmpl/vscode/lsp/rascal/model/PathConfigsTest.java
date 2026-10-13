@@ -49,6 +49,7 @@ public class PathConfigsTest {
     }
 
     private void assertEquals(ISourceLocation expected, ISourceLocation actual) {
+        // Normalize paths to always end with a slash for comparison
         Assert.assertEquals(URIUtil.getChildLocation(expected, "/"), URIUtil.getChildLocation(actual, "/"));
     }
 
