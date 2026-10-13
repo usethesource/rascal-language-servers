@@ -32,7 +32,7 @@ import { FileType } from 'vscode';
 import { integer, URI } from 'vscode-languageclient';
 import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
-import { BooleanResponse, ISourceLocationRequest, LookupRascalClassesResponse } from './fs/JsonRpcMessages';
+import { ISourceLocationRequest, SourceLocationListResponse } from './fs/JsonRpcMessages';
 import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalLanguageServer, toRascalUri } from './lsp/RascalLanguageServer';
@@ -197,16 +197,15 @@ export class RascalExtension implements vscode.Disposable {
                 let rascalClasses: string[] | undefined = undefined;
 
                 if (uri !== undefined) {
-                    const lookupRes = await rascal.sendRequest<LookupRascalClassesResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
-                        loc: toRascalUri(uri)
-                    });
-
-                    if (!lookupRes.hasValidVersions) {
-                        await this.reportTerminalStartError("Outdated dependencies detected", "Rascal Terminal will behave erratically or not start at all. Check the Problems view and update your dependency/ies on Rascal and/or Rascal-lsp.", { documentation: false, showOutput : false, canContinue: false });
+                    try {
+                        const lookupRes = await rascal.sendRequest<SourceLocationListResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
+                            loc: toRascalUri(uri)
+                        });
+                        rascalClasses = lookupRes.locs?.map(l => vscode.Uri.parse(l).fsPath);
+                    } catch (e) {
+                        await this.reportTerminalStartError("Outdated dependencies detected", "Cannot start Rascal Terminal. Check the Problems view and update your dependency/ies on Rascal and/or Rascal-lsp.", { documentation: false, showOutput : false, canContinue: false });
                         return;
                     }
-
-                    rascalClasses = lookupRes.locs?.map(l => vscode.Uri.parse(l).fsPath);
                 }
 
                 progress.report({increment: 50, message: "Creating terminal"});
