@@ -204,7 +204,7 @@ public class PomAnalyzer {
                 if (currentRascalVersion.equals(NOT_SPECIFIED)) {
                     currentRascalVersion = VERSION_UNKNOWN;
                 }
-                messages.add(makeUpdateDependencyMessage("Rascal", RASCAL, Command_updateRascalDependency, pomXml, services, minimalRascalVersion, rascalDependencyVersion, currentRascalVersion));
+                messages.add(makeUpdateDependencyMessage("Rascal", RASCAL, Command_updateRascalDependency, pomXml, services, minimalRascalVersion.toString(), rascalDependencyVersion, currentRascalVersion));
             }
         } // else: No rascal dependency in pom.xml. Diagnostics are generated elsewhere
 
@@ -221,7 +221,7 @@ public class PomAnalyzer {
                 if (currentRascalLspVersion == null) {
                     currentRascalLspVersion = VERSION_UNKNOWN;
                 }
-                messages.add(makeUpdateDependencyMessage("Rascal-lsp", RASCAL_LSP, Command_updateRascalLspDependency, pomXml, services, minimalRascalLspVersion, rascalLspDependencyVersion, currentRascalLspVersion));
+                messages.add(makeUpdateDependencyMessage("Rascal-lsp", RASCAL_LSP, Command_updateRascalLspDependency, pomXml, services, minimalRascalLspVersion.toString(), rascalLspDependencyVersion, currentRascalLspVersion));
             }
         } // else: No rascal-lsp dependency in pom.xml. Diagnostics are generated elsewhere (if needed)
 
