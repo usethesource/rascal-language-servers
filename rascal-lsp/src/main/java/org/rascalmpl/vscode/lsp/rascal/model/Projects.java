@@ -57,7 +57,7 @@ public class Projects {
 
     private boolean isSameProject(ISourceLocation root1, ISourceLocation root2) {
         var mf = new RascalManifest();
-        return mf.hasManifest(root1) && mf.getProjectName(root1).equals(mf.getProjectName(root2));
+        return mf.hasManifest(root1) && mf.hasManifest(root2) && mf.getProjectName(root1).equals(mf.getProjectName(root2));
     }
 
     /**

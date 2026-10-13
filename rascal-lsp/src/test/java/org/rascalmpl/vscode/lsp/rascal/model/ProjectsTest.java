@@ -59,7 +59,11 @@ public class ProjectsTest {
         var m = URIUtil.getChildLocation(project, modulePath);
         assertTrue("Module should exist", !moduleExists || reg.exists(m));
         var root = projects.inferRoot(m);
-        assertEquals("Inferred root should equal project URI", project, root);
+        assertLocationEquals("Inferred root should equal project URI", project, root);
+    }
+
+    private void assertLocationEquals(String message, ISourceLocation expected, ISourceLocation actual) {
+        assertEquals(message, URIUtil.getChildLocation(expected, ""), URIUtil.getChildLocation(actual, ""));
     }
 
     private void checkRoot(ISourceLocation project, String modulePath) {
@@ -89,6 +93,16 @@ public class ProjectsTest {
     @Test
     public void projectRoot() throws URISyntaxException {
         checkRoot(VF.sourceLocation("project", "rascal-lsp", ""), "src/main/rascal/library/util/LanguageServer.rsc", false, false);
+    }
+
+    @Test
+    public void pomRoot() {
+        checkRoot(absoluteProjectDir, "pom.xml");
+    }
+
+    @Test
+    public void manifestRoot() {
+        checkRoot(absoluteProjectDir, "META-INF/RASCAL.MF");
     }
 
 }
