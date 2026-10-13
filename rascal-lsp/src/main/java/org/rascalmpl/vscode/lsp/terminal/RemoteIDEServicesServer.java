@@ -99,11 +99,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     public CompletableFuture<SourceLocationResponse> resolveProjectLocation(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("resolveProjectLocation({})", loc);
-        try {
-            return CompletableFutureUtils.completedFuture(new SourceLocationResponse(URIResolverRegistry.getInstance().logicalToPhysical(loc)), exec);
-        } catch (IOException e) {
-            return CompletableFutureUtils.completedFuture(new SourceLocationResponse(loc), exec);
-        }
+        return CompletableFuture.supplyAsync(() -> new SourceLocationResponse(URIResolverRegistry.getInstance().resolveIfLogical(loc)), exec);
     }
 
     @Override
