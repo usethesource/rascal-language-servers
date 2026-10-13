@@ -464,15 +464,15 @@ public class RascalLanguageServices {
      * @return the location, or `null` when it cannot be found.
      */
     public CompletableFuture<@Nullable ISourceLocation> getDependencyVersionLocation(ISourceLocation pomXml, String groupId, String artifactId) {
-        return EvaluatorUtil.<@Nullable ISourceLocation>runEvaluator(
+        return EvaluatorUtil.<ISourceLocation>runEvaluator(
             "getDependencyVersionLocation",
             shortRunningTaskEvaluator,
             ev -> (ISourceLocation) ev.call("getDependencyVersionLocation", pomXml, VF.string(groupId), VF.string(artifactId)),
-            null,
+            URIUtil.unknownLocation(),
             exec,
             false,
             client
-        ).get();
+        ).get().thenApply(l -> l.equals(URIUtil.unknownLocation()) ? null : l);
     }
 
     private CompletableFuture<IConstructor> parseCommand(String command) {
