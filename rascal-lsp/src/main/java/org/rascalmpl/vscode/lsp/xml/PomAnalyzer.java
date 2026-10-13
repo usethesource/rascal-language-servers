@@ -29,10 +29,14 @@ package org.rascalmpl.vscode.lsp.xml;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.maven.artifact.versioning.ComparableVersion;
@@ -46,11 +50,11 @@ import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.util.maven.Scope;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
+import org.rascalmpl.vscode.lsp.util.Sets;
+import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
-import io.usethesource.vallang.ISet;
-import io.usethesource.vallang.ISetWriter;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.IValue;
@@ -184,8 +188,8 @@ public class PomAnalyzer {
             });
     }
 
-    public static CompletableFuture<ISet> verifyRascalAndLspVersions(ISourceLocation pomXml, RascalLanguageServices services) {
-        var messagesWriter = CompletableFuture.completedFuture(vf.setWriter());
+    public static CompletableFuture<Set<IConstructor>> verifyRascalAndLspVersions(ISourceLocation pomXml, RascalLanguageServices services, ExecutorService exec) {
+        var messages = new HashSet<CompletableFuture<IConstructor>>();
 
         var rascalDependency = PomAnalyzer.getRascalDependencyFromPom(pomXml);
         if (rascalDependency != null) {
@@ -194,18 +198,12 @@ public class PomAnalyzer {
             var rascalIsNewEnough = rascalVersion.compareTo(getMinimalRascalVersion()) >= 0;
 
             if (!rascalIsNewEnough) {
-                messagesWriter = messagesWriter.thenCompose(writer -> {
-                    logger.debug("Rascal dependency ({}) is outdated (expected >= {})", rascalDependencyVersion, getMinimalRascalVersion());
-                    var currentRascalVersion = RascalManifest.getRascalVersionNumber();
-                    if (currentRascalVersion.equals(NOT_SPECIFIED)) {
-                        currentRascalVersion = VERSION_UNKNOWN;
-                    }
-                    return makeUpdateDependencyMessage("Rascal", RASCAL, Command_updateRascalDependency, pomXml, services, rascalDependencyVersion, currentRascalVersion)
-                        .thenApply(msg -> {
-                            writer.append(msg);
-                            return writer;
-                        });
-                });
+                logger.debug("Rascal dependency ({}) is outdated (expected >= {})", rascalDependencyVersion, getMinimalRascalVersion());
+                var currentRascalVersion = RascalManifest.getRascalVersionNumber();
+                if (currentRascalVersion.equals(NOT_SPECIFIED)) {
+                    currentRascalVersion = VERSION_UNKNOWN;
+                }
+                messages.add(makeUpdateDependencyMessage("Rascal", RASCAL, Command_updateRascalDependency, pomXml, services, rascalDependencyVersion, currentRascalVersion));
             }
         } // else: No rascal dependency in pom.xml. Diagnostics are generated elsewhere
 
@@ -216,21 +214,15 @@ public class PomAnalyzer {
             var rascalLspIsNewEnough = rascalLspVersion.compareTo(getMinimalRascalLspVersion()) >= 0;
 
             if (!rascalLspIsNewEnough) {
-                messagesWriter = messagesWriter.thenCompose(writer -> {
-                    logger.debug("Rascal-lsp dependency ({}) outdated (expected >= {})", rascalLspDependencyVersion, getMinimalRascalLspVersion());
-                    var currentRascalLspVersion = PomAnalyzer.currentRascalLspVersion();
-                    if (currentRascalLspVersion == null) {
-                        currentRascalLspVersion = VERSION_UNKNOWN;
-                    }
-                    return makeUpdateDependencyMessage("Rascal-lsp", RASCAL_LSP, Command_updateRascalLspDependency, pomXml, services, rascalLspDependencyVersion, currentRascalLspVersion)
-                        .thenApply(msg -> {
-                            writer.append(msg);
-                            return writer;
-                        });
-                });
+                logger.debug("Rascal-lsp dependency ({}) outdated (expected >= {})", rascalLspDependencyVersion, getMinimalRascalLspVersion());
+                var currentRascalLspVersion = PomAnalyzer.currentRascalLspVersion();
+                if (currentRascalLspVersion == null) {
+                    currentRascalLspVersion = VERSION_UNKNOWN;
+                }
+                messages.add(makeUpdateDependencyMessage("Rascal-lsp", RASCAL_LSP, Command_updateRascalLspDependency, pomXml, services, rascalLspDependencyVersion, currentRascalLspVersion));
             }
         } // else: No rascal-lsp dependency in pom.xml. Diagnostics are generated elsewhere (if needed)
 
-        return messagesWriter.thenApply(ISetWriter::done);
+        return CompletableFutureUtils.reduce(messages, CompletableFutureUtils.completedFuture(new HashSet<IConstructor>(), exec), Collections::singleton, Sets::union);
     }
 }
