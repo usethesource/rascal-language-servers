@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.Set;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
@@ -50,13 +49,13 @@ import io.usethesource.vallang.ISourceLocation;
  * messages genrated by other projects, even if files have messages belonging to different projects.
  */
 /*package*/ class PathConfigDiagnostics {
-    private final LanguageClient client;
+    private final FileFacts facts;
     private final ColumnMaps cm;
 
     private final Map<ISourceLocation, Map<ISourceLocation, List<Diagnostic>>> perFileProjectDiagnostics = new LinkedHashMap<>();
 
-    /*package*/ PathConfigDiagnostics(LanguageClient client, ColumnMaps cm) {
-        this.client = client;
+    /*package*/ PathConfigDiagnostics(FileFacts facts, ColumnMaps cm) {
+        this.facts = facts;
         this.cm = cm;
     }
 
@@ -71,7 +70,7 @@ import io.usethesource.vallang.ISourceLocation;
 
     private void publishDiagnostics(ISourceLocation project, Map<ISourceLocation, List<Diagnostic>> diagnostics) {
         for (PublishDiagnosticsParams params : updateDiagnostics(project, diagnostics)) {
-            client.publishDiagnostics(params);
+            facts.reportPathConfigDiagnostics(params);
         }
     }
 

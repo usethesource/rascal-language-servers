@@ -112,7 +112,6 @@ import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.file.MavenRepositoryURIResolver;
-import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.values.parsetrees.ProductionAdapter;
@@ -175,33 +174,43 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     @Override
-    public List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError, URISyntaxException {
+    public CompletableFuture<List<ISourceLocation>> lookupRascalClasses(ISourceLocation forFile) {
         logger.debug("lookupRascalClasses: {}", forFile);
-        var pcfg = PathConfig.fromSourceProjectMemberRascalManifest(forFile, RascalConfigMode.INTERPRETER_EXTERNAL);
-        var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
 
-        if (isRascal(pcfg.getProjectRoot())) {
-            // When working on Rascal, all dependencies and target/ will be on the classpath.
-            // These will not contain Rascal LSP, since that should not be needed.
-            return pcfg.getLibsAndTarget().stream()
-                .map(ISourceLocation.class::cast)
-                .map(loc -> resolveMavenIfPossible(mvn, loc))
-                .collect(Collectors.toList());
-        }
+        return availableFacts().hasCompatiblePathConfig(forFile).handle((compatible, t) -> {
+            if (t != null) {
+                throw new RuntimeException("Could not validate compatibility of the project", t);
+            } else if (!compatible.booleanValue()) {
+                throw new RuntimeException("Rascal and/or Rascal LSP dependency is not compatible with this Rascal VS Code extension");
+            }
 
-        var rascal = pcfg.getLibs().stream()
-            .map(ISourceLocation.class::cast)
-            .filter(l -> isRascal(l))
-            .findFirst()
-            .map(l -> resolveMavenIfPossible(mvn, l));
+            try {
+                var pcfg = availableFacts().getPathConfig(forFile, RascalConfigMode.INTERPRETER_EXTERNAL);
+                var mvn = new MavenRepositoryURIResolver(URIResolverRegistry.getInstance());
 
-        if (rascal.isPresent()) {
-            return List.of(rascal.get());
-        }
+                if (isRascal(pcfg.getProjectRoot())) {
+                    // When working on Rascal, all dependencies and target/ will be on the classpath.
+                    // These will not contain Rascal LSP, since that should not be needed.
+                    return pcfg.getLibsAndTarget().stream()
+                        .map(ISourceLocation.class::cast)
+                        .map(loc -> resolveMavenIfPossible(mvn, loc))
+                        .collect(Collectors.toList());
+                }
 
-        // Typically, the path config computation uses a fallback Rascal version, so this should not happen.
-        availableClient().showMessage(new MessageParams(MessageType.Info, "No Rascal dependency found in POM. REPL uses the Rascal version shipped with the extension."));
-        return List.of(PathConfig.resolveCurrentRascalRuntime());
+                var rascal = pcfg.getLibs().stream()
+                    .map(ISourceLocation.class::cast)
+                    .filter(l -> isRascal(l))
+                    .findFirst()
+                    .map(l -> resolveMavenIfPossible(mvn, l));
+
+                if (rascal.isEmpty()) {
+                    throw new RuntimeException("No Rascal classes found");
+                }
+                return List.of(rascal.get());
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private static ISourceLocation resolveMavenIfPossible(MavenRepositoryURIResolver mvn, ISourceLocation loc) {
@@ -662,7 +671,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         if (params.getTextDocument().getUri().endsWith("pom.xml")) {
             return CodeActions.convertCodeActions(this, "", BaseWorkspaceService.RASCAL_LANGUAGE, quickfixes);
         }
-        
+
         // here we dynamically ask the contributions for more actions,
         // based on the cursor position in the file and the current parse tree
         CompletableFuture<Stream<IValue>> codeActions = recoverExceptions(
@@ -671,7 +680,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
                 .thenApply(Versioned::get)
                 .thenCompose((ITree tree) -> {
                     var loc = Locations.setPosition(Locations.toLoc(params.getTextDocument()), params.getRange().getStart(), getColumnMaps());
-                    return computeCodeActions(loc.getBeginLine(), loc.getBeginColumn(), tree, availableFacts().getPathConfig(loc));
+                    return computeCodeActions(loc.getBeginLine(), loc.getBeginColumn(), tree, availableFacts().getPathConfig(loc, RascalConfigMode.COMPILER));
                 })
                 .thenApply(IList::stream)
             , Stream::empty)
