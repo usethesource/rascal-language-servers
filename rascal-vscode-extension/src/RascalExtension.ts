@@ -28,18 +28,17 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { integer, URI } from'vscode-languageclient';
-import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
-import { RascalLanguageServer, toRascalUri } from './lsp/RascalLanguageServer';
-import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
-import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
-import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
-import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { FileType } from 'vscode';
+import { integer, URI } from 'vscode-languageclient';
+import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
 import { BooleanResponse, ISourceLocationRequest, SourceLocationListResponse } from './fs/JsonRpcMessages';
+import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
+import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
+import { RascalLanguageServer, toRascalUri } from './lsp/RascalLanguageServer';
+import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
+import { RascalLibraryProvider } from './ux/LibraryNavigator';
 import { buildMFChildPath, RascalMFValidator } from './ux/RascalMFValidator';
-import { RascalProjectValidator } from './ux/RascalProjectValidator';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeFileSystemInRascal;
@@ -66,7 +65,6 @@ export class RascalExtension implements vscode.Disposable {
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal));
 
         context.subscriptions.push(new RascalMFValidator(this.rascal.rascalClient));
-        context.subscriptions.push(new RascalProjectValidator(this.logger()));
     }
 
     logger(): vscode.LogOutputChannel {
