@@ -15,7 +15,7 @@ restore_versions() {
 trap "restore_versions" EXIT SIGINT SIGTERM SIGHUP
 
 # Bootstrap LSP version
-./update-test-dependencies.sh
+sh ./update-test-dependencies.sh
 
 
 # cleanup to avoid contamination with previous runs
