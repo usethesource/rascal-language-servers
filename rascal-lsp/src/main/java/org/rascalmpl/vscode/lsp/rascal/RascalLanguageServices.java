@@ -459,12 +459,20 @@ public class RascalLanguageServices {
         ), exec);
     }
 
-    public ISourceLocation getDependencyLocation(ISourceLocation pomXml, String groupId, String artifactId) throws InterruptedException, ExecutionException {
-        var result = EvaluatorUtil.<ISourceLocation>runEvaluator("getDependencyVersionLocation", shortRunningTaskEvaluator, ev -> (ISourceLocation) ev.call("getDependencyVersionLocation", pomXml, VF.string(groupId), VF.string(artifactId)), URIUtil.unknownLocation(), exec, false, client).get().get();
-        if (!result.equals(URIUtil.unknownLocation())) {
-            return result;
-        }
-        throw new IllegalStateException("pom.xml " + pomXml + " does not contain a dependency on " + artifactId);
+    /**
+     * Get the location of the dependency version value.
+     * @return the location, or `null` when it cannot be found.
+     */
+    public CompletableFuture<@Nullable ISourceLocation> getDependencyVersionLocation(ISourceLocation pomXml, String groupId, String artifactId) {
+        return EvaluatorUtil.<@Nullable ISourceLocation>runEvaluator(
+            "getDependencyVersionLocation",
+            shortRunningTaskEvaluator,
+            ev -> (ISourceLocation) ev.call("getDependencyVersionLocation", pomXml, VF.string(groupId), VF.string(artifactId)),
+            null,
+            exec,
+            false,
+            client
+        ).get();
     }
 
     private CompletableFuture<IConstructor> parseCommand(String command) {

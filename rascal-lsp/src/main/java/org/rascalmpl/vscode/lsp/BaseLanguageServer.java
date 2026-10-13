@@ -496,7 +496,7 @@ public abstract class BaseLanguageServer {
         @Override
         public CompletableFuture<Boolean> verifyRascalAndLspVersions(ISourceLocationRequest req) {
             logger.trace("verifyRascalAndLspVersions: {}", req.getLocation());
-            return CompletableFuture.supplyAsync(() -> getTextDocumentService().verifyRascalAndLspVersions(req.getLocation()), executor);
+            return getTextDocumentService().verifyRascalAndLspVersions(req.getLocation());
         }
     }
 }

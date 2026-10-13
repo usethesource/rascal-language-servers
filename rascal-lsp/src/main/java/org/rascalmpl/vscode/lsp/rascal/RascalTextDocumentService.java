@@ -210,12 +210,14 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     }
 
     @Override
-    public boolean verifyRascalAndLspVersions(ISourceLocation forFile) {
+    public CompletableFuture<Boolean> verifyRascalAndLspVersions(ISourceLocation forFile) {
         logger.debug("verifyRascalAndLspVersions: {}", forFile);
         var pomXml = URIUtil.getChildLocation(PathConfigs.inferProjectRoot(forFile), "pom.xml");
-        var messages = PomAnalyzer.verifyRascalAndLspVersions(pomXml, availableRascalServices());
-        availableFacts().reportDependencyVersionMessages(Map.of(pomXml, messages));
-        return messages.isEmpty();
+        return PomAnalyzer.verifyRascalAndLspVersions(pomXml, availableRascalServices())
+            .thenApply(messages -> {
+                availableFacts().reportDependencyVersionMessages(Map.of(pomXml, messages));
+                return messages.isEmpty();
+            });
     }
 
     private static ISourceLocation resolveMavenIfPossible(MavenRepositoryURIResolver mvn, ISourceLocation loc) {
