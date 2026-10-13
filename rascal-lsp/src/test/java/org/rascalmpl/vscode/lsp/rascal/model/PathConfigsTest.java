@@ -54,20 +54,17 @@ public class PathConfigsTest {
 
     @Test
     public void projectRootFromRoot() {
-        var origin = lspProjectRoot;
-        assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(origin));
+        assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(lspProjectRoot));
     }
 
     @Test
     public void projectRootFromPom() {
-        var origin = URIUtil.getChildLocation(lspProjectRoot, "pom.xml");
-        assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(origin));
+        assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(URIUtil.getChildLocation(lspProjectRoot, "pom.xml")));
     }
 
     @Test
     public void projectRootFromRascalMf() {
-        var origin = URIUtil.getChildLocation(lspProjectRoot, "META-INF/RASCAL.MF");
-        assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(origin));
+        assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(URIUtil.getChildLocation(lspProjectRoot, "META-INF/RASCAL.MF")));
     }
 
     // @Test
