@@ -26,9 +26,6 @@
  */
 import { posix } from 'path'; // posix path join is always correct, also on windows
 import * as vscode from 'vscode';
-import { BaseLanguageClient } from 'vscode-languageclient';
-import { BooleanResponse, ISourceLocationRequest } from '../fs/JsonRpcMessages';
-import { toRascalUri } from '../lsp/RascalLanguageServer';
 
 
 export const MF_FILE = "RASCAL.MF";
@@ -41,36 +38,36 @@ export class RascalMFValidator implements vscode.Disposable {
     private readonly diagnostics: vscode.DiagnosticCollection;
     private readonly toDispose: vscode.Disposable[] = [];
 
-    constructor (private readonly rascalClient: Promise<BaseLanguageClient>) {
+    constructor () {
         this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal Project Diagnostics");
 
         // any new project should be checked
         vscode.workspace.onDidChangeWorkspaceFolders(async ws => {
             for (const added of ws.added) {
                 if (await isRascalProject(added.uri)) {
-                    void this.verifyProjectConfigs(added.uri);
+                    void this.verifyRascalMF(buildMFChildPath(added.uri));
                 }
             }
             for (const rem of ws.removed) {
                 // clear messages of things no longer in the workspace
                 this.diagnostics.delete(buildMFChildPath(rem.uri));
-                this.diagnostics.delete(buildPomChildPath(rem.uri));
             }
         }, this, this.toDispose);
 
         // also at the start, check the already opened folders
         for (const openProject of vscode.workspace.workspaceFolders || []) {
-            void this.verifyProjectConfigs(openProject.uri);
+            void this.verifyRascalMF(buildMFChildPath(openProject.uri));
         }
 
         // all changed files should be checked on save (for example a git pull)
         // we use the filesystem watcher since a user might not have the RASCAL.MF open, but we still want to warn them
         // note that warnings/errors are only cleared at a save
-        const watcher = vscode.workspace.createFileSystemWatcher(`**/{${MF_FILE},pom.xml}`, true, false, false);
-        this.toDispose.push(watcher);
-        watcher.onDidCreate(this.verifyConfigFile, this, this.toDispose);
-        watcher.onDidChange(this.verifyConfigFile, this, this.toDispose);
+        const watcher = vscode.workspace.createFileSystemWatcher("**/" + MF_FILE, true, false, false);
+        watcher.onDidCreate(this.verifyRascalMF, this, this.toDispose);
+        watcher.onDidChange(this.verifyRascalMF, this, this.toDispose);
         watcher.onDidDelete(e => this.diagnostics.delete(e), this, this.toDispose); // clear errors for a file
+        this.toDispose.push(watcher);
+
         this.toDispose.push(
             vscode.languages.registerCodeActionsProvider(
                 {pattern: "**/" + MF_FILE},
@@ -87,23 +84,6 @@ export class RascalMFValidator implements vscode.Disposable {
             try {
                 d.dispose();
             } catch (_e) { /* ignoring errors */ }
-        }
-    }
-
-    private async verifyProjectConfigs(root: vscode.Uri): Promise<void> {
-        if (await isRascalProject(root)) {
-            await Promise.all([
-                this.verifyRascalMF(buildMFChildPath(root)),
-                this.verifyPOM(buildPomChildPath(root))
-            ]);
-        }
-    }
-
-    private async verifyConfigFile(file: vscode.Uri) {
-        if (file.path.endsWith('pom.xml')) {
-            await this.verifyPOM(file);
-        } else if (file.path.endsWith('RASCAL.MF')) {
-            await this.verifyRascalMF(file);
         }
     }
 
@@ -124,12 +104,6 @@ export class RascalMFValidator implements vscode.Disposable {
         }
         catch (_error) {
             // ignoring errors
-        }
-    }
-
-    private async verifyPOM(file: vscode.Uri) {
-        if (await exists(file)) {
-            await (await this.rascalClient).sendRequest<BooleanResponse>("rascal/verifyRascalAndLspVersions", <ISourceLocationRequest>{ loc: toRascalUri(file) });
         }
     }
 }
@@ -214,10 +188,6 @@ function checkPickySeparator(mfBody: vscode.TextDocument, diagnostics: vscode.Di
 
 export function buildMFChildPath(uri: vscode.Uri) {
     return vscode.Uri.joinPath(uri, MF_DIR, MF_FILE);
-}
-
-function buildPomChildPath(uri: vscode.Uri) {
-    return vscode.Uri.joinPath(uri, "pom.xml");
 }
 
 class FixMFErrors implements vscode.CodeActionProvider {

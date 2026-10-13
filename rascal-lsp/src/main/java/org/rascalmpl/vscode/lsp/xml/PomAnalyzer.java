@@ -36,7 +36,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.maven.artifact.versioning.ComparableVersion;
@@ -188,7 +188,7 @@ public class PomAnalyzer {
             });
     }
 
-    public static CompletableFuture<Set<IConstructor>> verifyRascalAndLspVersions(ISourceLocation pomXml, RascalLanguageServices services, ExecutorService exec) {
+    public static CompletableFuture<Set<IConstructor>> verifyRascalAndLspVersions(ISourceLocation pomXml, RascalLanguageServices services, Executor exec) {
         var messages = new HashSet<CompletableFuture<IConstructor>>();
 
         var rascalDependency = PomAnalyzer.getRascalDependencyFromPom(pomXml);

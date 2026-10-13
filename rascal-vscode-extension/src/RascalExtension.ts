@@ -38,7 +38,7 @@ import { LanguageParameter, ParameterizedLanguageServer } from './lsp/Parameteri
 import { RascalLanguageServer, toRascalUri } from './lsp/RascalLanguageServer';
 import { RascalTerminalLinkProvider } from './RascalTerminalLinkProvider';
 import { RascalLibraryProvider } from './ux/LibraryNavigator';
-import { buildMFChildPath, RascalMFValidator } from './ux/RascalMFValidator';
+import { buildMFChildPath } from './ux/RascalMFValidator';
 
 export class RascalExtension implements vscode.Disposable {
     private readonly vfsServer: VSCodeFileSystemInRascal;
@@ -63,8 +63,6 @@ export class RascalExtension implements vscode.Disposable {
         vscode.window.registerTreeDataProvider('rascalmpl-configuration-view', new RascalLibraryProvider(this.rascal.rascalClient, this.log));
         vscode.window.registerTreeDataProvider('rascalmpl-debugger-view', new RascalDebugViewProvider(this.rascal.rascalDebugClient, context));
         vscode.window.registerTerminalLinkProvider(new RascalTerminalLinkProvider(this.rascal));
-
-        context.subscriptions.push(new RascalMFValidator(this.rascal.rascalClient));
     }
 
     logger(): vscode.LogOutputChannel {

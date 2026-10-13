@@ -54,7 +54,9 @@ import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
+import org.rascalmpl.vscode.lsp.xml.PomAnalyzer;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -245,7 +247,17 @@ public class PathConfigs {
             var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
             logger.debug("Path config for {}: {}", projectRoot, pathConfig);
             // Publish diagnostics in a background thread
-            executor.execute(() -> diagnostics.publishDiagnostics(projectRoot, pathConfig.getMessages(), Set.of("rsc")));
+            PomAnalyzer.verifyRascalAndLspVersions(PathConfig.getPomXmlLocation(projectRoot), rascal, executor)
+                .whenComplete((versionMessages, t) -> {
+                    var messageWriter = IRascalValueFactory.getInstance().listWriter();
+                    messageWriter.appendAll(pathConfig.getMessages());
+                    if (versionMessages != null) {
+                        messageWriter.appendAll(versionMessages);
+                    } else {
+                        logger.error("Verifying Rascal and Rascal LSP versions failed", t);
+                    }
+                    diagnostics.publishDiagnostics(projectRoot, messageWriter.done(), Set.of("rsc"));
+                });
             return Pair.of(pathConfig, time);
         }
 
