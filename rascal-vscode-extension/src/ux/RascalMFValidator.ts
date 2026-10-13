@@ -44,12 +44,33 @@ export class RascalMFValidator implements vscode.Disposable {
     constructor (private readonly rascalClient: Promise<BaseLanguageClient>) {
         this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal Project Diagnostics");
 
+        // any new project should be checked
+        vscode.workspace.onDidChangeWorkspaceFolders(async ws => {
+            for (const added of ws.added) {
+                if (await isRascalProject(added.uri)) {
+                    void this.verifyProjectConfigs(added.uri);
+                }
+            }
+            for (const rem of ws.removed) {
+                // clear messages of things no longer in the workspace
+                this.diagnostics.delete(buildMFChildPath(rem.uri));
+                this.diagnostics.delete(buildPomChildPath(rem.uri));
+            }
+        }, this, this.toDispose);
+
+        // also at the start, check the already opened folders
+        for (const openProject of vscode.workspace.workspaceFolders || []) {
+            void this.verifyProjectConfigs(openProject.uri);
+        }
+
         // all changed files should be checked on save (for example a git pull)
         // we use the filesystem watcher since a user might not have the RASCAL.MF open, but we still want to warn them
         // note that warnings/errors are only cleared at a save
-        void this.registerRascalProjectAnalyzer(buildMFChildPath, u => this.verifyRascalMF(u), vscode.workspace.createFileSystemWatcher("**/" + MF_FILE, true, false, false));
-        void this.registerRascalProjectAnalyzer(buildPomChildPath, u => this.verifyPOM(u), vscode.workspace.createFileSystemWatcher("**/pom.xml", true, false, false));
-
+        const watcher = vscode.workspace.createFileSystemWatcher(`**/{${MF_FILE},pom.xml}`, true, false, false);
+        this.toDispose.push(watcher);
+        watcher.onDidCreate(this.verifyConfigFile, this, this.toDispose);
+        watcher.onDidChange(this.verifyConfigFile, this, this.toDispose);
+        watcher.onDidDelete(e => this.diagnostics.delete(e), this, this.toDispose); // clear errors for a file
         this.toDispose.push(
             vscode.languages.registerCodeActionsProvider(
                 {pattern: "**/" + MF_FILE},
@@ -69,40 +90,26 @@ export class RascalMFValidator implements vscode.Disposable {
         }
     }
 
-    private async registerRascalProjectAnalyzer(projectToFile: (uri: vscode.Uri) => vscode.Uri, analyze: (uri: vscode.Uri) => Promise<void>, watcher: vscode.FileSystemWatcher): Promise<void> {
-        this.toDispose.push(watcher);
-
-        // any new project should be checked
-        vscode.workspace.onDidChangeWorkspaceFolders(async ws => {
-            for (const added of ws.added) {
-                if (await isRascalProject(added.uri)) {
-                    void analyze(added.uri);
-                }
-            }
-            for (const rem of ws.removed) {
-                // clear messages of things no longer in the workspace
-                this.diagnostics.delete(projectToFile(rem.uri));
-            }
-        }, this, this.toDispose);
-
-        // also at the start, check the already opened folders
-        for (const openProject of vscode.workspace.workspaceFolders || []) {
-            if (await isRascalProject(openProject.uri)) {
-                void analyze(projectToFile(openProject.uri));
-            }
+    private async verifyProjectConfigs(root: vscode.Uri): Promise<void> {
+        if (await isRascalProject(root)) {
+            await Promise.all([
+                this.verifyRascalMF(buildMFChildPath(root)),
+                this.verifyPOM(buildPomChildPath(root))
+            ]);
         }
+    }
 
-        // all changed files should be checked on save (for example a git pull)
-        // we use the filesystem watcher since a user might not have the RASCAL.MF open, but we still want to warn them
-        // note that warnings/errors are only cleared at a save
-        watcher.onDidCreate(analyze, this, this.toDispose);
-        watcher.onDidChange(analyze, this, this.toDispose);
-        watcher.onDidDelete(e => this.diagnostics.delete(e), this, this.toDispose); // clear errors for a file
+    private async verifyConfigFile(file: vscode.Uri) {
+        if (file.path.endsWith('pom.xml')) {
+            await this.verifyPOM(file);
+        } else if (file.path.endsWith('RASCAL.MF')) {
+            await this.verifyRascalMF(file);
+        }
     }
 
     private async verifyRascalMF(file: vscode.Uri) {
         try {
-            if (!/\/target\/classes\//.test(file.path)) {
+            if (!/\/target\/classes\//.test(file.path) && await exists(file)) {
                 const mfBody = await vscode.workspace.openTextDocument(file);
                 const diagnostics: vscode.Diagnostic[] = [];
                 try {
@@ -121,7 +128,9 @@ export class RascalMFValidator implements vscode.Disposable {
     }
 
     private async verifyPOM(file: vscode.Uri) {
-        await (await this.rascalClient).sendRequest<BooleanResponse>("rascal/verifyRascalAndLspVersions", <ISourceLocationRequest>{ loc: toRascalUri(file) });
+        if (await exists(file)) {
+            await (await this.rascalClient).sendRequest<BooleanResponse>("rascal/verifyRascalAndLspVersions", <ISourceLocationRequest>{ loc: toRascalUri(file) });
+        }
     }
 }
 
@@ -139,7 +148,6 @@ async function exists(uri: vscode.Uri) {
         return true;
     }
     catch (_missingFile) {
-        // most likely not a rascal project
         return false;
     }
 }
