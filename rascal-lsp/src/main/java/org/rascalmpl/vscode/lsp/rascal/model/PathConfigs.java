@@ -48,7 +48,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
@@ -97,8 +96,16 @@ public class PathConfigs {
             return pathConfig;
         }
 
-        private Instant timestamp() {
-            return timestamp;
+        private boolean shouldBeRecomputed() {
+            if (timestamp.plusSeconds(1).isAfter(Instant.now())) {
+                // Previous config is less than a second old
+                return false;
+            }
+            // Previous config had errors
+            return pathConfig.getMessages().stream()
+                .filter(IConstructor.class::isInstance)
+                .map(IConstructor.class::cast)
+                .anyMatch(e -> "error".equals(e.getName()));
         }
 
         private boolean isRascalLspCompatible() {
@@ -132,28 +139,12 @@ public class PathConfigs {
         }
 
         ISourceLocation projectRoot = translatedRoots.get(forFile);
-        var entry = currentPathConfigs.compute(projectRoot, (project, current) -> shouldBeRecomputed(current) ? buildPathConfig(project) : current);
+        var entry = currentPathConfigs.compute(projectRoot, (project, current) -> current == null || current.shouldBeRecomputed() ? buildPathConfig(project) : current);
         if (entry == null) {
             // This can only happen when the `compute` function throws an exception
             throw new RuntimeException(String.format("Path config computation for %s failed", projectRoot));
         }
         return entry.get();
-    }
-
-    private static boolean shouldBeRecomputed(@Nullable CachedPathConfig entry) {
-        if (entry == null) {
-            // No previously computed config
-            return true;
-        }
-        if (entry.timestamp().plusSeconds(1).isAfter(Instant.now())) {
-            // Previous config is less than a second old
-            return false;
-        }
-        // Previous config had errors
-        return entry.get().getMessages().stream()
-            .filter(IConstructor.class::isInstance)
-            .map(IConstructor.class::cast)
-            .anyMatch(e -> "error".equals(e.getName()));
     }
 
     private static long safeLastModified(ISourceLocation uri) {
