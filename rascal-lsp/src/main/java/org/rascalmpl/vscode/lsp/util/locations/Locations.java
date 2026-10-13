@@ -74,16 +74,7 @@ public class Locations {
     }
 
     public static ISourceLocation toPhysicalIfPossible(ISourceLocation loc) {
-        ISourceLocation physical;
-        try {
-            physical = URIResolverRegistry.getInstance().logicalToPhysical(loc);
-            if (physical == null) {
-                return loc;
-            }
-            return physical;
-        } catch (IOException e) {
-            return loc;
-        }
+        return URIResolverRegistry.getInstance().resolveIfLogical(loc);
     }
 
     public static ISourceLocation toLoc(TextDocumentItem doc) {
