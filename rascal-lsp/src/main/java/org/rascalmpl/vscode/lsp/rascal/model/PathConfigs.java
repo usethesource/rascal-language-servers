@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -39,12 +40,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -54,7 +55,6 @@ import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.ISourceLocationWatcher.ISourceLocationChanged;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.xml.PomAnalyzer;
 
@@ -70,7 +70,7 @@ public class PathConfigs {
     private static final long UPDATE_DELAY = TimeUnit.SECONDS.toNanos(5);
 
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
-    private final Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs = new ConcurrentHashMap<>();
+    private final Map<ISourceLocation, CachedPathConfig> currentPathConfigs = new ConcurrentHashMap<>();
     private final PathConfigUpdater updater = new PathConfigUpdater(currentPathConfigs);
     private final LoadingCache<ISourceLocation, ISourceLocation> translatedRoots =
         Caffeine.newBuilder()
@@ -81,6 +81,31 @@ public class PathConfigs {
     private final Executor executor;
     private final PathConfigDiagnostics diagnostics;
 
+    private class CachedPathConfig {
+        private final PathConfig pathConfig;
+        private final Instant timestamp;
+        // Whether the combination of Rascal and Rascal LSP versions is compatible
+        private final boolean isRascalLspCompatible;
+
+        CachedPathConfig(PathConfig pathConfig, Instant timestamp, boolean isRascalLspCompatible) {
+            this.pathConfig = pathConfig;
+            this.timestamp = timestamp;
+            this.isRascalLspCompatible = isRascalLspCompatible;
+        }
+
+        private PathConfig get() {
+            return pathConfig;
+        }
+
+        private Instant timestamp() {
+            return timestamp;
+        }
+
+        private boolean isRascalLspCompatible() {
+            return isRascalLspCompatible;
+        }
+
+    }
 
     public PathConfigs(RascalLanguageServices rascal, Executor executor, PathConfigDiagnostics diagnostics) {
         this.rascal = rascal;
@@ -112,20 +137,20 @@ public class PathConfigs {
             // This can only happen when the `compute` function throws an exception
             throw new RuntimeException(String.format("Path config computation for %s failed", projectRoot));
         }
-        return entry.getKey();
+        return entry.get();
     }
 
-    private static boolean shouldBeRecomputed(@Nullable Pair<PathConfig, Instant> entry) {
+    private static boolean shouldBeRecomputed(@Nullable CachedPathConfig entry) {
         if (entry == null) {
             // No previously computed config
             return true;
         }
-        if (entry.getRight().plusSeconds(1).isAfter(Instant.now())) {
+        if (entry.timestamp().plusSeconds(1).isAfter(Instant.now())) {
             // Previous config is less than a second old
             return false;
         }
         // Previous config had errors
-        return entry.getLeft().getMessages().stream()
+        return entry.get().getMessages().stream()
             .filter(IConstructor.class::isInstance)
             .map(IConstructor.class::cast)
             .anyMatch(e -> "error".equals(e.getName()));
@@ -141,13 +166,13 @@ public class PathConfigs {
     }
 
 
-    private Pair<PathConfig, Instant> buildPathConfig(ISourceLocation projectRoot) {
+    private CachedPathConfig buildPathConfig(ISourceLocation projectRoot) {
         try {
             logger.debug("Building path config for: {}", projectRoot);
             var scheme = projectRoot.getScheme();
             if (scheme.startsWith("jar+") || scheme.equals("mvn")) {
                 logger.error("We're asked to build a path config for {} which is not something that is possible", projectRoot);
-                return Pair.of(new PathConfig(projectRoot), Instant.now());
+                return new CachedPathConfig(new PathConfig(projectRoot), Instant.now(), false);
             }
             ISourceLocation manifest = URIUtil.getChildLocation(projectRoot, "META-INF/RASCAL.MF");
             if (reg.exists(manifest)) {
@@ -174,10 +199,10 @@ public class PathConfigs {
     }
 
     private class PathConfigUpdater {
-        private final Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs;
+        private final Map<ISourceLocation, CachedPathConfig> currentPathConfigs;
         private final Map<ISourceLocation, List<WatchRegistration>> projectWatches;
 
-        public PathConfigUpdater(Map<ISourceLocation, Pair<PathConfig, Instant>> currentPathConfigs) {
+        public PathConfigUpdater(Map<ISourceLocation, CachedPathConfig> currentPathConfigs) {
             this.currentPathConfigs = currentPathConfigs;
             this.projectWatches = new ConcurrentHashMap<>();
         }
@@ -242,23 +267,27 @@ public class PathConfigs {
             }
         }
 
-        private Pair<PathConfig, Instant> actualBuild(ISourceLocation projectRoot) {
+        private CachedPathConfig actualBuild(ISourceLocation projectRoot) {
             var time = Instant.now();
             var pathConfig = PathConfig.fromSourceProjectRascalManifest(projectRoot, RascalConfigMode.COMPILER, true);
+
+            var compatibilityMsgs = new HashSet<IConstructor>();
+            try {
+                compatibilityMsgs.addAll(PomAnalyzer.calculateRascalAndLspCompatibility(PathConfig.getPomXmlLocation(projectRoot), rascal, executor).get());
+                pathConfig = pathConfig.addMessages(compatibilityMsgs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException | IOException e) {
+                logger.error("Calculating compatibility of Rascal and Rascal LSP failed", e);
+            }
             logger.debug("Path config for {}: {}", projectRoot, pathConfig);
+            publishPathConfigDiagnostics(pathConfig);
+            return new CachedPathConfig(pathConfig, time, compatibilityMsgs.isEmpty());
+        }
+
+        private void publishPathConfigDiagnostics(PathConfig pathConfig) {
             // Publish diagnostics in a background thread
-            PomAnalyzer.verifyRascalAndLspVersions(PathConfig.getPomXmlLocation(projectRoot), rascal, executor)
-                .whenComplete((versionMessages, t) -> {
-                    var messageWriter = IRascalValueFactory.getInstance().listWriter();
-                    messageWriter.appendAll(pathConfig.getMessages());
-                    if (versionMessages != null) {
-                        messageWriter.appendAll(versionMessages);
-                    } else {
-                        logger.error("Verifying Rascal and Rascal LSP versions failed", t);
-                    }
-                    diagnostics.publishDiagnostics(projectRoot, messageWriter.done(), Set.of("rsc"));
-                });
-            return Pair.of(pathConfig, time);
+            executor.execute(() -> diagnostics.publishDiagnostics(pathConfig.getProjectRoot(), pathConfig.getMessages(), Set.of("rsc")));
         }
 
     }

@@ -188,7 +188,7 @@ public class PomAnalyzer {
             });
     }
 
-    public static CompletableFuture<Set<IConstructor>> verifyRascalAndLspVersions(ISourceLocation pomXml, RascalLanguageServices services, Executor exec) {
+    public static CompletableFuture<Set<IConstructor>> calculateRascalAndLspCompatibility(ISourceLocation pomXml, RascalLanguageServices services, Executor exec) {
         var messages = new HashSet<CompletableFuture<IConstructor>>();
 
         var rascalDependency = PomAnalyzer.getRascalDependencyFromPom(pomXml);
