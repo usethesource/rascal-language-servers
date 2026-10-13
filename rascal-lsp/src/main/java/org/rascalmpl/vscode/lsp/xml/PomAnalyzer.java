@@ -63,26 +63,21 @@ public class PomAnalyzer {
 
     private static final Logger logger = LogManager.getLogger(PomAnalyzer.class);
 
-    private static Artifact getDependency(ISourceLocation pomLoc, String groupId, String artifactId) throws IllegalStateException {
+    private static @Nullable Artifact getDependency(ISourceLocation pomLoc, String groupId, String artifactId) {
         try {
             var mavenParser = new MavenParser(Path.of(pomLoc.getURI()));
             var rootProject = mavenParser.parseProject();
             var resolvedDependencies = rootProject.resolveDependencies(Scope.COMPILE, mavenParser);
             return resolvedDependencies.stream()
                 .filter(a -> a.getCoordinate().getGroupId().equals(groupId) && a.getCoordinate().getArtifactId().equals(artifactId))
-                .findFirst().orElseThrow(() -> new IllegalStateException("Did not find dependency " + groupId + ":" + artifactId + " in pom.xml at " + pomLoc));
+                .findFirst().orElse(null);
         } catch (ModelResolutionError e) {
-            throw new IllegalStateException(e);
+            return null;
         }
     }
 
     private IBool hasDependency(ISourceLocation pomLoc, String groupId, String artifactId) {
-        try {
-            getDependency(pomLoc, groupId, artifactId);
-            return vf.bool(true);
-        } catch (IllegalStateException e) {
-            return vf.bool(false);
-        }
+        return vf.bool(getDependency(pomLoc, groupId, artifactId) != null);
     }
 
     private static final String RASCAL_ORGANIZATION = "org.rascalmpl";
@@ -97,11 +92,11 @@ public class PomAnalyzer {
         return hasDependency(pomLoc, RASCAL_ORGANIZATION, RASCAL_LSP);
     }
 
-    public static Artifact getRascalDependencyFromPom(ISourceLocation pomLoc) throws IllegalStateException {
+    public static @Nullable Artifact getRascalDependencyFromPom(ISourceLocation pomLoc) {
         return getDependency(pomLoc, RASCAL_ORGANIZATION, RASCAL);
     }
 
-    public static Artifact getRascalLspDependencyFromPom(ISourceLocation pomLoc) throws IllegalStateException {
+    public static @Nullable Artifact getRascalLspDependencyFromPom(ISourceLocation pomLoc) {
         return getDependency(pomLoc, RASCAL_ORGANIZATION, RASCAL_LSP);
     }
 
@@ -192,8 +187,9 @@ public class PomAnalyzer {
     public static ISet verifyRascalAndLspVersions(ISourceLocation pomXml, RascalLanguageServices services) {
         var messagesWriter = vf.setWriter();
 
-        try {
-            var rascalDependencyVersion = PomAnalyzer.getRascalDependencyFromPom(pomXml).getCoordinate().getVersion();
+        var rascalDependency = PomAnalyzer.getRascalDependencyFromPom(pomXml);
+        if (rascalDependency != null) {
+            var rascalDependencyVersion = rascalDependency.getCoordinate().getVersion();
             var rascalVersion = new ComparableVersion(rascalDependencyVersion);
             var rascalIsNewEnough = rascalVersion.compareTo(getMinimalRascalVersion()) >= 0;
 
@@ -205,12 +201,11 @@ public class PomAnalyzer {
                 }
                 messagesWriter.append(makeUpdateDependencyMessage("Rascal", RASCAL, Command_updateRascalDependency, pomXml, services, rascalDependencyVersion, RascalManifest.getRascalVersionNumber()));
             }
-        } catch (IllegalStateException e) {
-            // No rascal dependency in pom.xml. Diagnostics are generated elsewhere
-        }
+        } // else: No rascal dependency in pom.xml. Diagnostics are generated elsewhere
 
-        try {
-            var rascalLspDependencyVersion = PomAnalyzer.getRascalLspDependencyFromPom(pomXml).getCoordinate().getVersion();
+        var rascalLspDependency = PomAnalyzer.getRascalLspDependencyFromPom(pomXml);
+        if (rascalLspDependency != null) {
+            var rascalLspDependencyVersion = rascalLspDependency.getCoordinate().getVersion();
             var rascalLspVersion = new ComparableVersion(rascalLspDependencyVersion);
             var rascalLspIsNewEnough = rascalLspVersion.compareTo(getMinimalRascalLspVersion()) >= 0;
 
@@ -222,9 +217,8 @@ public class PomAnalyzer {
                 }
                 messagesWriter.append(makeUpdateDependencyMessage("Rascal-lsp", RASCAL_LSP, Command_updateRascalLspDependency, pomXml, services, rascalLspDependencyVersion, currentRascalLspVersion));
             }
-        } catch (IllegalStateException e) {
-            // No rascal-lsp dependency in pom.xml. Diagnostics are generated elsewhere (if needed)
-        }
+        } // else: No rascal-lsp dependency in pom.xml. Diagnostics are generated elsewhere (if needed)
+        
         return messagesWriter.done();
     }
 }
