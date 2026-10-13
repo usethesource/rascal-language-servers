@@ -77,10 +77,4 @@ public class PathConfigsTest {
     public void projectRootFromTarget() {
         assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(URIUtil.getChildLocation(lspProjectRoot, "target/classes")));
     }
-
-    // @Test
-    // public void projectRootFromNestedProject() {
-    //     var origin = URIUtil.getChildLocation(lspProjectRoot, "src/test/resources/project-a/pom.xml");
-    //     assertEquals(URIUtil.getChildLocation(lspProjectRoot, "src/test/resources/project-a"), PathConfigs.inferProjectRoot(origin));
-    // }
 }

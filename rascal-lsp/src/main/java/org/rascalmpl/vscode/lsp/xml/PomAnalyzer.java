@@ -174,7 +174,7 @@ public class PomAnalyzer {
     private static CompletableFuture<IConstructor> makeUpdateDependencyMessage(String dependencyLabel, String dependency, Type commandType, ISourceLocation pomXml, RascalLanguageServices services, String oldVersion, String newVersion) {
         return services.getDependencyVersionLocation(pomXml, RASCAL_ORGANIZATION, dependency)
             .thenApply(errorLocation -> {
-                var addFix = errorLocation == null ? false : true;
+                var addFix = errorLocation != null;
                 // The back-up location is set on line 2 (and not line 1) to ensure that when clicking the Quick Fix hover, the mouse does not go out of the editor area and make the hover disappear
                 errorLocation = Objects.requireNonNullElse(errorLocation, vf.sourceLocation(pomXml, 0, 0, 2, 2, 0, 8));
 
