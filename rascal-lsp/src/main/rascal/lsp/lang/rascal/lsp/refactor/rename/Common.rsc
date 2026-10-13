@@ -68,6 +68,17 @@ bool isContainedInScope(loc l, loc scope, TModel tm) {
 
 loc getModuleFile(TModel tm) = getModuleScopes(tm)[tm.modelName].top;
 
+@synopsis{
+    Gets the use-def relation of TModel `tm`. Unlike `tm.useDef`, this function
+    guarantees that the range of the relation is a subset of the domain of
+    `tm.definitions`. Thus, unlike pairs in `tm.useDef`, if `<u, d>` is a pair
+    in the relation, then `d` can safely be used to index `tm.definitions`.
+}
+rel[loc, loc] getUseDef(TModel tm) {
+    map[loc, loc] id2define = invertUnique(tm.define2id);
+    return {<u, id2define[d] ? d> | <loc u, loc d> <- tm.useDef};
+}
+
 private set[str] reservedNames = getRascalReservedIdentifiers();
 
 str forceUnescapeNames(str name) = replaceAll(name, "\\", "");

@@ -58,10 +58,12 @@ import org.rascalmpl.vscode.lsp.util.Nullables;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.ISourceLocation;
+
 public abstract class BaseWorkspaceService implements WorkspaceService, LanguageClientAware {
     private static final Logger logger = LogManager.getLogger(BaseWorkspaceService.class);
 
-    private @MonotonicNonNull LanguageClient client;
+    private @MonotonicNonNull IBaseLanguageClient client;
 
     public static final String RASCAL_LANGUAGE = "Rascal";
     public static final String RASCAL_META_COMMAND = "rascal-meta-command";
@@ -69,13 +71,31 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     private final ExecutorService exec;
 
-    private final IBaseTextDocumentService documentService;
+    private @MonotonicNonNull IBaseTextDocumentService documentService;
     private final CopyOnWriteArrayList<WorkspaceFolder> workspaceFolders = new CopyOnWriteArrayList<>();
 
 
-    protected BaseWorkspaceService(ExecutorService exec, IBaseTextDocumentService documentService) {
-        this.documentService = documentService;
+    protected BaseWorkspaceService(ExecutorService exec) {
         this.exec = exec;
+    }
+
+    protected IBaseTextDocumentService availableDocumentService() {
+        if (documentService == null) {
+            throw new IllegalStateException("Workspace service has not been constructed yet");
+        }
+        return documentService;
+    }
+
+    protected IBaseLanguageClient availableClient() {
+        if (client == null) {
+            throw new IllegalStateException("Workspace service has not been constructed yet");
+        }
+        return client;
+
+    }
+
+    public void pair(IBaseTextDocumentService documentService) {
+        this.documentService = documentService;
     }
 
     public void initialize(ClientCapabilities clientCap, @Nullable List<WorkspaceFolder> currentWorkspaceFolders, ServerCapabilities capabilities) {
@@ -99,14 +119,14 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
 
     @Override
     public void connect(LanguageClient client) {
-        this.client = client;
+        this.client = (IBaseLanguageClient)client;
     }
 
     /**
      * After the client has been initialized, register dynamic capabilities.
      */
     @SuppressWarnings("java:S1172")
-    void initialized() {
+    public void initialized() {
         // not in use
     }
 
@@ -126,30 +146,31 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
         if (removed != null) {
             workspaceFolders.removeAll(removed);
             for (WorkspaceFolder folder : removed) {
-                documentService.projectRemoved(folder.getName(), Locations.toLoc(folder.getUri()));
+                projectRemoved(Locations.toLoc(folder.getUri()));
             }
         }
 
         var added = params.getEvent().getAdded();
         if (added != null) {
             workspaceFolders.addAll(added);
-            for (WorkspaceFolder folder : added) {
-                documentService.projectAdded(folder.getName(), Locations.toLoc(folder.getUri()));
-            }
         }
+    }
+
+    protected void projectRemoved(ISourceLocation loc) {
+        // Nothing to do by default
     }
 
     @Override
     public void didCreateFiles(CreateFilesParams params) {
         logger.debug("workspace/didCreateFiles: {}", params.getFiles());
-        exec.submit(() -> documentService.didCreateFiles(params));
+        exec.submit(() -> availableDocumentService().didCreateFiles(params));
     }
 
     @Override
     public void didRenameFiles(RenameFilesParams params) {
         logger.debug("workspace/didRenameFiles: {}", params.getFiles());
 
-        exec.submit(() -> documentService.didRenameFiles(params, workspaceFolders()));
+        exec.submit(() -> availableDocumentService().didRenameFiles(params, workspaceFolders()));
 
         exec.submit(() -> {
             // cleanup the old files (we do not get a `didDelete` event)
@@ -157,14 +178,14 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
                 .map(f -> f.getOldUri())
                 .map(FileDelete::new)
                 .collect(Collectors.toList());
-            documentService.didDeleteFiles(new DeleteFilesParams(oldFiles));
+            availableDocumentService().didDeleteFiles(new DeleteFilesParams(oldFiles));
         });
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         logger.debug("workspace/didDeleteFiles: {}", params.getFiles());
-        exec.submit(() -> documentService.didDeleteFiles(params));
+        exec.submit(() -> availableDocumentService().didDeleteFiles(params));
     }
 
     @Override
@@ -175,7 +196,7 @@ public abstract class BaseWorkspaceService implements WorkspaceService, Language
                 if (params.getCommand().startsWith(RASCAL_META_COMMAND) || params.getCommand().startsWith(RASCAL_COMMAND)) {
                     String languageName = ((JsonPrimitive) params.getArguments().get(0)).getAsString();
                     String command = ((JsonPrimitive) params.getArguments().get(1)).getAsString();
-                    return documentService.executeCommand(languageName, command).thenApply(v -> v);
+                    return availableDocumentService().executeCommand(languageName, command).thenApply(v -> v);
                 }
 
                 return CompletableFutureUtils.completedFuture(params.getCommand() + " was ignored.", exec);

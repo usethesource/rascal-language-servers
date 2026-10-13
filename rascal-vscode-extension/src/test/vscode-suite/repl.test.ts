@@ -26,8 +26,8 @@
  */
 
 import { expect } from 'chai';
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
-import { TestWorkspace, RascalREPL, Delays, IDEOperations, printRascalOutputOnFailure } from './utils';
+import { TextEditor, VSBrowser, WebDriver, WebView, Workbench } from 'vscode-extension-tester';
+import { Delays, getArtifactVersion, IDEOperations, ignoreFails, printRascalOutputOnFailure, RascalREPL, TestWorkspace } from './utils';
 
 describe('REPL', function () {
     let browser: VSBrowser;
@@ -37,7 +37,7 @@ describe('REPL', function () {
 
     this.timeout(2 * Delays.extremelySlow);
 
-    printRascalOutputOnFailure('Rascal MPL');
+    printRascalOutputOnFailure('Rascal MPL Language Server');
 
     before(async () => {
         browser = VSBrowser.instance;
@@ -49,6 +49,12 @@ describe('REPL', function () {
         await browser.waitForWorkbench();
     });
 
+    beforeEach(async function () {
+        if (this.test?.title) {
+            await ide.screenshot("REPL-"+this.test?.title);
+        }
+    });
+
     afterEach(async function () {
         if (this.test?.title) {
             await ide.screenshot("REPL-"+this.test?.title);
@@ -57,9 +63,28 @@ describe('REPL', function () {
         await ide.cleanup();
     });
 
-    it("should open without a project", async () => {
-        await new RascalREPL(bench, driver).start();
+    it("opens without a project", async () => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        const root = await repl.getProjectRoot();
+        // Expect home (or something that looks like home), but definitely not within the project
+        expect(root).not.to.include('rascal-language-servers');
     }).retries(2);
+
+    it("uses the standard library from the extension", async () => {
+        // Find Rascal version in POM
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.lspProjectPom, false);
+
+        // Query Rascal version from stdlib
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import IO;");
+        await repl.execute("import util::Reflective;");
+        await repl.execute("println(getRascalVersion());");
+        await repl.terminate();
+
+        expect(repl.lastOutput.replace("\nok", "")).is.equal(pomRascalVersion, "Stdlib version matches extension POM version");
+    });
 
     it("run basic rascal commands", async () => {
         const repl = new RascalREPL(bench, driver);
@@ -74,27 +99,25 @@ describe('REPL', function () {
     it("import module and run in terminal", async () => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
 
-        driver.wait(async () => {
-            try {
-                const lens = await ide.findCodeLens(editor, "Run in new Rascal terminal");
-                await lens!.click();
-                return true;
-            } catch (e) {
-                console.log("codelens clicking failed");
-                return false;
-            }
-        }, Delays.slow, "Codelens for 'Run in new Rascal terminal'");
+        await ide.clickCodeLens(editor, "Run in new Rascal terminal");
         const repl = new RascalREPL(bench, driver);
         await repl.connect();
         expect(repl.lastOutput).is.equal("5\nint: 0");
     }).timeout(Delays.extremelySlow * 3);
 
-    it("edit call module via repl", async() => {
-        const repl = new RascalREPL(bench, driver);
-        await repl.start();
+    it("open module editor via repl", async() => {
+        const repl = await RascalREPL.startFor(TestWorkspace.libCallFile, ide, bench, driver);
         await repl.execute(":edit demo::lang::pico::LanguageServer", true, Delays.extremelySlow);
 
         await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "LanguageServer.rsc", Delays.slow, "LanguageServer should be opened");
+    });
+
+    it("open stdlib module editor via repl", async() => {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute(":edit IO", true, Delays.extremelySlow);
+
+        await driver.wait(async () => await (await bench.getEditorView().getActiveTab())?.getTitle() === "IO.rsc", Delays.slow, "IO should be opened");
     });
 
     it("VFS works", async() => {
@@ -109,4 +132,67 @@ describe('REPL', function () {
         await repl.execute(`readFile(${baseLoc}test.txt|)`);
         expect(repl.lastOutput).contains('Hello World', 'File contents should be there');
     });
+
+    async function runIdeService(command: (file: string) => string): Promise<RascalREPL>;
+    async function runIdeService(command: (file: string) => string, file: string): Promise<RascalREPL>;
+    async function runIdeService(command: (file: string) => string, file?: string): Promise<RascalREPL> {
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        await repl.execute("import util::IDEServices;");
+        if (file) {
+            await repl.execute(`loc f = |${file}|;`);
+            await repl.execute(command("f"));
+        } else {
+            await repl.execute(command(""));
+        }
+        return repl;
+    }
+
+    it("browses interactively", async() => {
+        await runIdeService(() => 'browse(|https://www.rascal-mpl.org|, title="Rascal MPL");');
+        await driver.wait(async () => {
+            const view = new WebView();
+            return await ignoreFails(view.getTitle()) === "Rascal MPL";
+        }, Delays.normal, "Browser for rascal-mpl.org should open");
+    });
+
+    it("opens editors", async() => {
+        await runIdeService(f => `edit(${f});`, "project://test-project/src/main/pico/testing.pico");
+        await driver.wait(async () => {
+            const editor = new TextEditor();
+            return "testing.pico" === await editor.getTitle();
+        }, Delays.normal, "Another editor should open");
+    });
+
+    function checkMessageOutput(repl: RascalREPL, uri: string, message: string, severity: string) {
+        expect(repl.lastOutput).to.equal(`[${severity.toUpperCase()}] |${uri}|: ${message}\nok`);
+    }
+
+    it("(un)registers diagnostics", async() => {
+        const file = "project://test-project/src/main/pico/testing.pico";
+        const repl = await runIdeService(f => `registerDiagnostics([info("TODO", ${f})]);`, file);
+        checkMessageOutput(repl, file, "TODO", "info");
+
+        await repl.execute(`unregisterDiagnostics([|${file}|]);`);
+    });
+
+    it("shows messages", async() => {
+        const file = "project://test-project/src/main/pico/testing.pico";
+        const repl = await runIdeService(f => `showMessage(warning("Test warning", ${f}));`, file);
+        checkMessageOutput(repl, file, "Test warning", "warning");
+    });
+
+    it("logs messages", async() => {
+        const file = "project://test-project/src/main/pico/testing.pico";
+        const repl = await runIdeService(f => `logMessage(error("Test warning", ${f}));`, file);
+        checkMessageOutput(repl, file, "Test warning", "error");
+    });
+
+    it("shows interactive content", async function() {
+        await runIdeService(() => 'showInteractiveContent(plainText("Some text"));');
+        await driver.wait(async () => {
+            return "*static content*" === await (await bench.getEditorView().getActiveTab())?.getTitle();
+        }, Delays.normal, "Static content should be shown");
+    });
+
 });

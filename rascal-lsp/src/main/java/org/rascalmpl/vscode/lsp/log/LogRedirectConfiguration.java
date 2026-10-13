@@ -63,10 +63,7 @@ public class LogRedirectConfiguration extends ConfigurationFactory {
     }
 
     private static Configuration buildRedirectConfig() {
-        Level targetLevel = Level.getLevel(System.getProperty("log4j2.level", "INFO"));
-        if (targetLevel == null) {
-            targetLevel = Level.INFO;
-        }
+        Level targetLevel = LogJsonConfiguration.getLogLevel();
 
         ConfigurationBuilder<BuiltConfiguration> builder = ConfigurationBuilderFactory.newConfigurationBuilder();
         builder.setConfigurationName("DefaultLogger");
@@ -74,7 +71,7 @@ public class LogRedirectConfiguration extends ConfigurationFactory {
 
         builder.add(builder
             .newAppender("Console", "CONSOLE")
-            .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR)
+            .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR) // Matches BaseLanguageServer.DEPLOYMENT_OUTPUT_STREAM
             .add(builder.newLayout("PatternLayout").addAttribute("pattern", "%d [%t] %p - %c %m%n")));
 
         builder.add(builder

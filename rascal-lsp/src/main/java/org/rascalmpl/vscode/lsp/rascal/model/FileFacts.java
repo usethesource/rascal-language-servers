@@ -26,12 +26,15 @@
  */
 package org.rascalmpl.vscode.lsp.rascal.model;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -41,9 +44,12 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
+import org.rascalmpl.values.parsetrees.ITree;
+import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
 import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.util.Lists;
+import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.concurrent.LazyUpdateableReference;
@@ -51,9 +57,10 @@ import org.rascalmpl.vscode.lsp.util.concurrent.ReplaceableFuture;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
 
-public class FileFacts {
+public class FileFacts implements DiagnosticsReporter {
     private static final Logger logger = LogManager.getLogger(FileFacts.class);
     private final Executor exec;
     private final RascalLanguageServices rascal;
@@ -68,17 +75,19 @@ public class FileFacts {
         this.rascal = rascal;
         this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs(exec, new PathConfigDiagnostics(client, cm));
+        this.confs = new PathConfigs(rascal, exec, new PathConfigDiagnostics(client, cm));
         this.nopFact = new FileFact() {
-            @Override public void reportParseErrors(List<Diagnostic> msgs) { /* NOP */}
-            @Override public void reportTypeCheckerErrors(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
+            @Override public void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs) { /* NOP */}
+            @Override public void reportTypeCheckerMessages(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
             @Override public void clearDiagnostics() { /* NOP */ }
 
             @Override
-            public CompletableFuture<@Nullable SummaryBridge> getSummary() {
-                return CompletableFutureUtils.completedFuture(null, exec);
+            public CompletableFuture<SummaryBridge> getSummary() {
+                return CompletableFutureUtils.completedFuture(new SummaryBridge(), exec);
             }
         };
     }
@@ -88,25 +97,42 @@ public class FileFacts {
     }
 
     public void invalidate(ISourceLocation file) {
-        getFile(file).invalidate();
+        var f = get(file);
+        if (f != null) {
+            f.invalidate();
+        }
     }
 
-    public CompletableFuture<@Nullable SummaryBridge> getSummary(ISourceLocation file) {
-        return getFile(file).getSummary();
+    public void triggerAnalyzer(ISourceLocation file, CompletableFuture<Versioned<ITree>> currentTreeAsync,
+        Versioned<String> versioned, Duration delay) {
+        getOrOpen(file).triggerAnalyzer(currentTreeAsync, versioned, delay);
     }
 
-    public void reportParseErrors(ISourceLocation file, List<Diagnostic> msgs) {
-        getFile(file).reportParseErrors(msgs);
+    public CompletableFuture<SummaryBridge> getSummary(ISourceLocation file) {
+        return getOrOpen(file).getSummary();
     }
 
-    private FileFact getFile(ISourceLocation l) {
-        l = l.top();
-        ISourceLocation resolved = Locations.toClientLocation(l);
-        var fact = files.get(resolved);
+    @Override
+    public void reportParseErrors(ISourceLocation file, Versioned<List<Diagnostic>> msgs) {
+        getOrOpen(file).reportParseErrors(msgs);
+    }
+
+    public void reportTypeCheckerMessages(Map<ISourceLocation, ISet> messages) {
+        Diagnostics.translateMessages(messages, Set.of("rsc"), cm).forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs));
+    }
+
+    private @Nullable FileFact get(ISourceLocation l) {
+        var resolved = Locations.toClientLocation(l.top());
+        return files.get(resolved);
+    }
+
+    private FileFact getOrOpen(ISourceLocation l) {
+        var fact = get(l);
         if (fact != null) {
             return fact;
         }
 
+        var resolved = Locations.toClientLocation(l.top());
         if (URIResolverRegistry.getInstance().exists(resolved)) {
             // The file exists, so there should be facts.
             // Someone might have raced past us, so we atomically check(again)-and-update and return the result.
@@ -122,7 +148,11 @@ public class FileFacts {
     }
 
     public void close(ISourceLocation file) {
-        getFile(file).close();
+        var f = get(file);
+        if (f != null) {
+            // No need to close what's not open!
+            f.close();
+        }
     }
 
     private @Nullable FileFact remove(ISourceLocation file) {
@@ -134,9 +164,11 @@ public class FileFacts {
     }
 
     private interface FileFact {
-        void reportParseErrors(List<Diagnostic> msgs);
-        void reportTypeCheckerErrors(List<Diagnostic> msgs);
-        CompletableFuture<@Nullable SummaryBridge> getSummary();
+        void reportParseErrors(Versioned<List<Diagnostic>> msgs);
+        void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs);
+        void reportTypeCheckerMessages(List<Diagnostic> msgs);
+        CompletableFuture<SummaryBridge> getSummary();
+        void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay);
         void invalidate();
         void close();
         void clearDiagnostics();
@@ -144,8 +176,10 @@ public class FileFacts {
 
     private class ActualFileFact implements FileFact {
         private final ISourceLocation file;
-        private final LazyUpdateableReference<InterruptibleFuture<@Nullable SummaryBridge>> summary;
-        private volatile List<Diagnostic> parseMessages = Collections.emptyList();
+        private final LazyUpdateableReference<InterruptibleFuture<SummaryBridge>> summary;
+        private final AtomicReference<Versioned<List<Diagnostic>>> parseMessages = Versioned.atomic(-1, Collections.emptyList());
+        private final AtomicReference<Versioned<String>> analyzerLatestVersion = new AtomicReference<>();
+        private final AtomicReference<Versioned<List<Diagnostic>>> analyzerMessages = Versioned.atomic(-1, Collections.emptyList());
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
@@ -160,18 +194,27 @@ public class FileFacts {
                     // (we cannot now global running type checkers, that is a different subject)
                     return InterruptibleFuture.flatten(typeCheckResults.get()
                         .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, confs::lookupConfig)), exec)
-                        .<@Nullable SummaryBridge>thenApply(s -> s == null ? null : new SummaryBridge(file, s, cm));
+                        .thenApply(s -> s == null ? new SummaryBridge() : new SummaryBridge(file, s, cm));
                 });
         }
 
         @Override
-        public void reportParseErrors(List<Diagnostic> msgs) {
-            parseMessages = msgs;
-            sendDiagnostics();
+        public void reportParseErrors(Versioned<List<Diagnostic>> msgs) {
+            if (Versioned.replaceIfNewer(parseMessages, msgs)) {
+                sendDiagnostics();
+            }
         }
 
         @Override
-        public void reportTypeCheckerErrors(List<Diagnostic> msgs) {
+        public void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs) {
+            if (Versioned.replaceIfNewer(analyzerMessages, msgs)) {
+                sendDiagnostics();
+            }
+        }
+
+
+        @Override
+        public void reportTypeCheckerMessages(List<Diagnostic> msgs) {
             typeCheckerMessages = msgs;
             sendDiagnostics();
         }
@@ -184,11 +227,11 @@ public class FileFacts {
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 Locations.toUri(file).toString(),
-                Lists.union(typeCheckerMessages, parseMessages)));
+                Lists.union(typeCheckerMessages, parseMessages.get().get(), analyzerMessages.get().get())));
         }
 
         @Override
-        public CompletableFuture<@Nullable SummaryBridge> getSummary() {
+        public CompletableFuture<SummaryBridge> getSummary() {
             return summary.get().get();
         }
 
@@ -197,14 +240,33 @@ public class FileFacts {
             summary.invalidate();
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
-                rascal.compileFile(file, confs.lookupConfig(file), exec)
-                    .thenApply(m -> Diagnostics.translateMessages(m, cm))
-            ).thenAccept(m -> m.forEach((f, msgs) -> getFile(f).reportTypeCheckerErrors(msgs)));
+                rascal.checkFile(file, confs.lookupConfig(file), exec)
+                    .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
+            ).thenAccept(m -> m.forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs)));
+        }
+
+        @Override
+        public void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version,
+            Duration delay) {
+            version.debounce(analyzerLatestVersion, delay, ignored -> tree.thenCompose(this::analyzer), Collections.emptyList(), exec)
+                .thenAccept(this::reportAnalyzeMessages);
+        }
+
+        private CompletableFuture<List<Diagnostic>> analyzer(Versioned<ITree> t) {
+            return rascal.analyze(t.get())
+                .thenApply(m -> Diagnostics.translateDiagnostics(m, cm))
+                .get();
+        }
+
+        private boolean noMessages() {
+            return parseMessages.get().get().isEmpty()
+                && analyzerMessages.get().get().isEmpty()
+                && typeCheckerMessages.isEmpty();
         }
 
         @Override
         public void close() {
-            if ((parseMessages.isEmpty() && typeCheckerMessages.isEmpty()) || !URIResolverRegistry.getInstance().exists(file)) {
+            if (noMessages() || !URIResolverRegistry.getInstance().exists(file)) {
                 // If there are no messages for this file or the file has been deleted, can we remove it
                 // else VS Code comes back and we've dropped the messages in our internal data
                 files.remove(file);
@@ -214,10 +276,13 @@ public class FileFacts {
         @Override
         public void clearDiagnostics() {
             summary.invalidate();
+            parseMessages.set(new Versioned<>(-1, Collections.emptyList()));
+            analyzerMessages.set(new Versioned<>(-1, Collections.emptyList()));
             typeCheckerMessages.clear();
             typeCheckResults.replace(CompletableFutureUtils.completedFuture(Map.of(), exec));
             client.publishDiagnostics(new PublishDiagnosticsParams(Locations.toUri(file).toString(), List.of()));
         }
     }
+
 
 }

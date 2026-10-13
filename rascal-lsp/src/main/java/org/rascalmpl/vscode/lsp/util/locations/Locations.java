@@ -58,9 +58,11 @@ public class Locations {
     private static final Logger logger = LogManager.getLogger(Locations.class);
     private static final IRascalValueFactory VF = IRascalValueFactory.getInstance();
 
+
     // Synthetic scheme to (un)wrap an opaque URI as/from an absolute URI.
     // Can only contain alphanumeric characters or "+", "-", ".", and should start with an alpha
     // https://datatracker.ietf.org/doc/html/rfc3986#section-3.1
+    // Schemes should be normalized to lowercase
     private static final String OPAQUE_SCHEME = "opaque-lsp-";
 
     public static ISourceLocation toClientLocation(ISourceLocation loc) {
@@ -140,7 +142,7 @@ public class Locations {
             // - Opaque URIs do not have a query, so we leave that unset.
             // - Clone the (optional) fragment.
             try {
-                uri = new URI(OPAQUE_SCHEME, uri.getScheme(), "/" + uri.getSchemeSpecificPart(), null, uri.getFragment());
+                uri = new URI(OPAQUE_SCHEME, uri.getScheme().toLowerCase(), "/" + uri.getSchemeSpecificPart(), null, uri.getFragment());
             } catch (URISyntaxException e) {
                 logger.error("Cannot convert opaque URI: {}", uri, e);
                 return VF.sourceLocation(uri);
@@ -156,7 +158,7 @@ public class Locations {
      */
     public static URI toUri(ISourceLocation loc) {
         var uri = loc.getURI();
-        if (OPAQUE_SCHEME.equals(uri.getScheme())) {
+        if (isWrappedOpaque(loc)) {
             // This URI was received from VS Code as a opaque URI, and wrapped by `toLoc`. Unwrap the original opaque URI.
             // Split the original scheme and scheme specific part
             try {
@@ -167,6 +169,10 @@ public class Locations {
             }
         }
         return uri;
+    }
+
+    public static boolean isWrappedOpaque(ISourceLocation loc) {
+        return OPAQUE_SCHEME.equals(loc.getScheme());
     }
 
     public static Location mapValueToLocation(IValue v, ColumnMaps cm) {

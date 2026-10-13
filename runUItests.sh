@@ -7,17 +7,25 @@
 set -e;
 set -x;
 
-cd rascal-vscode-extension
+# Find the current Rascal LSP version in the POM, and restore it when this script exits
+RESTORE_LSP_VERSION=$( ( cd rascal-vscode-extension/test-workspace/test-project && mvn -ntp dependency:tree -Dincludes=org.rascalmpl:rascal-lsp | grep rascal-lsp | cut -d ':' -f 4 ) )
+restore_versions() {
+    cd .. && ./update-test-dependencies.sh "$RESTORE_LSP_VERSION"
+}
+trap "restore_versions" EXIT SIGINT SIGTERM SIGHUP
 
-UITESTS=/tmp/vscode-uitests
+# Bootstrap LSP version
+./update-test-dependencies.sh
+
 
 # cleanup to avoid contamination with previous runs
-
+UITESTS=/tmp/vscode-uitests
 rm -rf $UITESTS || true
 
 # compiling the TS code as well as the test TS code at least once is required before execution
 # this assumes you have run `npm ci` at least once since a large update
-npm run compile-tests
+cd rascal-vscode-extension
+npm run compile:tests
 
 # test what was compiled
 VSCODE_VERSION=$(grep '"vscode":' package.json | awk -F^ '{ print $2 }' | awk -F\" '{ print $1 }')

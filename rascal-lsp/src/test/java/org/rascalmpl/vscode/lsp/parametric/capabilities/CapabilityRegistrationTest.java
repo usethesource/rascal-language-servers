@@ -38,6 +38,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.only;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -86,6 +87,8 @@ public class CapabilityRegistrationTest {
 
     private final ExecutorService exec = Executors.newCachedThreadPool();
 
+    private static final String LANGUAGE_ID = "testlang";
+
     private CapabilityRegistration dynCap;
 
     // Mocks
@@ -97,7 +100,7 @@ public class CapabilityRegistrationTest {
 
     @Before
     public void setUp() {
-        dynCap = new CapabilityRegistration(client, exec, clientCapabilities(true), completion);
+        dynCap = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities(true), completion);
         dynCap.registerStaticCapabilities(serverCapabilities);
     }
 
@@ -192,6 +195,11 @@ public class CapabilityRegistrationTest {
             public Set<String> fileExtensions() {
                 return Set.of(lang.getExtensions());
             }
+
+            @Override
+            public Set<String> extensionLessSchemes() {
+                return Set.of();
+            }
         };
     }
 
@@ -271,9 +279,8 @@ public class CapabilityRegistrationTest {
     public void registerIdenticalContribution() throws InterruptedException, ExecutionException {
         registerSequentially(List.of(".", "::"), List.of(".", "::"));
 
-        InOrder inOrder = inOrder(client);
-        inOrder.verify(client).registerCapability(registrationCaptor.capture());
-        inOrder.verifyNoMoreInteractions();
+        verify(client).registerCapability(registrationCaptor.capture());
+        verifyNoMoreInteractions(client);
 
         assertSingleRegistration("textDocument/completion", new CompletionRegistrationOptions(List.of(".", "::"), false), registrationCaptor.getAllValues().get(0));
     }
@@ -356,7 +363,7 @@ public class CapabilityRegistrationTest {
     public void hasNoDynamicCapability() throws InterruptedException, ExecutionException {
         var contrib = new SomeContribs(".");
 
-        dynCap = new CapabilityRegistration(client, exec, clientCapabilities(false), completion);
+        dynCap = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities(false), completion);
         dynCap.registerStaticCapabilities(serverCapabilities);
 
         dynCap.update(params(contrib)).get();
@@ -368,7 +375,7 @@ public class CapabilityRegistrationTest {
 
     @Test
     public void preferStaticRegistration() throws InterruptedException, ExecutionException {
-        dynCap = new CapabilityRegistration(client, exec, clientCapabilities(true), new CompletionCapability(true));
+        dynCap = new CapabilityRegistration(LANGUAGE_ID, client, exec, clientCapabilities(true), new CompletionCapability(true));
         dynCap.registerStaticCapabilities(serverCapabilities);
 
         dynCap.update(params(new SomeContribs("."))).get();

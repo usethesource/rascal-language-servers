@@ -27,34 +27,37 @@
 
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
-import { TextEditor, ViewSection, VSBrowser, WebDriver, Workbench, until } from 'vscode-extension-tester';
-import { Delays, IDEOperations, ignoreFails, printRascalOutputOnFailure, sleep, TestWorkspace } from './utils';
-
-const protectFiles = [TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile, TestWorkspace.manifest];
+import { TextEditor, TreeItem, VSBrowser, ViewSection, WebDriver, Workbench, until } from 'vscode-extension-tester';
+import { Delays, IDEOperations, ProtectedFiles, RascalREPL, TestWorkspace, captureOutput, getArtifactVersion, getOutput, ignoreFails, isLanguageLoading, matchPathConfig, printRascalOutputOnFailure, sleep } from './utils';
+import { fail } from 'assert';
 
 describe('IDE', function () {
     let browser: VSBrowser;
     let driver: WebDriver;
     let bench: Workbench;
     let ide: IDEOperations;
-    const originalFiles = new Map<string, Buffer>();
+    let protectedFiles : ProtectedFiles;
 
     this.timeout(Delays.extremelySlow * 2);
 
-    printRascalOutputOnFailure('Rascal MPL');
+    printRascalOutputOnFailure('Rascal MPL Language Server');
 
     before(async () => {
+        const files = ProtectedFiles.protect(
+            TestWorkspace.mainFile, TestWorkspace.libFile, TestWorkspace.libCallFile,
+            TestWorkspace.manifest, TestWorkspace.importeeFile, TestWorkspace.importerFile
+        );
         browser = VSBrowser.instance;
         driver = browser.driver;
         bench = new Workbench();
         await browser.waitForWorkbench();
         ide = new IDEOperations(browser);
         await ide.load();
-        // trigger rascal type checker to be sure
-        for (const f of protectFiles) {
-            originalFiles.set(f, await fs.readFile(f));
-        }
+
+        protectedFiles = await files;
+
         await makeSureRascalModulesAreLoaded();
     });
 
@@ -62,16 +65,21 @@ describe('IDE', function () {
         if (this.test?.title) {
             await ide.screenshot("IDE-" + this.test?.title);
         }
+        // make sure we always reset, so errors don't propagate (since sometimes an afterEach is not run)
+        await protectedFiles.restore();
     });
 
     afterEach(async function () {
         if (this.test?.title) {
             await ide.screenshot("IDE-" + this.test?.title);
         }
-        await ide.cleanup();
-        for (const [f, b] of originalFiles) {
-            await fs.writeFile(f, b);
+        try {
+            await ide.cleanup();
         }
+        finally {
+            await protectedFiles.restore();
+        }
+
     });
 
 
@@ -79,7 +87,7 @@ describe('IDE', function () {
         try {
             await ide.openModule(TestWorkspace.mainFile);
             let statusBarSeen = false;
-            const checkRascalStatus = ide.statusContains("Loading Rascal");
+            const checkRascalStatus = () => ignoreFails(isLanguageLoading(bench, "Rascal")());
 
             for (let tries = 0; tries < 10 && !statusBarSeen; tries++) {
                 if (await checkRascalStatus()) {
@@ -92,7 +100,7 @@ describe('IDE', function () {
             if (statusBarSeen) {
                 console.log("Waiting for startup of rascal core");
                 for (let tries = 0; tries < 70; tries++) {
-                    if (!await checkRascalStatus()) {
+                    if (await checkRascalStatus() === false) {
                         return;
                     }
                     await sleep(delay / 80);
@@ -105,17 +113,57 @@ describe('IDE', function () {
         }
     }
 
-    function waitForActiveEditor(title: string, timeout: number, message: string) {
-        return driver.wait(async () =>
-            (await (await bench.getEditorView().getActiveTab())?.getTitle()) === title, timeout, message);
-    }
-
     it("has syntax highlighting and parsing errors", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
         await ide.hasSyntaxHighlighting(editor, Delays.slow);
         await editor.setTextAtLine(1, "this should not parse");
         await ide.hasErrorSquiggly(editor);
     }).retries(2);
+
+    it("uses the type checker shipped with the extension", async function () {
+        const output = await getOutput("Rascal MPL Language Server", driver);
+        const compilerOuput = output.split("Path config for").find(logs => logs.includes("Rascal compiler: Path configuration items:"));
+        if (compilerOuput === undefined) {
+            fail("No compiler path config found in logs");
+        }
+        const pcfg = matchPathConfig(compilerOuput);
+        const isRascalJar = (j: string): boolean => j.includes("rascal.jar") || j.match(/org\/rascalmpl\/rascal\/rascal-.*\.jar/) !== undefined;
+
+        const extRascal = pcfg.srcs.findIndex(p => p.includes("assets/jars/rascal.jar!/org/rascalmpl/compiler"));
+        const otherRascal = pcfg.srcs.findIndex(isRascalJar);
+        if (extRascal < 0 || (otherRascal > 0 && otherRascal < extRascal)) {
+            fail("The type checker in use is not the version from the extension, but " + pcfg.srcs[otherRascal]);
+        }
+    });
+
+    it("opens a REPL in the root of the project", async function () {
+        const repl = await RascalREPL.startFor(TestWorkspace.libCallFile, ide, bench, driver);
+        const root = await repl.getProjectRoot();
+        await repl.terminate();
+
+        expect(root).to.contain("test-project");
+    });
+
+    it("opens a REPL in the root of the library project", async function () {
+        const repl = await RascalREPL.startFor(TestWorkspace.libFile, ide, bench, driver);
+        const root = await repl.getProjectRoot();
+        await repl.terminate();
+
+        expect(root).to.contain("test-lib");
+    });
+
+    it("REPL uses the standard library from the project POM", async () => {
+        // Find Rascal version in POM
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom, false);
+
+        // Query Rascal version from stdlib
+        const repl = await RascalREPL.startFor(TestWorkspace.libCallFile, ide, bench, driver);
+        await repl.execute("import IO;");
+        await repl.execute("import util::Reflective;");
+        await repl.execute("println(getRascalVersion());");
+
+        expect(repl.lastOutput.replace("\nok", "")).is.equal(pomRascalVersion, "Stdlib version matches project POM version");
+    });
 
     it("error recovery works", async function() {
         const editor = await ide.openModule(TestWorkspace.mainFile);
@@ -133,7 +181,14 @@ describe('IDE', function () {
 
     it("save runs type checker", async function () {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
+        const output = await captureOutput("Rascal MPL Language Server", driver,
+            () => triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true));
+
+        const pcfg = matchPathConfig(output);
+
+        // Find Rascal version in POM
+        const pomRascalVersion = await getArtifactVersion("org.rascalmpl", "rascal", TestWorkspace.testProjectPom);
+        expect(pcfg.libs).to.include(`|mvn://org.rascalmpl--rascal--${pomRascalVersion}|`);
     });
 
     it("type checker runs on dependencies", async() => {
@@ -148,20 +203,20 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.mainFileTpl, true);
         await editor.selectText("println");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
+        const editorIO = await ide.findOpenEditor("IO.rsc", Delays.extremelySlow, "IO.rsc should be opened for println");
 
         // Warning: changes to `IO` might break the lookups/locations from here on.
         // Update the test expectations when this is the case.
-        await editor.selectText(selectId, 6);
-        const defLoc = await editor.getCoordinates();
+        await editorIO.selectText(selectId, 6);
+        const defLoc = await editorIO.getCoordinates();
 
-        await editor.selectText(selectId, 7);
-        const useLoc = await editor.getCoordinates();
+        await editorIO.selectText(selectId, 7);
+        const useLoc = await editorIO.getCoordinates();
 
         expect(useLoc).not.to.deep.equal(defLoc, "Expected cursor to be elsewhere - def and use location are equal");
         await bench.executeCommand("Go to Definition");
         await driver.wait(async () => {
-            const jumpLoc = await editor.getCoordinates();
+            const jumpLoc = await editorIO.getCoordinates();
             return jumpLoc[0] === defLoc[0]                    // Jump to def line
                 && jumpLoc[1] === defLoc[1] - selectId.length; // Jump to left side of def
         }, Delays.normal, "Expected cursor to jump to the definition");
@@ -172,12 +227,12 @@ describe('IDE', function () {
         await triggerTypeChecker(editor, TestWorkspace.libCallFileTpl, true);
         await editor.selectText("fib");
         await bench.executeCommand("Go to Definition");
-        await waitForActiveEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
+        await ide.findOpenEditor(path.basename(TestWorkspace.libFile), Delays.slow, "Lib.rsc should be opened for fib");
     });
 
     it("outline works", async () => {
         const editor = await ide.openModule(TestWorkspace.mainFile);
-        await editor.moveCursor(1,1);
+        await editor.setCursor(1,1);
         const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
         const outline = await driver.wait(() => explorer.getContent().getSection("Outline"), Delays.normal) as ViewSection;
         await outline.expand();
@@ -190,13 +245,13 @@ describe('IDE', function () {
 
     it ("rename works", async() => {
         const editor = await ide.openModule(TestWorkspace.libFile);
-        await editor.moveCursor(7, 15);
+        await editor.setCursor(7, 15);
 
         // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = ide.statusContains("Loading Rascal");
-        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
+        await driver.wait(async () => await ignoreFails(checkRascalStatus()) === false, Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
-        ide.renameSymbol(editor, bench, "i");
+        await ide.renameSymbol(editor, bench, "i");
 
         await driver.wait(() => (editor.isDirty()), Delays.extremelySlow, "Rename should have resulted in changes in the editor");
 
@@ -215,8 +270,8 @@ describe('IDE', function () {
         const libFile = await ide.openModule(TestWorkspace.libFile);
 
         // Before moving, check that Rascal is really loaded
-        const checkRascalStatus = ide.statusContains("Loading Rascal");
-        await driver.wait(async () => !(await checkRascalStatus()), Delays.extremelySlow, "Rascal evaluators have not finished loading");
+        const checkRascalStatus = isLanguageLoading(bench, "Rascal");
+        await driver.wait(async () => await ignoreFails(checkRascalStatus()) === false, Delays.extremelySlow, "Rascal evaluators have not finished loading");
 
         await ide.moveFile("Lib.rsc", "lib", bench);
 
@@ -236,7 +291,7 @@ describe('IDE', function () {
 
     it("code actions work", async() => {
         const editor = await ide.openModule(TestWorkspace.libCallFile);
-        await editor.moveCursor(1,8); // in the module name
+        await editor.setCursor(1,8); // in the module name
 
         try {
             await ide.triggerFirstCodeAction(editor, 'Add missing license header');
@@ -251,11 +306,18 @@ describe('IDE', function () {
         const importerEditor = await ide.openModule(TestWorkspace.importerFile);
         const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
 
-        await importeeEditor.typeTextAt(3, 1, "public str foo;");
+        // Add type error
+        await importeeEditor.setCursor(3, 1);
+        await importeeEditor.typeText("public str foo;");
         await ide.openModule(TestWorkspace.importerFile);
-
         await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
         await ide.hasErrorSquiggly(importerEditor);
+
+        // Remove type error (absence of error diagnostics is checked as part of the `cleanup` call in `afterEach`)
+        await ide.openModule(TestWorkspace.importeeFile);
+        await importeeEditor.setTextAtLine(3, "public int foo;");
+        await ide.openModule(TestWorkspace.importerFile);
+        await ide.triggerTypeChecker(importerEditor, {waitForFinish : true});
     });
 
     it("errors in manifest detected", async() => {
@@ -266,5 +328,75 @@ describe('IDE', function () {
         await editor.setTextAtLine(2, "Project-Name: test-project");
         await editor.save();
         await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disapear");
+    });
+
+    it("anno quickfix works", async () => {
+        const editor = await ide.openModule(TestWorkspace.importeeFile);
+        await editor.setCursor(3, 1);
+        await editor.typeText("data X = y();\nanno int X@old;\nint calc(X x) = x@old;");
+
+        await ide.hasWarningSquiggly(editor, Delays.slow, "On a annotation we should have a warning that they are deprecated");
+
+        await editor.setCursor(4,12); // at the `@old` part
+
+        await ide.triggerFirstCodeAction(editor, "Upgrade all annotations");
+        await ide.assertLineBecomes(editor, 4, "data X(int old = 0);", "annotations become a KW parameter", Delays.slow);
+        await ide.assertLineBecomes(editor, 5, "int calc(X x) = x.old;", "annotation should become a field deref", Delays.fast);
+
+        await ide.checkNoDiagnosticsAnymore();
+    });
+
+    it("check project works", async function () {
+        // Context menu does not work on macOS
+        if (os.type() === "Darwin") {
+            this.skip();
+        }
+        // Fix type error to avoid a failing "after each" hook in CI
+        const importeeEditor = await ide.openModule(TestWorkspace.importeeFile);
+        await ide.openModule(TestWorkspace.importeeFile);
+        await importeeEditor.setCursor(2, 1);
+        await importeeEditor.typeText("public int foo;");
+
+        const explorer = await (await bench.getActivityBar().getViewControl("Explorer"))!.openView();
+        const workspace = await explorer.getContent().getSection("test (Workspace)");
+        await workspace.expand();
+        const projectRoot = <TreeItem> await workspace.findItem("test-project");
+        await (await projectRoot!.openContextMenu()).select("Rascal: clean and check project");
+        await driver.wait(() => ignoreFails(fs.stat(TestWorkspace.importerTpl)), Delays.verySlow, `${TestWorkspace.importerTpl} should exist by now`);
+    });
+
+    it("full file formatting works", async() => {
+        const editor = await ide.openModule(TestWorkspace.uglyLibFile);
+        await editor.setCursor(1, 1);
+
+        try {
+            await bench.executeCommand("editor.action.formatDocument");
+
+            await driver.wait(() => (editor.isDirty()), Delays.normal, "Formatter should have resulted in changes in the editor");
+
+            const editorText = await editor.getText();
+            expect(editorText.split("\n").length > 5);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
+    });
+
+    it("selection formatting works", async() => {
+        const editor = await ide.openModule(TestWorkspace.uglyLibFile);
+
+        try {
+            await editor.setCursor(1, 34); // this is on the `if` keyword
+            await bench.executeCommand("editor.action.formatSelection"); // should apply to a focus on the entire if statement
+
+            await driver.wait(() => (editor.isDirty()), Delays.normal, "Formatter should have resulted in changes in the editor");
+
+            const editorText = await editor.getText();
+            // the rest of the file remains on one line, but the if-then is formatted
+            expect(editorText.split("\n").length > 3);
+        }
+        finally {
+            await ide.revertOpenChanges();
+        }
     });
 });

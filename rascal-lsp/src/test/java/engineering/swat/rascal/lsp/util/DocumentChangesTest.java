@@ -38,8 +38,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.AnnotatedTextEdit;
+import org.eclipse.lsp4j.SnippetTextEdit;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WorkspaceEdit;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.junit.Test;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
@@ -158,8 +160,18 @@ public class DocumentChangesTest {
 
     // Utility methods
 
+    private void assertNotAnnotated(Either<TextEdit, SnippetTextEdit> e) {
+        assertTrue("Snippet not supported in tests yet", e.isLeft());
+        assertNotAnnotated(e.getLeft());
+    }
+
     private void assertNotAnnotated(TextEdit e) {
         assertFalse(String.format("Edit that replaces '%s' should not be annotated", e.getNewText()), e instanceof AnnotatedTextEdit);
+    }
+
+    private void assertAnnotated(Either<TextEdit, SnippetTextEdit> e, String label, String description, boolean needsConfirmation, WorkspaceEdit wsEdit) {
+        assertTrue("Snippet not supported in tests yet", e.isLeft());
+        assertAnnotated(e.getLeft(), label, description, needsConfirmation, wsEdit);
     }
 
     private void assertAnnotated(TextEdit e, String label, String description, boolean needsConfirmation, WorkspaceEdit wsEdit) {
@@ -182,7 +194,7 @@ public class DocumentChangesTest {
             var expected = expectedEdits.remove(docEdit.getTextDocument().getUri());
             assertNotNull("Unexpected TextDocumentEdit for " + docEdit.getTextDocument().getUri(), expected);
             assertEquals(expected.length, docEdit.getEdits().size());
-            assertArrayEquals(expected, docEdit.getEdits().stream().map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
+            assertArrayEquals(expected, docEdit.getEdits().stream().map(Either::getLeft).map(TextEdit::getNewText).collect(Collectors.toList()).toArray());
         }
         assertTrue(String.format("Expected edits for %s, but got none", expectedEdits.keySet()), expectedEdits.isEmpty());
     }

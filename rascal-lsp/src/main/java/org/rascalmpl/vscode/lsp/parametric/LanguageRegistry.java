@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
+import org.eclipse.lsp4j.jsonrpc.services.JsonSegment;
 import org.rascalmpl.values.IRascalValueFactory;
 
 import io.usethesource.vallang.IConstructor;
@@ -46,12 +47,35 @@ import io.usethesource.vallang.type.TypeFactory;
 /**
  * Interface of the Language Registry
  */
+@JsonSegment("rascal")
 public interface LanguageRegistry {
-    @JsonRequest("rascal/receiveRegisterLanguage")
+    @JsonRequest("receiveRegisterLanguage")
     CompletableFuture<Void> registerLanguage(LanguageParameter lang);
 
-    @JsonRequest("rascal/receiveUnregisterLanguage")
+    @JsonRequest("receiveUnregisterLanguage")
     CompletableFuture<Void> unregisterLanguage(LanguageParameter lang);
+
+    /**
+     * Extensible arguments related to language registration.
+     */
+    class RegistrationParameter {
+        private LanguageParameter lang;
+        private String remoteMemoryArg;
+
+        /**
+         * The language configuration parameter.
+         */
+        public LanguageParameter getLang() {
+            return lang;
+        }
+
+        /**
+         * How much memory to allocate when launching a remote server process.
+         */
+        public String getRemoteMemoryArg() {
+            return remoteMemoryArg;
+        }
+    }
 
     public static class LanguageParameter {
         private final String pathConfig;

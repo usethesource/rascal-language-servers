@@ -44,6 +44,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
+import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
@@ -95,7 +96,7 @@ public class LSPIDEServices implements IDEServices {
     @Override
     public ISourceLocation resolveProjectLocation(ISourceLocation input) {
         for (var folder : workspaceService.workspaceFolders()) {
-            if (folder.getName().equals(input.getAuthority())) {
+            if (folder.getName().equalsIgnoreCase(input.getAuthority())) {
                 return buildProjectChildLoc(folder, input);
             }
         }
@@ -124,7 +125,7 @@ public class LSPIDEServices implements IDEServices {
 
     @Override
     public void registerDiagnostics(IList messages) {
-        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService.getColumnMaps());
+        Map<ISourceLocation, List<Diagnostic>> translated = Diagnostics.translateMessages(messages, docService.extensions(), docService.getColumnMaps());
 
         for (Entry<ISourceLocation, List<Diagnostic>> entry : translated.entrySet()) {
             var uri = Locations.toUri(entry.getKey()).toString();
@@ -177,6 +178,22 @@ public class LSPIDEServices implements IDEServices {
 
     public IRascalMonitor getMonitor() {
         return monitor;
+    }
+
+    @Override
+    public void showMessage(IConstructor message) {
+        // Not overridden; there are indications that this causes deadlocks
+        // https://github.com/usethesource/rascal-language-servers/issues/185
+        // languageClient.showMessage(Message.toMessageParams(message));
+        IDEServices.super.showMessage(message);
+    }
+
+    @Override
+    public void logMessage(IConstructor msg) {
+        // Not overridden; there are indications that this causes deadlocks
+        // https://github.com/usethesource/rascal-language-servers/issues/185
+        // languageClient.logMessage(Message.toMessageParams(msg));
+        IDEServices.super.logMessage(msg);
     }
 
 }

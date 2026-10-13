@@ -43,6 +43,7 @@ import org.eclipse.lsp4j.MarkedString;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
+import org.rascalmpl.util.Lazy;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -54,7 +55,6 @@ import org.rascalmpl.vscode.lsp.parametric.model.ParametricSummary.SummaryLookup
 import org.rascalmpl.vscode.lsp.parametric.model.RascalADTs.SummaryFields;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
-import org.rascalmpl.vscode.lsp.util.Lazy;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.InterruptibleFuture;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
@@ -95,7 +95,6 @@ public interface ParametricSummary {
     // property for the requested information. In the case of `OndemandSummary`,
     // this happens when no on-demand summarizer exists for the requested
     // information.
-    @SuppressWarnings("deprecation") // For `MarkedString`
     @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor);
@@ -112,7 +111,6 @@ public interface ParametricSummary {
     // function *before* the actual summary to apply it to has been selected
     // (i.e., it later comes from the analyzer, builder, or an on-demand
     // summarizer).
-    @SuppressWarnings("deprecation") // For `MarkedString`
     public static @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> hovers(ParametricSummary summary, Position position) {
         return summary.getHovers(position);
     }
@@ -142,7 +140,6 @@ class NullSummary implements ParametricSummary {
     }
 
     @Override
-    @SuppressWarnings("deprecation") // For `MarkedString`
     public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
         return null;
     }
@@ -190,7 +187,6 @@ abstract class ParametricSummaryFactory {
         this.columns = columns;
     }
 
-    @SuppressWarnings("deprecation") // For `MarkedString`
     protected static Either<String, MarkedString> mapValueToString(IValue v) {
         return Either.forLeft(((IString) v).getValue());
     }
@@ -258,7 +254,6 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
 
 
     public class FullScheduledSummary extends MessagesOnlyScheduledSummary {
-        @SuppressWarnings("deprecation") // For `MarkedString`
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> hovers;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
@@ -288,7 +283,6 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         }
 
         @Override
-        @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
             return get(hovers, cursor);
         }
@@ -437,7 +431,6 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         }
 
         @Override
-        @SuppressWarnings("deprecation") // For `MarkedString`
         public @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor) {
             return get(config.providesHovers, cursor, contrib::hover, ParametricSummaryFactory::mapValueToString, SummaryFields.HOVERS);
         }

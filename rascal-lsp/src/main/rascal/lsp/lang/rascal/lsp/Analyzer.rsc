@@ -1,0 +1,114 @@
+@license{
+Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+}
+@bootstrapParser
+module lang::rascal::lsp::Analyzer
+
+import IO;
+import Location;
+import String;
+import ParseTree;
+import util::IDEServices;
+import util::Maybe;
+import util::PathConfig;
+import lang::rascal::\syntax::Rascal;
+import lang::rascal::lsp::Actions;
+import lang::rascal::lsp::Common;
+import lang::xml::PomAnalyzer;
+
+
+@synopsis{A fast analyzer, is run on most parse trees, so it should be fast}
+list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
+    result = [];
+
+    annotationAlreadyReported = false;
+    void reportAnnotationDeprecation(Tree t) {
+        if (!annotationAlreadyReported) {
+            annotationAlreadyReported = true;
+            result += warning(
+                "Annotations are no longer supported and will soon be removed, please use our built-in Quick Fix to refactor all of them into keyword parameters",
+                t.src, fixes=[
+                    action(
+                        command=upgradeAnnotations(getPathConfig(tree.src.top)),
+                        title="Upgrade all annotations to keyword fields in this project (annotation syntax is no longer supported)."
+                    )
+                ]
+            );
+        }
+        // since the single Quick Fix fixes the whole project, it's not useful to report it multiple times
+        // especially since a user might click "fix all" and then the upgrade would be run several times.
+        // instead we ignore all follow-up cases of the same error
+    }
+
+    projectRoot = inferProjectRoot(tree.src.top);
+    if (rascalMfNoPomXml(projectRoot)) {
+        rascalSrcRoot = (tree.src.top | it.parent | _ <- tree.top.header.name.names);
+        result += warning(
+            "A `pom.xml` file for project `<projectRoot.file>` is missing. Please add it to the project root or use the Quick Fix.", tree.top.header.src,
+            fixes=[action(title="Add `pom.xml` file to project `<projectRoot.file>", command=addNewPomXml(projectRoot, relativize(projectRoot, rascalSrcRoot).path[1..]))]
+        );
+    }
+
+    v: visit (tree) {
+        case l:(LocationLiteral)`|<URLChars scheme>://<PathPart _>`: {
+            s = "<scheme>";
+            if (s notin illegalSchemeSuggestions<0>) fail v;
+            result += error("`<s>://` scheme is not supported anymore. In most cases it can be replaced by <illegalSchemeSuggestions[s]>", l.src);
+        }
+
+        case i:(Import)`import util::LanguageServer;`: {
+            projectRoot = getPathConfig(tree.src.top).projectRoot;
+            pomLoc = projectRoot + "pom.xml";
+            if (projectRoot.file != "rascal-lsp", !hasRascalLspDependency(pomLoc)) {
+                result += error(
+                    "Importing `util::LanguageServer` requires a dependency on `rascal-lsp`. Please add it to `pom.xml` or use the Quick Fix.",
+                    i.src, fixes=[action(title="Add `rascal-lsp` dependency to `pom.xml`", command=addRascalLspDependencyToPom(pomLoc))]
+                );
+            }
+        }
+
+        // annotation cases
+        case t:(Declaration) `<Tags _> <Visibility _> anno <Type _> <Type _> @ <Name _>;`: reportAnnotationDeprecation(t);
+        case t:(Expression)`<Expression _>[@ <Name _> = <Expression _>]`: reportAnnotationDeprecation(t);
+        case t:(Expression) `<Expression _>@<Name _>`: reportAnnotationDeprecation(t);
+        case t:(Assignable) `<Assignable _>@<Name _>`: reportAnnotationDeprecation(t);
+        case t:(Expression) `delAnnotations(<Expression _>)`: reportAnnotationDeprecation(t);
+        case t:(Expression) `delAnnotationsRec(<Expression _>)`: reportAnnotationDeprecation(t);
+        case t:(Expression) `delAnnotation(<Expression _>, <Expression _>)`: reportAnnotationDeprecation(t);
+        case t:(Catch) `catch NoSuchAnnotation(<Pattern _>) : <Statement _>`: reportAnnotationDeprecation(t);
+    }
+
+    return result;
+}
+
+@memo{expireAfter(minutes=1)}
+bool rascalMfNoPomXml(loc projectRoot)
+    = exists(projectRoot + "META-INF" + "RASCAL.MF") && !exists(projectRoot + "pom.xml");
+
+map[str, str] illegalSchemeSuggestions = (
+    "lib": "|project://|, |mvn://|, or IO::getResource",
+    "std": "|mvn://| or |jar+file://|"
+);

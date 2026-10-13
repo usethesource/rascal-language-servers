@@ -25,12 +25,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { fail } from "assert";
 import { assert, expect } from "chai";
-import { stat, unlink } from "fs/promises";
+import { createHash } from "crypto";
+import { existsSync, PathLike } from "fs";
+import { readdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import * as os from 'os';
+import path from "path/posix";
 import { env } from "process";
-import { BottomBarPanel, By, CodeLens, ContentAssist, EditorView, Key, Locator, TerminalView, TextEditor, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench, until } from "vscode-extension-tester";
-import path = require("path");
+import { BottomBarPanel, By, ContentAssist, EditorView, Key, Locator, MarkerType, NotificationType, TerminalView, TextEditor, until, VSBrowser, WebDriver, WebElement, WebElementCondition, Workbench } from "vscode-extension-tester";
 
 export async function sleep(ms: number) {
     return new Promise(r => setTimeout(r, ms));
@@ -46,7 +49,7 @@ export class Delays {
     public static readonly extremelySlow =sec(120) * this.delayFactor;
 }
 
-function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
+export function src(project : string, language = 'rascal') { return path.join(project, 'src', 'main', language); }
 function target(project : string) { return path.join(project, 'target', 'classes', 'rascal'); }
 export class TestWorkspace {
     private static readonly workspacePrefix = 'test-workspace';
@@ -60,11 +63,16 @@ export class TestWorkspace {
     public static readonly licenseFile = path.join(this.testProject, 'LICENSE');
     public static readonly libCallFileTpl = path.join(target(this.testProject),'$LibCall.tpl');
     public static readonly libFile = path.join(src(this.libProject), 'Lib.rsc');
+    public static readonly uglyLibFile = path.join(src(this.libProject), 'UglyLib.rsc');
     public static readonly libFileTpl = path.join(target(this.libProject),'$Lib.tpl');
     public static readonly manifest = path.join(this.testProject, "META-INF", "RASCAL.MF");
+    public static readonly testProjectPom = path.join(this.testProject, "pom.xml");
+    public static readonly lspProjectPom = path.resolve("..", "rascal-lsp", "pom.xml");
 
     public static readonly importerFile = path.join(src(this.testProject), 'Importer.rsc');
+    public static readonly importerTpl = path.join(target(this.testProject),'$Importer.tpl');
     public static readonly importeeFile = path.join(src(this.testProject), 'Importee.rsc');
+    public static readonly importeeTpl = path.join(target(this.testProject),'$Importee.tpl');
 
     public static readonly picoFile = path.join(src(this.testProject, 'pico'), 'testing.pico');
     public static readonly picoNewFile = path.join(src(this.testProject, 'pico'), 'testing.pico-new');
@@ -93,8 +101,23 @@ export class RascalREPL {
     private terminal: TerminalView;
 
 
-    constructor(private bench : Workbench, private driver: WebDriver) {
+    constructor(private readonly bench : Workbench, private driver: WebDriver) {
         this.terminal = new TerminalView();
+    }
+
+    private async openTerminalView() {
+        // Make sure the bottom bar is visible before trying to open the terminal view
+        if (!(await this.bench.getBottomBar().isDisplayed())) {
+            await this.executeCommand('workbench.action.terminal.toggleTerminal');
+        }
+        await this.bench.getBottomBar().openTerminalView();
+    }
+
+    private async executeCommand(command: string) {
+        if (_DEBUG) {
+            console.debug("Executing command: {}", command);
+        }
+        await this.bench.executeCommand(command);
     }
 
     async waitForReplReady(wait : number = Delays.verySlow) {
@@ -110,7 +133,7 @@ export class RascalREPL {
                         // exit quickly in this case.
                         return true;
                     }
-                    output = await ignoreFails(this.terminal.getText()) ?? "";
+                    output = await ignoreFails(this.getText()) ?? "";
                     if (/rascal>\s*$/.test(output)) {
                         stopRunning = true;
                         return true;
@@ -121,7 +144,7 @@ export class RascalREPL {
                 stopRunning = true;
                 console.log("**** ignoring exception: ", _ignored);
                 console.log('Terminal contents after failing to initialize REPL:');
-                console.log(await this.terminal.getText());
+                console.log(await this.getText());
                 return false;
             }
         }
@@ -140,8 +163,22 @@ export class RascalREPL {
         }
     }
 
+    static async startFor(file: string, ide: IDEOperations, bench: Workbench, driver: WebDriver) {
+        await ide.openModule(file);
+        const repl = new RascalREPL(bench, driver);
+        await repl.start();
+        return repl;
+    }
+
+    static async startWithLSP(ide: IDEOperations, bench: Workbench, driver: WebDriver): Promise<RascalREPL> {
+        // Open a file from a project with a dependency on LSP, so we can use modules from LSP
+        const repl = await this.startFor(TestWorkspace.libCallFile, ide, bench, driver);
+        await repl.execute("import util::LanguageServer;");
+        return repl;
+    }
+
     async start() {
-        await new Workbench().executeCommand("rascalmpl.createTerminal");
+        await this.executeCommand("rascalmpl.createTerminal");
         return this.connect();
     }
 
@@ -149,10 +186,11 @@ export class RascalREPL {
         this.terminal = (await this.driver.wait(() => ignoreFails(new TerminalView().wait(100)), Delays.verySlow, "Waiting to find terminal view"))!;
         await this.driver.wait(async () => (await ignoreFails(this.terminal.getCurrentChannel()))?.includes("Rascal"),
             Delays.slow, "Rascal REPL should be opened");
-        assert(await this.waitForReplReady(Delays.extremelySlow), "Repl prompt should print");
+        assert(await this.waitForReplReady(Delays.normal), "Repl prompt should print");
     }
 
     async execute(command: string, waitForReady = true, wait=Delays.verySlow) {
+        await this.openTerminalView();
         const inputs = await this.terminal.findElements(By.className('xterm-helper-textarea'));
         for (const i of inputs) {
             // there can be multiple terminals, so we iterate over all of the to find the one that doesn't throw an exception
@@ -164,11 +202,34 @@ export class RascalREPL {
         }
     }
 
+    /**
+     * WARNING: This will give the last output as expected **ONLY** if the last Rascal prompt fitted on a single line
+     */
     get lastOutput() { return this.lastReplOutput; }
 
     async terminate() {
         await ignoreFails(this.execute(":quit", false));
-        await ignoreFails(this.bench.executeCommand("workbench.action.terminal.killAll"));
+        await ignoreFails(this.executeCommand("workbench.action.terminal.killAll"));
+    }
+
+    async getText() {
+        // Inspired by `TerminalView.getText`, but with explicit copy and custom wait time. See also:
+        // https://github.com/redhat-developer/vscode-extension-tester/blob/db8404a1030d59f7baf0a16167adab447af6b8f7/packages/page-objects/src/components/bottomBar/Views.ts#L155-L183
+        const clipboard = (await import('clipboardy')).default;
+        const oldContent = clipboard.readSync();
+        const newContent = '';
+        clipboard.writeSync(newContent);
+        await this.executeCommand('workbench.action.terminal.selectAll');
+        await this.executeCommand('editor.action.clipboardCopyAction');
+        await this.driver.wait(() => clipboard.readSync() !== newContent, Delays.normal, 'Clipboard should be updated with terminal content');
+        const text = clipboard.readSync();
+        clipboard.writeSync(oldContent);
+        return text;
+    }
+
+    async getProjectRoot(): Promise<string> {
+        const text = await this.getText();
+        return text.match(/Project root is \|([^|]+)\|/)?.[1] ?? "";
     }
 }
 
@@ -210,7 +271,7 @@ export class IDEOperations {
         this.driver = browser.driver;
     }
 
-    async load() {
+    async load(logLevel: LogLevel = "Debug") {
         await ignoreFails(this.browser.waitForWorkbench(Delays.slow));
         for (let t = 0; t < 5; t++) {
             try {
@@ -218,7 +279,7 @@ export class IDEOperations {
                 if (isWorkSpaceOpen !== undefined && isWorkSpaceOpen.length > 0) {
                     break;
                 }
-                await this.browser.openResources(TestWorkspace.workspaceFile);
+                await ignoreFails(this.browser.openResources(TestWorkspace.workspaceFile));
             } catch (ex) {
                 console.debug("Error opening workspace, retrying.", ex);
             }
@@ -228,20 +289,41 @@ export class IDEOperations {
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
-        await assureDebugLevelLoggingIsEnabled();
+        await setLogLevel(logLevel);
     }
 
     async cleanup() {
+        await ignoreFails(new Workbench().executeCommand("workbench.action.zoomReset"));
         await ignoreFails(this.revertOpenChanges());
         await ignoreFails(new Workbench().getEditorView().closeAllEditors());
         const center = await ignoreFails(new Workbench().openNotificationsCenter());
         await ignoreFails(center?.clearAllNotifications());
         await ignoreFails(center?.close());
+
+        // There should be no more error diagnostics
+        await this.checkNoDiagnosticsAnymore();
+
+        await ignoreFails(new Workbench().getBottomBar().closePanel());
+    }
+
+    async checkNoDiagnosticsAnymore() {
+        const bottomBar = new Workbench().getBottomBar();
+        const problemsView = await bottomBar.openProblemsView();
+        let allVisibleMarkers: string[] = [];
+        for (let i = 0; i < 5; i++) {
+            allVisibleMarkers = await Promise.all((await problemsView.getAllVisibleMarkers(MarkerType.Error)).map(m => m.getText()));
+            if (allVisibleMarkers.length === 0) {
+                break;
+            }
+            await sleep(Delays.fast); // give it some time for the diagnostic to clear
+        }
+        expect(allVisibleMarkers, "Not all error diagnostics have been cleared").to.deep.equal([]);
+        await ignoreFails(bottomBar.closePanel());
     }
 
     assertLineBecomes(editor: TextEditor, lineNumber: number, lineContents: string, msg: string, wait = Delays.verySlow) : Promise<boolean> {
         return this.driver.wait(async () => {
-            const currentContent = (await editor.getTextAtLine(lineNumber)).trim();
+            const currentContent = (await ignoreFails(editor.getTextAtLine(lineNumber)))?.trim();
             return currentContent === lineContents;
         }, wait, msg, 100);
     }
@@ -282,8 +364,8 @@ export class IDEOperations {
             try {
                 await new Workbench().executeCommand("workbench.action.revertAndCloseActiveEditor");
             } catch (ex) {
-                const title = ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
-                this.screenshot(`revert of ${title} failed ` + tryCount);
+                const title = await ignoreFails(new TextEditor().getTitle()) ?? 'unknown';
+                await this.screenshot(`revert of ${title} failed ` + tryCount);
                 console.log(`Revert of ${title} failed, but we ignore it`, ex);
             }
             try {
@@ -299,7 +381,7 @@ export class IDEOperations {
                 return !(await new TextEditor().isDirty());
             }
             catch (ignored) {
-                this.screenshot("open editor check failed " + tryCount);
+                await this.screenshot("open editor check failed " + tryCount);
                 console.log("Open editor dirty check failed: ", ignored);
                 return false;
 
@@ -309,13 +391,18 @@ export class IDEOperations {
 
     async openModule(file: string): Promise<TextEditor> {
         await this.browser.openResources(file);
+        return this.findOpenEditor(file);
+    }
+
+    async findOpenEditor(file: string, timeout = Delays.normal, message = `Could not open file: ${file}`) : Promise<TextEditor> {
         return this.driver.wait(async () => {
             const result = await ignoreFails(new Workbench().getEditorView().openEditor(path.basename(file))) as TextEditor;
             if (result && await ignoreFails(result.getTitle()) === path.basename(file)) {
                 return result;
             }
             return undefined;
-        }, Delays.normal, "Could not open file") as Promise<TextEditor>;
+        }, timeout, message) as Promise<TextEditor>;
+
     }
 
     async appendSpace(editor: TextEditor, line = 1) {
@@ -352,7 +439,7 @@ export class IDEOperations {
      * indeed becomes the first menu item.
      *
      * @param editor
-     * @param actionLabel
+     * @param actionLabel (can be a partial part of the label)
      */
     async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
         const inputarea = await editor.findElement(By.className('inputarea'));
@@ -428,10 +515,18 @@ export class IDEOperations {
         }
     }
 
-
-    findCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot find code lens: ${name}`): Promise<CodeLens | undefined> {
-        return this.driver.wait(() => ignoreFails(editor.getCodeLens(name)), timeout, message);
-
+    async clickCodeLens(editor: TextEditor, name: string, timeout = Delays.slow, message = `Cannot click code lens: ${name}`, scrollToLine = 1): Promise<void> {
+        // Scroll the file, such that all test lenses are visible in the editor
+        await editor.setCursor(scrollToLine, 1);
+        await this.driver.wait(async () => {
+            try {
+                const lens = await editor.getCodeLens(name);
+                await lens!.click();
+                return true;
+            } catch (_e) {
+                return false;
+            }
+        }, timeout, message);
     }
 
     statusContains(needle: string): () => Promise<boolean> {
@@ -474,68 +569,242 @@ export class IDEOperations {
 
 async function showRascalOutput(bbp: BottomBarPanel, channel: string) {
     const outputView = await bbp.openOutputView();
-    await outputView.selectChannel(`${channel} Language Server`);
+    await outputView.selectChannel(channel);
     return outputView;
 }
 
-let alreadySetup = false;
+type LogLevel = "Trace" | "Debug" | "Info" | "Warning" | "Error" | "Off";
 
-async function assureDebugLevelLoggingIsEnabled() {
-    if (alreadySetup) {
-        return;
-    }
-    alreadySetup = true; // to avoid doing this twice/parallel
+async function setLogLevel(logLevel: LogLevel) {
     const prompt = await new Workbench().openCommandPrompt();
     await prompt.setText(">workbench.action.setLogLevel");
     await prompt.confirm();
-    await prompt.setText("Debug");
+    await prompt.setText(logLevel);
     await prompt.confirm();
 }
 
-export function printRascalOutputOnFailure(channel: 'Language Parametric Rascal' | 'Rascal MPL') {
+export type OutputChannel = 'Language Parametric Rascal Language Server' | 'Rascal MPL Language Server';
+
+export async function getOutput(channel: OutputChannel, driver: WebDriver): Promise<string> {
+    const bottomBar = new Workbench().getBottomBar();
+    const output = await bottomBar.openOutputView();
+    await output.selectChannel(channel);
+    await output.waitForStable();
+    await driver.wait(() => output.getText(), Delays.fast, "Channel should contain some output");
+    // Sometimes, we seem to get the text before everything is loaded in the window. Wait a little bit until all text is loaded.
+    await sleep(100);
+    const text = await output.getText();
+    await ignoreFails(bottomBar.closePanel());
+    return text;
+}
+
+export async function captureOutput<T>(channel: OutputChannel, driver: WebDriver, action: () => Promise<T>, onlyLastNLines?: 100): Promise<string> {
+    const beforeOutput = await getOutput(channel, driver);
+    await action();
+    const afterOutput = await getOutput(channel, driver);
+    const searchString = beforeOutput.slice(onlyLastNLines ? -onlyLastNLines : 0);
+    return afterOutput.substring(afterOutput.indexOf(searchString) + searchString.length);
+}
+
+function parseRascalList(input: string | undefined): Array<string> {
+    if (input === undefined) {
+        return [];
+    }
+
+    if (!input.match(/^\[.*\]$/)) {
+        throw new Error("Not a valid list; does not start/end with '['/']'");
+    }
+
+    return input.slice(1, -1).split(',').map(el => el.trim());
+}
+
+export type PathConfig = {projectRoot: string, srcs: string[], ignores: string[], libs: string[], bin: string, resources: string[], messages: string[]};
+
+export function matchPathConfig(input: string): PathConfig {
+    const list = String.raw`\[[^\]]*\]`;
+    const loc = String.raw`\|[^|]+\|`;
+    const pcfg = new RegExp(`((?!projectRoot).)*projectRoot:\\s*(?<root>${loc})\\s*srcs:\\s*(?<srcs>${list})\\s*ignores:\\s*(?<ignores>${list})\\s*libs:\\s*(?<libs>${list})\\s*bin:\\s*(?<bin>${loc})\\s*resources:\\s*(?<resources>${list})\\s*messages:\\s*(?<messages>${list})`);
+
+    const match = input.match(pcfg);
+    if (!match) {
+        fail(`Could not match path config in input:\n${input}`);
+    }
+
+    const projectRoot = match.groups?.["root"];
+    const srcs = parseRascalList(match.groups?.["srcs"]);
+    const ignores = parseRascalList(match.groups?.["ignores"]);
+    const libs = parseRascalList(match.groups?.["libs"]);
+    const bin = match.groups?.["bin"];
+    const resources = parseRascalList(match.groups?.["resources"]);
+    const messages = parseRascalList(match.groups?.["messages"]);
+    if (projectRoot === undefined) {
+        fail(`Could not match projectRoot in path config:\n${pcfg}`);
+    }
+    if (bin === undefined) {
+        fail(`Could not match bin in path config:\n${pcfg}`);
+    }
+    return { projectRoot, srcs, ignores, libs, bin, resources, messages };
+}
+
+export async function getArtifactVersion(groupId: string, artifactId: string, pomPath: PathLike, lowerCase: boolean = true): Promise<string> {
+    const pom = await readFile(pomPath, {encoding: "utf8"});
+    const version = pom.match(new RegExp(`<groupId>${groupId}</groupId>\\s*<artifactId>${artifactId}</artifactId>\\s*<version>([^<]+)</version>`))?.[1] ?? "unknown";
+    return lowerCase ? version.toLowerCase() : version;
+}
+
+export function printRascalOutputOnFailure(channel: OutputChannel) {
 
     const ZOOM_OUT_FACTOR = 5;
+    const N_LOG_LINES = 250;
+    // We guess some locations where the logs can be, since we cannot easily retrieve those from VS Code.
+    const TEST_STORAGE_DIRS = [
+        path.join(path.resolve(), "uitests"),    // typical CI path
+        path.join(os.tmpdir(), "vscode-uitests") // typical local path
+    ];
+
     afterEach("print output in case of failure", async function () {
         if (!this.currentTest || this.currentTest.state !== "failed") { return; }
-        try {
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomOut');
-            }
-            const bbp = new BottomBarPanel();
-            await bbp.maximize();
-            console.log('**********************************************');
-            console.log('***** Rascal MPL output for the failed tests: ');
-            let textLines: WebElement[] = [];
-            let tries = 0;
-            while (textLines.length === 0 && tries < 3) {
-                await showRascalOutput(bbp, channel);
-                textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
-                tries++;
-            }
-            if (textLines.length === 0) {
-                console.log("We could not capture the output lines");
-            }
 
-            for (const l of textLines) {
-                console.log(await l.getText());
+        console.log('**********************************************');
+        console.log(`***** ${channel} output for the failed tests: `);
+
+        let foundLogs = false;
+        for (const vsCodeDir of TEST_STORAGE_DIRS) {
+            try {
+                const logDir = path.join(vsCodeDir, "settings", "logs");
+                if (existsSync(logDir)) {
+                    for (const entry of await readdir(logDir, {recursive: true})) {
+                        if (entry.includes("usethesource.rascalmpl") && entry.includes(channel)) {
+                            console.log(`***** ${entry}`);
+                            const contents = await readFile(path.join(logDir, entry), {encoding: "utf-8"});
+                            console.log(contents.split('\n').splice(-N_LOG_LINES).join('\n'));
+                            foundLogs = true;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log(`Error capturing logs in ${vsCodeDir}: `, e);
             }
-            await bbp.closePanel();
-        } catch (e) {
-            console.log('Error capturing output: ', e);
         }
-        finally {
-            console.log('*******End output*****************************');
-            for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
-                await new Workbench().executeCommand('workbench.action.zoomIn');
+
+        if (!foundLogs) {
+            // Fall back to legacy copy-from-VS Code approach if there were no log files.
+            const bbp = new BottomBarPanel();
+            try {
+                for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+                    await new Workbench().executeCommand('workbench.action.zoomOut');
+                }
+                await bbp.maximize();
+                let textLines: WebElement[] = [];
+                let tries = 0;
+                while (textLines.length === 0 && tries < 3) {
+                    await showRascalOutput(bbp, channel);
+                    textLines = await ignoreFails(bbp.findElements(By.className('view-line'))) ?? [];
+                    tries++;
+                }
+                if (textLines.length === 0) {
+                    console.log("We could not capture the output lines");
+                }
+
+                for (const l of textLines) {
+                    console.log(await l.getText());
+                }
+            } catch (e) {
+                console.log('Error capturing output: ', e);
+            }
+            finally {
+                for (let z = 0; z < ZOOM_OUT_FACTOR; z++) {
+                    await new Workbench().executeCommand('workbench.action.zoomIn');
+                }
+                await ignoreFails(bbp.closePanel());
             }
         }
+
+        console.log('*******End output*****************************');
     });
 }
 
-export async function expectCompletions(editor: TextEditor, expectedLabels: string[]) {
-    const completionMenu = new ContentAssist(editor);
-    const completions = await completionMenu.getItems();
-    expect(completions).to.have.length(expectedLabels.length);
-    const labels: string[] = await Promise.all(completions.map(c => c.getLabel()));
-    expect(labels).to.deep.equal(expectedLabels);
+export function isLanguageLoading(bench: Workbench, language: string): () => Promise<boolean> {
+    return async () => {
+        const center = await bench.openNotificationsCenter();
+        const notifications = await center.getNotifications(NotificationType.Info);
+        const messages = await Promise.all(notifications.map(n => n.getMessage()));
+        await center.close();
+        return messages.find(msg => msg.startsWith(`${language}`)) !== undefined;
+    };
+}
+
+export async function startsAndStopsLoading(driver: WebDriver, bench: Workbench, language: string, message = "loading", startTimeout: number = Delays.verySlow, stopTimeout: number = Delays.verySlow, pollInterval: number = 1000) {
+    const isLoading = isLanguageLoading(bench, language);
+    await driver.wait(ignoreFails(isLoading()), startTimeout, `${language} should start ${message}`, pollInterval);
+    await driver.wait(async () => (await ignoreFails(isLoading())) === false, stopTimeout, `${language} should stop ${message}`, pollInterval);
+}
+
+export async function expectCompletions(driver: WebDriver, editor: TextEditor, expectedLabels: string[] | Set<string>) {
+    const labels = await driver.wait(async () => {
+        try {
+            const completionMenu = new ContentAssist(editor);
+            await completionMenu.waitForStable();
+            if (!await completionMenu.isLoaded()) {
+                return undefined;
+            }
+            const completions = await completionMenu.getItems();
+            return await Promise.all(completions.map(c => c.getLabel()));
+        } catch (e) {
+            return undefined;
+        }
+    }, Delays.normal, "Completion items cannot be found");
+    expect(expectedLabels instanceof Set ? new Set<string>(labels) : labels).to.deep.equal(expectedLabels);
+}
+
+
+export class ProtectedFiles {
+    private constructor(private readonly files: readonly ProtectedFile[]) {
+    }
+
+    public static async protect(...files: string[]) {
+        return new ProtectedFiles(await Promise.all(files.map(f => ProtectedFile.build(f))));
+    }
+
+    public async restore() {
+        return Promise.all(this.files.map(f => f.restore()));
+    }
+}
+
+class ProtectedFile {
+
+    constructor(
+        private readonly filename: string,
+        private readonly content: Buffer<ArrayBuffer>,
+        private readonly hash: Buffer<ArrayBuffer>
+    ) {
+    }
+
+    static async build(filename: string) {
+        const content = await readFile(filename);
+        const hash = calcHash(content);
+        return new ProtectedFile(filename, content, hash);
+    }
+
+    async restore() {
+        if (!(await exists(this.filename)) || !calcHash(await readFile(this.filename)).equals(this.hash)) {
+            await writeFile(this.filename, this.content);
+        }
+    }
+}
+
+async function exists(file: string) {
+    try {
+        return await stat(file) !== undefined;
+    }
+    catch (_ignored) {
+        return false;
+    }
+
+}
+
+function calcHash(content: Buffer<ArrayBuffer>): Buffer<ArrayBuffer> {
+    const hasher = createHash('sha256');
+    hasher.update(content);
+    return hasher.digest();
 }

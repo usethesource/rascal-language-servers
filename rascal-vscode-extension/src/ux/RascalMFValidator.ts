@@ -45,7 +45,7 @@ export class RascalMFValidator implements vscode.Disposable {
         vscode.workspace.onDidChangeWorkspaceFolders(async ws => {
             for (const added of ws.added) {
                 if (await isRascalProject(added.uri)) {
-                    this.verifyRascalMF(added.uri);
+                    void this.verifyRascalMF(added.uri);
                 }
             }
             for (const rem of ws.removed) {
@@ -57,13 +57,14 @@ export class RascalMFValidator implements vscode.Disposable {
         // also at the start, check the already opened folders
         for (const openProject of vscode.workspace.workspaceFolders || []) {
             const mfURI = buildMFChildPath(openProject.uri);
-            vscode.workspace.fs.stat(mfURI).then(_s => this.verifyRascalMF(mfURI));
+            void vscode.workspace.fs.stat(mfURI).then(_s => void this.verifyRascalMF(mfURI));
         }
 
         // all changed files should be checked on save (for example a git pull)
         // we use the filesystem watcher since a user might not have the RASCAL.MF open, but we still want to warn them
         // note that warnings/errors are only cleared at a save
         const watcher = vscode.workspace.createFileSystemWatcher("**/" + MF_FILE, true, false, false);
+        watcher.onDidCreate(this.verifyRascalMF, this, this.toDispose);
         watcher.onDidChange(this.verifyRascalMF, this, this.toDispose);
         watcher.onDidDelete(e => this.diagnostics.delete(e), this, this.toDispose); // clear errors for a file
         this.toDispose.push(watcher);
@@ -92,10 +93,14 @@ export class RascalMFValidator implements vscode.Disposable {
             if (!/\/target\/classes\//.test(file.path)) {
                 const mfBody = await vscode.workspace.openTextDocument(file);
                 const diagnostics: vscode.Diagnostic[] = [];
-                checkMissingLastLine(mfBody, diagnostics);
-                checkIncorrectProjectName(mfBody, diagnostics);
-                checkPickySeparator(mfBody, diagnostics);
-                this.diagnostics.set(file, diagnostics);
+                try {
+                    checkMissingLastLine(mfBody, diagnostics);
+                    checkIncorrectProjectName(mfBody, diagnostics);
+                    checkPickySeparator(mfBody, diagnostics);
+                }
+                finally {
+                    this.diagnostics.set(file, diagnostics);
+                }
             }
         }
         catch (_error) {

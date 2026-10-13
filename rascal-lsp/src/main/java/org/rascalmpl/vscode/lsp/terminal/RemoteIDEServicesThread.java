@@ -27,6 +27,7 @@
 package org.rascalmpl.vscode.lsp.terminal;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
@@ -38,7 +39,8 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.ideservices.GsonUtils;
-import org.rascalmpl.ideservices.IRemoteIDEServices;
+import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.ideservices.RemoteIDEServices;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.IDEServicesConfiguration;
 
@@ -69,12 +71,12 @@ public class RemoteIDEServicesThread extends Thread {
                     Socket connection = serverSocket.accept();
                     connection.setTcpNoDelay(true);
 
-                    Launcher<IRemoteIDEServices> remoteIDEServicesLauncher = new Launcher.Builder<IRemoteIDEServices>()
+                    Launcher<IDEServices> remoteIDEServicesLauncher = new Launcher.Builder<IDEServices>()
                         .setLocalService(new RemoteIDEServicesServer(languageClient, docService, exec))
-                        .setRemoteInterface(IRemoteIDEServices.class)
+                        .setRemoteInterface(IDEServices.class)
                         .setInput(connection.getInputStream())
                         .setOutput(connection.getOutputStream())
-                        .configureGson(GsonUtils.complexAsBase64String())
+                        .configureGson(GsonUtils.complexAsBase64String(RemoteIDEServices.ts))
                         .setExecutorService(exec)
                         .setExceptionHandler(e -> {
                             logger.error(e);
@@ -99,7 +101,7 @@ public class RemoteIDEServicesThread extends Thread {
 
     public static IDEServicesConfiguration startRemoteIDEServicesServer(LanguageClient languageClient, IBaseTextDocumentService docService, ExecutorService threadPool) {
         try {
-            ServerSocket socket = new ServerSocket(0);
+            ServerSocket socket = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
             new RemoteIDEServicesThread(socket, languageClient, docService, threadPool).start();
             return new IDEServicesConfiguration(socket.getLocalPort());
         } catch (IOException e) {

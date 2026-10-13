@@ -35,6 +35,7 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.vscode.lsp.rascal.RascalLanguageServices;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -43,6 +44,7 @@ public class PathConfigsTest {
     private static final URIResolverRegistry reg = URIResolverRegistry.getInstance();
     private static ISourceLocation absoluteProjectDir;
     @Mock PathConfigDiagnostics diagnostics;
+    @Mock RascalLanguageServices services;
     private PathConfigs configs;
 
     @BeforeClass
@@ -52,7 +54,7 @@ public class PathConfigsTest {
 
     @Before
     public void setUp() {
-        configs = new PathConfigs(Executors.newCachedThreadPool(), diagnostics);
+        configs = new PathConfigs(services, Executors.newCachedThreadPool(), diagnostics);
     }
 
     private static void assertEquals(String message, ISourceLocation expected, ISourceLocation actual) {

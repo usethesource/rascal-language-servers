@@ -99,6 +99,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> didRenameFiles;
     private final CompletableFuture<@Nullable IFunction> selectionRange;
     private final CompletableFuture<@Nullable IFunction> prepareCallHierarchy;
+
     private final CompletableFuture<@Nullable IFunction> callHierarchyService;
     private final CompletableFuture<@Nullable IFunction> completion;
     private final CompletableFuture<IList> completionTriggerCharacters;

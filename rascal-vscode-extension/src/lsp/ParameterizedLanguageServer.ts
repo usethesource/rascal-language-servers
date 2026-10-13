@@ -28,8 +28,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { BaseLanguageClient } from 'vscode-languageclient';
-import { activateLanguageClient } from './RascalLSPConnection';
-import { VSCodeUriResolverServer } from '../fs/VSCodeURIResolver';
+import { activateLanguageClient, calculateDSLMemoryReservation } from './RascalLSPConnection';
+import { VSCodeFileSystemInRascal } from '../fs/VSCodeFileSystemInRascal';
 
 export class ParameterizedLanguageServer implements vscode.Disposable {
     private readonly registeredFileExtensions:Map<string, Set<string>> = new Map();
@@ -37,7 +37,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
 
     constructor(
         context: vscode.ExtensionContext,
-        private readonly vfsServer: VSCodeUriResolverServer,
+        private readonly vfsServer: VSCodeFileSystemInRascal,
         private readonly absoluteJarPath: string,
         private readonly deployMode = true,
         private readonly languageId = 'parametric-rascalmpl',
@@ -55,7 +55,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
                     // so we wait 1ms just to be sure we're not triggering an endless loop.
                     setTimeout(() => {
                         if (!e.isClosed && e.languageId !== this.languageId) {
-                            vscode.languages.setTextDocumentLanguage(e, this.languageId);
+                            void vscode.languages.setTextDocumentLanguage(e, this.languageId);
                         }
                     }, 1);
                 }
@@ -63,11 +63,11 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
         }
         else {
             // trigger creating of dedicated instance
-            this.getLanguageClient();
+            void this.getLanguageClient();
         }
     }
     dispose() {
-        this.parametricClient?.then(c => c.dispose());
+        void this.parametricClient?.then(c => c.dispose());
     }
 
     private activateParametricLanguageClient(): Promise<BaseLanguageClient> {
@@ -96,14 +96,13 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
     async registerLanguage(lang:LanguageParameter) {
         const client = await this.getLanguageClient();
         // first we load the new language into the parametric server
-        await client.sendRequest("rascal/sendRegisterLanguage", lang);
+        await client.sendRequest("rascal/sendRegisterLanguage", { lang, remoteMemoryArg: calculateDSLMemoryReservation(false) });
 
         if (this.dedicatedLanguage === undefined) {
             for (const doc of vscode.workspace.textDocuments) {
                 const ext = path.extname(doc.uri.path);
                 if (ext !== "" && lang.extensions.includes(ext.substring(1))) {
-                    // (Re)set the language ID to re-trigger contribution requests
-                    await vscode.languages.setTextDocumentLanguage(doc, "plaintext");
+                    // Associate open editors with the given extensions with this language server
                     await vscode.languages.setTextDocumentLanguage(doc, this.languageId);
                 }
             }
@@ -121,7 +120,7 @@ export class ParameterizedLanguageServer implements vscode.Disposable {
 
     async unregisterLanguage(lang: LanguageParameter) {
         const client = this.getLanguageClient();
-        (await client).sendRequest("rascal/sendUnregisterLanguage", lang);
+        void (await client).sendRequest("rascal/sendUnregisterLanguage", lang);
 
         if (this.dedicatedLanguage === undefined) {
             for (const ext of lang.extensions) {

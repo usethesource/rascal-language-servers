@@ -30,7 +30,8 @@ import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 
 public enum PathConfigMode {
     INTERPRETER(0),
-    COMPILER(1);
+    COMPILER(1),
+    INTERPRETER_EXTERNAL(2);
 
     private final int value;
 
@@ -45,6 +46,7 @@ public enum PathConfigMode {
         switch (this) {
             case INTERPRETER: return RascalConfigMode.INTERPRETER;
             case COMPILER: return RascalConfigMode.COMPILER;
+            case INTERPRETER_EXTERNAL: return RascalConfigMode.INTERPRETER_EXTERNAL;
             default: throw new IllegalArgumentException("Missing case: " + this);
         }
     }

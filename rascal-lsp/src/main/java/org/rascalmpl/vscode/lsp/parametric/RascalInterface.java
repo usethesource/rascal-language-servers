@@ -26,6 +26,7 @@
  */
 package org.rascalmpl.vscode.lsp.parametric;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.concurrent.ExecutionException;
@@ -37,9 +38,10 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.util.NamedThreadPool;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
-import org.rascalmpl.vscode.lsp.util.NamedThreadPool;
+import org.rascalmpl.vscode.lsp.parametric.routing.ActualRoutingLanguageServer;
 import org.rascalmpl.vscode.lsp.util.locations.impl.TreeSearch;
 
 import io.usethesource.vallang.IConstructor;
@@ -64,7 +66,7 @@ public class RascalInterface {
                 var port = Integer.parseInt(property);
                 Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
                 Launcher<LanguageRegistry> clientLauncher = new Launcher.Builder<LanguageRegistry>()
-                    .setLocalService(new Object())
+                    .setLocalService(new Object()) // no local service
                     .setRemoteInterface(LanguageRegistry.class)
                     .setInput(socket.getInputStream())
                     .setOutput(socket.getOutputStream())
@@ -82,12 +84,21 @@ public class RascalInterface {
 
     public void registerLanguage(IConstructor lang) {
         if (languageRegistry == null) {
-            monitor.warning("Could not register language: no connection", URIUtil.unknownLocation());
+            throw RuntimeExceptionFactory.io("Could not register language: no connection");
         } else {
+            var param = LanguageParameter.fromRascalValue(lang);
+
+            // Check early if the path config contains a compatible version of `rascal-lsp`
             try {
-                languageRegistry.registerLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
+                ActualRoutingLanguageServer.resolveDependencies(param);
+            } catch (IOException e) {
+                throw RuntimeExceptionFactory.io("Could not register language: " + e.getMessage());
+            }
+
+            try {
+                languageRegistry.registerLanguage(param).get(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
-                monitor.warning("registerLanuage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
+                monitor.warning("registerLanguage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
                 Thread.currentThread().interrupt();
             } catch (ExecutionException | TimeoutException e) {
                 throw RuntimeExceptionFactory.io("Could not register language " + lang + "\n" + e);
@@ -97,12 +108,12 @@ public class RascalInterface {
 
     public void unregisterLanguage(IConstructor lang) {
         if (languageRegistry == null) {
-            monitor.warning("Could not unregister language: no connection", URIUtil.unknownLocation());
+            throw RuntimeExceptionFactory.io("Could not unregister language: no connection");
         } else {
             try {
                 languageRegistry.unregisterLanguage(LanguageParameter.fromRascalValue(lang)).get(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
-                monitor.warning("unregisterLanuage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
+                monitor.warning("unregisterLanguage was interrupted: " + e.getMessage(), URIUtil.unknownLocation());
                 Thread.currentThread().interrupt();
             } catch (ExecutionException | TimeoutException e) {
                 throw RuntimeExceptionFactory.io("Could not unregister language " + lang + "\n" + e);

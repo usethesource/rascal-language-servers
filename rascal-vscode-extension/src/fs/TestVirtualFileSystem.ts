@@ -30,11 +30,12 @@ import * as vscode from 'vscode';
 
 /* This class is used to testing purposes of the VFS forwarding to rascal */
 export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.Disposable {
-    public static readonly rootScheme = vscode.Uri.from({scheme: "rascal-vscode-test"});
+    public static readonly rootScheme = vscode.Uri.from({scheme: "rascal-vscode-test", path: "/"});
     private readonly _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
     private readonly root = new DirEntry(TestVirtualFileSystem.rootScheme);
     private readonly fs : vscode.Disposable;
+    private activeWatches: Map<[uri: vscode.Uri, recursive: boolean], readonly [string, boolean][]> = new Map();
 
     constructor(private readonly logger: vscode.LogOutputChannel) {
         this.fs = vscode.workspace.registerFileSystemProvider(TestVirtualFileSystem.rootScheme.scheme, this, {isCaseSensitive: true});
@@ -48,11 +49,31 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
     }
 
     private initializeTestFiles() {
-        // Write JSON file that is filled with Pico command contents/
+        // Write JSON file that is filled with Pico command contents.
         // Reading the file requires registration of the Pico language first.
         this.writeDynamicFile(vscode.Uri.from({scheme: TestVirtualFileSystem.rootScheme.scheme, path: "test.json"}), async () => {
             const result = await vscode.commands.executeCommand<object>("rascal-meta-command", "Pico", "testValueEncoding()");
             return Buffer.from(JSON.stringify(result, null, 2));
+        }, {create: true, overwrite: true});
+
+        this.initializeRemoteFsTestFiles();
+    }
+
+    private initializeRemoteFsTestFiles() {
+        // The following files play a role in the remote file system UI tests (see `remotefs.test.ts`).
+        // Reading these files has side effects.
+
+        const remotefsApiTestRoot = vscode.Uri.joinPath(TestVirtualFileSystem.rootScheme, "remotefs-api-test");
+        this.createDirectory(remotefsApiTestRoot);
+
+
+        this.writeDynamicFile(vscode.Uri.joinPath(remotefsApiTestRoot, "test-rascalfs-read"), async () => {
+            this.logger.debug("[TVFS] Reading test file");
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.from({
+                scheme: "compressed+tmp",
+                path: "/rascal-remotefs-test/rascal-test-file.gz"
+            }));
+            return Buffer.from(doc.getText(), 'utf-8');
         }, {create: true, overwrite: true});
     }
 
@@ -90,9 +111,68 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
 
     }
 
-    watch(_uri: vscode.Uri, _options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
-        throw new Error("Not supported yet");
+    watch(uri: vscode.Uri, options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
+        this.logger.debug("[TVFS] watch ", uri);
+        const watchKey: [vscode.Uri, boolean] = [uri, options.recursive];
+        this.activeWatches.set(watchKey, options.excludes.map(e => [e, TestVirtualFileSystem.isGlob(e)]));
+
+        return new vscode.Disposable(async () => {
+            this.logger.debug("[TVFS] Watch disposed");
+            this.activeWatches.delete(watchKey);
+        });
     }
+
+    notifyWatchers(targetUri: vscode.Uri, type: vscode.FileChangeType) {
+        this.logger.debug("[TVFS] notifyWatchers ", targetUri);
+        // Iterating over all active watches
+        watches: for (const [[uri, recursive], excludes] of this.activeWatches) {
+            if (targetUri.scheme !== uri.scheme || targetUri.authority !== uri.authority) {
+                // Scheme or authority does not match
+                continue;
+            }
+
+            // A non-recursive watch applies to a file, or a directory's direct children
+            if (!recursive && uri.path !== targetUri.path && TestVirtualFileSystem.ensureTrailingSlash(uri.path) !== TestVirtualFileSystem.ensureTrailingSlash(path.dirname(targetUri.path))) {
+                // Current watch does not apply to the event uri
+                continue;
+            }
+
+            // A recursive watch applies to a directory's children at arbitrary depth
+            if (recursive && !targetUri.path.startsWith(TestVirtualFileSystem.ensureTrailingSlash(uri.path))) {
+                // Current watch does not apply to the event uri
+                continue;
+            }
+
+            // Current watch does apply to the event uri; checking whether it is excluded in this watch
+            for (const [exclude, isGlob] of excludes) {
+                const isAbsolute = path.isAbsolute(exclude);
+                if (isAbsolute && TestVirtualFileSystem.excludeMatchesUri(targetUri.path, exclude, isGlob)
+                    || !isAbsolute && TestVirtualFileSystem.excludeMatchesUri(targetUri.path, path.join(uri.path, exclude), isGlob)) {
+                    // Event uri was excluded in current watch
+                    continue watches;
+                }
+            }
+
+            // Current watch applies to the event uri and no exclude matches
+            const callbackEvent: vscode.FileChangeEvent = { type: type, uri: targetUri };
+            this.logger.debug(`[TVFS] Emitting watch callback event`, callbackEvent);
+            this._emitter.fire([callbackEvent]);
+            break;
+        }
+    }
+
+    static ensureTrailingSlash(path: string): string {
+        return path.endsWith("/") ? path : path + "/";
+    }
+
+    static excludeMatchesUri(uri: string, exclude: string, isGlob: boolean) {
+        return (isGlob && path.matchesGlob(uri, exclude)) || (!isGlob && exclude === uri);
+    }
+
+    static isGlob(exclude: string): boolean {
+        return exclude.indexOf("*") + exclude.indexOf("?") + exclude.indexOf("[") + exclude.indexOf("{") !== -4;
+    }
+
     stat(uri: vscode.Uri): vscode.FileStat {
         this.logger.debug("[TVFS] stat: ", uri);
         return this.locate(uri).stat();
@@ -121,6 +201,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             throw vscode.FileSystemError.FileExists(uri);
         }
         parent.putEntry(uri, new DirEntry(uri));
+        this.notifyWatchers(uri, vscode.FileChangeType.Created);
     }
 
     readFile(uri: vscode.Uri): Uint8Array | Promise<Uint8Array> {
@@ -151,10 +232,11 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             throw vscode.FileSystemError.FileIsADirectory(uri);
         }
         child.write(content);
+        this.notifyWatchers(uri, vscode.FileChangeType.Changed);
     }
 
     private writeDynamicFile(uri: vscode.Uri, contentReader: () => Promise<Uint8Array>, options: { readonly create: boolean; readonly overwrite: boolean; }): void {
-        this.logger.debug("[TVFS] writeVirtualFile: ", uri, options);
+        this.logger.debug("[TVFS] writeDynamicFile: ", uri, options);
         const [parent, childConst] = this.locateWithParent(uri);
         let child = childConst;
         if (!parent.isDir()) {
@@ -171,6 +253,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
         if (!child.isFile()) {
             throw vscode.FileSystemError.FileIsADirectory(uri);
         }
+        this.notifyWatchers(uri, vscode.FileChangeType.Changed);
     }
 
     delete(uri: vscode.Uri, options: { readonly recursive: boolean; }) {
@@ -191,6 +274,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             }
         }
         parent.deleteEntry(uri);
+        this.notifyWatchers(uri, vscode.FileChangeType.Deleted);
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { readonly overwrite: boolean; }) {
@@ -216,6 +300,7 @@ export class TestVirtualFileSystem implements vscode.FileSystemProvider, vscode.
             throw vscode.FileSystemError.NoPermissions(destinationUri);
         }
         destinationParent.putEntry(destinationUri, source.clone(destinationUri));
+        this.notifyWatchers(destinationUri, vscode.FileChangeType.Created);
     }
 }
 

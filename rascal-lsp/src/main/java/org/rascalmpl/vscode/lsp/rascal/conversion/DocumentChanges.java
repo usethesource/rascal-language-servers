@@ -38,6 +38,7 @@ import org.eclipse.lsp4j.CreateFile;
 import org.eclipse.lsp4j.DeleteFile;
 import org.eclipse.lsp4j.RenameFile;
 import org.eclipse.lsp4j.ResourceOperation;
+import org.eclipse.lsp4j.SnippetTextEdit;
 import org.eclipse.lsp4j.TextDocumentEdit;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
@@ -93,9 +94,15 @@ public class DocumentChanges {
                 case RascalADTs.FileSystemChangeFields.CHANGED:
                     // TODO: file document identifier version is unknown here. that may be problematic
                     // have to extend the entire/all LSP API with this information _per_ file?
+
+                    var edits = translateTextEdits((IList) edit.get(RascalADTs.FileSystemChangeFields.EDITS), anno, columns, changeAnnotations)
+                        .stream()
+                        .map(Either::<TextEdit, SnippetTextEdit>forLeft)
+                        .collect(Collectors.toList());
+
                     result.add(Either.forLeft(
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(getFileURI(edit, RascalADTs.FileSystemChangeFields.FILE), null),
-                            translateTextEdits((IList) edit.get(RascalADTs.FileSystemChangeFields.EDITS), anno, columns, changeAnnotations))));
+                            edits)));
                     break;
             }
         }
