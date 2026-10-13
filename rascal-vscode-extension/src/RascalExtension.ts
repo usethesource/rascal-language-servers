@@ -203,6 +203,7 @@ export class RascalExtension implements vscode.Disposable {
                         });
                         rascalClasses = lookupRes.locs?.map(l => vscode.Uri.parse(l).fsPath);
                     } catch (e) {
+                        this.logger().error("Could not start Rascal Terminal: {}", e);
                         await this.reportTerminalStartError("Outdated dependencies detected", "Cannot start Rascal Terminal. Check the Problems view and update your dependency/ies on Rascal and/or Rascal-lsp.", { documentation: false, showOutput : false, canContinue: false });
                         return;
                     }
