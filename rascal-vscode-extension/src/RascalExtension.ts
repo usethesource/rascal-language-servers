@@ -32,7 +32,7 @@ import { FileType } from 'vscode';
 import { integer, URI } from 'vscode-languageclient';
 import { checkForJVMUpdate, getJavaExecutable } from './auto-jvm/JavaLookup';
 import { RascalDebugViewProvider } from './dap/RascalDebugView';
-import { BooleanResponse, ISourceLocationRequest, SourceLocationListResponse } from './fs/JsonRpcMessages';
+import { BooleanResponse, ISourceLocationRequest, LookupRascalClassesResponse } from './fs/JsonRpcMessages';
 import { VSCodeFileSystemInRascal } from './fs/VSCodeFileSystemInRascal';
 import { LanguageParameter, ParameterizedLanguageServer } from './lsp/ParameterizedLanguageServer';
 import { RascalLanguageServer, toRascalUri } from './lsp/RascalLanguageServer';
@@ -197,14 +197,14 @@ export class RascalExtension implements vscode.Disposable {
                 let rascalClasses: string[] | undefined = undefined;
 
                 if (uri !== undefined) {
-                    if (!await rascal.sendRequest<BooleanResponse>("rascal/verifyRascalAndLspVersions", <ISourceLocationRequest>{ loc: toRascalUri(uri) })
-                            && !await this.reportTerminalStartError("Outdated dependencies detected", "Rascal Terminal will behave erratically or not start at all. Update your dependency/ies on Rascal and/or Rascal-lsp.", { documentation: false, showOutput : false, canContinue: true })) {
-                        return;
-                    }
-
                     const lookupRes = await rascal.sendRequest<LookupRascalClassesResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
                         loc: toRascalUri(uri)
                     });
+
+                    if (!lookupRes.hasValidVersions) {
+                        await this.reportTerminalStartError("Outdated dependencies detected", "Rascal Terminal will behave erratically or not start at all. Check the Problems view and update your dependency/ies on Rascal and/or Rascal-lsp.", { documentation: false, showOutput : false, canContinue: false });
+                        return;
+                    }
 
                     rascalClasses = lookupRes.locs?.map(l => vscode.Uri.parse(l).fsPath);
                 }
