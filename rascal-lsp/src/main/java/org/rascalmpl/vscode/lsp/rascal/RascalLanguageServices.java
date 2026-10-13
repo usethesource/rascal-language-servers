@@ -45,7 +45,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -60,6 +59,7 @@ import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.staticErrors.SyntaxError;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.types.RascalTypeFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -250,7 +250,7 @@ public class RascalLanguageServices {
 
     IFunction makePathConfigGetter(Evaluator e) {
         return e.getFunctionValueFactory().function(getPathConfigType, (t, u) ->
-            rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0]).asConstructor());
+            rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0], RascalConfigMode.COMPILER).asConstructor());
     }
 
     IFunction makeParseTreeGetter(Evaluator e) {

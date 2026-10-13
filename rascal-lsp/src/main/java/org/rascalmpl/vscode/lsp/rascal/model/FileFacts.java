@@ -42,6 +42,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -154,8 +155,12 @@ public class FileFacts implements DiagnosticsReporter {
         return nopFact;
     }
 
-    public PathConfig getPathConfig(ISourceLocation file) {
-        return confs.lookupConfig(file);
+    public PathConfig getPathConfig(ISourceLocation file, RascalConfigMode mode) {
+        return confs.lookupConfig(file).get(mode);
+    }
+
+    public CompletableFuture<Boolean> hasCompatiblePathConfig(ISourceLocation file) {
+        return confs.lookupConfig(file).isRascalLspCompatible();
     }
 
     public void close(ISourceLocation file) {
@@ -208,7 +213,7 @@ public class FileFacts implements DiagnosticsReporter {
                     // only run get summary after the typechecker for this file is done running, because it needs the TPL
                     // (we cannot now global running type checkers, that is a different subject)
                     return InterruptibleFuture.flatten(typeCheckResults.get()
-                        .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, confs::lookupConfig)), exec)
+                        .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, f -> confs.lookupConfig(f).get(RascalConfigMode.COMPILER))), exec)
                         .thenApply(s -> s == null ? new SummaryBridge() : new SummaryBridge(file, s, cm));
                 });
         }
@@ -267,7 +272,7 @@ public class FileFacts implements DiagnosticsReporter {
             summary.invalidate();
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
-                rascal.checkFile(file, confs.lookupConfig(file), exec)
+                rascal.checkFile(file, confs.lookupConfig(file).get(RascalConfigMode.COMPILER), exec)
                     .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
             ).thenAccept(m -> m.forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs)));
         }

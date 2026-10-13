@@ -73,7 +73,6 @@ import org.rascalmpl.uri.remote.jsonrpc.ISourceLocationRequest;
 import org.rascalmpl.uri.remote.jsonrpc.RemoteIOError;
 import org.rascalmpl.uri.remote.jsonrpc.SourceLocationResponse;
 import org.rascalmpl.util.NamedThreadPool;
-import org.rascalmpl.util.maven.ModelResolutionError;
 import org.rascalmpl.vscode.lsp.log.LogRedirectConfiguration;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.LanguageParameter;
 import org.rascalmpl.vscode.lsp.parametric.LanguageRegistry.RegistrationParameter;
@@ -287,14 +286,8 @@ public abstract class BaseLanguageServer {
 
         @Override
         public CompletableFuture<SourceLocationListResponse> lookupRascalClasses(ISourceLocationRequest req) {
-            return CompletableFuture.supplyAsync(() -> {
-                try {
-                    return new SourceLocationListResponse(lspDocumentService.lookupRascalClasses(req.getLocation()));
-                } catch (IOException | ModelResolutionError | URISyntaxException e) {
-                    logger.error("Could not locate Rascal classes for {}", req.getLocation(), e);
-                    return new SourceLocationListResponse();
-                }
-            }, executor);
+            return lspDocumentService.lookupRascalClasses(req.getLocation())
+                .thenApply(SourceLocationListResponse::new);
         }
 
         private static URI[] toURIArray(IList src) {
