@@ -219,8 +219,7 @@ export class RascalREPL {
         const oldContent = clipboard.readSync();
         const newContent = '';
         clipboard.writeSync(newContent);
-        await this.executeCommand('workbench.action.terminal.selectAll');
-        await this.executeCommand('editor.action.clipboardCopyAction');
+        await this.executeCommand('rascalmpl.test_copyTerminalContents');
         await this.driver.wait(() => clipboard.readSync() !== newContent, Delays.normal, 'Clipboard should be updated with terminal content');
         const text = clipboard.readSync();
         clipboard.writeSync(oldContent);

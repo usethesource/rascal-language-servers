@@ -75,6 +75,11 @@
         "command": "rascalmpl.copySourceLocation",
         "title": "Copy Path as Rascal Location",
         "icon": "$(copy)"
+      },
+      {
+        "command": "rascalmpl.test_copyTerminalContents",
+        "title": "[Rascal-Test] Fast Copy Terminal Contents",
+        "when": "rascal.test.mode"
       }
     ],
     "menus": {
