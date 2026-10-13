@@ -32,6 +32,7 @@ import { RascalExtension } from './RascalExtension';
 import { RascalMFValidator } from './ux/RascalMFValidator';
 import { RascalProjectValidator } from './ux/RascalProjectValidator';
 import { VsCodeSettingsFixer } from './ux/VsCodeSettingsFixer';
+import { RascalTestCommands } from './test/RascalTestCommands';
 
 const testDeployMode = (process.env['RASCAL_LSP_DEV_DEPLOY'] || "false") === "true";
 const deployMode = (process.env['RASCAL_LSP_DEV'] || "false") !== "true";
@@ -47,7 +48,9 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(new VsCodeSettingsFixer());
     context.subscriptions.push(new RascalProjectValidator(logger));
     if (!deployMode || testDeployMode) {
+        vscode.commands.executeCommand('setContext', 'rascal.test.mode', true);
         context.subscriptions.push(new TestVirtualFileSystem(logger));
+        context.subscriptions.push(new RascalTestCommands(logger));
     }
 
     return extension.externalLanguageRegistry();
