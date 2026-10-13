@@ -67,9 +67,6 @@ public interface IBaseTextDocumentService extends TextDocumentService, ITextDocu
     default List<ISourceLocation> lookupRascalClasses(ISourceLocation forFile) throws IOException, ModelResolutionError, URISyntaxException {
         throw new UnsupportedOperationException("Lookup of Rascal classes unsupported");
     }
-    default CompletableFuture<Boolean> verifyRascalAndLspVersions(ISourceLocation forFile) {
-        throw new UnsupportedOperationException("Verification of Rascal and Rascal-lsp version for Repl unsupported");
-    }
 
     void didCreateFiles(CreateFilesParams params);
     void didRenameFiles(RenameFilesParams params, List<WorkspaceFolder> workspaceFolders);

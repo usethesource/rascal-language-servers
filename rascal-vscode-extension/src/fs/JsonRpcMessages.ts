@@ -127,6 +127,10 @@ export interface SourceLocationListResponse {
     locs: ISourceLocation[] | undefined
 }
 
+export interface LookupRascalClassesResponse extends SourceLocationListResponse {
+    hasValidVersions: boolean
+}
+
 export interface DirectoryListingResponse {
     entries: DirectoryEntry[]
 }

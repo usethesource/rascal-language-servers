@@ -202,7 +202,7 @@ export class RascalExtension implements vscode.Disposable {
                         return;
                     }
 
-                    const lookupRes = await rascal.sendRequest<SourceLocationListResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
+                    const lookupRes = await rascal.sendRequest<LookupRascalClassesResponse>("rascal/lookupRascalClasses", <ISourceLocationRequest>{
                         loc: toRascalUri(uri)
                     });
 
