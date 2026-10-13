@@ -67,6 +67,16 @@ public class PathConfigsTest {
         assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(URIUtil.getChildLocation(lspProjectRoot, "META-INF/RASCAL.MF")));
     }
 
+    @Test
+    public void projectRootFromSourceModule() {
+        assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(URIUtil.getChildLocation(lspProjectRoot, "src/main/rascal/util/LanguageServer.rsc")));
+    }
+
+    @Test
+    public void projectRootFromTarget() {
+        assertEquals(lspProjectRoot, PathConfigs.inferProjectRoot(URIUtil.getChildLocation(lspProjectRoot, "target/classes")));
+    }
+
     // @Test
     // public void projectRootFromNestedProject() {
     //     var origin = URIUtil.getChildLocation(lspProjectRoot, "src/test/resources/project-a/pom.xml");
