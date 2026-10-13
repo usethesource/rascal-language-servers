@@ -180,7 +180,7 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         return availableFacts().hasCompatiblePathConfig(forFile).handle((compatible, t) -> {
             if (t != null) {
                 throw new RuntimeException("Could not validate compatibility of the project", t);
-            } else if (!compatible) {
+            } else if (!compatible.booleanValue()) {
                 throw new RuntimeException("Rascal and/or Rascal LSP dependency is not compatible with this Rascal VS Code extension");
             }
 

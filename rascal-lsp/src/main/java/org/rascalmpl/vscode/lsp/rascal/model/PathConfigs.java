@@ -102,9 +102,10 @@ public class PathConfigs {
         }
 
         PathConfig get(RascalConfigMode mode) {
-            switch (mode) {
-                case COMPILER: return compilerConfig;
-                case INTERPRETER_EXTERNAL: return externalConfig;
+            if (mode == RascalConfigMode.COMPILER) {
+                return compilerConfig;
+            } else if (mode == RascalConfigMode.INTERPRETER_EXTERNAL) {
+                return externalConfig;
             }
             throw new IllegalArgumentException("Invalid config mode");
         }
