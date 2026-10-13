@@ -178,7 +178,7 @@ public class PomAnalyzer {
                 // The back-up location is set on line 2 (and not line 1) to ensure that when clicking the Quick Fix hover, the mouse does not go out of the editor area and make the hover disappear
                 errorLocation = Objects.requireNonNullElse(errorLocation, vf.sourceLocation(pomXml, 0, 0, 2, 2, 0, 8));
 
-                var error = Messages.error(dependencyLabel + " version in pom.xml (" + oldVersion + ") is too old (expected >= " + minimalVersion + "). Update the dependency" + (addFix ? " or use the Quick Fix." : "."), errorLocation);
+                var error = Messages.error(dependencyLabel + " version in pom.xml (" + oldVersion + ") is too old (expected >= " + minimalVersion + "). Update the dependency" + (addFix ? " or use the Quick Fix." : " manually."), errorLocation);
                 if (addFix) {
                     var codeAction = vf.constructor(commandType, new IValue[] { errorLocation, vf.string(newVersion) }, Map.of("title", vf.string("Update " + dependencyLabel + " dependency in pom.xml")));
                     var fix = vf.constructor(Messages.CodeAction_action, new IValue[]{}, Map.of("command", codeAction));
