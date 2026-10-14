@@ -1,0 +1,6 @@
+#!/bin/sh
+
+nvim --headless --noplugin -u tests/minit.lua \
+  -c 'lua require("mini.test").setup()' \
+  -c 'lua MiniTest.run()' \
+  -c 'qa!'
