@@ -2,7 +2,7 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
-## Release 2.22.6 (VS Code: 0.14.0)
+## Release 2.23.0 (VS Code: 0.14.0)
 
 Works best with rascal 0.43.0 (and rascal-maven-plugin 0.32.0). Due to the removal of the `std` resolver, users will most likely also have to update their library dependencies to the latest release.
 
@@ -27,6 +27,7 @@ The main update is that we have disconnected the Rascal version that is used ins
 ### Improved features for DSL Developers
 
 * **Breaking change:** The path config of `registerLanguage` must now contain an explicit `rascal-lsp` dependency. Each language server runs in a dedicated process/JVM that respects the specified version of `rascal-lsp` in the path config. A crash of one language server does not affect others anymore, but increased memory usage may be observed. See the [blog post](https://www.rascal-mpl.org/blog/2026/10/07/pom-leading-for-dsls/) on this topic for more details.
+* We've removed deprecated functions in `util::LanguageServer`
 
 ### Rascal 0.43.0 Highlights
 

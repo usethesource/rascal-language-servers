@@ -27,6 +27,7 @@ The main update is that we have disconnected the Rascal version that is used ins
 ### Improved features for DSL Developers
 
 * **Breaking change:** The path config of `registerLanguage` must now contain an explicit `rascal-lsp` dependency. Each language server runs in a dedicated process/JVM that respects the specified version of `rascal-lsp` in the path config. A crash of one language server does not affect others anymore, but increased memory usage may be observed. See the [blog post](https://www.rascal-mpl.org/blog/2026/10/07/pom-leading-for-dsls/) on this topic for more details.
+* We've removed deprecated functions in `util::LanguageServer`
 
 ### Rascal 0.43.0 Highlights
 
