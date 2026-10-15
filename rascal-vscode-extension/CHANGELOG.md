@@ -4,7 +4,7 @@ We only list significant changes, for a full changelog please review the [commit
 
 ## 0.14.0
 
-Works best with rascal 0.43.0 (and rascal-maven-plugin 0.32.0)
+Works best with rascal 0.43.0 (and rascal-maven-plugin 0.32.0). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
 
 The main update is that we have disconnected the Rascal version that is used inside the VS Code extension from the version that you as a user has to use. Both for DSL projects as for Rascal Terminals.
 
