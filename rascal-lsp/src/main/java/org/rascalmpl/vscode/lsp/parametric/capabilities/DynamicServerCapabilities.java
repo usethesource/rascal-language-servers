@@ -33,6 +33,8 @@ import org.eclipse.lsp4j.CodeActionRegistrationOptions;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensRegistrationOptions;
 import org.eclipse.lsp4j.DefinitionRegistrationOptions;
+import org.eclipse.lsp4j.DocumentFormattingRegistrationOptions;
+import org.eclipse.lsp4j.DocumentRangeFormattingRegistrationOptions;
 import org.eclipse.lsp4j.DocumentSymbolRegistrationOptions;
 import org.eclipse.lsp4j.FoldingRangeProviderOptions;
 import org.eclipse.lsp4j.HoverRegistrationOptions;
@@ -92,6 +94,12 @@ public class DynamicServerCapabilities {
                 c -> CompletableFuture.completedFuture(true), // contributions always provide a parser, and thus folding ranges
                 c -> c.setFoldingRangeProvider(true)
             ),
+            new TextDocumentCapabilityWithConstantOptions<>("formatting",
+                DocumentFormattingRegistrationOptions::new,
+                TextDocumentClientCapabilities::getFormatting,
+                ILanguageContributions::providesFormatting,
+                c -> c.setDocumentFormattingProvider(true)
+            ),
             new TextDocumentCapabilityWithConstantOptions<>("hover",
                 HoverRegistrationOptions::new,
                 TextDocumentClientCapabilities::getHover,
@@ -109,6 +117,12 @@ public class DynamicServerCapabilities {
                 TextDocumentClientCapabilities::getInlayHint,
                 ILanguageContributions::providesInlayHint,
                 c -> c.setInlayHintProvider(true)
+            ),
+            new TextDocumentCapabilityWithConstantOptions<>("rangeFormatting",
+                DocumentRangeFormattingRegistrationOptions::new,
+                TextDocumentClientCapabilities::getRangeFormatting,
+                ILanguageContributions::providesFormatting,
+                c -> c.setDocumentRangeFormattingProvider(true)
             ),
             new TextDocumentCapabilityWithConstantOptions<>("references",
                 ReferenceRegistrationOptions::new,
