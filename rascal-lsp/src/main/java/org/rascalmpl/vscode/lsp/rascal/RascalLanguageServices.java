@@ -57,6 +57,7 @@ import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.staticErrors.SyntaxError;
+import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
@@ -332,11 +333,17 @@ public class RascalLanguageServices {
             VF.list(), exec, false, client);
     }
 
+    private static ISet filterRascalProjects(Set<ISourceLocation> folders) {
+        var mf = new RascalManifest();
+        return folders.stream()
+            .filter(mf::hasManifest)
+            .collect(VF.setWriter());
+    }
 
     public InterruptibleFuture<ITuple> getRename(ISourceLocation cursorLoc, IList focus, Set<ISourceLocation> workspaceFolders, String newName) {
         return runEvaluator("Rascal rename", semanticEvaluator, eval -> {
             try {
-                return (ITuple) eval.call("rascalRenameSymbol", cursorLoc, focus, VF.string(newName), workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval));
+                return (ITuple) eval.call("rascalRenameSymbol", cursorLoc, focus, VF.string(newName), filterRascalProjects(workspaceFolders), makePathConfigGetter(eval));
             } catch (Throw e) {
                 if (e.getException() instanceof IConstructor) {
                     var exception = (IConstructor)e.getException();
@@ -365,7 +372,7 @@ public class RascalLanguageServices {
         }
 
         return runEvaluator("Rascal module rename", semanticEvaluator, eval ->
-            (ITuple) eval.call("rascalRenameModule", fileRenames, workspaceFolders.stream().collect(VF.setWriter()), makePathConfigGetter(eval))
+            (ITuple) eval.call("rascalRenameModule", fileRenames, filterRascalProjects(workspaceFolders), makePathConfigGetter(eval))
         , emptyResult, exec, false, client);
     }
 
