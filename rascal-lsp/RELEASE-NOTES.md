@@ -26,13 +26,13 @@ The main update is that we have disconnected the Rascal version that is used ins
 
 ### Improved features for DSL Developers
 
-* **Breaking change:** The path config of `registerLanguage` must now contain an explicit `rascal-lsp` dependency. Each language server runs in a dedicated process/JVM that respects the specified version of `rascal-lsp` in the path config. A crash of one language server does not affect others anymore, but increased memory usage may be observed.
+* **Breaking change:** The path config of `registerLanguage` must now contain an explicit `rascal-lsp` dependency. Each language server runs in a dedicated process/JVM that respects the specified version of `rascal-lsp` in the path config. A crash of one language server does not affect others anymore, but increased memory usage may be observed. See the [blog post](https://www.rascal-mpl.org/blog/2026/10/07/pom-leading-for-dsls/) on this topic for more details.
 
 ### Rascal 0.43.0 Highlights
 
 Below is a summary of the [full release-notes for rascal 0.43.x](https://www.rascal-mpl.org/release-notes/rascal-0-43-x-release-notes/).
 
-* Annotations and the `std` scheme have been removed. Version 0.14.0 of the VS Code extension provides migration tools and Quick Fixes to streamline the few code changes that might be needed.
+* Annotations ([blog post](https://www.rascal-mpl.org/blog/2026/10/12/no-more-annotations/)) and the `std` scheme ([blog post](https://www.rascal-mpl.org/blog/2026/10/08/removed-library-schemes/)) have been removed. Version 0.14.0 of the VS Code extension provides migration tools and Quick Fixes to streamline the few code changes that might be needed.
 * The performance of whole-project typechecking has been improved. Depending on the size and number of type errors/warnings of the project, the typechecking time can be reduced by 10%-40%.
 * Typechecking for recursive functions now also provides correct goto definitions information
 
