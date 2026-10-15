@@ -11,7 +11,7 @@ The main update is that we have disconnected the Rascal version that is used ins
 ### New Features for Rascal Developers
 
 * The new Rascal formatter can be triggered in VS Code using command `Format Document`
-* **Breaking change:** The pom.xml of each DSL project must now contain an explicit `rascal` dependency. The specified version of `rascal` in pom.xml will be respected by the VS Code extension (e.g., when creating a REPL in the project or calling `registerLanguage`) and can be different from the Rascal version of the extension itself. Caveat: Requires Rascal 0.43.0 or later. This change is aligned with the removal of the `std` scheme in Rascal. See the separate [blog post](???) for details.
+* **Breaking change:** The pom.xml of each DSL project must now contain an explicit `rascal` dependency. The specified version of `rascal` in pom.xml will be respected by the VS Code extension (e.g., when creating a REPL in the project or calling `registerLanguage`) and can be different from the Rascal version of the extension itself. Caveat: Requires Rascal 0.43.0 or later. This change is aligned with the removal of the `std` scheme in Rascal. See the separate [blog post](https://www.rascal-mpl.org/blog/2026/10/08/removed-library-schemes/) for details.
 * Outdated rascal and rascal-lsp versions are flagged to the user
 * You can trigger a typecheck for a while rascal project from the file explorer
 
