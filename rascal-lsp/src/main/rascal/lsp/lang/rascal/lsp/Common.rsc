@@ -31,7 +31,7 @@ import IO;
 @memo
 @synopsis{Infers the root of the project that `member` is in.}
 loc inferProjectRoot(loc member) {
-    parentRoot = member;
+    parentRoot = inferDeepestProjectRoot(member);
     root = parentRoot;
 
     do {

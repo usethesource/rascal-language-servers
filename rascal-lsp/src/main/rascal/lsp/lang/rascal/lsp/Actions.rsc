@@ -52,6 +52,8 @@ data Command
     | addRascalDependencyToPom(loc pomLoc)
     | addRascalLspDependencyToPom(loc pomLoc)
     | addNewPomXml(loc projectRoot, str rascalSrcRoot)
+    | updateRascalDependency(loc pomLoc, str version)
+    | updateRascalLspDependency(loc pomLoc, str version)
     ;
 
 
@@ -182,5 +184,15 @@ value evaluateRascalCommand(addRascalLspDependencyToPom(loc pomLoc)) {
 value evaluateRascalCommand(addNewPomXml(loc projectRoot, str rascalSrcRoot)) {
     newRascalPomFile(projectRoot, rascalSrcRoot=rascalSrcRoot);
     edit(projectRoot + "pom.xml");
+    return ("result": true);
+}
+
+value evaluateRascalCommand(updateRascalDependency(loc pomLoc, str version)) {
+    applyDocumentsEdits([changed(pomLoc, [updateRascalDependency(pomLoc, version=version)])]);
+    return ("result": true);
+}
+
+value evaluateRascalCommand(updateRascalLspDependency(loc pomLoc, str version)) {
+    applyDocumentsEdits([changed(pomLoc, [updateRascalLspDependency(pomLoc, version=version)])]);
     return ("result": true);
 }

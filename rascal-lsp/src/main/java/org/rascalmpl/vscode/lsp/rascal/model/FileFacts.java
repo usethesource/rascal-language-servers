@@ -42,6 +42,7 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
@@ -70,16 +71,18 @@ public class FileFacts implements DiagnosticsReporter {
     private final PathConfigs confs;
     private final FileFact nopFact;
 
+    @SuppressWarnings({"argument", "assignment"}) // passing `this` to `PathConfigDiagnostics` is fine, since no function on `this` will be called before we are fully initialized
     public FileFacts(Executor exec, RascalLanguageServices rascal, LanguageClient client, ColumnMaps cm) {
         this.exec = exec;
         this.rascal = rascal;
         this.client = client;
         this.cm = cm;
-        this.confs = new PathConfigs(rascal, exec, new PathConfigDiagnostics(client, cm));
+        this.confs = new PathConfigs(rascal, exec, new PathConfigDiagnostics(this, cm));
         this.nopFact = new FileFact() {
             @Override public void reportParseErrors(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs) { /* NOP */}
             @Override public void reportTypeCheckerMessages(List<Diagnostic> msgs) { /* NOP */ }
+            @Override public void reportPathConfigMessages(List<Diagnostic> msgs) { /* NOP */ }
             @Override public void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
@@ -118,7 +121,11 @@ public class FileFacts implements DiagnosticsReporter {
     }
 
     public void reportTypeCheckerMessages(Map<ISourceLocation, ISet> messages) {
-        Diagnostics.translateMessages(messages, Set.of("rsc"), cm).forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs));
+        Diagnostics.translateMessages(messages, Set.of("rsc", "xml"), cm).forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs));
+    }
+
+    public void reportPathConfigDiagnostics(PublishDiagnosticsParams diagnostics) {
+        getOrOpen(Locations.toLoc(diagnostics.getUri())).reportPathConfigMessages(diagnostics.getDiagnostics());
     }
 
     private @Nullable FileFact get(ISourceLocation l) {
@@ -143,8 +150,12 @@ public class FileFacts implements DiagnosticsReporter {
         return nopFact;
     }
 
-    public PathConfig getPathConfig(ISourceLocation file) {
-        return confs.lookupConfig(file);
+    public PathConfig getPathConfig(ISourceLocation file, RascalConfigMode mode) {
+        return confs.lookupConfig(file).get(mode);
+    }
+
+    public CompletableFuture<Boolean> hasCompatiblePathConfig(ISourceLocation file) {
+        return confs.lookupConfig(file).isRascalLspCompatible();
     }
 
     public void close(ISourceLocation file) {
@@ -167,6 +178,7 @@ public class FileFacts implements DiagnosticsReporter {
         void reportParseErrors(Versioned<List<Diagnostic>> msgs);
         void reportAnalyzeMessages(Versioned<List<Diagnostic>> msgs);
         void reportTypeCheckerMessages(List<Diagnostic> msgs);
+        void reportPathConfigMessages(List<Diagnostic> msgs);
         CompletableFuture<SummaryBridge> getSummary();
         void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay);
         void invalidate();
@@ -181,6 +193,7 @@ public class FileFacts implements DiagnosticsReporter {
         private final AtomicReference<Versioned<String>> analyzerLatestVersion = new AtomicReference<>();
         private final AtomicReference<Versioned<List<Diagnostic>>> analyzerMessages = Versioned.atomic(-1, Collections.emptyList());
         private volatile List<Diagnostic> typeCheckerMessages = Collections.emptyList();
+        private volatile List<Diagnostic> pathConfigMessages = Collections.emptyList();
         private final ReplaceableFuture<Map<ISourceLocation, List<Diagnostic>>> typeCheckResults;
 
         public ActualFileFact(ISourceLocation file, Executor exec) {
@@ -193,7 +206,7 @@ public class FileFacts implements DiagnosticsReporter {
                     // only run get summary after the typechecker for this file is done running, because it needs the TPL
                     // (we cannot now global running type checkers, that is a different subject)
                     return InterruptibleFuture.flatten(typeCheckResults.get()
-                        .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, confs::lookupConfig)), exec)
+                        .<InterruptibleFuture<@Nullable IConstructor>>thenApply(o -> rascal.getSummary(file, f -> confs.lookupConfig(f).get(RascalConfigMode.COMPILER))), exec)
                         .thenApply(s -> s == null ? new SummaryBridge() : new SummaryBridge(file, s, cm));
                 });
         }
@@ -219,6 +232,12 @@ public class FileFacts implements DiagnosticsReporter {
             sendDiagnostics();
         }
 
+        @Override
+        public void reportPathConfigMessages(List<Diagnostic> msgs) {
+            pathConfigMessages = msgs;
+            sendDiagnostics();
+        }
+
         private void sendDiagnostics() {
             if (client == null) {
                 logger.debug("Cannot send diagnostics since the client hasn't been registered yet");
@@ -227,7 +246,7 @@ public class FileFacts implements DiagnosticsReporter {
             logger.trace("Sending diagnostics for: {}", file);
             client.publishDiagnostics(new PublishDiagnosticsParams(
                 Locations.toUri(file).toString(),
-                Lists.union(typeCheckerMessages, parseMessages.get().get(), analyzerMessages.get().get())));
+                Lists.union(typeCheckerMessages, parseMessages.get().get(), analyzerMessages.get().get(), pathConfigMessages)));
         }
 
         @Override
@@ -240,7 +259,7 @@ public class FileFacts implements DiagnosticsReporter {
             summary.invalidate();
             typeCheckerMessages.clear();
             this.typeCheckResults.replace(
-                rascal.checkFile(file, confs.lookupConfig(file), exec)
+                rascal.checkFile(file, confs.lookupConfig(file).get(RascalConfigMode.COMPILER), exec)
                     .thenApply(m -> Diagnostics.translateMessages(m, Set.of("rsc"), cm))
             ).thenAccept(m -> m.forEach((f, msgs) -> getOrOpen(f).reportTypeCheckerMessages(msgs)));
         }

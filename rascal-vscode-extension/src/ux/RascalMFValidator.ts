@@ -24,8 +24,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+import { posix } from 'path'; // posix path join is always correct, also on windows
 import * as vscode from 'vscode';
-import {posix} from 'path'; // posix path join is always correct, also on windows
 
 
 export const MF_FILE = "RASCAL.MF";
@@ -39,13 +39,13 @@ export class RascalMFValidator implements vscode.Disposable {
     private readonly toDispose: vscode.Disposable[] = [];
 
     constructor () {
-        this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal MF Diagnostics");
+        this.diagnostics = vscode.languages.createDiagnosticCollection("Rascal Project Diagnostics");
 
         // any new project should be checked
         vscode.workspace.onDidChangeWorkspaceFolders(async ws => {
             for (const added of ws.added) {
                 if (await isRascalProject(added.uri)) {
-                    void this.verifyRascalMF(added.uri);
+                    void this.verifyRascalMF(buildMFChildPath(added.uri));
                 }
             }
             for (const rem of ws.removed) {
@@ -56,8 +56,7 @@ export class RascalMFValidator implements vscode.Disposable {
 
         // also at the start, check the already opened folders
         for (const openProject of vscode.workspace.workspaceFolders || []) {
-            const mfURI = buildMFChildPath(openProject.uri);
-            void vscode.workspace.fs.stat(mfURI).then(_s => void this.verifyRascalMF(mfURI));
+            void this.verifyRascalMF(buildMFChildPath(openProject.uri));
         }
 
         // all changed files should be checked on save (for example a git pull)
@@ -90,7 +89,7 @@ export class RascalMFValidator implements vscode.Disposable {
 
     private async verifyRascalMF(file: vscode.Uri) {
         try {
-            if (!/\/target\/classes\//.test(file.path)) {
+            if (!/\/target\/classes\//.test(file.path) && await exists(file)) {
                 const mfBody = await vscode.workspace.openTextDocument(file);
                 const diagnostics: vscode.Diagnostic[] = [];
                 try {
@@ -117,15 +116,18 @@ enum FixKind {
 
 }
 
-export async function isRascalProject(projectRoot: vscode.Uri) {
+async function exists(uri: vscode.Uri) {
     try {
-        await vscode.workspace.fs.stat(buildMFChildPath(projectRoot));
+        await vscode.workspace.fs.stat(uri);
         return true;
     }
     catch (_missingFile) {
-        // most likely not a rascal project
         return false;
     }
+}
+
+export async function isRascalProject(projectRoot: vscode.Uri) {
+    return exists(buildMFChildPath(projectRoot));
 }
 
 function checkMissingLastLine(mfBody: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {

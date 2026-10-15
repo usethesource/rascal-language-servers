@@ -45,7 +45,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -60,6 +59,7 @@ import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.staticErrors.SyntaxError;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
+import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.parser.gtd.exception.ParseError;
 import org.rascalmpl.types.RascalTypeFactory;
 import org.rascalmpl.uri.URIResolverRegistry;
@@ -134,7 +134,7 @@ public class RascalLanguageServices {
 
         var context = new LSPContext(exec, docService, workspaceService, client);
 
-        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer");
+        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer", "lang::xml::PomAnalyzer");
         semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions", "lang::rascal::lsp::Formatter");
         compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
@@ -250,7 +250,7 @@ public class RascalLanguageServices {
 
     IFunction makePathConfigGetter(Evaluator e) {
         return e.getFunctionValueFactory().function(getPathConfigType, (t, u) ->
-            rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0]).asConstructor());
+            rascalTextDocumentService.getFileFacts().getPathConfig((ISourceLocation) t[0], RascalConfigMode.COMPILER).asConstructor());
     }
 
     IFunction makeParseTreeGetter(Evaluator e) {
@@ -457,6 +457,22 @@ public class RascalLanguageServices {
                 client
             )
         ), exec);
+    }
+
+    /**
+     * Get the location of the dependency version value.
+     * @return the location, or `null` when it cannot be found.
+     */
+    public CompletableFuture<@Nullable ISourceLocation> getDependencyVersionLocation(ISourceLocation pomXml, String groupId, String artifactId) {
+        return EvaluatorUtil.<ISourceLocation>runEvaluator(
+            "getDependencyVersionLocation",
+            shortRunningTaskEvaluator,
+            ev -> (ISourceLocation) ev.call("getDependencyVersionLocation", pomXml, VF.string(groupId), VF.string(artifactId)),
+            URIUtil.unknownLocation(),
+            exec,
+            false,
+            client
+        ).get().thenApply(l -> l.equals(URIUtil.unknownLocation()) ? null : l);
     }
 
     private CompletableFuture<IConstructor> parseCommand(String command) {

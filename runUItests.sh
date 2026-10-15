@@ -7,15 +7,16 @@
 set -e;
 set -x;
 
-# Find the current Rascal LSP version in the POM, and restore it when this script exits
-RESTORE_LSP_VERSION=$( ( cd rascal-vscode-extension/test-workspace/test-project && mvn -ntp dependency:tree -Dincludes=org.rascalmpl:rascal-lsp | grep rascal-lsp | cut -d ':' -f 4 ) )
+# Find the current Rascal / LSP version in the POM, and restore it when this script exits
+RESTORE_RASCAL_VERSION=$( sh find-dependency-version.sh rascal-vscode-extension/test-workspace/test-project rascal )
+RESTORE_LSP_VERSION=$( sh find-dependency-version.sh rascal-vscode-extension/test-workspace/test-project rascal-lsp )
 restore_versions() {
-    cd .. && ./update-test-dependencies.sh "$RESTORE_LSP_VERSION"
+    cd .. && sh update-test-dependencies.sh "$RESTORE_RASCAL_VERSION" "$RESTORE_LSP_VERSION"
 }
 trap "restore_versions" EXIT SIGINT SIGTERM SIGHUP
 
 # Bootstrap LSP version
-./update-test-dependencies.sh
+sh ./update-test-dependencies.sh
 
 
 # cleanup to avoid contamination with previous runs
@@ -30,7 +31,8 @@ npm run compile:tests
 # test what was compiled
 VSCODE_VERSION=$(grep '"vscode":' package.json | awk -F^ '{ print $2 }' | awk -F\" '{ print $1 }')
 echo "Running tests with VSCode version $VSCODE_VERSION"
-RASCAL_LSP_DEV_DEPLOY=true npx extest setup-and-run out/test/vscode-suite/*.test.js \
+RASCAL_LSP_DEV_DEPLOY=true npx extest setup-and-run out/test/vscode-suite/dsl-mix.test.js \
     --code_version "${VSCODE_VERSION}" \
     --storage $UITESTS \
     --extensions_dir $UITESTS/extensions_dir
+

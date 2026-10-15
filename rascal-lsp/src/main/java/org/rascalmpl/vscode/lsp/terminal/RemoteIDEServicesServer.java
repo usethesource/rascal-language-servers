@@ -26,7 +26,6 @@
  */
 package org.rascalmpl.vscode.lsp.terminal;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +55,6 @@ import org.rascalmpl.vscode.lsp.IBaseLanguageClient;
 import org.rascalmpl.vscode.lsp.IBaseTextDocumentService;
 import org.rascalmpl.vscode.lsp.rascal.conversion.Diagnostics;
 import org.rascalmpl.vscode.lsp.rascal.conversion.DocumentChanges;
-import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
 import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
@@ -99,11 +97,7 @@ public class RemoteIDEServicesServer implements IRemoteIDEServices {
     public CompletableFuture<SourceLocationResponse> resolveProjectLocation(ISourceLocationRequest req) {
         var loc = req.getLocation();
         logger.trace("resolveProjectLocation({})", loc);
-        try {
-            return CompletableFutureUtils.completedFuture(new SourceLocationResponse(URIResolverRegistry.getInstance().logicalToPhysical(loc)), exec);
-        } catch (IOException e) {
-            return CompletableFutureUtils.completedFuture(new SourceLocationResponse(loc), exec);
-        }
+        return CompletableFuture.supplyAsync(() -> new SourceLocationResponse(URIResolverRegistry.getInstance().resolveIfLogical(loc)), exec);
     }
 
     @Override
