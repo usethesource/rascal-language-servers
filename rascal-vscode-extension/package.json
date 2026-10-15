@@ -53,22 +53,22 @@
       },
       {
         "command": "rascalmpl.startDebuggerForRepl",
-        "title": "Start Rascal debugger for REPL",
+        "title": "Start Rascal Debugger for REPL",
         "icon": "$(debug)"
       },
       {
         "command": "rascalmpl.stopDebuggerForRepl",
-        "title": "Stop Rascal debugger for REPL",
+        "title": "Stop Rascal Debugger for REPL",
         "icon": "$(debug-disconnect-compact)"
       },
       {
         "command": "rascalmpl.checkProject",
-        "title": "Rascal: check project",
+        "title": "Rascal: Check Project",
         "icon": "./assets/images/rascal-logo-v2.1.svg"
       },
       {
         "command": "rascalmpl.cleanAndCheckProject",
-        "title": "Rascal: clean and check project",
+        "title": "Rascal: Clean and Check Project",
         "icon": "./assets/images/rascal-logo-v2.1.svg"
       },
       {
