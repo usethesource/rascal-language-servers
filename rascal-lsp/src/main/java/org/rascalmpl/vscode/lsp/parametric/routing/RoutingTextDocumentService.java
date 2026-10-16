@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -130,6 +131,17 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
         this.exec = exec;
 
         LSPOpenFileRedirector.getInstance().registerTextDocumentService(this);
+    }
+
+    @Override
+    public void close() throws Exception {
+        LSPOpenFileRedirector.getInstance().unregisterTextDocumentService(this);
+        var remotes = allRoutes().collect(Collectors.toList());
+        for (var r : remotes) {
+            if (r instanceof AutoCloseable) {
+                ((AutoCloseable) r).close();
+            }
+        }
     }
 
     /*package*/ void setServerRouter(DocumentRouter<IBaseLanguageServerExtensions> serverRouter) {
@@ -248,6 +260,11 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
 
     private static UnsupportedOperationException unsupportedRoutingOperation(String funcName) {
         return new UnsupportedOperationException(String.format("%s() should not be called on the routing document service, but only on remote document services.", funcName));
+    }
+
+    @Override
+    public void triggerRascalTypechecker(TextDocumentIdentifier document) {
+        throw new UnsupportedOperationException("Running the Rascal typechecker is a feature of the Rascal server, not the language parametric server.");
     }
 
     @Override
