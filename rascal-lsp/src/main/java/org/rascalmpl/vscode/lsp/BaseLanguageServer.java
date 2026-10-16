@@ -57,6 +57,7 @@ import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.ServerInfo;
 import org.eclipse.lsp4j.SetTraceParams;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.WorkDoneProgressCancelParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -334,6 +335,10 @@ public abstract class BaseLanguageServer {
             }
         }
 
+        public CompletableFuture<Void> triggerRascalTypechecker(TextDocumentIdentifier document) {
+            return CompletableFuture.runAsync(() -> lspDocumentService.triggerRascalTypechecker(document), executor);
+        }
+
         @Override
         public CompletableFuture<Void> sendRegisterLanguage(RegistrationParameter param) {
             var lang = param.getLang();
@@ -341,6 +346,7 @@ public abstract class BaseLanguageServer {
             lspDocumentService.registerLanguage(lang);
             return CompletableFutureUtils.completedFuture(null, executor);
         }
+
         @Override
         public CompletableFuture<Void> sendUnregisterLanguage(LanguageParameter lang) {
             logger.debug("rascal/sendUnregisterLanguage({})", lang.getName());

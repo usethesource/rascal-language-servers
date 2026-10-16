@@ -28,6 +28,8 @@ package org.rascalmpl.vscode.lsp;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
+
+import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple.Two;
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
@@ -50,6 +52,10 @@ public interface IBaseLanguageServerExtensions extends LanguageServer {
 
     @JsonRequest
     CompletableFuture<SourceLocationListResponse> lookupRascalClasses(ISourceLocationRequest req);
+
+    default CompletableFuture<Void> triggerRascalTypechecker(TextDocumentIdentifier document) {
+        throw new UnsupportedOperationException();
+    }
 
     @JsonRequest
     default CompletableFuture<Void> sendRegisterLanguage(RegistrationParameter lang) {
