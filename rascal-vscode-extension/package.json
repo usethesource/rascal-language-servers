@@ -17,7 +17,7 @@
   "version": "0.14.1-head",
   "engines": {
     "vscode": "^1.100.0",
-    "node": ">=20.9.0"
+    "node": ">=24.15.0"
   },
   "type": "commonjs",
   "license": "BSD-2-Clause",
@@ -348,11 +348,11 @@
     "yauzl": "3.x"
   },
   "devDependencies": {
-    "@tsconfig/node20": "20.x",
+    "@tsconfig/node24": "24.x",
     "@tsconfig/strictest": "2.x",
     "@types/chai": "5.x",
     "@types/mocha": "10.x",
-    "@types/node": "20.x",
+    "@types/node": "24.x",
     "@types/vscode": "1.100.0",
     "@types/yauzl": "3.x",
     "@typescript-eslint/eslint-plugin": "7.x",
