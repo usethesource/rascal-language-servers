@@ -366,5 +366,10 @@
     "mocha": "12.x",
     "typescript": "6.x",
     "vscode-extension-tester": "8.x"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "@vscode/vsce-sign": false,
+    "keytar": false
   }
 }
