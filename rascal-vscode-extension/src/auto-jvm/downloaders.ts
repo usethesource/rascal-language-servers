@@ -64,7 +64,6 @@ const ppipeline = promisify(pipeline);
 
 export function temurinSupported(_jdkVersion: number): boolean {
     switch(os.arch()) {
-        case 'x32': return true;
         case 'x64': return true;
         case 'arm': return os.platform() === "linux";
         case 'arm64':
@@ -79,7 +78,6 @@ export function temurinSupported(_jdkVersion: number): boolean {
 
 export function correttoSupported(jdkVersion: number): boolean {
     switch(os.arch()) {
-        case 'x32': return true;
         case 'x64': return true;
         case 'arm': return os.platform() === "linux" && jdkVersion === 11;
         case 'arm64':
@@ -97,7 +95,6 @@ export function microsoftSupported(jdkVersion: number): boolean {
         return false;
     }
     switch(os.arch()) {
-        case 'x32': return true;
         case 'x64': return true;
         case 'arm64':
             switch (os.platform()) {
@@ -145,7 +142,6 @@ export async function downloadMicrosoftJDK(mainJVMPath: string, jdkVersion: numb
 export function mapMSArchitectures() : MSArchitectures{
     switch (os.arch()) { // warning, nodejs arch gives the compile-time arch, not the runtime cpu one.
         case "arm64": return "aarch64";
-        case "x32": // fall through since vscode might be running 32bit version of node
         case "x64": return  "x64";
         default: throw new Error("Unsupported architecture: " + os.arch());
     }
@@ -222,7 +218,6 @@ export function mapTemuringCorrettoArch(): TemurinArchitectures {
     switch (os.arch()) { // warning, nodejs arch gives the compile-time arch, not the runtime cpu one.
         case "arm": return "arm";
         case "arm64": return "aarch64";
-        case "x32": // fall through since vscode might be running 32bit version of node
         case "x64": return "x64";
         default: throw new Error("Unsupported architecture: " + os.arch());
     }
