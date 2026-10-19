@@ -27,13 +27,13 @@
 package org.rascalmpl.vscode.lsp.parametric.capabilities;
 
 import java.util.concurrent.CompletableFuture;
-
 import org.eclipse.lsp4j.CallHierarchyRegistrationOptions;
 import org.eclipse.lsp4j.CodeActionRegistrationOptions;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensRegistrationOptions;
 import org.eclipse.lsp4j.DefinitionRegistrationOptions;
 import org.eclipse.lsp4j.DocumentFormattingRegistrationOptions;
+import org.eclipse.lsp4j.DocumentRangeFormattingOptions;
 import org.eclipse.lsp4j.DocumentRangeFormattingRegistrationOptions;
 import org.eclipse.lsp4j.DocumentSymbolRegistrationOptions;
 import org.eclipse.lsp4j.FoldingRangeProviderOptions;
@@ -119,10 +119,18 @@ public class DynamicServerCapabilities {
                 c -> c.setInlayHintProvider(true)
             ),
             new TextDocumentCapabilityWithConstantOptions<>("rangeFormatting",
-                DocumentRangeFormattingRegistrationOptions::new,
+                () -> {
+                    var opts = new DocumentRangeFormattingRegistrationOptions();
+                    opts.setRangesSupport(true);;
+                    return opts;
+                },
                 TextDocumentClientCapabilities::getRangeFormatting,
                 ILanguageContributions::providesFormatting,
-                c -> c.setDocumentRangeFormattingProvider(true)
+                c -> {
+                    var opts = new DocumentRangeFormattingOptions();
+                    opts.setRangesSupport(true);
+                    c.setDocumentRangeFormattingProvider(opts);
+                }
             ),
             new TextDocumentCapabilityWithConstantOptions<>("references",
                 ReferenceRegistrationOptions::new,

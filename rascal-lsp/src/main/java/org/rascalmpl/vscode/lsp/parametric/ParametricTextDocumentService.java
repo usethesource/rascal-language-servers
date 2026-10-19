@@ -77,6 +77,7 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
 import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.DocumentRangeFormattingParams;
+import org.eclipse.lsp4j.DocumentRangesFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.FileDelete;
@@ -758,6 +759,11 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps()));
     }
 
+    private InterruptibleFuture<IList> formatRange(ITree tree, Range range, IConstructor opts, ILanguageContributions contribs) {
+        var focus = TreeSearch.computeFocusList(tree, Locations.setRange(TreeAdapter.getLocation(tree).top(), range, getColumnMaps()));
+        return contribs.formatting(focus, opts);
+    }
+
     @Override
     public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
         logger.debug("Formatting range: {}", params);
@@ -768,8 +774,31 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
         return getFile(file)
             .getCurrentTreeAsync(true)
             .thenApply(Versioned::get)
-            .thenApply(tree -> TreeSearch.computeFocusList(tree, Locations.setRange(file, params.getRange(), getColumnMaps())))
-            .thenCompose(focus -> contribs.formatting(focus, FormattingOptionsTool.translate(params.getOptions())).get())
+            .thenCompose(tree -> formatRange(tree, params.getRange(), FormattingOptionsTool.translate(params.getOptions()), contribs).get())
+            .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps()));
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> rangesFormatting(DocumentRangesFormattingParams params) {
+        logger.debug("Formatting ranges: {}", params);
+
+        var file = Locations.toLoc(params.getTextDocument());
+        var contribs = contributions(file);
+
+        return getFile(file)
+            .getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> {
+                var opts = FormattingOptionsTool.translate(params.getOptions());
+                var rangeResults = params.getRanges().stream()
+                    .map(r -> formatRange(tree, r, opts, contribs).get());
+                return CompletableFutureUtils.reduce(rangeResults, exec);
+            })
+            .thenApply(ranges -> {
+                var l = VF.listWriter();
+                ranges.forEach(l::appendAll);
+                return l.done();
+            })
             .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps()));
     }
 
