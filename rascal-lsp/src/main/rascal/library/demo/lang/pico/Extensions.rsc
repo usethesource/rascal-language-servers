@@ -27,6 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 module demo::lang::pico::Extensions
 
 extend lang::pico::\syntax::Main;
+extend lang::pico::format::Formatting;
 
 // We extend the grammar with functions and calls, so we can demo call hierarchy functionality.
 // For most use-cases, one should not extend the grammar in the language server implementation
@@ -40,3 +41,20 @@ syntax Expression
 
 str typeOf((IdType) `<Id id>(<{IdType ","}* args>): <Type retType> := <Expression body>`)
     = "<id>(<intercalate(", ", [typeOf(a) | a <- args])>): <retType>";
+
+Box toBox((IdType) `<Id fName>(<{IdType ","}* args>) : <Type retType> := <Expression body>`, FormattingOptions opts = formattingOptions())
+    = HOV(
+        H(toBox(fName, opts=opts), L("("), hs=0),
+        HOV(SL([toBox(arg, opts=opts) | arg <- args], L(","))),
+        HOV(
+            H(L(")"), L(":"), toBox(retType, opts=opts), L(":=")),
+            toBox(body, opts=opts)
+        ),
+    hs=0);
+
+Box toBox((Expression) `<Id id>(<{Expression ","}* args>)`, FormattingOptions opts = formattingOptions())
+    = HOV(
+        H(toBox(id, opts=opts), L("("), hs=0),
+        I(SL([toBox(arg, opts=opts) | arg <- args], L(","))),
+        L(")"),
+    hs=0);

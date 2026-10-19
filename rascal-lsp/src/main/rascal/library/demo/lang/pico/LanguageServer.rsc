@@ -36,7 +36,6 @@ module demo::lang::pico::LanguageServer
 import util::LanguageServer;
 import util::IDEServices;
 import util::Formatters;
-import lang::box::util::Tree2Box;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
