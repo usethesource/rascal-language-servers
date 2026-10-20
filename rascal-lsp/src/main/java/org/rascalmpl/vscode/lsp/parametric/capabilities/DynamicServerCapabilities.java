@@ -121,7 +121,7 @@ public class DynamicServerCapabilities {
             new TextDocumentCapabilityWithConstantOptions<>("rangeFormatting",
                 () -> {
                     var opts = new DocumentRangeFormattingRegistrationOptions();
-                    opts.setRangesSupport(true);;
+                    opts.setRangesSupport(true);
                     return opts;
                 },
                 TextDocumentClientCapabilities::getRangeFormatting,
