@@ -327,6 +327,43 @@ end
             await fs.rm(newDir, {recursive: true, force: true});
         });
 
+        it("formatting full documents works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            const indentation = await editor.getIndentation();
+
+            let whileLine = await editor.getLineOfText("while");
+            let odLine = await editor.getLineOfText("od");
+            expect(odLine).to.equal(whileLine, "While statement expected to be on single line");
+
+            // Format the editor
+            await bench.executeCommand("editor.action.formatDocument");
+            await driver.wait(editor.isDirty(), Delays.fast, "Formatting should modify the file");
+
+            whileLine = await editor.getLineOfText("while");
+            odLine = await editor.getLineOfText("od");
+            expect(odLine).to.be.greaterThan(whileLine, "While statement should be formatted over multiple lines");
+
+            const expectedIndent = (indentation.label === "Spaces" ? ' '.repeat(indentation.value) : "\t");
+            const whileText = await editor.getTextAtLine(whileLine);
+            expect(whileText).to.equal(expectedIndent + whileText.trimStart(), "Statements should be indented according to editor setting");
+        });
+
+        it("formatting selection works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            const whileText = await editor.getTextAtLine((await editor.getLineOfText("while")));
+
+            // Select block of declarations
+            await editor.moveCursor(3, 1);
+            await bench.executeCommand("editor.action.smartSelect.expand");
+
+            // Format the selection
+            await bench.executeCommand("editor.action.formatSelection");
+            await driver.wait(editor.isDirty(), Delays.fast, "Formatting should modify the file");
+
+            const newWhileText = await editor.getTextAtLine(await editor.getLineOfText("while"));
+            expect(newWhileText).to.equal(whileText, "While statement should not be formatted, since it was not selected");
+        });
+
         it("serializes Rascal values as expected", async function() {
             const actualJsonUri = "rascal-vscode-test:///test.json";
 

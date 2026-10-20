@@ -35,6 +35,7 @@ module demo::lang::pico::LanguageServer
 
 import util::LanguageServer;
 import util::IDEServices;
+import util::Formatters;
 import ParseTree;
 import util::ParseErrorRecovery;
 import util::Reflective;
@@ -67,8 +68,15 @@ set[LanguageService] picoLanguageServer() = {
     didRenameFiles(picoFileRenameService),
     selectionRange(picoSelectionRangeService),
     callHierarchy(picoPrepareCallHierarchy, picoCallsService),
-    completion(picoCompletionService, additionalTriggerCharacters = ["="])
+    completion(picoCompletionService, additionalTriggerCharacters = ["="]),
+    formatting(picoFormattingService)
 };
+
+list[TextEdit] picoFormattingService([start[Program] prog], FormattingOptions opts)
+    = treeEditFormatter(#start[Program], toBox, opts = opts)(prog);
+
+default list[TextEdit] picoFormattingService([Tree selected, *_], FormattingOptions opts)
+    = subTreeEditFormatter(#start[Program], toBox, opts = opts)(selected);
 
 @synopsis{This set of contributions runs slower but provides more detail.}
 @description{
