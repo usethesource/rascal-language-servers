@@ -170,7 +170,9 @@ jobs:
         if: failure()
         with:
           name: logs-${{ matrix.os }}
-          path: ./uitests/settings/logs/**/usethesource.rascalmpl/*.log
+          path: |
+            ./uitests/settings/logs/**/usethesource.rascalmpl/*.log
+            ./uitests/chromedriver.log
           retention-days: 5
           if-no-files-found: error
 
