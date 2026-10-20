@@ -123,7 +123,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ./uitests
-          key: "vscode-${{matrix.os}}"
+          key: "vscode-${{env.CODE_VERSION}}-${{matrix.os}}"
 
       - name: "UI test (windows)"
         if: contains(matrix.os, 'windows')
