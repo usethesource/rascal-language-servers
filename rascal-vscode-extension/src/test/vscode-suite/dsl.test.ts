@@ -336,7 +336,7 @@ end
             expect(odLine).to.equal(whileLine, "While statement expected to be on single line");
 
             // Format the editor
-            await editor.formatDocument();
+            await bench.executeCommand("editor.action.formatDocument");
             await driver.wait(editor.isDirty(), Delays.fast, "Formatting should modify the file");
 
             whileLine = await editor.getLineOfText("while");
