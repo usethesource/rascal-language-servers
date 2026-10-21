@@ -464,7 +464,7 @@ export class IDEOperations {
                 await renameBox.sendKeys(Key.BACK_SPACE, Key.BACK_SPACE, Key.BACK_SPACE, newName, Key.ENTER);
                 renameSuccess = true;
             }
-            catch (e) {
+            catch (_e) {
                 console.log("Rename failed to succeed, lets try again");
                 await this.screenshot(`DSL-failed-rename-round-${tries}`);
                 tries++;
@@ -750,7 +750,7 @@ export async function expectCompletions(driver: WebDriver, editor: TextEditor, e
             }
             const completions = await completionMenu.getItems();
             return await Promise.all(completions.map(c => c.getLabel()));
-        } catch (e) {
+        } catch (_e) {
             return undefined;
         }
     }, Delays.normal, "Completion items cannot be found");

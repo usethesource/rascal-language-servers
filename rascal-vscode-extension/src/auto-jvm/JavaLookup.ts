@@ -62,7 +62,7 @@ export async function getJavaExecutable(logger: vscode.LogOutputChannel): Promis
                 }
             }
         }
-        catch (e) {
+        catch (_e) {
             // ignore exceptions, most likely the candidate wasn't in the path
         }
     }

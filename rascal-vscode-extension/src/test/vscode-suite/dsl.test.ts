@@ -189,7 +189,7 @@ end
                     await editor.selectText("multiply");
                     await bench.executeCommand(command);
                     return true;
-                } catch (e) {
+                } catch (_e) {
                     return false;
                 }
             }, Delays.normal, `Should select 'multiply' and execute '${command}'`);
