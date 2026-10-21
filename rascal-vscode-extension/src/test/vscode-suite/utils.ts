@@ -442,7 +442,7 @@ export class IDEOperations {
      * @param actionLabel (can be a partial part of the label)
      */
     async triggerFirstCodeAction(editor: TextEditor, actionLabel:string) {
-        const inputarea = await editor.findElement(By.className('inputarea'));
+        const inputarea = await editor.findElement(By.className('native-edit-context'));
         await inputarea.sendKeys(Key.chord(TextEditor.ctlKey, "."));
 
         // finds an open menu with the right item in it (Change to a) and then select

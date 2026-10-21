@@ -16,8 +16,8 @@
   },
   "version": "0.14.1-head",
   "engines": {
-    "vscode": "^1.100.0",
-    "node": ">=20.9.0"
+    "vscode": "^1.123.0",
+    "node": ">=24.15.0"
   },
   "type": "commonjs",
   "license": "BSD-2-Clause",
@@ -348,12 +348,12 @@
     "yauzl": "3.x"
   },
   "devDependencies": {
-    "@tsconfig/node20": "20.x",
+    "@tsconfig/node24": "24.x",
     "@tsconfig/strictest": "2.x",
     "@types/chai": "5.x",
     "@types/mocha": "10.x",
-    "@types/node": "20.x",
-    "@types/vscode": "1.100.0",
+    "@types/node": "24.x",
+    "@types/vscode": "1.120.0",
     "@types/yauzl": "3.x",
     "@typescript-eslint/eslint-plugin": "7.x",
     "@typescript-eslint/parser": "7.x",
@@ -366,5 +366,10 @@
     "mocha": "12.x",
     "typescript": "6.x",
     "vscode-extension-tester": "8.x"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "@vscode/vsce-sign": false,
+    "keytar": false
   }
 }
