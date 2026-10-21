@@ -11,7 +11,7 @@ set -x;
 RESTORE_RASCAL_VERSION=$( sh find-dependency-version.sh rascal-vscode-extension/test-workspace/test-project rascal )
 RESTORE_LSP_VERSION=$( sh find-dependency-version.sh rascal-vscode-extension/test-workspace/test-project rascal-lsp )
 restore_versions() {
-    cd .. && sh update-test-dependencies.sh "$RESTORE_RASCAL_VERSION" "$RESTORE_LSP_VERSION"
+    (cd .. && sh update-test-dependencies.sh "$RESTORE_RASCAL_VERSION" "$RESTORE_LSP_VERSION")
 }
 trap "restore_versions" EXIT SIGINT SIGTERM SIGHUP
 

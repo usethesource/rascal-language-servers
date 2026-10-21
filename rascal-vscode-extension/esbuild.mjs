@@ -42,7 +42,7 @@ function configure(entryPoints, outDir, external, bundleDependencies) {
         sourcemap: !production,
         sourcesContent: false,
         platform: 'node',
-        target: 'node20',
+        target: 'node24',
         outdir: outDir,
         external: external,
         mainFields: ['module', 'main'],

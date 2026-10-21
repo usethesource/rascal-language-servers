@@ -167,7 +167,7 @@ hover documentation, definition with uses, references to declarations, implement
 * The ((callHierarchy)) service discovers callable definitions and call sites. It consists of two subservices.
     1. The first argument, `callableItem`, computes ((CallHierarchyItem))s (definitions) for a given cursor.
     2. The second argument, `calculateCalls`, computes ((incoming)) or ((outgoing)) calls (uses) of a given ((CallHierarchyItem)) `ci`. It returns a list relation of ((CallHierarchyItem))s and the location(s) of the call(s) to `ci` these definitions have.
-* The ((completion)) service is called with the current the focus, the offset of the cursor inside the smallest focus tree (`focus[0]`), and the how the user triggered completion (explicit invocation or by typing a trigger character).
+* The ((completion)) service is called with the current focus, the offset of the cursor inside the smallest focus tree (`focus[0]`), and the how the user triggered completion (explicit invocation or by typing a trigger character).
     It should return a list of completion suggestions.
     - If a non-empty list is returned the user is asked to select one of the completion suggestions.
     - If an empty list is returned, an empty list of completions is presented to the user.
@@ -179,7 +179,8 @@ hover documentation, definition with uses, references to declarations, implement
     * To keep this API simple, we have left out support for incomplete (partial) completions, so "CompletionList.isIncomplete" will always be set to false.
     * Again to keep the API simple we have not implemented support for defaults, so CompletionItem, edit range (and commitCharacters if you want them) must be set explicitly on each CompletionItem.
 
-Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
+    Note: Depending on the capabilities of the client, we will generate "InsertReplaceEdit" items or "TextEdit" items.
+* The ((formatting)) service determines what edits to do to format (part of) a file. The focus determines what part of the file to format. ((FormattingOptions)) influence how formatting treats whitespace.
 
 Many services receive a ((Focus)) parameter. The focus lists the syntactical constructs under the current cursor, from the current
 leaf all the way up to the root of the tree. This list helps to create functionality that is syntax-directed, and always relevant to the
@@ -249,6 +250,7 @@ data LanguageService
         list[CallHierarchyItem] (Focus _focus) prepareService,
         lrel[CallHierarchyItem item, loc call] (CallHierarchyItem _ci, CallDirection _dir) callsService)
     | completion(list[CompletionItem] (Focus _focus, int cursorOffset, CompletionTrigger trigger) completionService, list[str] additionalTriggerCharacters = [])
+    | formatting    (list[TextEdit](Focus _focus, FormattingOptions _opts) formattingService)
     ;
 
 @description{
@@ -351,6 +353,24 @@ data CompletionTrigger = invoked() | character(str trigger);
 
 loc defaultPrepareRenameService(Focus _:[Tree tr, *_]) = tr.src when tr.src?;
 default loc defaultPrepareRenameService(Focus focus) { throw IllegalArgument(focus, "Element under cursor does not have source location"); }
+
+@synopsis{Options for formatting of programs.}
+@description{
+Options that specify how to format contents of a file.
+* `tabSize`; if `insertSpaces == true`, use this amount of spaces for a single level of indentation.
+* `insertSpaces`; if `true`, use spaces for indentation; if `false`, use tabs.
+* `trimTrailingWhiteSpace`; if `true`, remove any whitespace (except newlines) from ends of formatted lines.
+* `insertFinalNewline`; if `true`, and the file does not end with a new line, add one.
+* `trimFinalNewlines`; if `true`, and the file ends in one or more new lines, remove them.
+  Note: formatting with `insertFinalNewline && trimFinalNewlines` is expected to return a file that ends in a single newline.
+}
+data FormattingOptions(
+        int tabSize = 4
+      , bool insertSpaces = true
+      , bool trimTrailingWhitespace = false
+      , bool insertFinalNewline = false
+      , bool trimFinalNewlines = false
+) = formattingOptions();
 
 @synopsis{A node in a call hierarchy, either a caller or a callee.}
 @description{

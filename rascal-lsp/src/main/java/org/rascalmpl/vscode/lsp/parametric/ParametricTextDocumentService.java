@@ -75,6 +75,9 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
+import org.eclipse.lsp4j.DocumentRangeFormattingParams;
+import org.eclipse.lsp4j.DocumentRangesFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.FileDelete;
@@ -111,6 +114,7 @@ import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -150,6 +154,7 @@ import org.rascalmpl.vscode.lsp.rascal.conversion.SelectionRanges;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 import org.rascalmpl.vscode.lsp.rascal.jsonrpc.CheckProjectRequest;
 import org.rascalmpl.vscode.lsp.uri.LSPOpenFileRedirector;
+import org.rascalmpl.vscode.lsp.util.FormattingOptionsTool;
 import org.rascalmpl.vscode.lsp.util.Maps;
 import org.rascalmpl.vscode.lsp.util.Versioned;
 import org.rascalmpl.vscode.lsp.util.concurrent.CompletableFutureUtils;
@@ -738,6 +743,63 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
 
         // final merging the two streams of commmands, and their conversion to LSP Command data-type
         return CodeActions.mergeAndConvertCodeActions(this, dedicatedLanguageName, contribs.getName(), quickfixes, codeActions);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
+        logger.debug("Formatting: {}", params);
+
+        var file = Locations.toLoc(params.getTextDocument());
+        var contribs = contributions(file);
+
+        return getFile(file)
+            .getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> contribs.formatting(VF.list(tree), FormattingOptionsTool.translate(params.getOptions())).get())
+            .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps()));
+    }
+
+    private InterruptibleFuture<IList> formatRange(ITree tree, Range range, IConstructor opts, ILanguageContributions contribs) {
+        var focus = TreeSearch.computeFocusList(tree, Locations.setRange(TreeAdapter.getLocation(tree).top(), range, getColumnMaps()));
+        return contribs.formatting(focus, opts);
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> rangeFormatting(DocumentRangeFormattingParams params) {
+        logger.debug("Formatting range: {}", params);
+
+        var file = Locations.toLoc(params.getTextDocument());
+        var contribs = contributions(file);
+
+        return getFile(file)
+            .getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> formatRange(tree, params.getRange(), FormattingOptionsTool.translate(params.getOptions()), contribs).get())
+            .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps()));
+    }
+
+    @Override
+    public CompletableFuture<List<? extends TextEdit>> rangesFormatting(DocumentRangesFormattingParams params) {
+        logger.debug("Formatting ranges: {}", params);
+
+        var file = Locations.toLoc(params.getTextDocument());
+        var contribs = contributions(file);
+
+        return getFile(file)
+            .getCurrentTreeAsync(true)
+            .thenApply(Versioned::get)
+            .thenCompose(tree -> {
+                var opts = FormattingOptionsTool.translate(params.getOptions());
+                var rangeResults = params.getRanges().stream()
+                    .map(r -> formatRange(tree, r, opts, contribs).get());
+                return CompletableFutureUtils.reduce(rangeResults, exec);
+            })
+            .thenApply(ranges -> {
+                var l = VF.listWriter();
+                ranges.forEach(l::appendAll);
+                return l.done();
+            })
+            .thenApply(l -> DocumentChanges.translateTextEdits(l, getColumnMaps()));
     }
 
     private CompletableFuture<IList> computeCodeActions(final ILanguageContributions contribs, final int startLine, final int startColumn, ITree tree) {
