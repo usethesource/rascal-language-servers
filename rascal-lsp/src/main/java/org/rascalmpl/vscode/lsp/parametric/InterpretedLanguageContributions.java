@@ -142,7 +142,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             monitor = new RascalLSPMonitor(client, LogManager.getLogger(logger.getName() + "[" + lang.getName() + "]"), lang.getName() + ": ");
 
             this.eval = EvaluatorUtil.makeFutureEvaluator(new LSPContext(exec, docService, workspaceService, client),
-                "evaluator for " + lang.getName(), monitor, pcfg, lang.getMainModule());
+                "evaluator for " + lang.getName(), monitor, pcfg, _configuration -> {}, lang.getMainModule());
             var contributions = EvaluatorUtil.runEvaluator(name + ": loading contributions", eval,
                 e -> loadContributions(e, lang),
                 ValueFactoryFactory.getValueFactory().set(),

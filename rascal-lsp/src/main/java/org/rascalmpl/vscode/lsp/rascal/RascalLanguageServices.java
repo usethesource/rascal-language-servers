@@ -33,6 +33,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,8 +45,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -54,9 +58,11 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
 import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.rascalmpl.exceptions.RuntimeExceptionFactory;
 import org.rascalmpl.exceptions.Throw;
+import org.rascalmpl.interpreter.Configuration;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.staticErrors.SyntaxError;
+import org.rascalmpl.interpreter.utils.Profiler;
 import org.rascalmpl.interpreter.utils.RascalManifest;
 import org.rascalmpl.library.Prelude;
 import org.rascalmpl.library.util.PathConfig;
@@ -135,12 +141,28 @@ public class RascalLanguageServices {
 
         var context = new LSPContext(exec, docService, workspaceService, client);
 
-        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg,  "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer", "lang::xml::PomAnalyzer");
-        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions", "lang::rascal::lsp::Formatter");
-        compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, "lang::rascal::lsp::IDECheckerWrapper");
+        shortRunningTaskEvaluator = makeFutureEvaluator(context, "Rascal tasks", monitor, pcfg, updateEvaluatorConfigurationOf("tasks"), "lang::rascal::lsp::DocumentSymbols", "lang::rascal::lsp::Templates", "lang::rascal::lsp::Analyzer", "lang::xml::PomAnalyzer");
+        semanticEvaluator = makeFutureEvaluator(context, "Rascal semantics", monitor, compilerPcfg, updateEvaluatorConfigurationOf("semantics"), "lang::rascalcore::check::Summary", "lang::rascal::lsp::refactor::Rename", "lang::rascal::lsp::Actions", "lang::rascal::lsp::Formatter");
+        compilerEvaluator = makeFutureEvaluator(context, "Rascal compiler", monitor, compilerPcfg, updateEvaluatorConfigurationOf("compiler"),"lang::rascal::lsp::IDECheckerWrapper");
         actionStore = semanticEvaluator.thenApply(e -> ((ModuleEnvironment) e.getModule("lang::rascal::lsp::Actions")).getStore());
         rascalTextDocumentService = docService;
         this.workspaceService = workspaceService;
+    }
+
+    private Consumer<Configuration> updateEvaluatorConfigurationOf(String name) {
+        var prefix = "rascal.lsp." + name;
+        return c -> {
+            Path dir = null;
+            try {
+                dir = Files.createTempDirectory(prefix + ".profiles");
+            } catch (IOException e) {
+                dir = Path.of(System.getProperty("java.io.tmpdir"));
+            }
+
+            c.setProfiling(Configuration.getDefaultBoolean(prefix + ".profiling", false));
+            c.setProfileFmt(Configuration.getDefaultProfileFmt(prefix + ".profileFmt", Profiler.FMT_CPUPROFILE));
+            c.setProfileDir(Configuration.getDefaultProfileDir(prefix + ".profileDir", dir.toUri()));
+        };
     }
 
     public boolean isOpenInWorkspace(ISourceLocation loc) {

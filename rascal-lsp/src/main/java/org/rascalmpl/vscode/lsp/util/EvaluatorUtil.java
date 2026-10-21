@@ -47,6 +47,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -68,6 +69,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.exceptions.Throw;
 import org.rascalmpl.ideservices.IDEServices;
+import org.rascalmpl.interpreter.Configuration;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.control_exceptions.InterruptException;
 import org.rascalmpl.interpreter.staticErrors.StaticError;
@@ -375,7 +377,7 @@ public class EvaluatorUtil {
     /**
      * This function is used to construct evaluators used by LSP servers, not the terminal REPL
      */
-    public static CompletableFuture<Evaluator> makeFutureEvaluator(LSPContext context, String label, IRascalMonitor monitor, PathConfig pcfg, final String... imports) {
+    public static CompletableFuture<Evaluator> makeFutureEvaluator(LSPContext context, String label, IRascalMonitor monitor, PathConfig pcfg, Consumer<Configuration> updateEvaluatorConfiguration, final String... imports) {
         return CompletableFuture.supplyAsync(() -> {
             Logger customLog = LogManager.getLogger("Evaluator: " + label);
             IDEServices services = new LSPIDEServices(context.client, context.docService, context.workspaceService, monitor);
@@ -392,6 +394,9 @@ public class EvaluatorUtil {
                 );
 
                 eval.doImport(services, imports);
+
+                updateEvaluatorConfiguration.accept(eval.getConfiguration());
+                eval.updateProperties();
 
                 jobSuccess = true;
                 return eval;
