@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /*
  * Copyright (c) 2018-2025, NWO-I CWI and Swat.engineering
  * All rights reserved.

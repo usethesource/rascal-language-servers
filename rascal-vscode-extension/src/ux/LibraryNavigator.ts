@@ -175,7 +175,6 @@ class RascalFSDirEntry extends RascalLibNode {
     }
 
     getChildren(): vscode.ProviderResult<RascalLibNode[]> {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         return getChildren(this.resourceUri!, this, this.parent!.log!);
     }
 }

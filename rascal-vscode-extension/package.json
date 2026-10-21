@@ -348,6 +348,8 @@
     "yauzl": "3.x"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "3.x",
+    "@eslint/js": "10.x",
     "@tsconfig/node24": "24.x",
     "@tsconfig/strictest": "2.x",
     "@types/chai": "5.x",
@@ -360,8 +362,9 @@
     "@vscode/vsce": "4.x",
     "chai": "6.x",
     "esbuild": "0.28.x",
-    "eslint": "8.x",
+    "eslint": "10.x",
     "eslint-plugin-editorconfig": "4.x",
+    "globals": "17.x",
     "license-check-and-add": "4.x",
     "mocha": "12.x",
     "typescript": "6.x",
