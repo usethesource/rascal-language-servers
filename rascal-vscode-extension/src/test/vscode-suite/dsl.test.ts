@@ -131,7 +131,7 @@ parameterizedDescribe(function (errorRecovery: boolean) {
 
     it("has syntax highlighting in documents without extension", async function () {
         const editor = await ide.newUntitledFile(bench, driver, 1);
-        expect(editor).to.not.be.undefined;
+        expect(editor).to.not.be.undefined; // eslint-disable-line @typescript-eslint/no-unused-expressions
 
         await setParametricLanguage(editor);
 

@@ -29,7 +29,7 @@ import { URI } from 'vscode-languageclient';
 
 export declare type ISourceLocation = URI;
 
-export interface JsonRpcRequest { }
+export declare type JsonRpcRequest = object;
 
 export interface ISourceLocationRequest extends JsonRpcRequest {
     loc: ISourceLocation;
