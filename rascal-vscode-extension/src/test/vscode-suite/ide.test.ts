@@ -327,7 +327,7 @@ describe('IDE', function () {
         const element = await ide.hasErrorSquiggly(editor);
         await editor.setTextAtLine(2, "Project-Name: test-project");
         await editor.save();
-        await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disapear");
+        await driver.wait(until.stalenessOf(element), Delays.verySlow, "Error did not disappear");
     });
 
     it("anno quickfix works", async () => {
