@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -44,6 +45,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
@@ -97,6 +99,10 @@ public class FileFacts implements DiagnosticsReporter {
 
     public void projectRemoved(ISourceLocation projectLocation) {
         confs.expungePathConfig(projectLocation);
+
+        // Remove facts for all files in the project
+        var projectFiles = files.keySet().stream().filter(f -> URIUtil.isParentOf(projectLocation, f)).collect(Collectors.toSet());
+        projectFiles.forEach(this::delete);
     }
 
     public void invalidate(ISourceLocation file) {
