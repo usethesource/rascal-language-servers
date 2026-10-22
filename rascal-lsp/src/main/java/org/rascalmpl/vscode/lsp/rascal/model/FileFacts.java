@@ -289,6 +289,9 @@ public class FileFacts implements DiagnosticsReporter {
                 // If there are no messages for this file or the file has been deleted, can we remove it
                 // else VS Code comes back and we've dropped the messages in our internal data
                 files.remove(file);
+            } else {
+                // clear some memory
+                summary.invalidate();
             }
         }
 
