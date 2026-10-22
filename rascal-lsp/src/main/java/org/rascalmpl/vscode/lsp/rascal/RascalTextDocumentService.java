@@ -80,7 +80,6 @@ import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
-import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.RenameOptions;
@@ -336,9 +335,8 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         exec.submit(() -> {
-            // if a file is deleted, we remove our diagnostics
             for (var f : params.getFiles()) {
-                availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
+                availableFacts().delete(Locations.toLoc(f.getUri()));
             }
         });
     }

@@ -158,6 +158,18 @@ public class FileFacts implements DiagnosticsReporter {
         return confs.lookupConfig(file).isRascalLspCompatible();
     }
 
+    /**
+     * Delete facts for a file.
+     */
+    public void delete(ISourceLocation file) {
+        // Remove it from the map
+        var f = remove(file);
+        if (f != null) {
+            f.close();
+        }
+    }
+
+    /** Close a file, but keep diagnostics. */
     public void close(ISourceLocation file) {
         var f = get(file);
         if (f != null) {
@@ -166,6 +178,7 @@ public class FileFacts implements DiagnosticsReporter {
         }
     }
 
+    /** Remove facts (if existent) */
     private @Nullable FileFact remove(ISourceLocation file) {
         var removed = files.remove(file.top());
         if (removed != null) {
