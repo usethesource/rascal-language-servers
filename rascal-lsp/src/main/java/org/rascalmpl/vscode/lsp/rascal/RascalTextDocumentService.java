@@ -67,7 +67,6 @@ import org.eclipse.lsp4j.DocumentSymbol;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.ExecuteCommandOptions;
 import org.eclipse.lsp4j.FileCreate;
-import org.eclipse.lsp4j.FileDelete;
 import org.eclipse.lsp4j.FoldingRange;
 import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.Hover;
@@ -80,7 +79,6 @@ import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.PrepareRenameDefaultBehavior;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.PrepareRenameResult;
-import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.RenameFilesParams;
 import org.eclipse.lsp4j.RenameOptions;
@@ -326,19 +324,13 @@ public class RascalTextDocumentService extends TextDocumentStateManager implemen
         var loc = Locations.toLoc(params.getTextDocument());
         closeFile(loc);
         availableFacts().close(loc);
-        // If the closed file no longer exists (e.g., if an untitled file is closed without ever having been saved),
-        // we mimic a delete event to ensure all diagnostics are cleared.
-        if (!URIResolverRegistry.getInstance().exists(loc)) {
-            didDeleteFiles(new DeleteFilesParams(List.of(new FileDelete(params.getTextDocument().getUri()))));
-        }
     }
 
     @Override
     public void didDeleteFiles(DeleteFilesParams params) {
         exec.submit(() -> {
-            // if a file is deleted, we remove our diagnostics
             for (var f : params.getFiles()) {
-                availableClient().publishDiagnostics(new PublishDiagnosticsParams(f.getUri(), List.of()));
+                availableFacts().remove(Locations.toLoc(f.getUri()));
             }
         });
     }

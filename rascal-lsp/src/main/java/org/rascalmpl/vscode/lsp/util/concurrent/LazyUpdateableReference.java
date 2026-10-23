@@ -40,11 +40,13 @@ public class LazyUpdateableReference<T> {
     private final Function<T, T> updater;
     private final AtomicBoolean valid;
     private final AtomicReference<T> value;
+    private final T emptyValue;
 
     public LazyUpdateableReference(T emptyValue, Function<T, T> updater) {
         this.updater = updater;
         value = new AtomicReference<>(emptyValue);
         valid = new AtomicBoolean(false);
+        this.emptyValue = emptyValue;
     }
 
     public T get() {
@@ -64,6 +66,13 @@ public class LazyUpdateableReference<T> {
 
     public void invalidate() {
         valid.set(false);
+        synchronized (this) {
+            // check if a get raced past us
+            if (!valid.get()) {
+                // clear memory
+                value.set(emptyValue);
+            }
+        }
     }
 
 }

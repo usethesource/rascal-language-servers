@@ -37,7 +37,6 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.rascalmpl.util.Lazy;
 import org.rascalmpl.util.locations.ColumnMaps;
-import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
 import org.rascalmpl.vscode.lsp.rascal.conversion.KeywordParameter;
 import org.rascalmpl.vscode.lsp.util.locations.IRangeMap;
@@ -51,38 +50,27 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
-import io.usethesource.vallang.IWithKeywordParameters;
-import io.usethesource.vallang.type.Type;
-import io.usethesource.vallang.type.TypeFactory;
-import io.usethesource.vallang.type.TypeStore;
 
 public class SummaryBridge {
     private static final ISet EMPTY_SET = ValueFactoryFactory.getValueFactory().set();
     private static final IMap EMPTY_MAP = ValueFactoryFactory.getValueFactory().map();
-    private static final IConstructor EMPTY_SUMMARY;
 
-    static {
-        TypeFactory TF = TypeFactory.getInstance();
-        TypeStore TS = new TypeStore();
-        Type summaryCons = TF.constructor(TS, TF.abstractDataType(TS, "Summary"), "summary");
-        EMPTY_SUMMARY = IRascalValueFactory.getInstance().constructor(summaryCons);
-    }
-
-    private final IWithKeywordParameters<? extends IConstructor> data;
     private final Lazy<IRangeMap<List<Location>>> definitions;
     private final Lazy<IRangeMap<String>> typeNames;
 
 
     public SummaryBridge() {
-        this.data = EMPTY_SUMMARY.asWithKeywordParameters();
         this.definitions = TreeMapLookup::new;
         this.typeNames = TreeMapLookup::new;
     }
 
     public SummaryBridge(ISourceLocation self, IConstructor summary, ColumnMaps cm) {
-        this.data = summary.asWithKeywordParameters();
-        definitions = Lazy.defer(() -> translateRelation(KeywordParameter.get("useDef", data, EMPTY_SET), self, v -> Locations.toLocation((ISourceLocation) v, cm), cm));
-        typeNames = Lazy.defer(() -> translateMap(KeywordParameter.get("locationTypes", data, EMPTY_MAP), self, v -> ((IString) v).getValue(), cm));
+        // Get only the summary fields that we need, so the rest kan be cleared from memory ASAP.
+        var useDefs = KeywordParameter.get("useDef", summary.asWithKeywordParameters(), EMPTY_SET);
+        var locationTypes = KeywordParameter.get("locationTypes", summary.asWithKeywordParameters(), EMPTY_MAP);
+
+        definitions = Lazy.defer(() -> translateRelation(useDefs, self, v -> Locations.toLocation((ISourceLocation) v, cm), cm));
+        typeNames = Lazy.defer(() -> translateMap(locationTypes, self, v -> ((IString) v).getValue(), cm));
 
     }
 
