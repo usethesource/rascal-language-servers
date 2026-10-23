@@ -88,6 +88,7 @@ public class FileFacts implements DiagnosticsReporter {
             @Override public void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
+            @Override public boolean hasDiagnostics() { return false; }
             @Override public void clearDiagnostics() { /* NOP */ }
 
             @Override
@@ -102,7 +103,7 @@ public class FileFacts implements DiagnosticsReporter {
 
         // Remove facts for all files in the project
         var projectFiles = files.keySet().stream().filter(f -> URIUtil.isParentOf(projectLocation, f)).collect(Collectors.toSet());
-        projectFiles.forEach(this::delete);
+        projectFiles.forEach(this::remove);
     }
 
     public void invalidate(ISourceLocation file) {
@@ -165,32 +166,34 @@ public class FileFacts implements DiagnosticsReporter {
     }
 
     /**
-     * Delete facts for a file.
+     * Delete a file, removing all facts and diagnostics.
      */
-    public void delete(ISourceLocation file) {
+    public void remove(ISourceLocation file) {
         // Remove it from the map
-        var f = remove(file);
-        if (f != null) {
-            f.close();
+        var f = files.remove(Locations.toClientLocation(file.top()));
+        if (f == null) {
+            // Cannot remove what's not there
+            return;
         }
+
+        f.clearDiagnostics();
     }
 
     /** Close a file, but keep diagnostics. */
     public void close(ISourceLocation file) {
         var f = get(file);
-        if (f != null) {
+        if (f == null) {
             // No need to close what's not open!
+            return;
+        }
+
+        if (!f.hasDiagnostics() || !URIResolverRegistry.getInstance().exists(file)) {
+            // If there are no messages for this file or the file has been deleted, we can remove it.
+            // else VS Code comes back and we've dropped the messages in our internal data
+            remove(file);
+        } else {
             f.close();
         }
-    }
-
-    /** Remove facts (if existent) */
-    private @Nullable FileFact remove(ISourceLocation file) {
-        var removed = files.remove(file.top());
-        if (removed != null) {
-            removed.clearDiagnostics();
-        }
-        return removed;
     }
 
     private interface FileFact {
@@ -202,6 +205,7 @@ public class FileFacts implements DiagnosticsReporter {
         void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay);
         void invalidate();
         void close();
+        boolean hasDiagnostics();
         void clearDiagnostics();
     }
 
@@ -296,22 +300,16 @@ public class FileFacts implements DiagnosticsReporter {
                 .get();
         }
 
-        private boolean noMessages() {
-            return parseMessages.get().get().isEmpty()
-                && analyzerMessages.get().get().isEmpty()
-                && typeCheckerMessages.isEmpty();
+        @Override
+        public boolean hasDiagnostics() {
+            return !parseMessages.get().get().isEmpty()
+                || !analyzerMessages.get().get().isEmpty()
+                || !typeCheckerMessages.isEmpty();
         }
 
         @Override
         public void close() {
-            if (noMessages() || !URIResolverRegistry.getInstance().exists(file)) {
-                // If there are no messages for this file or the file has been deleted, can we remove it
-                // else VS Code comes back and we've dropped the messages in our internal data
-                files.remove(file);
-            } else {
-                // clear some memory
-                summary.invalidate();
-            }
+            summary.invalidate();
         }
 
         @Override
