@@ -46,6 +46,7 @@ import Set;
 import String;
 import util::FileSystem;
 import util::Maybe;
+import util::Memo;
 import util::Monitor;
 import util::Reflective;
 import analysis::diff::edits::AnnotatedTextEdits;
@@ -88,11 +89,11 @@ str escapeReservedName(str name) = name in reservedNames ? forceEscapeSingleName
 
 str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n <- split(sep, qname)]);
 
-@memo{maximumSize(100), expireAfter(minutes=5)}
+@memo={maximumSize(100), expireAfter(minutes=5)}
 str normalizeEscaping(str qname, str sep = "::") = perName(qname, normalizeSingleNameEscaping, sep = sep);
 
 // Order is important; unescape everything *first* before re-escaping where necessary
-@memo{maximumSize(100), expireAfter(minutes=5)}
+@memo={maximumSize(100), expireAfter(minutes=5)}
 str normalizeSingleNameEscaping(str name) = escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(name)));
 
 @memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
@@ -346,7 +347,7 @@ bool rascalMayOverloadSameName(set[loc] defs, map[loc, Define] definitions) {
     return rascalMayOverload(defs, definitions);
 }
 
-@memo{maximumSize(100), expireAfter(minutes=5)}
+@memo={maximumSize(100), expireAfter(minutes=5)}
 rel[loc from, loc to] rascalGetReflexiveModulePaths(TModel tm) =
     ident(range(getModuleScopes(tm)))
   + (tm.paths<pathRole, from, to>)[importPath()]

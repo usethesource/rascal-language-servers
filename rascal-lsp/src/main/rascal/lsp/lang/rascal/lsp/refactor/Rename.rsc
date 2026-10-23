@@ -67,6 +67,7 @@ import util::Util;
 
 import util::FileSystem;
 import util::Maybe;
+import util::Memo;
 import util::Reflective;
 
 import analysis::diff::edits::AnnotatedTextEdits;
@@ -259,7 +260,7 @@ public Edits rascalRenameSymbol(loc cursorLoc, list[Tree] cursor, str newName, s
         Augment the TModel with 'missing' use/def information.
         Workaround until the typechecker generates this. https://github.com/usethesource/rascal/issues/2172
     }
-    @memo{maximumSize(100), expireAfter(minutes=5)}
+    @memo={maximumSize(100), expireAfter(minutes=5)}
     TModel augmentTModel(loc l, Renamer r) {
         TModel getModel(loc f) = f.top == l.top ? tm : r.getConfig().tmodelForLoc(f);
 

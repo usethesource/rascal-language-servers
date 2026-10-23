@@ -33,6 +33,7 @@ import String;
 import ParseTree;
 import util::IDEServices;
 import util::Maybe;
+import util::Memo;
 import util::PathConfig;
 import lang::rascal::\syntax::Rascal;
 import lang::rascal::lsp::Actions;
@@ -104,7 +105,7 @@ list[Message] analyze(start[Module] tree, PathConfig(loc file) getPathConfig) {
     return result;
 }
 
-@memo{expireAfter(minutes=1)}
+@memo={expireAfter(minutes=1)}
 bool rascalMfNoPomXml(loc projectRoot)
     = exists(projectRoot + "META-INF" + "RASCAL.MF") && !exists(projectRoot + "pom.xml");
 
