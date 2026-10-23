@@ -37,7 +37,6 @@ import org.rascalmpl.parser.uptr.action.NoActionExecutor;
 import org.rascalmpl.parser.uptr.recovery.ToTokenRecoverer;
 import org.rascalmpl.values.IRascalValueFactory;
 import org.rascalmpl.values.parsetrees.ITree;
-import org.rascalmpl.vscode.lsp.util.locations.Locations;
 
 import io.usethesource.vallang.ISourceLocation;
 
@@ -55,7 +54,7 @@ public class RascalServices {
 
         // Parse
         RascalParser parser = new RascalParser();
-        URI uri = Locations.toUri(loc);
+        URI uri = loc.getURI(); // Do not use Locations::toUri; we are not going to VS Code. Instead, keep te raw URI, which we need to be able to support untitled files.
         ITree tree = parser.parse(
             Parser.START_MODULE, uri, input, MAX_AMB_DEPTH,
             new NoActionExecutor(),
