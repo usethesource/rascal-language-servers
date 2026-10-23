@@ -35,7 +35,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -102,8 +101,11 @@ public class FileFacts implements DiagnosticsReporter {
         confs.expungePathConfig(projectLocation);
 
         // Remove facts for all files in the project
-        var projectFiles = files.keySet().stream().filter(f -> URIUtil.isParentOf(projectLocation, f)).collect(Collectors.toSet());
-        projectFiles.forEach(this::remove);
+        for (var f : files.keySet()) {
+            if (URIUtil.isParentOf(projectLocation, f)) {
+                remove(f);
+            }
+        }
     }
 
     public void invalidate(ISourceLocation file) {
