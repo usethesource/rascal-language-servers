@@ -25,13 +25,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { fail } from 'assert';
 import { expect } from 'chai';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { TextEditor, TreeItem, VSBrowser, ViewSection, WebDriver, Workbench, until } from 'vscode-extension-tester';
+import { InputBox, TextEditor, TreeItem, VSBrowser, ViewSection, WebDriver, Workbench, until } from 'vscode-extension-tester';
 import { Delays, IDEOperations, ProtectedFiles, RascalREPL, TestWorkspace, captureOutput, getArtifactVersion, getOutput, ignoreFails, isLanguageLoading, matchPathConfig, printRascalOutputOnFailure, sleep } from './utils';
-import { fail } from 'assert';
 
 describe('IDE', function () {
     let browser: VSBrowser;
@@ -119,6 +119,19 @@ describe('IDE', function () {
         await editor.setTextAtLine(1, "this should not parse");
         await ide.hasErrorSquiggly(editor);
     }).retries(2);
+
+    it("has syntax highlighting in untitled files", async function() {
+        const editor = await ide.newUntitledFile(bench, driver);
+        await editor.setText("module A");
+
+        // Since the editor has no extension, set language to Rascal manually
+        await bench.getStatusBar().openLanguageSelection();
+        const input = await InputBox.create();
+        await input.setText("rascalmpl");
+        await input.selectQuickPick("Rascal MPL");
+
+        await ide.hasSyntaxHighlighting(editor, Delays.slow);
+    });
 
     it("uses the type checker shipped with the extension", async function () {
         const output = await getOutput("Rascal MPL Language Server", driver);
