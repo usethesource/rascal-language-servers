@@ -44,6 +44,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.rascalmpl.library.util.PathConfig;
 import org.rascalmpl.library.util.PathConfig.RascalConfigMode;
 import org.rascalmpl.uri.URIResolverRegistry;
+import org.rascalmpl.uri.URIUtil;
 import org.rascalmpl.util.locations.ColumnMaps;
 import org.rascalmpl.values.parsetrees.ITree;
 import org.rascalmpl.vscode.lsp.model.DiagnosticsReporter;
@@ -86,6 +87,7 @@ public class FileFacts implements DiagnosticsReporter {
             @Override public void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay) { /* NOP */ }
             @Override public void invalidate() { /* NOP */ }
             @Override public void close() { /* NOP */ }
+            @Override public boolean hasDiagnostics() { return false; }
             @Override public void clearDiagnostics() { /* NOP */ }
 
             @Override
@@ -97,6 +99,13 @@ public class FileFacts implements DiagnosticsReporter {
 
     public void projectRemoved(ISourceLocation projectLocation) {
         confs.expungePathConfig(projectLocation);
+
+        // Remove facts for all files in the project
+        for (var f : files.keySet()) {
+            if (URIUtil.isParentOf(projectLocation, f)) {
+                remove(f);
+            }
+        }
     }
 
     public void invalidate(ISourceLocation file) {
@@ -158,20 +167,35 @@ public class FileFacts implements DiagnosticsReporter {
         return confs.lookupConfig(file).isRascalLspCompatible();
     }
 
-    public void close(ISourceLocation file) {
-        var f = get(file);
-        if (f != null) {
-            // No need to close what's not open!
-            f.close();
+    /**
+     * Delete a file, removing everything we know about it.
+     */
+    public void remove(ISourceLocation file) {
+        // Remove it from the map
+        var f = files.remove(Locations.toClientLocation(file.top()));
+        if (f == null) {
+            // Cannot remove what's not there
+            return;
         }
+
+        f.clearDiagnostics();
     }
 
-    private @Nullable FileFact remove(ISourceLocation file) {
-        var removed = files.remove(file.top());
-        if (removed != null) {
-            removed.clearDiagnostics();
+    /** Close a file, preserving diagnostics if necessary. */
+    public void close(ISourceLocation file) {
+        var f = get(file);
+        if (f == null) {
+            // No need to close what's not open!
+            return;
         }
-        return removed;
+
+        if (!f.hasDiagnostics() || !URIResolverRegistry.getInstance().exists(file)) {
+            // If there are no messages for this file or the file has been deleted, we can remove everything.
+            remove(file);
+        } else {
+            // If the file exists and has diagnostics, we need to keep the diagnostics alive, but we can do some light cleanup.
+            f.close();
+        }
     }
 
     private interface FileFact {
@@ -183,6 +207,7 @@ public class FileFacts implements DiagnosticsReporter {
         void triggerAnalyzer(CompletableFuture<Versioned<ITree>> tree, Versioned<String> version, Duration delay);
         void invalidate();
         void close();
+        boolean hasDiagnostics();
         void clearDiagnostics();
     }
 
@@ -277,19 +302,16 @@ public class FileFacts implements DiagnosticsReporter {
                 .get();
         }
 
-        private boolean noMessages() {
-            return parseMessages.get().get().isEmpty()
-                && analyzerMessages.get().get().isEmpty()
-                && typeCheckerMessages.isEmpty();
+        @Override
+        public boolean hasDiagnostics() {
+            return !parseMessages.get().get().isEmpty()
+                || !analyzerMessages.get().get().isEmpty()
+                || !typeCheckerMessages.isEmpty();
         }
 
         @Override
         public void close() {
-            if (noMessages() || !URIResolverRegistry.getInstance().exists(file)) {
-                // If there are no messages for this file or the file has been deleted, can we remove it
-                // else VS Code comes back and we've dropped the messages in our internal data
-                files.remove(file);
-            }
+            summary.invalidate();
         }
 
         @Override
