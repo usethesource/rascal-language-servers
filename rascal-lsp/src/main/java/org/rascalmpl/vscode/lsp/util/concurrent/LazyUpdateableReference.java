@@ -67,7 +67,7 @@ public class LazyUpdateableReference<T> {
     public void invalidate() {
         valid.set(false);
         synchronized (this) {
-            // check if an get raced past us
+            // check if a get raced past us
             if (!valid.get()) {
                 // clear memory
                 value.set(emptyValue);

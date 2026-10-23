@@ -166,7 +166,7 @@ public class FileFacts implements DiagnosticsReporter {
     }
 
     /**
-     * Delete a file, removing all facts and diagnostics.
+     * Delete a file, removing everything we know about it.
      */
     public void remove(ISourceLocation file) {
         // Remove it from the map
@@ -179,7 +179,7 @@ public class FileFacts implements DiagnosticsReporter {
         f.clearDiagnostics();
     }
 
-    /** Close a file, but keep diagnostics. */
+    /** Close a file, preserving diagnostics if necessary. */
     public void close(ISourceLocation file) {
         var f = get(file);
         if (f == null) {
@@ -188,10 +188,10 @@ public class FileFacts implements DiagnosticsReporter {
         }
 
         if (!f.hasDiagnostics() || !URIResolverRegistry.getInstance().exists(file)) {
-            // If there are no messages for this file or the file has been deleted, we can remove it.
-            // else VS Code comes back and we've dropped the messages in our internal data
+            // If there are no messages for this file or the file has been deleted, we can remove everything.
             remove(file);
         } else {
+            // If the file exists and has diagnostics, we need to keep the diagnostics alive, but we can do some light cleanup.
             f.close();
         }
     }
