@@ -177,7 +177,8 @@ export async function identifyLatestTemurinLTSRelease(version: number, arch: Tem
     if (version === 8) {
         return `jdk8u${rel.security}-b${rel.build.toString().padStart(2, '0')}`;
     }
-    return `jdk-${rel.openjdk_version}`;
+    const relVer = rel.openjdk_version;
+    return `jdk-${relVer.endsWith("-LTS") ? relVer.substring(0, relVer.length - 4) : relVer}`;
 }
 
 function safeGetGroup(r: RegExpMatchArray, group: number): string {
