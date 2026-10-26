@@ -65,13 +65,13 @@ describe('JVM Download', function () {
     const testAll = false;
     this.retries(2); // Retry failed downloads
 
-    describe(`Eclipse Temurin jdk11`, function() {
+    describe(`Eclipse Temurin jdk21`, function() {
         if (testAll) {
-            it(`Mac x64`, testTemurin(11, "x64", "mac")).timeout(downloadTimeout);
-            it(`Linux arm`, testTemurin(11, "arm", "linux")).timeout(downloadTimeout);
+            it(`Mac x64`, testTemurin(21, "x64", "mac")).timeout(downloadTimeout);
+            it(`Linux arm`, testTemurin(21, "arm", "linux")).timeout(downloadTimeout);
         }
-        it(`Mac aarch64`, testTemurin(11, "aarch64", "mac")).timeout(downloadTimeout);
-        it(`Windows x64`, testTemurin(11, "x64", "windows")).timeout(downloadTimeout);
+        it(`Mac aarch64`, testTemurin(21, "aarch64", "mac")).timeout(downloadTimeout);
+        it(`Windows x64`, testTemurin(21, "x64", "windows")).timeout(downloadTimeout);
     });
     describe(`Eclipse Temurin jdk17`, function() {
         if (testAll) {
@@ -80,12 +80,12 @@ describe('JVM Download', function () {
         }
         it(`Linux x64`, testTemurin(17, "x64", "linux")).timeout(downloadTimeout);
     });
-    describe(`Amazon Corretto jdk11`, function() {
+    describe(`Amazon Corretto jdk21`, function() {
         if (testAll) {
-            it(`Windows x64`, testCorretto(11, "x64", "windows")).timeout(downloadTimeout);
-            it(`Mac x64`, testCorretto(11, "x64", "macos")).timeout(downloadTimeout);
+            it(`Windows x64`, testCorretto(21, "x64", "windows")).timeout(downloadTimeout);
+            it(`Mac x64`, testCorretto(21, "x64", "macos")).timeout(downloadTimeout);
         }
-        it(`Linux arch64`, testCorretto(11, "aarch64", "linux")).timeout(downloadTimeout);
+        it(`Linux arch64`, testCorretto(21, "aarch64", "linux")).timeout(downloadTimeout);
     });
     describe(`Amazon Corretto jdk17`, function() {
         if (testAll) {
@@ -94,11 +94,11 @@ describe('JVM Download', function () {
         }
         it(`Mac aarch64`, testCorretto(17, "aarch64", "macos")).timeout(downloadTimeout);
     });
-    describe(`Microsoft OpenJDK jdk11`, function() {
-        it(`Windows x64`, testMSOpenJDK(11, "x64", "windows")).timeout(downloadTimeout);
+    describe(`Microsoft OpenJDK jdk21`, function() {
+        it(`Windows x64`, testMSOpenJDK(21, "x64", "windows")).timeout(downloadTimeout);
         if (testAll) {
-            it(`Linux aarch64`, testMSOpenJDK(11, "aarch64", "linux")).timeout(downloadTimeout);
-            it(`Mac x64`, testMSOpenJDK(11, "x64", "macOS")).timeout(downloadTimeout);
+            it(`Linux aarch64`, testMSOpenJDK(21, "aarch64", "linux")).timeout(downloadTimeout);
+            it(`Mac x64`, testMSOpenJDK(21, "x64", "macOS")).timeout(downloadTimeout);
         }
     });
     describe(`Microsoft OpenJDK jdk17`, function() {

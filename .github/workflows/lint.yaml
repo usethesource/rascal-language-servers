@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-java@v6
         id: java
         with:
-          java-version: 11
+          java-version: 21
           distribution: 'temurin'
           cache: 'maven'
 
@@ -198,7 +198,7 @@ jobs:
 
       - uses: actions/setup-java@v6
         with:
-          java-version: 11
+          java-version: 21
           distribution: 'temurin'
           cache: 'maven'
       - name: Run checkstyle and print errors

@@ -30,7 +30,7 @@ Add it to your pom.xml or have a look at the C/C++ or PHP support packages.
 
 ## Requirements
 
-* Installed JDK _11_
+* Installed JDK _21_
 * However, the extension will propose to download the right JDK for you if you do not have it yet.
 
 ## Extension Settings
@@ -41,7 +41,7 @@ No settings so far.
 
 This extension is stabilizing, some stuff is still a bit slow, but people are using it in their production development environments. Your constructive feedback is much appreciated at <https://github.com/usethesource/rascal-language-servers/issues>.
 
-**This extension works best with Java 11; but running it on Java 17 reportedly works as well**
+**This extension works best with Java 21**
 
 The Rascal type-checker now has a new binary backward compatibility feature, such that `.tpl` files remain usable
 in many more situations. Also the type-checker detects and reports possible `.tpl` file incompatibility from now on.
