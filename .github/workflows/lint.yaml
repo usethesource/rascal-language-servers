@@ -65,7 +65,7 @@ jobs:
           fetch-depth: 0 # sonar needs full checkout for better blame information
       - uses: actions/setup-java@v6
         with:
-          java-version: 17
+          java-version: 21
           distribution: 'temurin'
           cache: 'maven'
       - name: Cache SonarCloud packages
@@ -122,7 +122,7 @@ jobs:
         
       - uses: actions/setup-java@v6
         with:
-          java-version: 17
+          java-version: 21
           distribution: 'temurin'
           cache: 'maven'
       - name: Run checkstyle and print errors
@@ -169,7 +169,7 @@ jobs:
       - if: ${{ matrix.language == 'java' }}
         uses: actions/setup-java@v6
         with:
-          java-version: 17
+          java-version: 21
           distribution: 'temurin'
           cache: 'maven'
 
