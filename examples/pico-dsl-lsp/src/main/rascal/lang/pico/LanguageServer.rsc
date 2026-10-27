@@ -44,7 +44,7 @@ int main() {
     // the multiplexer starts a new evaluator and loads this module and function
     registerLanguage(
         language(
-            pathConfig(srcs=[|project://pico-dsl-lsp/src/main/rascal|]),
+            getProjectPathConfig(|project://pico-dsl-lsp|, mode=interpreter_external()),
             "Pico", // name of the language
             {"pico"}, // extension
             "lang::pico::LanguageServer", // module to import
