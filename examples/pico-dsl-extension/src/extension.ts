@@ -4,9 +4,11 @@ import { join } from 'path';
 
 export function activate(context: vscode.ExtensionContext) {
 	// jar that contains the `pico-lsp` project
-	const picoLSPJar = `|jar+file://${context.extensionUri.path}/assets/jars/pico-lsp.jar!|`;
+	const picoLsp = `|jar+file://${context.extensionUri.path}/assets/jars/pico-lsp.jar!|`;
+	const rascal = '|mvn://org.rascalmpl--rascal--0.43.0/org/rascalmpl/library|';
+	const rascalLsp = '|mvn://org.rascalmpl--rascal-lsp--2.23.0|';
 	const language = <LanguageParameter>{
-		pathConfig: `pathConfig(srcs=[${picoLSPJar}])`,
+		pathConfig: `pathConfig(srcs=[${picoLsp}], libs=[${rascal}, ${rascalLsp}])`,
 		name: "Pico",
 		extensions: ["pico"],
 		mainModule: "lang::pico::LanguageServer",
