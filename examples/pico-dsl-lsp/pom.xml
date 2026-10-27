@@ -66,14 +66,13 @@
       <plugin>
         <groupId>org.rascalmpl</groupId>
         <artifactId>rascal-maven-plugin</artifactId>
-        <version>0.15.4</version>
+        <version>0.32.2</version>
         <configuration>
           <errorsAsWarnings>true</errorsAsWarnings>
           <bin>${project.build.outputDirectory}</bin>
           <srcs>
             <src>${project.basedir}/src/main/rascal</src>
           </srcs>
-          <enableStandardLibrary>false</enableStandardLibrary>
         </configuration>
         <executions>
             <execution>
