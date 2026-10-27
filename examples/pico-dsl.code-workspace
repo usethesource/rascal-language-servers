@@ -1,0 +1,10 @@
+{
+	"folders": [
+		{
+			"path": "pico-dsl-extension"
+		},
+		{
+			"path": "pico-dsl-lsp"
+		}
+	]
+}
