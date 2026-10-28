@@ -135,7 +135,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.16.0</version>
         <configuration>
-          <release>11</release>
+          <release>21</release>
           <showWarnings>true</showWarnings>
           <compilerArgs>
             <parameters />
@@ -422,7 +422,7 @@
             <artifactId>maven-compiler-plugin</artifactId>
             <configuration>
               <fork>true</fork>
-              <!--<release>11</release>-->
+              <release>21</release>
               <compilerArgs combine.children="append">
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>

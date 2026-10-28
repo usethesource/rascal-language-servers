@@ -79,11 +79,11 @@ export function temurinSupported(_jdkVersion: number): boolean {
 export function correttoSupported(jdkVersion: number): boolean {
     switch(os.arch()) {
         case 'x64': return true;
-        case 'arm': return os.platform() === "linux" && jdkVersion === 11;
+        case 'arm': return os.platform() === "linux" && jdkVersion === 21;
         case 'arm64':
             switch (os.platform()) {
                 case 'linux': return true;
-                case 'darwin': return jdkVersion === 17;
+                case 'darwin': return jdkVersion === 21;
                 default: return false;
             }
         default: return false;
@@ -100,7 +100,7 @@ export function microsoftSupported(jdkVersion: number): boolean {
             switch (os.platform()) {
                 case 'linux': return true;
                 case 'win32': return true;
-                case 'darwin': return jdkVersion === 17;
+                case 'darwin': return jdkVersion === 21;
                 default: return false;
             }
         default: return false;
@@ -177,7 +177,8 @@ export async function identifyLatestTemurinLTSRelease(version: number, arch: Tem
     if (version === 8) {
         return `jdk8u${rel.security}-b${rel.build.toString().padStart(2, '0')}`;
     }
-    return `jdk-${rel.openjdk_version}`;
+    const relVer = rel.openjdk_version;
+    return `jdk-${relVer.endsWith("-LTS") ? relVer.substring(0, relVer.length - 4) : relVer}`;
 }
 
 function safeGetGroup(r: RegExpMatchArray, group: number): string {
@@ -234,7 +235,7 @@ export function mapTemurinPlatform() : TemurinPlatforms {
 
 
 export async function fetchAndUnpackMicrosoftJDK(arch: MSArchitectures, platform: MSPlatforms, jdkVersion: number, mainJVMPath: string, progress: ProgressFunc): Promise<string> {
-    // https://aka.ms/download-jdk/microsoft-jdk-17-linux-x64.tar.gz
+    // https://aka.ms/download-jdk/microsoft-jdk-21-linux-x64.tar.gz
     const url = `https://aka.ms/download-jdk/microsoft-jdk-${jdkVersion}-${platform}-${arch}.${platform === "windows" ? "zip" : "tar.gz"}`;
     switch (platform) {
         case "windows": return fetchUnpackZipInMemory(url, path.join("bin", "java.exe"), mainJVMPath, progress);
@@ -246,7 +247,7 @@ export async function fetchAndUnpackMicrosoftJDK(arch: MSArchitectures, platform
 
 export async function fetchAndUnpackCorretto(arch: CorrettoArchitectures, platform: CorrettoPlatforms, jdkVersion: number, mainJVMPath: string, progress: ProgressFunc): Promise<string> {
     // https://corretto.aws/[latest/latest_checksum]/amazon-corretto-[corretto_version]-[cpu_arch]-[os]-[package_type].[file_extension]
-    // https://corretto.aws/downloads/latest/amazon-corretto-11-x64-linux-jdk.tar.gz
+    // https://corretto.aws/downloads/latest/amazon-corretto-21-x64-linux-jdk.tar.gz
     const url = `https://corretto.aws/downloads/latest/amazon-corretto-${jdkVersion}-${arch}-${platform}-jdk.${platform === "windows" ? "zip" : "tar.gz"}`;
     switch (platform) {
         case "windows": return fetchUnpackZipInMemory(url, path.join("bin", "java.exe"), mainJVMPath, progress);
@@ -257,9 +258,9 @@ export async function fetchAndUnpackCorretto(arch: CorrettoArchitectures, platfo
 }
 
 
-export async function fetchAndUnpackTemurin(arch: TemurinArchitectures, platform: TemurinPlatforms, jdk11Release: string, mainJVMPath: string, progress: ProgressFunc): Promise<string> {
-    // https://api.adoptium.net/v3/binary/version/jdk-11.0.13%2B8/linux/x64/jdk/hotspot/normal/eclipse?project=jdk
-    const url = `https://api.adoptium.net/v3/binary/version/${encodeURIComponent(jdk11Release)}/${platform}/${arch}/jdk/hotspot/normal/eclipse?project=jdk`;
+export async function fetchAndUnpackTemurin(arch: TemurinArchitectures, platform: TemurinPlatforms, jdk21Release: string, mainJVMPath: string, progress: ProgressFunc): Promise<string> {
+    // https://api.adoptium.net/v3/binary/version/jdk-21.0.3%2B9/linux/x64/jdk/hotspot/normal/eclipse
+    const url = `https://api.adoptium.net/v3/binary/version/${encodeURIComponent(jdk21Release)}/${platform}/${arch}/jdk/hotspot/normal/eclipse?project=jdk`;
     switch (platform) {
         case "windows": return fetchUnpackZipInMemory(url, path.join("bin", "java.exe"), mainJVMPath, progress);
         case "mac": return fetchUnpackTarGZ(url, path.join("Contents", "Home", "bin", "java"), mainJVMPath, progress);

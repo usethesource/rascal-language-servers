@@ -34,9 +34,9 @@ import { readReleaseInfo } from './ReleaseInfo';
 import { readdir, stat  } from 'fs/promises';
 
 
-const currentJVMEngineMin = 11;
-const currentJVMEngineMax = 17;
-const currentPreferredJVMEngine = 11;
+const currentJVMEngineMin = 21;
+const currentJVMEngineMax = 21;
+const currentPreferredJVMEngine = 21;
 const temurin = "Eclipse Temurin";
 const msJava = "Microsoft Build of OpenJDK";
 const amazon = "Amazon Corretto";
