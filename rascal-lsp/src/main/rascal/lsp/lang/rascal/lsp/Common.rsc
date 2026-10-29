@@ -27,6 +27,12 @@ POSSIBILITY OF SUCH DAMAGE.
 module lang::rascal::lsp::Common
 
 import IO;
+import List;
+import String;
+import util::Memo;
+import util::Reflective;
+
+import lang::rascal::\syntax::Rascal;
 
 @memo
 @synopsis{Infers the root of the project that `member` is in.}
@@ -68,3 +74,21 @@ loc targetToProject(loc l) {
     }
     return l;
 }
+
+private set[str] reservedNames = getRascalReservedIdentifiers();
+
+str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
+str forceEscapeSingleName(str name) = startsWith(name, "\\") ? name : "\\<name>";
+str escapeMinusIdentifier(str name) = (contains(name, "-") && !startsWith(name, "\\")) ? "\\<name>" : name;
+str escapeReservedName(str name) = name in reservedNames ? forceEscapeSingleName(name) : name;
+
+str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n <- split(sep, qname)]);
+
+@memo={maximumSize(100), expireAfter(minutes=5)}
+str normalizeEscaping(str qname, str sep = "::") = perName(qname, normalizeSingleNameEscaping, sep = sep);
+
+// Order is important; unescape everything *first* before re-escaping where necessary
+@memo={maximumSize(100), expireAfter(minutes=5)}
+str normalizeSingleNameEscaping(str name) = escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(name)));
+
+@memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
