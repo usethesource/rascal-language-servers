@@ -33,8 +33,7 @@ import String;
 import util::PathConfig;
 import util::Reflective;
 import analysis::diff::edits::AnnotatedTextEdits;
-
-import analysis::diff::edits::AnnotatedTextEdits;
+import lang::rascal::lsp::Common;
 
 import lang::rascal::\syntax::Rascal;
 
@@ -47,7 +46,7 @@ list[FileSystemChange] newModuleTemplates(list[loc] newFiles, PathConfig(loc) ge
                 continue;
             }
 
-            name = srcsModule(f, getPathConfig(f), fileConfig());
+            name = normalizeEscaping(srcsModule(f, getPathConfig(f), fileConfig()));
             // Check if name is valid
             // Instead of `parse`, use as-type to work around https://github.com/usethesource/rascal/issues/2522
             _ = [QualifiedName] name;

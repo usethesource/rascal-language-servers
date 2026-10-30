@@ -52,6 +52,8 @@ import util::Reflective;
 import analysis::diff::edits::AnnotatedTextEdits;
 import util::Util;
 
+import lang::rascal::lsp::Common;
+
 data RenameConfig(
     set[loc] workspaceFolders = {}
   , PathConfig(loc) getPathConfig = PathConfig(loc l) { throw "Path config for <l> not implemented"; }
@@ -79,24 +81,6 @@ rel[loc, loc] getUseDef(TModel tm) {
     map[loc, loc] id2define = invertUnique(tm.define2id);
     return {<u, id2define[d] ? d> | <loc u, loc d> <- tm.useDef};
 }
-
-private set[str] reservedNames = getRascalReservedIdentifiers();
-
-str forceUnescapeNames(str name) = replaceAll(name, "\\", "");
-str forceEscapeSingleName(str name) = startsWith(name, "\\") ? name : "\\<name>";
-str escapeMinusIdentifier(str name) = (contains(name, "-") && !startsWith(name, "\\")) ? "\\<name>" : name;
-str escapeReservedName(str name) = name in reservedNames ? forceEscapeSingleName(name) : name;
-
-str perName(str qname, str(str) f, str sep = "::") = intercalate(sep, [f(n) | n <- split(sep, qname)]);
-
-@memo={maximumSize(100), expireAfter(minutes=5)}
-str normalizeEscaping(str qname, str sep = "::") = perName(qname, normalizeSingleNameEscaping, sep = sep);
-
-// Order is important; unescape everything *first* before re-escaping where necessary
-@memo={maximumSize(100), expireAfter(minutes=5)}
-str normalizeSingleNameEscaping(str name) = escapeMinusIdentifier(escapeReservedName(forceUnescapeNames(name)));
-
-@memo list[Name] asNames(QualifiedName qn) = [n | Name n <- qn.names];
 
 Tree parseAsOrEmpty(type[&T <: Tree] T, str name) =
     just(Tree t) := tryParseAs(T, name) ? t : char(0);
