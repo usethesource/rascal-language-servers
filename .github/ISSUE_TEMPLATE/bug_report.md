@@ -27,11 +27,11 @@ If applicable, add screenshots to help explain your problem.
 
 **Stack traces**
 
-Literally copy stacktraces from the console, or from the Eclipse Error log here.
+Literally copy stack traces from the console, or from the Rascal Output Window in VS Code.
 
 **Desktop (please complete the following information):**
- - Context: VS Code extension, Commandline REPL
- - Rascal Version (e.g. rascal 0.34.1 in rascal-vscode 0.10.2)?
+ - Context: VS Code extension, command-line REPL
+ - Rascal Version [e.g., Rascal 0.43.0 in Rascal VS Code extension 0.14.0]
 
 **Additional context**
 Add any other context about the problem here.
