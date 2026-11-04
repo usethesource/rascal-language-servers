@@ -58,7 +58,7 @@ value testingExecutionService(testValueEncoding()) = (
     ]
 );
 
-@synopsis{Command handler from the ((browseRascal)) command}
+@synopsis{Command handler from the ((browseRascalSite)) command}
 value testingExecutionService(browseRascalSite()) {
     browse(|https://www.rascal-mpl.org|, title="Rascal MPL");
     return ("result": true);
