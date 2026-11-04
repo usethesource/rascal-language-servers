@@ -77,7 +77,7 @@ map[loc, set[Message]] checkFile(loc l, set[loc] workspaceFolders, start[Module]
     <dependencyMsgs, checkedForImports, dependencies> = buildDependencyGraph(checkForImports, openFileHeader.src, workspaceFolders, getParseTree, getPathConfig);
 
     if ([] != dependencyMsgs) {
-        return filterAndFix(msgs, workspaceFolders);
+        return filterAndFix(dependencyMsgs, workspaceFolders);
     }
 
     cyclicDependencies = {p | <p, p> <- (dependencies - ident(carrier(dependencies)))+};
