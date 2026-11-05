@@ -2,6 +2,19 @@
 
 We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
+## 0.14.1
+
+Works best with rascal 0.43.1. This release primarily contains bugfixes.
+
+* new rascal modules with reserved names (such as `syntax`) are now handled correclty
+* fixed a crash with the typechecker in case upstream modules had errors
+* improved support for untitled (aka new&unsaved) Rascal files
+* reduce memory pressure and removed a memory leak in the typechecker & vs code integration
+* updated to rascal 0.43.1 release, here is a summary of  [release-notes for rascal 0.43.1](https://www.rascal-mpl.org/release-notes/rascal-0-43-x-release-notes/).
+  * 0.43.0 introduced `RascalConfigMode::interpreter_external()` but this should have been `RascalConfigMode::interpreterExternal`.
+  * improvements & bugfixes for the typechecker
+  * bugfixes in the evaluator
+
 ## 0.14.0
 
 Works best with rascal 0.43.0 (and rascal-maven-plugin 0.32.2). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
