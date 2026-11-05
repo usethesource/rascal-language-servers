@@ -2,6 +2,25 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.23.1 (VS Code: 0.14.1)
+
+Works best with rascal 0.43.1. This release primarily contains bugfixes.
+
+* new rascal modules with reserved names (such as `syntax`) are now handled correclty
+* fixed a crash in the typechecker in case upstream modules had errors
+* improved support for untitled (aka new&unsaved) Rascal files
+* reduced memory pressure and removed a memory leak in the typechecker & VS Code integration
+* updated to rascal 0.43.1: [release-notes](https://www.rascal-mpl.org/release-notes/rascal-0-43-x-release-notes/).
+  * 0.43.0 introduced `RascalConfigMode::interpreter_external()` but this should have been `RascalConfigMode::interpreterExternal`.
+  * improvements & bugfixes for the typechecker
+  * bug fixes in the evaluator
+
+Note that the next major release (0.15.0) will introduce the following runtime requirement changes:
+
+* We will be upgrading the minimal Java version to 21
+* The minimal version of VS Code will be 123.0
+* The extension (and thus deployed DSL extensions) will require node 24
+
 ## Release 2.23.0 (VS Code: 0.14.0)
 
 Works best with rascal 0.43.0 (and rascal-maven-plugin 0.32.2). Due to the removal of the `std` resolver, users will most likely also have to update their library dependencies to the latest release.

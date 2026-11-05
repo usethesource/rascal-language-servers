@@ -58,7 +58,7 @@ Below is a summary of the [full release-notes for rascal 0.43.x](https://www.ras
 
 ### Upcoming changes
 
-Note that version 0.15.0 will introduce the following runtime requirement changes:
+Note that the next major release (0.15.0) will introduce the following runtime requirement changes:
 
 * We will be upgrading the minimal Java version to 21
 * The minimal version of VS Code will be 123.0
