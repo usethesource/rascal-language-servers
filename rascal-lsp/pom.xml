@@ -35,7 +35,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>4.13.2</junit.version>
-    <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+    <maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
     <log4j2.version>2.26.1</log4j2.version>
     <mockito.version>5.24.0</mockito.version>
     <sonar.organization>usethesource</sonar.organization>
@@ -328,7 +328,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.3</version>
+        <version>3.7.0</version>
         <executions>
           <execution>
             <id>enforce-maven</id>
@@ -372,7 +372,7 @@
           <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.15</version>
+            <version>0.8.16</version>
             <executions>
               <execution>
                 <id>prepare-agent</id>
