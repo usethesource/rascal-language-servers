@@ -15,6 +15,12 @@ Works best with rascal 0.43.1. This release primarily contains bugfixes.
   * improvements & bugfixes for the typechecker
   * bug fixes in the evaluator
 
+Note that version 0.15.0 will introduce the following runtime requirement changes:
+
+* We will be upgrading the minimal Java version to 21
+* The minimal version of VS Code will be 123.0
+* The extension (and thus deployed DSL extensions) will require node 24
+
 ## 0.14.0
 
 Works best with rascal 0.43.0 (and rascal-maven-plugin 0.32.2). Due to changes in the type checker, users will most likely also have to update their library dependencies to the latest release.
@@ -49,6 +55,14 @@ Below is a summary of the [full release-notes for rascal 0.43.x](https://www.ras
 * Annotations ([blog post](https://www.rascal-mpl.org/blog/2026/10/12/no-more-annotations/)) and the `std` scheme ([blog post](https://www.rascal-mpl.org/blog/2026/10/08/removed-library-schemes/)) have been removed. Version 0.14.0 of the VS Code extension provides migration tools and Quick Fixes to streamline the few code changes that might be needed.
 * The performance of whole-project typechecking has been improved. Depending on the size and number of type errors/warnings of the project, the typechecking time can be reduced by 10%-40%.
 * Typechecking for recursive functions now also provides correct goto definitions information
+
+### Upcoming changes
+
+Note that version 0.15.0 will introduce the following runtime requirement changes:
+
+* We will be upgrading the minimal Java version to 21
+* The minimal version of VS Code will be 123.0
+* The extension (and thus deployed DSL extensions) will require node 24
 
 ## 0.13.5
 
