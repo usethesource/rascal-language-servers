@@ -2,6 +2,10 @@
 
 We only list significant changes, for a full changelog please review the [commit history](https://github.com/usethesource/rascal-language-servers/commits/main/).
 
+## 0.14.2
+
+Upgrades to rascal 0.43.2 which contains a bugfix for the typechecker that would become very slow in case of a name-binding error.
+
 ## 0.14.1
 
 Works best with rascal 0.43.1. This release primarily contains bugfixes.

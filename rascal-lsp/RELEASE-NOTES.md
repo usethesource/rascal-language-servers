@@ -2,6 +2,10 @@
 
 Note that rascal-lsp releases are bundled with VS Code releases, however due to historic reasons, their versions do not align. Until they do we'll denote both the VS Code and the rascal LSP release next to each other.
 
+## Release 2.23.2 (VS Code: 0.14.2)
+
+Upgrades to rascal 0.43.2 which contains a bugfix for the typechecker used. Users do not need to upgrade to 2.23.2 (but should upgrade to 0.14.2 of VS Code extension).
+
 ## Release 2.23.1 (VS Code: 0.14.1)
 
 Works best with rascal 0.43.1. This release primarily contains bugfixes.
