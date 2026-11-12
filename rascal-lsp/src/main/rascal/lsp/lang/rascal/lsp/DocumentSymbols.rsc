@@ -33,7 +33,6 @@ import lang::rascal::\syntax::Rascal;
 import util::LanguageServer;
 import util::ParseErrorRecovery;
 import IO;
-import vis::Text;
 import Exception;
 
 list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
@@ -47,7 +46,7 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
         children = [];
 
         top-down-break visit (m) {
-            case amb(set[Tree] _): {/* stop here, and do not show this node not its children in the outline */;}
+            case amb(set[Tree] _): {/* stop here, and do not show this node nor its children in the outline */;}
             case (Declaration) `<Tags _> <Visibility _> <Type t> <{Variable ","}+ vars>;`:
                 children += [symbol(clean("<v.name>"), variable(), v.src, detail="variable <t> <v>") | v <- vars, v.name?];
 
@@ -78,27 +77,16 @@ list[DocumentSymbol] documentRascalSymbols(start[Module] \mod) {
                 }
             }
 
-        case FunctionDeclaration func : {
-                if (func.signature? && !hasParseErrors(func.signature) && amb(_) !:= func.signature) {
-                    children += [symbol("<func.signature.name><func.signature.parameters>", \function(), (func.signature).src, detail="<func.signature.\type>")];
-                }
-        }
-
-    /*
-            case (Import) `extend <ImportedModule mm>;` :
-                children += [symbol("<mm.name>", \module(), mm@\loc, detail="extend <mm>")];
-
-            case (Import) `import <ImportedModule mm>;` :
-                children += [symbol("<mm.name>", \module(), mm@\loc, detail="import <mm>")];
-
-            case (Import) `import <QualifiedName m2> = <LocationLiteral ll>;` :
-                children += [symbol("<m2>", \module(), m2@\loc, detail="import <m2>=<ll>")];
-    */
+            case FunctionDeclaration func : {
+                    if (func.signature? && !hasParseErrors(func.signature) && amb(_) !:= func.signature) {
+                        children += [symbol("<func.signature.name><func.signature.parameters>", \function(), (func.signature).src, detail="<func.signature.\type>")];
+                    }
+            }
 
             case SyntaxDefinition def : {
                 if (!hasParseErrors(def) && /amb(_) !:= def) {
                     rs = [symbol(clean("<prefix> <p.syms>"), \function(), p.src)
-                        | /Prod p := def.production, !hasParseErrors(p) && (p is labeled || p is unlabeled),
+                        | /Prod p := def.production, (p is labeled || p is unlabeled),
                         str prefix := (p is labeled ? "<p.name>: " : "")
                     ];
                     children += [symbol(clean("<def.defined>"), \struct(), def.src, children=rs)];
