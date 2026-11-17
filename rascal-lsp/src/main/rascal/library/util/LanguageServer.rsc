@@ -229,14 +229,14 @@ data LanguageService
         , bool providesDocumentation = true
         , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
-        , bool providesDeclarations = providesDefinitions
+        , bool providesDeclarations = true
         , bool providesReferences = true
         , bool providesImplementations = true)
     | build(Summary (loc _origin, Tree _input) buildService
         , bool providesDocumentation = true
         , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
-        , bool providesDeclarations = providesDefinitions
+        , bool providesDeclarations = true
         , bool providesReferences = true
         , bool providesImplementations = true)
     | documentSymbol(list[DocumentSymbol] (Tree _input) documentSymbolService)
@@ -415,7 +415,7 @@ data CallDirection
 * `documentation` is the deprecated name for `hovers`
 * `hovers` maps uses of concepts to a documentation message that can be shown as a hover.
 * `definitions` maps use locations to definition locations to implement "jump-to-definition".
-* `declarations` maps use locations to declration locations to implement "jump-to-declaration" .
+* `declarations` maps use locations to declaration locations to implement "jump-to-declaration" .
 * `references` maps declaration locations to use locations to implement "jump-to-references".
 * `implementations` maps the declaration of a type/class to its implementations "jump-to-implementations".
 }
@@ -424,7 +424,7 @@ data Summary = summary(loc src,
     rel[loc, str]     documentation = {},
     rel[loc, str]     hovers = documentation,
     rel[loc, loc]     definitions = {},
-    rel[loc, loc]     declarations = definitions,
+    rel[loc, loc]     declarations = {},
     rel[loc, loc]     references = {},
     rel[loc, loc]     implementations = {}
 );
