@@ -9,7 +9,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <lsp.version>2.22.5</lsp.version>
+    <lsp.version>2.24.0-SNAPSHOT</lsp.version>
   </properties>
 
   <repositories>
@@ -30,7 +30,7 @@
     <dependency>
       <groupId>org.rascalmpl</groupId>
       <artifactId>rascal</artifactId>
-      <version>0.43.0-RC21</version>
+      <version>0.43.2</version>
     </dependency>
     <dependency>
       <groupId>org.rascalmpl</groupId>

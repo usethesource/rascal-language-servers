@@ -44,6 +44,7 @@ public class RascalADTs {
         public static final String EXECUTION = "execution";
         public static final String HOVER = "hover";
         public static final String DEFINITION = "definition";
+        public static final String DECLARATION = "declaration";
         public static final String REFERENCES = "references";
         public static final String IMPLEMENTATION = "implementation";
         public static final String CODE_ACTION = "codeAction";
@@ -64,6 +65,7 @@ public class RascalADTs {
 
             public static final String PROVIDES_HOVERS = "providesHovers";
             public static final String PROVIDES_DEFINITIONS = "providesDefinitions";
+            public static final String PROVIDES_DECLARATIONS = "providesDeclarations";
             public static final String PROVIDES_REFERENCES = "providesReferences";
             public static final String PROVIDES_IMPLEMENTATIONS = "providesImplementations";
         }
@@ -76,6 +78,7 @@ public class RascalADTs {
 
         public static final String HOVERS = "hovers";
         public static final String DEFINITIONS = "definitions";
+        public static final String DECLARATIONS = "declarations";
         public static final String REFERENCES = "references";
         public static final String IMPLEMENTATIONS = "implementations";
     }

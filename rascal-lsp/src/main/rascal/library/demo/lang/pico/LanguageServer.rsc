@@ -63,6 +63,7 @@ set[LanguageService] picoLanguageServer() = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
+    declaration(picoDefinitionService), // In Pico there is no separate concept of declaration: the definition of a variable is also its declaration.
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
@@ -150,6 +151,9 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     // "definitions" are also links from loc to loc (from use to def)
     s.definitions += uses o defs;
 
+    // "declarations" and "definitions" are the same thing in Pico
+    s.declarations = s.definitions;
+
     // "documentation" maps locations to strs
     s.documentation += (uses o defs) o docs;
 
@@ -162,9 +166,9 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     return s;
 }
 
-@synopsis{Looks up the declaration for any variable use using a list match into a ((Focus))}
+@synopsis{Looks up the declaration for any variable}
 @pitfalls{
-This demo actually finds the declaration rather than the definition of a variable in Pico.
+In Pico there is no separate notion of definition: the definition of a variable is the same as its declaration.
 }
 set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.src | /IdType def := input, use := def.id};
 

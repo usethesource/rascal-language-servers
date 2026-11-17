@@ -97,6 +97,7 @@ public interface ParametricSummary {
     // information.
     @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor);
+    @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor);
 
@@ -116,6 +117,9 @@ public interface ParametricSummary {
     }
     public static @Nullable InterruptibleFuture<List<Location>> definitions(ParametricSummary summary, Position position) {
         return summary.getDefinitions(position);
+    }
+    public static @Nullable InterruptibleFuture<List<Location>> declarations(ParametricSummary summary, Position position) {
+        return summary.getDeclarations(position);
     }
     public static @Nullable InterruptibleFuture<List<Location>> references(ParametricSummary summary, Position position) {
         return summary.getReferences(position);
@@ -146,6 +150,11 @@ class NullSummary implements ParametricSummary {
 
     @Override
     public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
+        return null;
+    }
+
+    @Override
+    public @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor) {
         return null;
     }
 
@@ -438,6 +447,11 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
             return get(config.providesDefinitions, cursor, contrib::definition, locationMapper(columns), SummaryFields.DEFINITIONS);
+        }
+
+        @Override
+        public @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor) {
+            return get(config.providesDeclarations, cursor, contrib::declaration, locationMapper(columns), SummaryFields.DECLARATIONS);
         }
 
         @Override

@@ -69,6 +69,7 @@ import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.CreateFilesParams;
+import org.eclipse.lsp4j.DeclarationParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
@@ -829,6 +830,19 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             lookup(ParametricSummary::definitions, params.getTextDocument(), params.getPosition())
             .thenApply(d -> {
                 logger.debug("Definitions: {}", d);
+                return d;
+            })
+            .thenApply(Either::forLeft)
+            , () -> Either.forLeft(Collections.emptyList()));
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> declaration(DeclarationParams params) {
+        logger.debug("Declaration: {} at {}", params.getTextDocument(), params.getPosition());
+        return recoverExceptions(
+            lookup(ParametricSummary::declarations, params.getTextDocument(), params.getPosition())
+            .thenApply(d -> {
+                logger.debug("Declarations: {}", d);
                 return d;
             })
             .thenApply(Either::forLeft)

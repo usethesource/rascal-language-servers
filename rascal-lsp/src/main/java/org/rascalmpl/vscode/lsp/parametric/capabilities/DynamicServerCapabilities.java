@@ -31,6 +31,7 @@ import org.eclipse.lsp4j.CallHierarchyRegistrationOptions;
 import org.eclipse.lsp4j.CodeActionRegistrationOptions;
 import org.eclipse.lsp4j.CodeLensOptions;
 import org.eclipse.lsp4j.CodeLensRegistrationOptions;
+import org.eclipse.lsp4j.DeclarationRegistrationOptions;
 import org.eclipse.lsp4j.DefinitionRegistrationOptions;
 import org.eclipse.lsp4j.DocumentFormattingRegistrationOptions;
 import org.eclipse.lsp4j.DocumentRangeFormattingOptions;
@@ -81,6 +82,12 @@ public class DynamicServerCapabilities {
                 TextDocumentClientCapabilities::getDefinition,
                 ILanguageContributions::providesDefinition,
                 c -> c.setDefinitionProvider(true)
+            ),
+            new TextDocumentCapabilityWithConstantOptions<>("declaration",
+                DeclarationRegistrationOptions::new,
+                TextDocumentClientCapabilities::getDeclaration,
+                ILanguageContributions::providesDeclaration,
+                c -> c.setDeclarationProvider(true)
             ),
             new TextDocumentCapabilityWithConstantOptions<>("documentSymbol",
                 DocumentSymbolRegistrationOptions::new,
