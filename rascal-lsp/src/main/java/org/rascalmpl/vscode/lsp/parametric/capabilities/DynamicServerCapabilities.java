@@ -89,6 +89,12 @@ public class DynamicServerCapabilities {
                 ILanguageContributions::providesDeclaration,
                 c -> c.setDeclarationProvider(true)
             ),
+            new TextDocumentCapabilityWithConstantOptions<>("typeDefinition",
+                TypeDefinitionRegistrationOptions::new,
+                TextDocumentClientCapabilities::getTypeDefinition,
+                ILanguageContributions::providesTypeDefinition,
+                c -> c.setTypeDefinitionProvider(true)
+            ),
             new TextDocumentCapabilityWithConstantOptions<>("documentSymbol",
                 DocumentSymbolRegistrationOptions::new,
                 TextDocumentClientCapabilities::getDocumentSymbol,

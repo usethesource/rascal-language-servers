@@ -92,6 +92,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<@Nullable IFunction> hover;
     private final CompletableFuture<@Nullable IFunction> definition;
     private final CompletableFuture<@Nullable IFunction> declaration;
+    private final CompletableFuture<@Nullable IFunction> typeDefinition;
     private final CompletableFuture<@Nullable IFunction> references;
     private final CompletableFuture<@Nullable IFunction> implementation;
     private final CompletableFuture<@Nullable IFunction> codeAction;
@@ -115,6 +116,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     private final CompletableFuture<Boolean> providesHover;
     private final CompletableFuture<Boolean> providesDefinition;
     private final CompletableFuture<Boolean> providesDeclaration;
+    private final CompletableFuture<Boolean> providesTypeDefinition;
     private final CompletableFuture<Boolean> providesReferences;
     private final CompletableFuture<Boolean> providesImplementation;
     private final CompletableFuture<Boolean> providesCodeAction;
@@ -164,6 +166,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.hover = getFunctionFor(contributions, LanguageContributions.HOVER);
             this.definition = getFunctionFor(contributions, LanguageContributions.DEFINITION);
             this.declaration = getFunctionFor(contributions, LanguageContributions.DECLARATION);
+            this.typeDefinition = getFunctionFor(contributions, LanguageContributions.TYPE_DEFINITION);
             this.references = getFunctionFor(contributions, LanguageContributions.REFERENCES);
             this.implementation = getFunctionFor(contributions, LanguageContributions.IMPLEMENTATION);
             this.codeAction = getFunctionFor(contributions, LanguageContributions.CODE_ACTION);
@@ -187,6 +190,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
             this.providesHover = nonNull(this.hover);
             this.providesDefinition = nonNull(this.definition);
             this.providesDeclaration = nonNull(this.declaration);
+            this.providesTypeDefinition = nonNull(this.typeDefinition);
             this.providesReferences = nonNull(this.references);
             this.providesImplementation = nonNull(this.implementation);
             this.providesCodeAction = nonNull(this.codeAction);
@@ -223,6 +227,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                     isTrue(constructor, LanguageContributions.Parameters.PROVIDES_HOVERS),
                     isTrue(constructor, LanguageContributions.Parameters.PROVIDES_DEFINITIONS),
                     isTrue(constructor, LanguageContributions.Parameters.PROVIDES_DECLARATIONS),
+                    isTrue(constructor, LanguageContributions.Parameters.PROVIDES_TYPE_DEFINITIONS),
                     isTrue(constructor, LanguageContributions.Parameters.PROVIDES_REFERENCES),
                     isTrue(constructor, LanguageContributions.Parameters.PROVIDES_IMPLEMENTATIONS));
             } else {
@@ -237,6 +242,7 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
                 hasContribution(c, LanguageContributions.HOVER),
                 hasContribution(c, LanguageContributions.DEFINITION),
                 hasContribution(c, LanguageContributions.DECLARATION),
+                hasContribution(c, LanguageContributions.TYPE_DEFINITION),
                 hasContribution(c, LanguageContributions.REFERENCES),
                 hasContribution(c, LanguageContributions.IMPLEMENTATION)));
     }
@@ -458,6 +464,12 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<ISet> typeDefinition(IList focus) {
+        debug(LanguageContributions.TYPE_DEFINITION, focus.length());
+        return execFunction(LanguageContributions.TYPE_DEFINITION, typeDefinition, VF.set(), focus);
+    }
+
+    @Override
     public InterruptibleFuture<ISet> implementation(IList focus) {
         debug(LanguageContributions.IMPLEMENTATION, focus.length());
         return execFunction(LanguageContributions.IMPLEMENTATION, implementation, VF.set(), focus);
@@ -525,6 +537,11 @@ public class InterpretedLanguageContributions implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> providesDeclaration() {
         return providesDeclaration;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> providesTypeDefinition() {
+        return providesTypeDefinition;
     }
 
     @Override

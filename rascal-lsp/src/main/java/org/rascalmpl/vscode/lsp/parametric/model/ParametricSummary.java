@@ -98,6 +98,7 @@ public interface ParametricSummary {
     @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor);
+    @Nullable InterruptibleFuture<List<Location>> getTypeDefinitions(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor);
 
@@ -120,6 +121,9 @@ public interface ParametricSummary {
     }
     public static @Nullable InterruptibleFuture<List<Location>> declarations(ParametricSummary summary, Position position) {
         return summary.getDeclarations(position);
+    }
+    public static @Nullable InterruptibleFuture<List<Location>> typeDefinitions(ParametricSummary summary, Position position) {
+        return summary.getTypeDefinitions(position);
     }
     public static @Nullable InterruptibleFuture<List<Location>> references(ParametricSummary summary, Position position) {
         return summary.getReferences(position);
@@ -155,6 +159,11 @@ class NullSummary implements ParametricSummary {
 
     @Override
     public @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor) {
+        return null;
+    }
+
+    @Override
+    public @Nullable InterruptibleFuture<List<Location>> getTypeDefinitions(Position cursor) {
         return null;
     }
 

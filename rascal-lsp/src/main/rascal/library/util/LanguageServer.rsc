@@ -230,6 +230,7 @@ data LanguageService
         , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
         , bool providesDeclarations = true
+        , bool providesTypeDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
     | build(Summary (loc _origin, Tree _input) buildService
@@ -237,6 +238,7 @@ data LanguageService
         , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
         , bool providesDeclarations = true
+        , bool providesTypeDefinitions = true
         , bool providesReferences = true
         , bool providesImplementations = true)
     | documentSymbol(list[DocumentSymbol] (Tree _input) documentSymbolService)
@@ -246,6 +248,7 @@ data LanguageService
     | hover         (set[str] (Focus _focus) hoverService)
     | definition    (set[loc] (Focus _focus) definitionService)
     | declaration   (set[loc] (Focus _focus) declarationService)
+    | typeDeclaration (set[loc] (Focus _focus) typeDeclarationService)
     | references    (set[loc] (Focus _focus) referencesService)
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)
@@ -425,6 +428,7 @@ data Summary = summary(loc src,
     rel[loc, str]     hovers = documentation,
     rel[loc, loc]     definitions = {},
     rel[loc, loc]     declarations = {},
+    rel[loc, loc]     typeDefinitions = {},
     rel[loc, loc]     references = {},
     rel[loc, loc]     implementations = {}
 );
