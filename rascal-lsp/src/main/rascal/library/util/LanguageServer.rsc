@@ -135,7 +135,7 @@ will produce a parse tree with error nodes. Syntax highlighting will still work 
 able to handle such error trees or unexpected things will happen like strange results and crashes. More information on error recovery and error trees
 can be found in ((ParseTree::Production)), ((ParseTree::parser)), and ((util::ParseErrorRecovery)).
 * The ((analysis)) service indexes a file as a ((Summary)), offering precomputed relations for looking up
-hover documentation, definition with uses, declaration with uses, references to declarations, implementations of types and compiler errors and warnings.
+hover documentation, definition with uses, declaration with uses, type definition with uses, references to declarations, implementations of types and compiler errors and warnings.
    * ((analysis)) focuses on their own file, but may reuse cached or stored indices from other files.
    * ((analysis)) has to be quick since they run in an interactive editor setting.
    * ((analysis)) may store previous results (in memory) for incremental updates.
@@ -154,6 +154,7 @@ hover documentation, definition with uses, declaration with uses, references to 
    * a ((hover)) service is a fast and location specific version of the `documentation` relation in a ((Summary)).
    * a ((definition)) service is a fast and location specific version of the `definitions` relation in a ((Summary)).
    * a ((declaration)) service is a fast and location specific version of the `declaration` relation in a ((Summary)).
+   * a ((typeDefinition)) service is a fast and location specific version of the `typeDefinition` relation in a ((Summary)).
    * a ((references)) service is a fast and location specific version of the `references` relation in a ((Summary)).
    * an ((implementation)) service is a fast and location specific version of the `implementations` relation in a ((Summary)).
 * The ((documentSymbol)) service maps a source file to a pretty hierarchy for visualization in the "outline" view and "symbol search" features.
@@ -190,8 +191,8 @@ programmer.
 To start developing an LSP extension step-by-step:
 1. first write a SyntaxDefinition in Rascal and register it via the ((parsing)) service. Use ((registerLanguage)) from the terminal ((REPL-REPL)) to
 test it immediately. Create some example files for your language to play around with.
-2. either make an ((analysis)) service that produces a ((Summary)) _or_ start ((hover)), ((definition)), ((declaration)), ((references)) and ((implementation))
-lookup services. Each of those five services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((build)).
+2. either make an ((analysis)) service that produces a ((Summary)) _or_ start ((hover)), ((definition)), ((declaration)), ((typeDefinition)), ((references)) and ((implementation))
+lookup services. Each of those six services require the same information that is useful for filling a ((Summary)) with an ((analysis)) or a ((build)).
 3. the ((documentSymbol)) service is next, good for the outline view and also quick search features.
 4. the to add interactive features, optionally ((inlayHint)), ((codeLens)) and ((codeAction)) can be created to add visible hooks in the UI to trigger
 your own ((CodeAction))s and Commands
@@ -212,11 +213,12 @@ and (de)serialization and scheduling is taken care of.
 @pitfalls{
 * If one of the services does not type-check in Rascal, or throws an exception at ((registerLanguage)) time, the extension fails completely. Typically the editor produces a parse error on the first line of the code. The
 failure is printed in the log window of the IDE.
-* Users have expectations with the concepts of ((references)), ((definition)), ((declaration)), ((implementation)) which are based on
+* Users have expectations with the concepts of ((references)), ((definition)), ((declaration)), ((typeDefinition)), ((implementation)) which are based on
 typical programming language concepts. Since these are all just `rel[loc, loc]` it can be easy to confound them.
    * ((references)) point from definition and declarations sites to use sites
    * ((definition)) points from a use to the definition, but only if a value is associated there explicitly or implicitly.
    * ((declaration)) points from a use to the declaration, but only if a value is associated there explicitly or implicitly.
+   * ((typeDeclaration)) points from a use to the definition of its type
    * ((implementation)) points from abstract declarations (interfaces, classes, function signatures) to more concrete realizations of those declarations.
 * `providesDocumentation` is deprecated. Use `providesHovers` instead.
 * In many languages declaration and definition refer to the same concept. But in some languages (like C for instance) you can declare a construct but not yet define it. For instance
@@ -248,7 +250,7 @@ data LanguageService
     | hover         (set[str] (Focus _focus) hoverService)
     | definition    (set[loc] (Focus _focus) definitionService)
     | declaration   (set[loc] (Focus _focus) declarationService)
-    | typeDeclaration (set[loc] (Focus _focus) typeDeclarationService)
+    | typeDefinition (set[loc] (Focus _focus) typeDefinitionService)
     | references    (set[loc] (Focus _focus) referencesService)
     | implementation(set[loc] (Focus _focus) implementationService)
     | codeAction    (list[CodeAction] (Focus _focus) codeActionService)

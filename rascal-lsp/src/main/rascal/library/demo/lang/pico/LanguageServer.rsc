@@ -64,6 +64,7 @@ set[LanguageService] picoLanguageServer() = {
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
     declaration(picoDefinitionService), // In Pico there is no separate concept of declaration: the definition of a variable is also its declaration.
+    typeDefinition(picoTypeDefinitionService),
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
@@ -191,6 +192,16 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
 In Pico there is no separate notion of definition: the definition of a variable is the same as its declaration.
 }
 set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.src | /IdType def := input, use := def.id};
+
+@synopsis{Looks up the type definition for any variable}
+@pitfalls{
+In Pico there are no type definitions. So we return the position of the type in the variable declaration instead.
+}
+set[loc] picoTypeDefinitionService([*_, Id use, *_, start[Program] input]) = { extractType(def).src | /IdType def := input, use := def.id};
+
+// Extract the type from either a variable declaration or a function declaration
+Type extractType((IdType) `<Id _> : <Type t>`) = t;
+Type extractType((IdType) `<Id _> (<{ IdType "," }* _>): <Type t> := <Expression _>`) = t;
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)

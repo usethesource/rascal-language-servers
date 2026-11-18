@@ -265,12 +265,12 @@ public class NoContributions implements ILanguageContributions {
     }
 
     @Override
-    public CompletableFuture<Boolean> providesReferences() {
+    public CompletableFuture<Boolean> providesTypeDefinition() {
         return falsy;
     }
 
     @Override
-    public CompletableFuture<Boolean> providesTypeDefinition() {
+    public CompletableFuture<Boolean> providesReferences() {
         return falsy;
     }
 

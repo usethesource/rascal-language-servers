@@ -116,6 +116,7 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.TypeDefinitionParams;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
@@ -843,6 +844,19 @@ public class ParametricTextDocumentService extends TextDocumentStateManager impl
             lookup(ParametricSummary::declarations, params.getTextDocument(), params.getPosition())
             .thenApply(d -> {
                 logger.debug("Declarations: {}", d);
+                return d;
+            })
+            .thenApply(Either::forLeft)
+            , () -> Either.forLeft(Collections.emptyList()));
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> typeDefinition(TypeDefinitionParams params) {
+        logger.debug("TypeDefinition: {} at {}", params.getTextDocument(), params.getPosition());
+        return recoverExceptions(
+            lookup(ParametricSummary::typeDefinitions, params.getTextDocument(), params.getPosition())
+            .thenApply(d -> {
+                logger.debug("TypeDefinitions: {}", d);
                 return d;
             })
             .thenApply(Either::forLeft)

@@ -45,6 +45,7 @@ import org.eclipse.lsp4j.ReferenceRegistrationOptions;
 import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.SelectionRangeRegistrationOptions;
 import org.eclipse.lsp4j.TextDocumentClientCapabilities;
+import org.eclipse.lsp4j.TypeDefinitionRegistrationOptions;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 

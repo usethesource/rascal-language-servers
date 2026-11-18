@@ -275,6 +275,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> hovers;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> declarations;
+        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> typeDefinitions;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
 
@@ -297,6 +298,8 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
                 mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, locationMapper(columns)) : null;
             this.declarations = config.providesDeclarations ?
                 mapCalculation(SummaryFields.DECLARATIONS, calculation, SummaryFields.DECLARATIONS, locationMapper(columns)) : null;
+            this.typeDefinitions = config.providesTypeDefinitions ?
+                mapCalculation(SummaryFields.TYPE_DEFINITIONS, calculation, SummaryFields.TYPE_DEFINITIONS, locationMapper(columns)) : null;
             this.references = config.providesReferences ?
                 mapCalculation(SummaryFields.REFERENCES, calculation, SummaryFields.REFERENCES, locationMapper(columns)) : null;
             this.implementations = config.providesImplementations ?
@@ -316,6 +319,11 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor) {
             return get(declarations, cursor);
+        }
+
+        @Override
+        public @Nullable InterruptibleFuture<List<Location>> getTypeDefinitions(Position cursor) {
+            return get(typeDefinitions, cursor);
         }
 
         @Override
@@ -340,6 +348,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
             interruptNullable(hovers);
             interruptNullable(definitions);
             interruptNullable(declarations);
+            interruptNullable(typeDefinitions);
             interruptNullable(references);
             interruptNullable(implementations);
         }
@@ -470,6 +479,11 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor) {
             return get(config.providesDeclarations, cursor, contrib::declaration, locationMapper(columns), SummaryFields.DECLARATIONS);
+        }
+
+        @Override
+        public @Nullable InterruptibleFuture<List<Location>> getTypeDefinitions(Position cursor) {
+            return get(config.providesTypeDefinitions, cursor, contrib::typeDefinition, locationMapper(columns), SummaryFields.TYPE_DEFINITIONS);
         }
 
         @Override
