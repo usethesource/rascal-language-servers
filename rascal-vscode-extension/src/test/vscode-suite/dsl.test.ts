@@ -258,7 +258,7 @@ end
             }
         });
 
-        it.only("go to definition works", async function() {
+        it("go to definition works", async function() {
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.triggerTypeChecker(editor, {checkName: "Pico check"});
             await editor.selectText("x", 2);
@@ -266,7 +266,7 @@ end
             await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
         });
 
-        it.only("go to declaration works", async function() {
+        it("go to declaration works", async function() {
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.triggerTypeChecker(editor, {checkName: "Pico check"});
             await editor.selectText("x", 2);

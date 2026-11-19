@@ -168,7 +168,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         execution = findFirstOrDefault(ILanguageContributions::providesExecution, "execution");
         hover = findFirstOrDefault(ILanguageContributions::providesHover, "hover");
         definition = findFirstOrDefault(ILanguageContributions::providesDefinition, "definition");
-        declaration = findFirstOrDefault(ILanguageContributions::providesDefinition, "declaration");
+        declaration = findFirstOrDefault(ILanguageContributions::providesDeclaration, "declaration");
         references = findFirstOrDefault(ILanguageContributions::providesReferences, "references");
         implementation = findFirstOrDefault(ILanguageContributions::providesImplementation, "implementation");
         codeAction = findFirstOrDefault(ILanguageContributions::providesCodeAction, "codeAction");
