@@ -63,8 +63,14 @@ set[LanguageService] picoLanguageServer() = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
+<<<<<<< HEAD
     declaration(picoDefinitionService), // In Pico there is no separate concept of declaration: the definition of a variable is also its declaration.
     typeDefinition(picoTypeDefinitionService),
+=======
+    // In Pico there is no separate concept of declaration: the definition of a variable is also its declaration.
+    // For demo purposes we have still added support, mapping it on `picoDefinitionService`
+    declaration(picoDefinitionService),
+>>>>>>> @{-1}
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
@@ -169,11 +175,12 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     // "definitions" are also links from loc to loc (from use to def)
     s.definitions += uses o defs;
 
+    // Normally if a language has no distinction between declarations and definitions you would
+    // leave declarations empty. We choose not to in this case for demo purposes.
+    s.declarations = s.definitions;
+
     // "typeDefinitions" are also links from loc to loc (from use to type-def)
     s.typeDefinitions = uses o typeDefs;
-
-    // "declarations" and "definitions" are the same thing in Pico
-    s.declarations = s.definitions;
 
     // "documentation" maps locations to strs
     s.documentation += (uses o defs) o docs;
