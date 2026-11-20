@@ -137,6 +137,11 @@ public class NoContributions implements ILanguageContributions {
     }
 
     @Override
+    public InterruptibleFuture<ISet> typeDefinition(IList focus) {
+        return interruptible(VF.set());
+    }
+
+    @Override
     public InterruptibleFuture<ISet> references(IList focus) {
         return interruptible(VF.set());
     }
@@ -256,6 +261,11 @@ public class NoContributions implements ILanguageContributions {
 
     @Override
     public CompletableFuture<Boolean> providesDeclaration() {
+        return falsy;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> providesTypeDefinition() {
         return falsy;
     }
 

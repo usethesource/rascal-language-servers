@@ -63,9 +63,14 @@ set[LanguageService] picoLanguageServer() = {
     execution(picoExecutionService),
     inlayHint(picoInlayHintService),
     definition(picoDefinitionService),
+<<<<<<< HEAD
+    declaration(picoDefinitionService), // In Pico there is no separate concept of declaration: the definition of a variable is also its declaration.
+    typeDefinition(picoTypeDefinitionService),
+=======
     // In Pico there is no separate concept of declaration: the definition of a variable is also its declaration.
     // For demo purposes we have still added support, mapping it on `picoDefinitionService`
     declaration(picoDefinitionService),
+>>>>>>> @{-1}
     codeAction(picoCodeActionService),
     rename(picoRenamingService, prepareRenameService = picoRenamePreparingService),
     didRenameFiles(picoFileRenameService),
@@ -127,7 +132,22 @@ rel[DocumentSymbolKind, loc, Id, str] findDefinitions(Tree input, bool funcScope
     return defs;
 }
 
-data Summary(rel[DocumentSymbolKind, loc, Id, str] definitionsByKind = {});
+@synopsis{Pico does not have type defs. We point to the name of the type instead so we can demo 'Go to Type Definition'}
+rel[str, loc] findTypeDefinitions(Tree input) {
+    rel[str, loc] typeDefs = {};
+    top-down-break visit (input) {
+        case (IdType) `<Id id>: <Type tp>`: typeDefs += <"<id>", tp.src>;
+        case (IdType) `<Id id>(<{IdType ","}* args>): <Type tp> := <Expression _>`: {
+            typeDefs += <"<id>", tp.src>;
+            typeDefs += findTypeDefinitions(args);
+        }
+    }
+    return typeDefs;
+}
+
+data Summary(
+    rel[DocumentSymbolKind, loc, Id, str] definitionsByKind = {}
+);
 
 @synopsis{Translates a pico syntax tree to a model (Summary) of everything we need to know about the program in the IDE.}
 Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode) {
@@ -135,6 +155,8 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
 
     // definitions of variables
     s.definitionsByKind = findDefinitions(input);
+    typeDefs = findTypeDefinitions(input);
+
     rel[str, loc] defs = {<"<id>", d> | <d, id> <- s.definitionsByKind<1, 2>};
 
     // uses of identifiers
@@ -157,6 +179,9 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
     // leave declarations empty. We choose not to in this case for demo purposes.
     s.declarations = s.definitions;
 
+    // "typeDefinitions" are also links from loc to loc (from use to type-def)
+    s.typeDefinitions = uses o typeDefs;
+
     // "documentation" maps locations to strs
     s.documentation += (uses o defs) o docs;
 
@@ -174,6 +199,16 @@ Summary picoSummaryService(loc l, start[Program] input, PicoSummarizerMode mode)
 In Pico there is no separate notion of definition: the definition of a variable is the same as its declaration.
 }
 set[loc] picoDefinitionService([*_, Id use, *_, start[Program] input]) = { def.src | /IdType def := input, use := def.id};
+
+@synopsis{Looks up the type definition for any variable}
+@pitfalls{
+In Pico there are no type definitions. So we return the position of the type in the variable declaration instead.
+}
+set[loc] picoTypeDefinitionService([*_, Id use, *_, start[Program] input]) = { extractType(def).src | /IdType def := input, use := def.id};
+
+// Extract the type from either a variable declaration or a function declaration
+Type extractType((IdType) `<Id _> : <Type t>`) = t;
+Type extractType((IdType) `<Id _> (<{ IdType "," }* _>): <Type t> := <Expression _>`) = t;
 
 @synopsis{If a variable is not defined, we list a fix of fixes to replace it with a defined variable instead.}
 list[CodeAction] prepareNotDefinedFixes(loc src,  rel[str, loc] defs)

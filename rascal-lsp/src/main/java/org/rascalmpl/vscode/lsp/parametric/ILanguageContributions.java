@@ -57,6 +57,7 @@ public interface ILanguageContributions {
     public InterruptibleFuture<ISet> hover(IList focus);
     public InterruptibleFuture<ISet> definition(IList focus);
     public InterruptibleFuture<ISet> declaration(IList focus);
+    public InterruptibleFuture<ISet> typeDefinition(IList focus);
     public InterruptibleFuture<ISet> references(IList focus);
     public InterruptibleFuture<ISet> implementation(IList focus);
     public InterruptibleFuture<IList> codeAction(IList focus);
@@ -84,6 +85,7 @@ public interface ILanguageContributions {
     public CompletableFuture<Boolean> providesHover();
     public CompletableFuture<Boolean> providesDefinition();
     public CompletableFuture<Boolean> providesDeclaration();
+    public CompletableFuture<Boolean> providesTypeDefinition();
     public CompletableFuture<Boolean> providesReferences();
     public CompletableFuture<Boolean> providesImplementation();
     public CompletableFuture<Boolean> providesCodeAction();
@@ -103,6 +105,7 @@ public interface ILanguageContributions {
         public final boolean providesHovers;
         public final boolean providesDefinitions;
         public final boolean providesDeclarations;
+        public final boolean providesTypeDefinitions;
         public final boolean providesReferences;
         public final boolean providesImplementations;
 
@@ -110,17 +113,19 @@ public interface ILanguageContributions {
                 boolean providesHovers,
                 boolean providesDefinitions,
                 boolean providesDeclarations,
+                boolean providesTypeDefinitions,
                 boolean providesReferences,
                 boolean providesImplementations) {
 
             this.providesHovers = providesHovers;
             this.providesDefinitions = providesDefinitions;
             this.providesDeclarations = providesDeclarations;
+            this.providesTypeDefinitions = providesTypeDefinitions;
             this.providesReferences = providesReferences;
             this.providesImplementations = providesImplementations;
         }
 
-        public static final SummaryConfig FALSY = new SummaryConfig(false, false, false, false, false);
+        public static final SummaryConfig FALSY = new SummaryConfig(false, false, false, false, false, false);
 
         public static SummaryConfig or(SummaryConfig a, SummaryConfig b) {
             return new SummaryConfig(
@@ -128,6 +133,7 @@ public interface ILanguageContributions {
                 a.providesDefinitions || b.providesDefinitions,
                 a.providesDeclarations || b.providesDeclarations,
                 a.providesReferences || b.providesReferences,
+                a.providesTypeDefinitions || b.providesTypeDefinitions,
                 a.providesImplementations || b.providesImplementations);
         }
     }

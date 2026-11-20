@@ -92,6 +92,7 @@ import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.SymbolInformation;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.TypeDefinitionParams;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.WorkspaceFolder;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -326,6 +327,12 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> declaration(
             DeclarationParams params) {
         return route(params.getTextDocument(), TextDocumentService::declaration, params);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> typeDefinition(
+            TypeDefinitionParams params) {
+        return route(params.getTextDocument(), TextDocumentService::typeDefinition, params);
     }
 
     @Override

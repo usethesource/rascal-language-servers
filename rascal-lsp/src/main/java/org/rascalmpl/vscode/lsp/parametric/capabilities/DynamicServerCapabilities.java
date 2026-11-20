@@ -45,6 +45,7 @@ import org.eclipse.lsp4j.ReferenceRegistrationOptions;
 import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.SelectionRangeRegistrationOptions;
 import org.eclipse.lsp4j.TextDocumentClientCapabilities;
+import org.eclipse.lsp4j.TypeDefinitionRegistrationOptions;
 import org.rascalmpl.vscode.lsp.parametric.ILanguageContributions;
 import org.rascalmpl.vscode.lsp.rascal.conversion.SemanticTokenizer;
 
@@ -88,6 +89,12 @@ public class DynamicServerCapabilities {
                 TextDocumentClientCapabilities::getDeclaration,
                 ILanguageContributions::providesDeclaration,
                 c -> c.setDeclarationProvider(true)
+            ),
+            new TextDocumentCapabilityWithConstantOptions<>("typeDefinition",
+                TypeDefinitionRegistrationOptions::new,
+                TextDocumentClientCapabilities::getTypeDefinition,
+                ILanguageContributions::providesTypeDefinition,
+                c -> c.setTypeDefinitionProvider(true)
             ),
             new TextDocumentCapabilityWithConstantOptions<>("documentSymbol",
                 DocumentSymbolRegistrationOptions::new,
