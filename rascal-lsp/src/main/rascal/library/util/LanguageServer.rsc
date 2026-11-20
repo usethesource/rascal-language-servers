@@ -231,16 +231,16 @@ data LanguageService
         , bool providesDocumentation = true
         , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
-        , bool providesDeclarations = true
-        , bool providesTypeDefinitions = true
+        , bool providesDeclarations = false
+        , bool providesTypeDefinitions = false
         , bool providesReferences = true
         , bool providesImplementations = true)
     | build(Summary (loc _origin, Tree _input) buildService
         , bool providesDocumentation = true
         , bool providesHovers = providesDocumentation
         , bool providesDefinitions = true
-        , bool providesDeclarations = true
-        , bool providesTypeDefinitions = true
+        , bool providesDeclarations = false
+        , bool providesTypeDefinitions = false
         , bool providesReferences = true
         , bool providesImplementations = true)
     | documentSymbol(list[DocumentSymbol] (Tree _input) documentSymbolService)
