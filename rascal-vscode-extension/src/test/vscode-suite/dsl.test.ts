@@ -266,6 +266,14 @@ end
             await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
         });
 
+        it("go to declaration works", async function() {
+            const editor = await ide.openModule(TestWorkspace.picoFile);
+            await ide.triggerTypeChecker(editor, {checkName: "Pico check"});
+            await editor.selectText("x", 2);
+            await bench.executeCommand("Go to Declaration");
+            await driver.wait(async ()=> (await editor.getCoordinates())[0] === 3, Delays.slow, "Cursor should have moved to line 3");
+        });
+
         it("code lens works", async function() {
             const editor = await ide.openModule(TestWorkspace.picoFile);
             await ide.clickCodeLens(editor, "Rename variables a to b.", Delays.verySlow, "Rename lens should be available");
