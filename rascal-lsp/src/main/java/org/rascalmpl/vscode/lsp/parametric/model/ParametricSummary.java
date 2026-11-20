@@ -97,6 +97,7 @@ public interface ParametricSummary {
     // information.
     @Nullable InterruptibleFuture<List<Either<String, MarkedString>>> getHovers(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor);
+    @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getReferences(Position cursor);
     @Nullable InterruptibleFuture<List<Location>> getImplementations(Position cursor);
 
@@ -116,6 +117,9 @@ public interface ParametricSummary {
     }
     public static @Nullable InterruptibleFuture<List<Location>> definitions(ParametricSummary summary, Position position) {
         return summary.getDefinitions(position);
+    }
+    public static @Nullable InterruptibleFuture<List<Location>> declarations(ParametricSummary summary, Position position) {
+        return summary.getDeclarations(position);
     }
     public static @Nullable InterruptibleFuture<List<Location>> references(ParametricSummary summary, Position position) {
         return summary.getReferences(position);
@@ -146,6 +150,11 @@ class NullSummary implements ParametricSummary {
 
     @Override
     public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
+        return null;
+    }
+
+    @Override
+    public @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor) {
         return null;
     }
 
@@ -256,6 +265,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
     public class FullScheduledSummary extends MessagesOnlyScheduledSummary {
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Either<String, MarkedString>>>>> hovers;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> definitions;
+        private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> declarations;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> references;
         private final @Nullable InterruptibleFuture<Lazy<IRangeMap<List<Location>>>> implementations;
 
@@ -276,6 +286,8 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
                 mapCalculation(SummaryFields.HOVERS, calculation, SummaryFields.HOVERS, ParametricSummaryFactory::mapValueToString) : null;
             this.definitions = config.providesDefinitions ?
                 mapCalculation(SummaryFields.DEFINITIONS, calculation, SummaryFields.DEFINITIONS, locationMapper(columns)) : null;
+            this.declarations = config.providesDeclarations ?
+                mapCalculation(SummaryFields.DECLARATIONS, calculation, SummaryFields.DECLARATIONS, locationMapper(columns)) : null;
             this.references = config.providesReferences ?
                 mapCalculation(SummaryFields.REFERENCES, calculation, SummaryFields.REFERENCES, locationMapper(columns)) : null;
             this.implementations = config.providesImplementations ?
@@ -290,6 +302,11 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
             return get(definitions, cursor);
+        }
+
+        @Override
+        public @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor) {
+            return get(declarations, cursor);
         }
 
         @Override
@@ -313,6 +330,7 @@ class ScheduledSummaryFactory extends ParametricSummaryFactory {
             super.invalidate();
             interruptNullable(hovers);
             interruptNullable(definitions);
+            interruptNullable(declarations);
             interruptNullable(references);
             interruptNullable(implementations);
         }
@@ -438,6 +456,11 @@ class OndemandSummaryFactory extends ParametricSummaryFactory {
         @Override
         public @Nullable InterruptibleFuture<List<Location>> getDefinitions(Position cursor) {
             return get(config.providesDefinitions, cursor, contrib::definition, locationMapper(columns), SummaryFields.DEFINITIONS);
+        }
+
+        @Override
+        public @Nullable InterruptibleFuture<List<Location>> getDeclarations(Position cursor) {
+            return get(config.providesDeclarations, cursor, contrib::declaration, locationMapper(columns), SummaryFields.DECLARATIONS);
         }
 
         @Override

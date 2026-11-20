@@ -69,6 +69,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<ILanguageContributions> execution = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> hover = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> definition = failedInitialization();
+    private volatile CompletableFuture<ILanguageContributions> declaration = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> references = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> implementation = failedInitialization();
     private volatile CompletableFuture<ILanguageContributions> codeAction = failedInitialization();
@@ -87,6 +88,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     private volatile CompletableFuture<Boolean> providesExecution = failedInitialization();
     private volatile CompletableFuture<Boolean> providesHover = failedInitialization();
     private volatile CompletableFuture<Boolean> providesDefinition = failedInitialization();
+    private volatile CompletableFuture<Boolean> providesDeclaration = failedInitialization();
     private volatile CompletableFuture<Boolean> providesReferences = failedInitialization();
     private volatile CompletableFuture<Boolean> providesImplementation = failedInitialization();
     private volatile CompletableFuture<Boolean> providesCodeAction = failedInitialization();
@@ -166,6 +168,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         execution = findFirstOrDefault(ILanguageContributions::providesExecution, "execution");
         hover = findFirstOrDefault(ILanguageContributions::providesHover, "hover");
         definition = findFirstOrDefault(ILanguageContributions::providesDefinition, "definition");
+        declaration = findFirstOrDefault(ILanguageContributions::providesDeclaration, "declaration");
         references = findFirstOrDefault(ILanguageContributions::providesReferences, "references");
         implementation = findFirstOrDefault(ILanguageContributions::providesImplementation, "implementation");
         codeAction = findFirstOrDefault(ILanguageContributions::providesCodeAction, "codeAction");
@@ -184,6 +187,7 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
         providesExecution = anyTrue(ILanguageContributions::providesExecution);
         providesHover = anyTrue(ILanguageContributions::providesHover);
         providesDefinition = anyTrue(ILanguageContributions::providesDefinition);
+        providesDeclaration = anyTrue(ILanguageContributions::providesDeclaration);
         providesReferences = anyTrue(ILanguageContributions::providesReferences);
         providesImplementation = anyTrue(ILanguageContributions::providesImplementation);
         providesCodeAction = anyTrue(ILanguageContributions::providesCodeAction);
@@ -335,6 +339,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     }
 
     @Override
+    public InterruptibleFuture<ISet> declaration(IList focus) {
+        return flatten(declaration, c -> c.declaration(focus));
+    }
+
+    @Override
     public InterruptibleFuture<ISet> references(IList focus) {
         return flatten(references, c -> c.references(focus));
     }
@@ -392,6 +401,11 @@ public class LanguageContributionsMultiplexer implements ILanguageContributions 
     @Override
     public CompletableFuture<Boolean> providesDefinition() {
         return providesDefinition;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> providesDeclaration() {
+        return providesDeclaration;
     }
 
     @Override

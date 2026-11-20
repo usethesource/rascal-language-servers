@@ -53,6 +53,7 @@ import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.CreateFilesParams;
+import org.eclipse.lsp4j.DeclarationParams;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.DeleteFilesParams;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
@@ -319,6 +320,12 @@ public class RoutingTextDocumentService extends TextDocumentStateManager impleme
     public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> definition(
             DefinitionParams params) {
         return route(params.getTextDocument(), TextDocumentService::definition, params);
+    }
+
+    @Override
+    public CompletableFuture<Either<List<? extends Location>, List<? extends LocationLink>>> declaration(
+            DeclarationParams params) {
+        return route(params.getTextDocument(), TextDocumentService::declaration, params);
     }
 
     @Override
